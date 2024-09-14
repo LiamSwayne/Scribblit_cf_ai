@@ -281,7 +281,8 @@
         const nextDayBtn = document.getElementById('nextDay');
 
         taskInput.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter' && event.ctrlKey) {
+            // pressing enter and not shift+enter
+            if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 processInput();
             }
@@ -400,7 +401,7 @@
             - name: The formatted task name
             - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2"
             - startTime: In HH:mm format (24-hour) (only for events)
-            - endTime: In HH:mm format (24-hour)
+            - endTime: In HH:mm format (24-hour) (the end of an event or the due date of a task)
             If a field cannot be inferred, instead of giving a null value just omit it completely. For example: if not time is given, don't provide the startTime or endTime fields.
             
             The input you are given is written very quickly and hastily, so you should expand parts where they meant a word but just typed a few characters. Like "HW" should be expanded to "Homework". This doesn't mean you should expand acronyms. Also remove words from the name that provide no value, like "due". So "slideshow due for Bio" should be "Slideshow for Bio". Omit trailing commas in the JSON.
@@ -504,21 +505,25 @@
             if (itemDate.hasSame(today, 'day')) {
                 appendTaskToList(listItem, taskContent, item, todayTaskList);
             } else if (itemDate.hasSame(tomorrow, 'day')) {
-                appendTaskToList(listItem, taskContent, item, tomorrowTaskList);
+                appendTaskToList(listItem, taskContent, item, tomorrowTaskList, itemDate, today, tomorrow);
             } else if (itemDate > tomorrow && itemDate <= weekEnd) {
                 appendTaskToWeekList(listItem, taskContent, item, itemDate, weekTaskList);
             }
         }
 
-        function appendTaskToList(listItem, taskContent, item, targetList) {
+        function appendTaskToList(listItem, taskContent, item, targetList, itemDate, today, tomorrow) {
             const timeSpan = document.createElement('span');
             if (item.endTime) {
                 timeSpan.className = 'task-time';
                 timeSpan.textContent = item.endTime;
-            } else {
+            }
+
+            // only add the asterisk when in the today or tomorrow section and there's no time
+            if (item.kind === 'task' && !item.startTime && !item.endTime && (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day'))) {
                 timeSpan.className = 'task-asterisk';
                 timeSpan.textContent = '*';
             }
+
             listItem.appendChild(timeSpan);
             listItem.appendChild(taskContent);
             targetList.appendChild(listItem);
@@ -577,7 +582,26 @@
                 let itemDate = parseTaskDate(item.date);
 
                 if (item.kind === "event") {
-                    // ... (event rendering remains unchanged) ...
+                    // This is an event, so we only add it to the calendar
+                    if (itemDate.hasSame(currentDate, 'day')) {
+                        const eventEl = document.createElement('div');
+                        eventEl.className = 'calendar-event';
+                        eventEl.textContent = item.name;
+                        
+                        const startMinutes = timeToMinutes(item.startTime);
+                        eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                        
+                        if (item.endTime) {
+                            const endMinutes = timeToMinutes(item.endTime);
+                            const duration = endMinutes - startMinutes;
+                            eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
+                        } else {
+                            eventEl.classList.add('partial');
+                            eventEl.style.height = '60px'; // 1 hour
+                        }
+
+                        calendar.appendChild(eventEl);
+                    }
                 } else if (item.kind === "task") {
                     const listItem = document.createElement('div');
                     const taskContent = document.createElement('span');
