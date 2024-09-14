@@ -123,7 +123,7 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             color: #888;
-            margin-right: 20px;
+            margin-right: 21px;
             min-width: 24px;
             text-align: right;
             margin-top: 0px;
@@ -559,7 +559,7 @@
                 timeSpan.textContent = item.endTime;
             }
 
-            // only add the asterisk when in the today or tomorrow section and there's no time
+            // only add the asterisk when in the today or tomorrow section and there's no time, because this is when displaying the date looks repetitive between tasks
             if (item.kind === 'task' && !item.startTime && !item.endTime && (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day'))) {
                 timeSpan.className = 'task-asterisk';
                 timeSpan.textContent = '*';
