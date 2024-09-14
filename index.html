@@ -42,6 +42,21 @@
             border: 1px solid #444;
             padding: 10px;
             resize: vertical;
+            position: relative;
+            overflow: hidden;
+        }
+        #animationOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+        .animated-char {
+            position: absolute;
+            animation: slideUpFade 0.5s forwards;
+            animation-timing-function: ease-out;
         }
         .task-section {
             margin-bottom: 20px;
@@ -55,12 +70,16 @@
             display: flex;
             align-items: center;
         }
-        .task-date {
+        .task-date, .task-asterisk {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.9em;
             color: #888;
             margin-right: 10px;
             min-width: 60px;
+            text-align: right;
+        }
+        .task-asterisk {
+            min-width: 20px;
         }
         #calendar {
             position: absolute;
@@ -114,13 +133,19 @@
             font-size: 12px;
             color: #888;
         }
-        @keyframes sendPrompt {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(-50px); opacity: 0; }
-        }
         @keyframes slideUp {
             0% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(-100%); opacity: 0; }
+        }
+        @keyframes slideUpFade {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
         }
         @keyframes slideInRight {
             0% { transform: translateX(100%); }
@@ -136,7 +161,10 @@
     <h1>Scribblit</h1>
     <div class="container">
         <div class="left-column">
-            <textarea id="taskInput" placeholder="Scribble your tasks here..."></textarea>
+            <div style="position: relative;">
+                <textarea id="taskInput" placeholder="Scribble your tasks here..."></textarea>
+                <div id="animationOverlay"></div>
+            </div>
             <div class="task-section">
                 <h2>Today</h2>
                 <ul id="todayTaskList" class="task-list"></ul>
@@ -221,12 +249,31 @@
 
         async function processInput() {
             const input = taskInput.value;
-            taskInput.value = '';
-            taskInput.style.animation = 'sendPrompt 0.5s forwards';
+            const animationOverlay = document.getElementById('animationOverlay');
+            
+            // Create animation
+            const lines = input.split('\n');
+            let totalDelay = 0;
+            lines.forEach((line, lineIndex) => {
+                const lineDelay = lineIndex * 50; // 50ms delay between lines
+                Array.from(line).forEach((char, charIndex) => {
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    span.className = 'animated-char';
+                    span.style.left = `${taskInput.offsetLeft + charIndex * 8}px`; // Approximate character width
+                    span.style.top = `${taskInput.offsetTop + lineIndex * 20}px`; // Approximate line height
+                    span.style.animationDelay = `${lineDelay + charIndex * 10}ms`; // 10ms delay between characters
+                    animationOverlay.appendChild(span);
+                    totalDelay = Math.max(totalDelay, lineDelay + charIndex * 10);
+                });
+            });
 
-            setTimeout(() => {
-                taskInput.style.animation = '';
-            }, 500);
+            // Clear input and wait for animation
+            taskInput.value = '';
+            await new Promise(resolve => setTimeout(resolve, totalDelay + 500)); // Wait for animation to complete
+
+            // Clear animation overlay
+            animationOverlay.innerHTML = '';
 
             const prompt = `
             You are a task parsing AI. You will receive a list of tasks or events, potentially messy or informal. Your job is to format and structure this information.
@@ -295,10 +342,18 @@
                 const listItem = document.createElement('li');
                 
                 if (task.date === today) {
-                    listItem.textContent = task.name;
+                    const asterisk = document.createElement('span');
+                    asterisk.className = 'task-asterisk';
+                    asterisk.textContent = '*';
+                    listItem.appendChild(asterisk);
+                    listItem.appendChild(document.createTextNode(task.name));
                     todayTaskList.appendChild(listItem);
                 } else if (task.date === tomorrow) {
-                    listItem.textContent = task.name;
+                    const asterisk = document.createElement('span');
+                    asterisk.className = 'task-asterisk';
+                    asterisk.textContent = '*';
+                    listItem.appendChild(asterisk);
+                    listItem.appendChild(document.createTextNode(task.name));
                     tomorrowTaskList.appendChild(listItem);
                 } else if (taskDate <= DateTime.fromISO(weekEnd) && task.date !== today && task.date !== tomorrow) {
                     const dateSpan = document.createElement('span');
