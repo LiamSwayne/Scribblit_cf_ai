@@ -7,6 +7,8 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" 
     rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <!-- JSON parser that allows trailing commas produced by the LLM -->
+    <script src="https://unpkg.com/json5@2/dist/index.min.js"></script>
     <style>
                 body {
             font-family: 'Inter', sans-serif;
@@ -135,8 +137,24 @@
             text-align: right;
             margin-top: 2px;
         }
-        .task-asterisk {
-            min-width: 20px;
+        .task-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #888;
+            margin-right: 7px;
+            min-width: 38px;
+            text-align: right;
+            margin-top: 2px;
+        }
+        .task-date-time {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 7px;
+        }
+        .task-date-time .task-time {
+            font-size: 10px;
+            margin-top: -2px;
         }
         .task-content {
             flex: 1;
@@ -241,6 +259,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <script>
+        // Global variable to store all tasks and events
+        let taskEventDictionary = {};
+
         const DateTime = luxon.DateTime;
         let currentDate = DateTime.local();
         const apiKey = 'AIzaSyDgiM5ZhWqxsI_hoNAaJeSChCh5SkztGoc';
@@ -377,13 +398,14 @@
             3. Determine the time, if applicable. If it's past noon and only a number is given (e.g., "at 3"), assume PM. Use reasoning to guess AM/PM when not explicitly stated.
 
             Respond with a JSON array. Each item may or may not have these properties:
+            - kind: "task" or "event"
             - name: The formatted task name
             - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2"
-            - startTime: In HH:mm format (24-hour)
+            - startTime: In HH:mm format (24-hour) (only for events)
             - endTime: In HH:mm format (24-hour)
             If a field cannot be inferred, instead of giving a null value just omit it completely. For example: if not time is given, don't provide the startTime or endTime fields.
             
-            The tasks you are given are written very quickly and hastily, so you should expand parts where they meant a word but just typed a few characters. Like "HW" should be expanded to "Homework". This doesn't mean you should expand acronyms. Also remove words from the name that provide no value, like "due". So "slideshow due for Bio" should be "Slideshow for Bio".
+            The input you are given is written very quickly and hastily, so you should expand parts where they meant a word but just typed a few characters. Like "HW" should be expanded to "Homework". This doesn't mean you should expand acronyms. Also remove words from the name that provide no value, like "due". So "slideshow due for Bio" should be "Slideshow for Bio". Omit trailing commas in the JSON.
 
             Input:
             ${input}
@@ -394,7 +416,7 @@
                 const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=' + apiKey, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }]
@@ -410,8 +432,14 @@
                 console.log('Raw text:', rawText);
                 
                 // Remove Markdown formatting and parse JSON
-                const jsonText = rawText.replace(/```json\n|\n```/g, '').trim();
-                const parsedTasks = JSON.parse(jsonText);
+                let jsonText;
+                if (!rawText.includes('```json')) {
+                    jsonText = rawText.replace(/```json\n|\n```/g, '').trim();
+                }
+                const parsedTasks = JSON5.parse(jsonText);
+                updateTaskEventDictionary(parsedTasks);
+                saveToLocalStorage();
+                renderAllData();
                 
                 renderTasks(parsedTasks);
             } catch (error) {
@@ -431,55 +459,70 @@
             const tomorrow = today.plus({ days: 1 });
             const weekEnd = today.plus({ days: 7 });
 
-            tasks.forEach(task => {
-                const listItem = document.createElement('li');
-                const taskContent = document.createElement('span');
-                taskContent.className = 'task-content';
-                taskContent.textContent = task.name;
+            tasks.forEach(item => {
+                let itemDate = parseTaskDate(item.date);
 
-                let taskDate = parseTaskDate(task.date);
+                if (item.kind === "event") {
+                    // This is an event, so we only add it to the calendar
+                    if (itemDate.hasSame(currentDate, 'day')) {
+                        const eventEl = document.createElement('div');
+                        eventEl.className = 'calendar-event';
+                        eventEl.textContent = item.name;
+                        
+                        const startMinutes = timeToMinutes(item.startTime);
+                        eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                        
+                        if (item.endTime) {
+                            const endMinutes = timeToMinutes(item.endTime);
+                            const duration = endMinutes - startMinutes;
+                            eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
+                        } else {
+                            eventEl.classList.add('partial');
+                            eventEl.style.height = '60px'; // 1 hour
+                        }
 
-                if (taskDate.hasSame(today, 'day')) {
-                    const asterisk = document.createElement('span');
-                    asterisk.className = 'task-asterisk';
-                    asterisk.textContent = '*';
-                    listItem.appendChild(asterisk);
-                    listItem.appendChild(taskContent);
-                    todayTaskList.appendChild(listItem);
-                } else if (taskDate.hasSame(tomorrow, 'day')) {
-                    const asterisk = document.createElement('span');
-                    asterisk.className = 'task-asterisk';
-                    asterisk.textContent = '*';
-                    listItem.appendChild(asterisk);
-                    listItem.appendChild(taskContent);
-                    tomorrowTaskList.appendChild(listItem);
-                } else if (taskDate > tomorrow && taskDate <= weekEnd) {
-                    const dateSpan = document.createElement('span');
-                    dateSpan.className = 'task-date';
-                    dateSpan.textContent = taskDate.toFormat('MM-dd');
-                    listItem.appendChild(dateSpan);
-                    listItem.appendChild(taskContent);
-                    weekTaskList.appendChild(listItem);
-                }
-
-                if (task.startTime && taskDate.hasSame(currentDate, 'day')) {
-                    const eventEl = document.createElement('div');
-                    eventEl.className = 'calendar-event';
-                    eventEl.textContent = task.name;
-                    
-                    const startMinutes = timeToMinutes(task.startTime);
-                    eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                    
-                    if (task.endTime) {
-                        const endMinutes = timeToMinutes(task.endTime);
-                        const duration = endMinutes - startMinutes;
-                        eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
-                    } else {
-                        eventEl.classList.add('partial');
-                        eventEl.style.height = '60px'; // 1 hour
+                        calendar.appendChild(eventEl);
                     }
+                } else if (item.kind === "task") {
+                    // This is a task, so we add it to the appropriate task list
+                    const listItem = document.createElement('div');
+                    const taskContent = document.createElement('span');
+                    taskContent.className = 'task-content';
+                    taskContent.textContent = item.name;
 
-                    calendar.appendChild(eventEl);
+                    if (itemDate.hasSame(today, 'day')) {
+                        const timeSpan = document.createElement('span');
+                        timeSpan.className = 'task-time';
+                        timeSpan.textContent = item.endTime ? item.endTime : '*';
+                        listItem.appendChild(timeSpan);
+                        listItem.appendChild(taskContent);
+                        todayTaskList.appendChild(listItem);
+                    } else if (itemDate.hasSame(tomorrow, 'day')) {
+                        const timeSpan = document.createElement('span');
+                        timeSpan.className = 'task-time';
+                        timeSpan.textContent = item.endTime ? item.endTime : '*';
+                        listItem.appendChild(timeSpan);
+                        listItem.appendChild(taskContent);
+                        tomorrowTaskList.appendChild(listItem);
+                    } else if (itemDate > tomorrow && itemDate <= weekEnd) {
+                        const dateTimeSpan = document.createElement('span');
+                        dateTimeSpan.className = 'task-date-time';
+                        const dateSpan = document.createElement('span');
+                        dateSpan.className = 'task-date';
+                        dateSpan.textContent = itemDate.toFormat('MM-dd');
+                        dateTimeSpan.appendChild(dateSpan);
+                        
+                        if (item.endTime) {
+                            const timeSpan = document.createElement('span');
+                            timeSpan.className = 'task-time';
+                            timeSpan.textContent = item.endTime;
+                            dateTimeSpan.appendChild(timeSpan);
+                        }
+                        
+                        listItem.appendChild(dateTimeSpan);
+                        listItem.appendChild(taskContent);
+                        weekTaskList.appendChild(listItem);
+                    }
                 }
             });
         }
@@ -544,6 +587,17 @@
         function renderCalendar() {
             calendar.innerHTML = '';
             renderCalendarTimeMarkers();
+        }
+
+        function loadFromLocalStorage() {
+            const storedData = localStorage.getItem('taskEventDictionary');
+            if (storedData) {
+                taskEventDictionary = JSON.parse(storedData);
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('taskEventDictionary', JSON.stringify(taskEventDictionary));
         }
 
         updateDateDisplay();
