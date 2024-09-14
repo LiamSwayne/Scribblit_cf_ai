@@ -80,6 +80,7 @@
             color: #e0e0e0;
             border-radius: 3px;
             font-size: 12px;
+            box-sizing: border-box;
         }
         .calendar-event.partial {
             background: linear-gradient(to bottom, #3a506b 0%, transparent 100%);
@@ -319,7 +320,7 @@
                     if (task.endTime) {
                         const endMinutes = timeToMinutes(task.endTime);
                         const duration = endMinutes - startMinutes;
-                        eventEl.style.height = `${duration / 1440 * 100}%`;
+                        eventEl.style.height = `calc(${duration / 1440 * 100}% - 2px)`;
                     } else {
                         eventEl.classList.add('partial');
                         eventEl.style.height = '60px'; // 1 hour
