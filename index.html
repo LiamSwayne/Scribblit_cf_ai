@@ -8,7 +8,7 @@
     rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <style>
-        body {
+                body {
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 20px;
@@ -23,12 +23,12 @@
             flex-grow: 1;
         }
         .title {
-            font-size: 2em;
+            font-size: 30px;
             font-weight: bold;
             margin-bottom: 20px;
         }
         .section-title {
-            font-size: 1.5em;
+            font-size: 24px;
             font-weight: bold;
             margin-bottom: 10px;
         }
@@ -119,20 +119,21 @@
         }
         .task-asterisk {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9em;
+            font-size: 14px;
             color: #888;
-            margin-right: 10px;
-            min-width: 60px;
+            margin-right: 7px;
+            min-width: 20px;
             text-align: right;
-            margin-top: -2px; /* Align with the first line of text */
+            margin-top: 0px;
         }
         .task-date {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9em;
+            font-size: 12px;
             color: #888;
-            margin-right: 10px;
-            min-width: 60px;
+            margin-right: 7px;
+            min-width: 38px;
             text-align: right;
+            margin-top: 2px;
         }
         .task-asterisk {
             min-width: 20px;
@@ -208,11 +209,11 @@
     </style>
 </head>
 <body>
-    <h1>Scribblit</h1>
+    <div class="title">Scribblit</div>
     <div class="container">
         <div class="left-column">
             <div style="position: relative;">
-                <textarea id="taskInput" placeholder="Scribble your tasks here..."></textarea>
+                <textarea id="taskInput" spellcheck="false" placeholder="Scribble your tasks here..."></textarea>
                 <div id="animationOverlay"></div>
             </div>
             <div class="task-section">
