@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scribblit</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,6 +13,8 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
         }
         .container {
             display: flex;
@@ -20,44 +23,111 @@
         .left-column {
             flex: 1;
             padding-right: 20px;
+            display: flex;
+            flex-direction: column;
         }
         .right-column {
             flex: 1;
-            border-left: 1px solid #ccc;
+            border-left: 1px solid #444;
             padding-left: 20px;
+            position: relative;
+            overflow: hidden;
         }
         #taskInput {
             width: 100%;
             height: 100px;
             margin-bottom: 20px;
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 10px;
+            resize: vertical;
         }
-        #taskList {
+        .task-section {
+            margin-bottom: 20px;
+        }
+        .task-list {
             list-style-type: none;
             padding: 0;
         }
+        .task-list li {
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        .task-date {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            color: #888;
+            margin-right: 10px;
+            min-width: 60px;
+        }
         #calendar {
-            position: relative;
-            height: 600px;
+            position: absolute;
+            top: 40px;
+            left: 20px;
+            right: 0;
+            bottom: 0;
             overflow-y: auto;
         }
         .calendar-event {
             position: absolute;
-            left: 0;
+            left: 60px;
             right: 0;
             padding: 5px;
             margin: 1px;
-            background-color: #007bff;
-            color: white;
+            background-color: #3a506b;
+            color: #e0e0e0;
             border-radius: 3px;
             font-size: 12px;
         }
         .calendar-event.partial {
-            background: linear-gradient(to bottom, #007bff 0%, transparent 100%);
+            background: linear-gradient(to bottom, #3a506b 0%, transparent 100%);
         }
         .navigation {
             display: flex;
             justify-content: space-between;
             margin-bottom: 10px;
+        }
+        .navigation button {
+            background-color: #3a506b;
+            color: #e0e0e0;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .hour-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-top: 1px solid #444;
+            pointer-events: none;
+        }
+        .hour-label {
+            position: absolute;
+            left: 0;
+            width: 50px;
+            text-align: right;
+            padding-right: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #888;
+        }
+        @keyframes sendPrompt {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+        @keyframes slideUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100%); opacity: 0; }
+        }
+        @keyframes slideInRight {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(0); }
+        }
+        @keyframes slideInLeft {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(0); }
         }
     </style>
 </head>
@@ -66,8 +136,18 @@
     <div class="container">
         <div class="left-column">
             <textarea id="taskInput" placeholder="Scribble your tasks here..."></textarea>
-            <h2>Daily Untimed Tasks</h2>
-            <ul id="taskList"></ul>
+            <div class="task-section">
+                <h2>Today</h2>
+                <ul id="todayTaskList" class="task-list"></ul>
+            </div>
+            <div class="task-section">
+                <h2>Tomorrow</h2>
+                <ul id="tomorrowTaskList" class="task-list"></ul>
+            </div>
+            <div class="task-section">
+                <h2>This Week</h2>
+                <ul id="weekTaskList" class="task-list"></ul>
+            </div>
         </div>
         <div class="right-column">
             <div class="navigation">
@@ -86,7 +166,9 @@
         const apiKey = 'AIzaSyDgiM5ZhWqxsI_hoNAaJeSChCh5SkztGoc';
 
         const taskInput = document.getElementById('taskInput');
-        const taskList = document.getElementById('taskList');
+        const todayTaskList = document.getElementById('todayTaskList');
+        const tomorrowTaskList = document.getElementById('tomorrowTaskList');
+        const weekTaskList = document.getElementById('weekTaskList');
         const calendar = document.getElementById('calendar');
         const currentDateEl = document.getElementById('currentDate');
         const prevDayBtn = document.getElementById('prevDay');
@@ -99,13 +181,28 @@
             }
         });
 
-        prevDayBtn.addEventListener('click', () => changeDate(-1));
-        nextDayBtn.addEventListener('click', () => changeDate(1));
+        prevDayBtn.addEventListener('click', () => changeDate(-1, 'left'));
+        nextDayBtn.addEventListener('click', () => changeDate(1, 'right'));
 
-        function changeDate(delta) {
+        function changeDate(delta, direction) {
+            const oldCalendar = calendar.cloneNode(true);
+            oldCalendar.style.position = 'absolute';
+            oldCalendar.style.top = '40px';
+            oldCalendar.style.left = '20px';
+            oldCalendar.style.right = '0';
+            oldCalendar.style.bottom = '0';
+            calendar.parentNode.appendChild(oldCalendar);
+
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
-            renderCalendar();
+
+            oldCalendar.style.animation = 'slideUp 0.5s forwards';
+            calendar.style.animation = direction === 'right' ? 'slideInRight 0.5s forwards' : 'slideInLeft 0.5s forwards';
+
+            setTimeout(() => {
+                oldCalendar.remove();
+                renderCalendar();
+            }, 500);
         }
 
         function updateDateDisplay() {
@@ -124,6 +221,11 @@
         async function processInput() {
             const input = taskInput.value;
             taskInput.value = '';
+            taskInput.style.animation = 'sendPrompt 0.5s forwards';
+
+            setTimeout(() => {
+                taskInput.style.animation = '';
+            }, 500);
 
             const prompt = `
             You are a task parsing AI. You will receive a list of tasks or events, potentially messy or informal. Your job is to format and structure this information.
@@ -176,36 +278,54 @@
         }
 
         function renderTasks(tasks) {
-            taskList.innerHTML = '';
+            todayTaskList.innerHTML = '';
+            tomorrowTaskList.innerHTML = '';
+            weekTaskList.innerHTML = '';
             calendar.innerHTML = '';
 
-            tasks.forEach(task => {
-                if (!task.startTime) {
-                    // This is an untimed task
-                    const li = document.createElement('li');
-                    li.textContent = `${task.name} (${task.date})`;
-                    taskList.appendChild(li);
-                } else {
-                    // This is a timed event
-                    if (task.date === currentDate.toFormat('yyyy-MM-dd')) {
-                        const eventEl = document.createElement('div');
-                        eventEl.className = 'calendar-event';
-                        eventEl.textContent = `${task.startTime} - ${task.name}`;
-                        
-                        const startMinutes = timeToMinutes(task.startTime);
-                        eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                        
-                        if (task.endTime) {
-                            const endMinutes = timeToMinutes(task.endTime);
-                            const duration = endMinutes - startMinutes;
-                            eventEl.style.height = `${duration / 1440 * 100}%`;
-                        } else {
-                            eventEl.classList.add('partial');
-                            eventEl.style.height = '60px'; // 1 hour
-                        }
+            renderCalendarTimeMarkers();
 
-                        calendar.appendChild(eventEl);
+            const today = DateTime.local().toFormat('yyyy-MM-dd');
+            const tomorrow = DateTime.local().plus({ days: 1 }).toFormat('yyyy-MM-dd');
+            const weekEnd = DateTime.local().plus({ days: 7 }).toFormat('yyyy-MM-dd');
+
+            tasks.forEach(task => {
+                const taskDate = DateTime.fromISO(task.date);
+                const listItem = document.createElement('li');
+                
+                if (task.date === today) {
+                    listItem.textContent = task.name;
+                    todayTaskList.appendChild(listItem);
+                } else if (task.date === tomorrow) {
+                    listItem.textContent = task.name;
+                    tomorrowTaskList.appendChild(listItem);
+                } else if (taskDate <= DateTime.fromISO(weekEnd) && task.date !== today && task.date !== tomorrow) {
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'task-date';
+                    dateSpan.textContent = taskDate.toFormat('MM-dd');
+                    listItem.appendChild(dateSpan);
+                    listItem.appendChild(document.createTextNode(task.name));
+                    weekTaskList.appendChild(listItem);
+                }
+
+                if (task.startTime && task.date === currentDate.toFormat('yyyy-MM-dd')) {
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'calendar-event';
+                    eventEl.textContent = `${task.startTime} - ${task.name}`;
+                    
+                    const startMinutes = timeToMinutes(task.startTime);
+                    eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                    
+                    if (task.endTime) {
+                        const endMinutes = timeToMinutes(task.endTime);
+                        const duration = endMinutes - startMinutes;
+                        eventEl.style.height = `${duration / 1440 * 100}%`;
+                    } else {
+                        eventEl.classList.add('partial');
+                        eventEl.style.height = '60px'; // 1 hour
                     }
+
+                    calendar.appendChild(eventEl);
                 }
             });
         }
@@ -215,17 +335,25 @@
             return hours * 60 + minutes;
         }
 
-        function renderCalendar() {
-            calendar.innerHTML = '';
+        function renderCalendarTimeMarkers() {
             for (let i = 0; i < 24; i++) {
                 const hourMarker = document.createElement('div');
-                hourMarker.textContent = `${i}:00`;
-                hourMarker.style.position = 'absolute';
+                hourMarker.className = 'hour-marker';
                 hourMarker.style.top = `${i / 24 * 100}%`;
-                hourMarker.style.borderTop = '1px solid #ccc';
-                hourMarker.style.width = '100%';
+
+                const hourLabel = document.createElement('div');
+                hourLabel.className = 'hour-label';
+                hourLabel.textContent = `${i.toString().padStart(2, '0')}:00`;
+                hourLabel.style.top = `${i / 24 * 100}%`;
+
                 calendar.appendChild(hourMarker);
+                calendar.appendChild(hourLabel);
             }
+        }
+
+        function renderCalendar() {
+            calendar.innerHTML = '';
+            renderCalendarTimeMarkers();
         }
 
         updateDateDisplay();
