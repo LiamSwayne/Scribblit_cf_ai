@@ -43,7 +43,11 @@
             padding: 10px;
             resize: vertical;
             position: relative;
-            overflow: hidden;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-y: auto;
         }
         #animationOverlay {
             position: absolute;
@@ -52,11 +56,30 @@
             right: 0;
             bottom: 0;
             pointer-events: none;
+            overflow: hidden;
         }
-        .animated-char {
+        .animated-text {
             position: absolute;
-            animation: slideUpFade 0.5s forwards;
-            animation-timing-function: ease-out;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #e0e0e0;
+            padding: 10px;
+            background-color: #2d2d2d;
+            opacity: 0;
+            animation: floatAway 1s forwards;
+        }
+        @keyframes floatAway {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
         }
         .task-section {
             margin-bottom: 20px;
@@ -136,16 +159,6 @@
         @keyframes slideUp {
             0% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(-100%); opacity: 0; }
-        }
-        @keyframes slideUpFade {
-            0% {
-                transform: translateY(0);
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-10px);
-                opacity: 0;
-            }
         }
         @keyframes slideInRight {
             0% { transform: translateX(100%); }
@@ -248,29 +261,31 @@
         }
 
         async function processInput() {
+            const taskInput = document.getElementById('taskInput');
             const input = taskInput.value;
             const animationOverlay = document.getElementById('animationOverlay');
             
             // Create animation
-            const lines = input.split('\n');
-            let totalDelay = 0;
-            lines.forEach((line, lineIndex) => {
-                const lineDelay = lineIndex * 50; // 50ms delay between lines
-                Array.from(line).forEach((char, charIndex) => {
-                    const span = document.createElement('span');
-                    span.textContent = char;
-                    span.className = 'animated-char';
-                    span.style.left = `${taskInput.offsetLeft + charIndex * 8}px`; // Approximate character width
-                    span.style.top = `${taskInput.offsetTop + lineIndex * 20}px`; // Approximate line height
-                    span.style.animationDelay = `${lineDelay + charIndex * 10}ms`; // 10ms delay between characters
-                    animationOverlay.appendChild(span);
-                    totalDelay = Math.max(totalDelay, lineDelay + charIndex * 10);
-                });
-            });
+            const animatedText = document.createElement('div');
+            animatedText.className = 'animated-text';
+            
+            // Copy the exact content structure
+            animatedText.innerHTML = input.replace(/\n/g, '<br>');
+            
+            // Position the animated text precisely
+            const inputRect = taskInput.getBoundingClientRect();
+            const overlayRect = animationOverlay.getBoundingClientRect();
+            
+            animatedText.style.top = `${inputRect.top - overlayRect.top + taskInput.scrollTop}px`;
+            animatedText.style.left = `${inputRect.left - overlayRect.left}px`;
+            animatedText.style.width = `${inputRect.width}px`;
+            animatedText.style.height = `${inputRect.height}px`;
+            
+            animationOverlay.appendChild(animatedText);
 
             // Clear input and wait for animation
             taskInput.value = '';
-            await new Promise(resolve => setTimeout(resolve, totalDelay + 500)); // Wait for animation to complete
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for animation to complete
 
             // Clear animation overlay
             animationOverlay.innerHTML = '';
