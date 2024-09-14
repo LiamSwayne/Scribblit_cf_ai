@@ -35,19 +35,25 @@
         }
         #taskInput {
             width: 100%;
-            height: 100px;
+            min-height: 100px;
             margin-bottom: 20px;
             background-color: #2d2d2d;
             color: #e0e0e0;
             border: 1px solid #444;
             padding: 10px;
-            resize: vertical;
+            resize: none;
             position: relative;
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             line-height: 1.5;
             white-space: pre-wrap;
-            overflow-y: auto;
+            overflow-y: hidden;
+            box-sizing: border-box;
+            transition: min-height 0.3s ease, height 0.3s ease;
+        }
+        #taskInput:focus {
+            outline: none;
+            border-color: #444;
         }
         #animationOverlay {
             position: absolute;
@@ -70,6 +76,8 @@
             background-color: #2d2d2d;
             opacity: 0;
             animation: floatAway 1s forwards;
+            box-sizing: border-box;
+            border: 1px solid transparent;
         }
         @keyframes floatAway {
             0% {
@@ -89,11 +97,20 @@
             padding: 0;
         }
         .task-list li {
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
         }
-        .task-date, .task-asterisk {
+        .task-asterisk {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            color: #888;
+            margin-right: 10px;
+            min-width: 60px;
+            text-align: right;
+            margin-top: -2px; /* Align with the first line of text */
+        }
+        .task-date {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.9em;
             color: #888;
@@ -103,6 +120,9 @@
         }
         .task-asterisk {
             min-width: 20px;
+        }
+        .task-content {
+            flex: 1;
         }
         #calendar {
             position: absolute;
@@ -117,7 +137,7 @@
             left: 60px;
             right: 0;
             padding: 5px;
-            margin: 1px;
+            margin: 3.5px;
             background-color: #3a506b;
             color: #e0e0e0;
             border-radius: 3px;
@@ -208,6 +228,8 @@
         const apiKey = 'AIzaSyDgiM5ZhWqxsI_hoNAaJeSChCh5SkztGoc';
 
         const taskInput = document.getElementById('taskInput');
+        const originalHeight = '100px'; // Store the original height
+
         const todayTaskList = document.getElementById('todayTaskList');
         const tomorrowTaskList = document.getElementById('tomorrowTaskList');
         const weekTaskList = document.getElementById('weekTaskList');
@@ -247,6 +269,16 @@
             }, 500);
         }
 
+        function adjustTextareaHeight() {
+            taskInput.style.height = 'auto';
+            taskInput.style.height = `${taskInput.scrollHeight}px`;
+        }
+
+        taskInput.addEventListener('input', adjustTextareaHeight);
+
+        // Initial adjustment
+        adjustTextareaHeight();
+
         function updateDateDisplay() {
             const today = DateTime.local();
             if (currentDate.hasSame(today, 'day')) {
@@ -261,34 +293,47 @@
         }
 
         async function processInput() {
-            const taskInput = document.getElementById('taskInput');
             const input = taskInput.value;
             const animationOverlay = document.getElementById('animationOverlay');
+            
+            // Store current height
+            const currentHeight = taskInput.style.height;
             
             // Create animation
             const animatedText = document.createElement('div');
             animatedText.className = 'animated-text';
-            
-            // Copy the exact content structure
-            animatedText.innerHTML = input.replace(/\n/g, '<br>');
+            animatedText.textContent = input;
             
             // Position the animated text precisely
             const inputRect = taskInput.getBoundingClientRect();
             const overlayRect = animationOverlay.getBoundingClientRect();
             
-            animatedText.style.top = `${inputRect.top - overlayRect.top + taskInput.scrollTop}px`;
+            animatedText.style.top = `${inputRect.top - overlayRect.top}px`;
             animatedText.style.left = `${inputRect.left - overlayRect.left}px`;
             animatedText.style.width = `${inputRect.width}px`;
             animatedText.style.height = `${inputRect.height}px`;
             
             animationOverlay.appendChild(animatedText);
 
-            // Clear input and wait for animation
+            // Clear input but maintain height
             taskInput.value = '';
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for animation to complete
+            taskInput.style.height = currentHeight;
+
+            // Wait for text float animation to complete
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Clear animation overlay
             animationOverlay.innerHTML = '';
+
+            // Animate text area back to original height
+            taskInput.style.transition = 'height 0.3s ease';
+            taskInput.style.height = originalHeight;
+
+            // Reset transition after animation
+            setTimeout(() => {
+                taskInput.style.transition = '';
+            }, 300);
+
 
             const prompt = `
             You are a task parsing AI. You will receive a list of tasks or events, potentially messy or informal. Your job is to format and structure this information.
@@ -356,26 +401,30 @@
                 const taskDate = DateTime.fromISO(task.date);
                 const listItem = document.createElement('li');
                 
+                const taskContent = document.createElement('span');
+                taskContent.className = 'task-content';
+                taskContent.textContent = task.name;
+
                 if (task.date === today) {
                     const asterisk = document.createElement('span');
                     asterisk.className = 'task-asterisk';
                     asterisk.textContent = '*';
                     listItem.appendChild(asterisk);
-                    listItem.appendChild(document.createTextNode(task.name));
+                    listItem.appendChild(taskContent);
                     todayTaskList.appendChild(listItem);
                 } else if (task.date === tomorrow) {
                     const asterisk = document.createElement('span');
                     asterisk.className = 'task-asterisk';
                     asterisk.textContent = '*';
                     listItem.appendChild(asterisk);
-                    listItem.appendChild(document.createTextNode(task.name));
+                    listItem.appendChild(taskContent);
                     tomorrowTaskList.appendChild(listItem);
                 } else if (taskDate <= DateTime.fromISO(weekEnd) && task.date !== today && task.date !== tomorrow) {
                     const dateSpan = document.createElement('span');
                     dateSpan.className = 'task-date';
                     dateSpan.textContent = taskDate.toFormat('MM-dd');
                     listItem.appendChild(dateSpan);
-                    listItem.appendChild(document.createTextNode(task.name));
+                    listItem.appendChild(taskContent);
                     weekTaskList.appendChild(listItem);
                 }
 
@@ -390,7 +439,7 @@
                     if (task.endTime) {
                         const endMinutes = timeToMinutes(task.endTime);
                         const duration = endMinutes - startMinutes;
-                        eventEl.style.height = `calc(${duration / 1440 * 100}% - 2px)`;
+                        eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
                     } else {
                         eventEl.classList.add('partial');
                         eventEl.style.height = '60px'; // 1 hour
