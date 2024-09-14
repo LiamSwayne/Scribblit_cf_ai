@@ -123,8 +123,8 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             color: #888;
-            margin-right: 7px;
-            min-width: 20px;
+            margin-right: 20px;
+            min-width: 24px;
             text-align: right;
             margin-top: 0px;
         }
@@ -151,7 +151,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            margin-right: 7px;
+            margin-right: 0px;
         }
         .task-date-time .task-time {
             font-size: 10px;
@@ -176,7 +176,7 @@
             margin: 3.5px;
             background-color: #3a506b;
             color: #e0e0e0;
-            border-radius: 3px;
+            border-radius: 8px;
             font-size: 12px;
             box-sizing: border-box;
         }
@@ -260,8 +260,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <script>
-        // Global variable to store all tasks and events
-        let taskEventDictionary = {};
+        // Global array to store all tasks and events
+        let taskEventArray = [];
 
         const DateTime = luxon.DateTime;
         let currentDate = DateTime.local();
@@ -399,7 +399,7 @@
             2. Infer the date. If no date is specified, assume it's for today (${currentDate.toFormat('yyyy-MM-dd')}). If "tomorrow" or a day of the week is mentioned, calculate the actual date.
             3. Determine the time, if applicable. If it's past noon and only a number is given (e.g., "at 3"), assume PM. Use reasoning to guess AM/PM when not explicitly stated.
 
-            Respond with a JSON array. Each item may or may not have these properties:
+            Respond with a JSON array. Each item should have these properties:
             - kind: "task" or "event"
             - name: The formatted task name
             - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2"
@@ -439,7 +439,7 @@
                     jsonText = rawText.replace(/```json\n|\n```/g, '').trim();
                 }
                 const parsedTasks = JSON5.parse(jsonText);
-                updateTaskEventDictionary(parsedTasks);
+                updateTaskEventArray(parsedTasks);
                 saveToLocalStorage();
                 renderAllData();
                 
@@ -449,11 +449,49 @@
             }
         }
 
-        function updateTaskEventDictionary(newItems) {
+        function updateTaskEventArray(newItems) {
             newItems.forEach(item => {
-                const key = `${item.kind}_${item.name}_${item.date}`;
-                taskEventDictionary[key] = item;
+                const sanitizedItem = sanitizeItem(item);
+                taskEventArray.push(sanitizedItem);
             });
+            saveToLocalStorage();
+        }
+
+        function sanitizeItem(item) {
+            const sanitizedItem = { ...item };
+            sanitizedItem.date = convertToISODate(item.date);
+            return sanitizedItem;
+        }
+
+        function convertToISODate(dateString) {
+            const today = DateTime.local();
+
+            if (dateString) {
+                if (dateString === 'today') {
+                    return today.toISODate();
+                } else if (dateString === 'tomorrow') {
+                    return today.plus({ days: 1 }).toISODate();
+                } else if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    return dateString; // Already in ISO format
+                } else if (dateString.match(/^[a-z]+(\+\d+)?$/)) {
+                    const [day, offset] = dateString.split('+');
+                    let targetDate = today.set({ weekday: getDayNumber(day) });
+                    
+                    if (offset) {
+                        targetDate = targetDate.plus({ weeks: parseInt(offset) });
+                    }
+                    
+                    if (targetDate < today) {
+                        targetDate = targetDate.plus({ weeks: 1 });
+                    }
+                    
+                    return targetDate.toISODate();
+                }
+            }
+
+            // If we can't parse the date, return today as a fallback
+            console.error(`Unable to parse date: ${dateString}`);
+            return today.toISODate();
         }
 
         function renderAllData() {
@@ -466,7 +504,7 @@
             const tomorrow = today.plus({ days: 1 });
             const weekEnd = today.plus({ days: 7 });
 
-            Object.values(taskEventDictionary).forEach(item => {
+            taskEventArray.forEach(item => {
                 let itemDate = parseTaskDate(item.date);
 
                 if (item.kind === "event") {
@@ -546,10 +584,7 @@
                 timeSpan.textContent = item.endTime;
                 dateTimeSpan.appendChild(timeSpan);
             } else {
-                const asteriskSpan = document.createElement('span');
-                asteriskSpan.className = 'task-asterisk';
-                asteriskSpan.textContent = '*';
-                dateTimeSpan.appendChild(asteriskSpan);
+                // the week list should never have an asterisk since it's guaranteed to have a date   
             }
             
             listItem.appendChild(dateTimeSpan);
@@ -720,15 +755,23 @@
             renderCalendarTimeMarkers();
         }
 
-        function loadFromLocalStorage() {
-            const storedData = localStorage.getItem('taskEventDictionary');
-            if (storedData) {
-                taskEventDictionary = JSON.parse(storedData);
-            }
+        function updateTaskEventArray(newItems) {
+            newItems.forEach(item => {
+                const sanitizedItem = sanitizeItem(item);
+                taskEventArray.push(sanitizedItem);
+            });
+            saveToLocalStorage();
         }
 
         function saveToLocalStorage() {
-            localStorage.setItem('taskEventDictionary', JSON.stringify(taskEventDictionary));
+            localStorage.setItem('taskEventArray', JSON.stringify(taskEventArray));
+        }
+
+        function loadFromLocalStorage() {
+            const storedData = localStorage.getItem('taskEventArray');
+            if (storedData) {
+                taskEventArray = JSON.parse(storedData);
+            }
         }
 
         loadFromLocalStorage();
