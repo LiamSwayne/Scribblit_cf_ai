@@ -229,6 +229,8 @@
 
         const taskInput = document.getElementById('taskInput');
         const originalHeight = '100px'; // Store the original height
+        let isAnimating = false;
+        let animationCooldown = false;
 
         const todayTaskList = document.getElementById('todayTaskList');
         const tomorrowTaskList = document.getElementById('tomorrowTaskList');
@@ -270,8 +272,10 @@
         }
 
         function adjustTextareaHeight() {
-            taskInput.style.height = 'auto';
-            taskInput.style.height = `${taskInput.scrollHeight}px`;
+            if (!isAnimating && !animationCooldown) {
+                taskInput.style.height = 'auto';
+                taskInput.style.height = `${taskInput.scrollHeight}px`;
+            }
         }
 
         taskInput.addEventListener('input', adjustTextareaHeight);
@@ -298,6 +302,9 @@
             
             // Store current height
             const currentHeight = taskInput.style.height;
+            
+            // Set animating flag
+            isAnimating = true;
             
             // Create animation
             const animatedText = document.createElement('div');
@@ -329,10 +336,18 @@
             taskInput.style.transition = 'height 0.3s ease';
             taskInput.style.height = originalHeight;
 
-            // Reset transition after animation
+            // Reset transition and set cooldown after animation
             setTimeout(() => {
                 taskInput.style.transition = '';
+                isAnimating = false;
+                animationCooldown = true;
+                setTimeout(() => {
+                    animationCooldown = false;
+                    // Adjust height after cooldown
+                    adjustTextareaHeight();
+                }, 500); // 500ms cooldown after animation
             }, 300);
+
 
 
             const prompt = `
