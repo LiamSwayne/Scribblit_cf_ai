@@ -407,7 +407,7 @@
             - endTime: In HH:mm format (24-hour) (the end of an event or the due date of a task)
             If a field cannot be inferred, instead of giving a null value just omit it completely. For example: if not time is given, don't provide the startTime or endTime fields.
             
-            The input you are given is written very quickly and hastily, so you should expand parts where they meant a word but just typed a few characters. Like "HW" should be expanded to "Homework". This doesn't mean you should expand acronyms. Also remove words from the name that provide no value, like "due". So "slideshow due for Bio" should be "Slideshow for Bio". Omit trailing commas in the JSON.
+            The input you are given is written very quickly and hastily, so you should expand parts where they meant a word but just typed a few characters. Like "HW" should be expanded to "Homework". This doesn't mean you should expand acronyms. Also remove words from the name that provide no value, like "due". So "slideshow due for Bio" should be "Slideshow for Bio". Omit trailing commas in the JSON. Generally do not shorten or abbreviate task names and never remove information from them.
 
             Input:
             ${input}
