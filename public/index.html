@@ -416,7 +416,7 @@
             - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2"
             - startTime: In HH:mm format (24-hour) (only for events)
             - endTime: In HH:mm format (24-hour) (the end of an event or the due date of a task)
-            If a field cannot be inferred, instead of giving a null value just omit it completely. For example: if not time is given, don't provide the startTime or endTime fields.
+            If a field cannot be inferred, instead of giving a null value just omit it completely. For example: if not time is given, don't provide the startTime or endTime fields. Never use 23:59 as a default due date for a task.
             
             The input you are given is written very quickly and hastily, so you should expand parts where they meant a word but just typed a few characters. Like "HW" should be expanded to "Homework". This doesn't mean you should expand acronyms. Also remove words from the name that provide no value, like "due". So "slideshow due for Bio" should be "Slideshow for Bio". Omit trailing commas in the JSON. Generally do not shorten or abbreviate task names and never remove information from them.
 
@@ -582,7 +582,7 @@
             targetList.appendChild(listItem);
         }
 
-        function appendTaskToWeekList(listItem, taskContent, item, itemDate, targetList) {      
+        function appendTaskToWeekList(listItem, taskContent, item, itemDate, targetList) {
             const dateTimeSpan = document.createElement('span');      
             if (item.endTime) {
                 dateTimeSpan.className = 'task-date-time';
@@ -598,8 +598,6 @@
                 // no nested span is needed for the date if there's no time
                 dateTimeSpan.className = 'task-date';
                 dateTimeSpan.textContent = itemDate.toFormat('MM/dd');
-                // we do not want the margin shifting it up since there's no time
-                dateTimeSpan.style.marginTop = '2px';
             }
             
             listItem.appendChild(dateTimeSpan);
