@@ -71,40 +71,6 @@
             outline: none;
             border-color: #444;
         }
-        #animationOverlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            pointer-events: none;
-            overflow: hidden;
-        }
-        .animated-text {
-            position: absolute;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #e0e0e0;
-            padding: 10px;
-            background-color: #2d2d2d;
-            opacity: 0;
-            animation: floatAway 1s forwards;
-            box-sizing: border-box;
-            border: 1px solid transparent;
-        }
-        @keyframes floatAway {
-            0% {
-                transform: translateY(0);
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-50px);
-                opacity: 0;
-            }
-        }
         .task-section {
             margin-bottom: 10px;
         }
@@ -228,6 +194,31 @@
             0% { transform: translateX(-100%); }
             100% { transform: translateX(0); }
         }
+        .animated-text-container {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #e0e0e0;
+            background-color: #2d2d2d;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .animated-text {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        #animationOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+            padding: 1px; /* Add slight padding to account for textarea border */
+        }
     </style>
 </head>
 <body>
@@ -346,34 +337,52 @@
             const input = taskInput.value;
             const animationOverlay = document.getElementById('animationOverlay');
             
-            // Store current height
             const currentHeight = taskInput.style.height;
-            
-            // Set animating flag
             isAnimating = true;
             
-            // Create animation
-            const animatedText = document.createElement('div');
-            animatedText.className = 'animated-text';
-            animatedText.textContent = input;
-            
-            // Position the animated text precisely
             const inputRect = taskInput.getBoundingClientRect();
             const overlayRect = animationOverlay.getBoundingClientRect();
             
-            animatedText.style.top = `${inputRect.top - overlayRect.top}px`;
-            animatedText.style.left = `${inputRect.left - overlayRect.left}px`;
-            animatedText.style.width = `${inputRect.width}px`;
-            animatedText.style.height = `${inputRect.height}px`;
+            // Create a single container for all lines
+            const animatedTextContainer = document.createElement('div');
+            animatedTextContainer.className = 'animated-text-container';
+            animatedTextContainer.style.position = 'absolute';
+            animatedTextContainer.style.top = `${inputRect.top - overlayRect.top}px`;
+            animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
+            animatedTextContainer.style.width = `${inputRect.width}px`;
+            animatedTextContainer.style.height = `${inputRect.height}px`;
             
-            animationOverlay.appendChild(animatedText);
+            // Split input into lines
+            const lines = input.split('\n');
+            
+            // Create and append animated lines
+            const animatedLines = lines.map((line, index) => {
+                const animatedLine = document.createElement('div');
+                animatedLine.className = 'animated-text';
+                animatedLine.textContent = line;
+                animatedTextContainer.appendChild(animatedLine);
+                return animatedLine;
+            });
+
+            animationOverlay.appendChild(animatedTextContainer);
 
             // Clear input but maintain height
             taskInput.value = '';
             taskInput.style.height = currentHeight;
 
-            // Wait for text float animation to complete
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Constant stagger time
+            const staggerTime = 50; // 50ms between each line start
+
+            // Start all animations at once with different delays
+            animatedLines.forEach((line, index) => {
+                setTimeout(() => {
+                    line.style.opacity = '0';
+                    line.style.transform = 'translateY(-10px)';
+                }, index * staggerTime);
+            });
+
+            // Wait for all animations to complete
+            await new Promise(resolve => setTimeout(resolve, (lines.length - 1) * staggerTime + 300));
 
             // Clear animation overlay
             animationOverlay.innerHTML = '';
@@ -389,12 +398,9 @@
                 animationCooldown = true;
                 setTimeout(() => {
                     animationCooldown = false;
-                    // Adjust height after cooldown
                     adjustTextareaHeight();
-                }, 500); // 500ms cooldown after animation
+                }, 500);
             }, 300);
-
-
 
             const prompt = `
             You are a task parsing AI. You will receive a list of tasks or events, potentially messy or informal. Your job is to format and structure this information.
