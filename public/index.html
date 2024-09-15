@@ -633,75 +633,77 @@
             tasks.forEach(item => {
                 let itemDate = parseTaskDate(item.date);
 
-                if (item.kind === "event") {
-                    // This is an event, so we only add it to the calendar
-                    if (itemDate.hasSame(currentDate, 'day')) {
-                        const eventEl = document.createElement('div');
-                        eventEl.className = 'calendar-event';
-                        eventEl.textContent = item.name;
-                        
-                        const startMinutes = timeToMinutes(item.startTime);
-                        eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                        
-                        if (item.endTime) {
-                            const endMinutes = timeToMinutes(item.endTime);
-                            const duration = endMinutes - startMinutes;
-                            eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
-                        } else {
-                            eventEl.classList.add('partial');
-                            eventEl.style.height = '60px'; // 1 hour
-                        }
+                if (itemDate) {
+                    if (item.kind === "event") {
+                        // This is an event, so we only add it to the calendar
+                        if (itemDate.hasSame(currentDate, 'day')) {
+                            const eventEl = document.createElement('div');
+                            eventEl.className = 'calendar-event';
+                            eventEl.textContent = item.name;
+                            
+                            const startMinutes = timeToMinutes(item.startTime);
+                            eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                            
+                            if (item.endTime) {
+                                const endMinutes = timeToMinutes(item.endTime);
+                                const duration = endMinutes - startMinutes;
+                                eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
+                            } else {
+                                eventEl.classList.add('partial');
+                                eventEl.style.height = '60px'; // 1 hour
+                            }
 
-                        calendar.appendChild(eventEl);
-                    }
-                } else if (item.kind === "task") {
-                    const listItem = document.createElement('div');
-                    const taskContent = document.createElement('span');
-                    taskContent.className = 'task-content';
-                    taskContent.textContent = item.name;
+                            calendar.appendChild(eventEl);
+                        }
+                    } else if (item.kind === "task") {
+                        const listItem = document.createElement('div');
+                        const taskContent = document.createElement('span');
+                        taskContent.className = 'task-content';
+                        taskContent.textContent = item.name;
 
-                    if (itemDate.hasSame(today, 'day')) {
-                        const timeSpan = document.createElement('span');
-                        if (item.endTime) {
-                            timeSpan.className = 'task-time';
-                            timeSpan.textContent = item.endTime;
-                        } else {
-                            timeSpan.className = 'task-asterisk';
-                            timeSpan.textContent = '*';
-                        }
-                        listItem.appendChild(timeSpan);
-                        listItem.appendChild(taskContent);
-                        todayTaskList.appendChild(listItem);
-                    } else if (itemDate.hasSame(tomorrow, 'day')) {
-                        const timeSpan = document.createElement('span');
-                        if (item.endTime) {
-                            timeSpan.className = 'task-time';
-                            timeSpan.textContent = item.endTime;
-                        } else {
-                            timeSpan.className = 'task-asterisk';
-                            timeSpan.textContent = '*';
-                        }
-                        listItem.appendChild(timeSpan);
-                        listItem.appendChild(taskContent);
-                        tomorrowTaskList.appendChild(listItem);
-                    } else if (itemDate > tomorrow && itemDate <= weekEnd) {
-                        const dateTimeSpan = document.createElement('span');
-                        dateTimeSpan.className = 'task-date-time';
-                        const dateSpan = document.createElement('span');
-                        dateSpan.className = 'task-date';
-                        dateSpan.textContent = itemDate.toFormat('MM/dd');
-                        dateTimeSpan.appendChild(dateSpan);
-                        
-                        if (item.endTime) {
+                        if (itemDate.hasSame(today, 'day')) {
                             const timeSpan = document.createElement('span');
-                            timeSpan.className = 'task-time';
-                            timeSpan.textContent = item.endTime;
-                            dateTimeSpan.appendChild(timeSpan);
+                            if (item.endTime) {
+                                timeSpan.className = 'task-time';
+                                timeSpan.textContent = item.endTime;
+                            } else {
+                                timeSpan.className = 'task-asterisk';
+                                timeSpan.textContent = '*';
+                            }
+                            listItem.appendChild(timeSpan);
+                            listItem.appendChild(taskContent);
+                            todayTaskList.appendChild(listItem);
+                        } else if (itemDate.hasSame(tomorrow, 'day')) {
+                            const timeSpan = document.createElement('span');
+                            if (item.endTime) {
+                                timeSpan.className = 'task-time';
+                                timeSpan.textContent = item.endTime;
+                            } else {
+                                timeSpan.className = 'task-asterisk';
+                                timeSpan.textContent = '*';
+                            }
+                            listItem.appendChild(timeSpan);
+                            listItem.appendChild(taskContent);
+                            tomorrowTaskList.appendChild(listItem);
+                        } else if (itemDate > tomorrow && itemDate <= weekEnd) {
+                            const dateTimeSpan = document.createElement('span');
+                            dateTimeSpan.className = 'task-date-time';
+                            const dateSpan = document.createElement('span');
+                            dateSpan.className = 'task-date';
+                            dateSpan.textContent = itemDate.toFormat('MM/dd');
+                            dateTimeSpan.appendChild(dateSpan);
+                            
+                            if (item.endTime) {
+                                const timeSpan = document.createElement('span');
+                                timeSpan.className = 'task-time';
+                                timeSpan.textContent = item.endTime;
+                                dateTimeSpan.appendChild(timeSpan);
+                            }
+                            
+                            listItem.appendChild(dateTimeSpan);
+                            listItem.appendChild(taskContent);
+                            weekTaskList.appendChild(listItem);
                         }
-                        
-                        listItem.appendChild(dateTimeSpan);
-                        listItem.appendChild(taskContent);
-                        weekTaskList.appendChild(listItem);
                     }
                 }
             });
