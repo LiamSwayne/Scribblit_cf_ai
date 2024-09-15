@@ -555,7 +555,7 @@
             taskContent.textContent = item.name;
 
             if (itemDate.hasSame(today, 'day')) {
-                appendTaskToList(listItem, taskContent, item, todayTaskList);
+                appendTaskToList(listItem, taskContent, item, todayTaskList, itemDate, today, tomorrow);
             } else if (itemDate.hasSame(tomorrow, 'day')) {
                 appendTaskToList(listItem, taskContent, item, tomorrowTaskList, itemDate, today, tomorrow);
             } else if (itemDate > tomorrow && itemDate <= weekEnd) {
@@ -571,6 +571,7 @@
             }
 
             // only add the asterisk when in the today or tomorrow section and there's no time, because this is when displaying the date looks repetitive between tasks
+            console.log(itemDate);
             if (item.kind === 'task' && !item.startTime && !item.endTime && (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day'))) {
                 timeSpan.className = 'task-asterisk';
                 timeSpan.textContent = '*';
