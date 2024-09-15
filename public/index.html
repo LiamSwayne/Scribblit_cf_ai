@@ -597,6 +597,8 @@
                 // no nested span is needed for the date if there's no time
                 dateTimeSpan.className = 'task-date';
                 dateTimeSpan.textContent = itemDate.toFormat('MM/dd');
+                // we do not want the margin shifting it up since there's no time
+                dateTimeSpan.style.marginTop = '2px';
             }
             
             listItem.appendChild(dateTimeSpan);
