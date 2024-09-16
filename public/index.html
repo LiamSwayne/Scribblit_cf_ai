@@ -148,6 +148,7 @@
             border-radius: 8px;
             font-size: 12px;
             box-sizing: border-box;
+            transition: opacity 0.3s ease;
         }
         .calendar-event.partial {
             background: linear-gradient(
@@ -198,13 +199,13 @@
             0% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(-100%); opacity: 0; }
         }
-        @keyframes slideInRight {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(0); }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
         }
-        @keyframes slideInLeft {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(0); }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
         }
         .animated-text-container {
             font-family: 'JetBrains Mono', monospace;
@@ -304,28 +305,33 @@
             }
         });
 
-        prevDayBtn.addEventListener('click', () => changeDate(-1, 'left'));
-        nextDayBtn.addEventListener('click', () => changeDate(1, 'right'));
+        prevDayBtn.addEventListener('click', () => changeDate(-1));
+        nextDayBtn.addEventListener('click', () => changeDate(1));
 
-        function changeDate(delta, direction) {
-            const oldCalendar = calendar.cloneNode(true);
-            oldCalendar.style.position = 'absolute';
-            oldCalendar.style.top = '40px';
-            oldCalendar.style.left = '20px';
-            oldCalendar.style.right = '0';
-            oldCalendar.style.bottom = '0';
-            calendar.parentNode.appendChild(oldCalendar);
-
-            currentDate = currentDate.plus({ days: delta });
-            updateDateDisplay();
-
-            oldCalendar.style.animation = 'slideUp 0.5s forwards';
-            calendar.style.animation = direction === 'right' ? 'slideInRight 0.5s forwards' : 'slideInLeft 0.5s forwards';
+        function changeDate(delta) {
+            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+            
+            // Fade out old events
+            oldEvents.forEach(event => {
+                event.style.animation = 'fadeOut 0.3s forwards';
+            });
 
             setTimeout(() => {
-                oldCalendar.remove();
+                // Remove old events
+                oldEvents.forEach(event => event.remove());
+                
+                // Update date and render new calendar
+                currentDate = currentDate.plus({ days: delta });
+                updateDateDisplay();
                 renderCalendar();
-            }, 500);
+                
+                // Fade in new events
+                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                newEvents.forEach(event => {
+                    event.style.opacity = '0';
+                    event.style.animation = 'fadeIn 0.3s forwards';
+                });
+            }, 300);
         }
 
         function adjustTextareaHeight() {
@@ -581,7 +587,7 @@
             eventEl.className = 'calendar-event';
             eventEl.textContent = item.name;
             
-            const startMinutes = timeToMinutes(item.startTime);
+            const startMinutes = timeToMinutes(item.startTime || '00:00');
             eventEl.style.top = `${startMinutes / 1440 * 100}%`;
             
             if (item.endTime) {
@@ -595,6 +601,7 @@
 
             calendar.appendChild(eventEl);
         }
+
 
         function renderTaskItem(item, itemDate, today, tomorrow, weekEnd) {
             const listItem = document.createElement('div');
@@ -656,14 +663,42 @@
             calendar.innerHTML = '';
             renderCalendarTimeMarkers();
             
+            const calendarDate = currentDate.startOf('day');
+            
             taskEventArray.forEach(item => {
                 if (item.kind === "event") {
-                    const itemDate = parseTaskDate(item.date);
-                    if (itemDate.hasSame(currentDate, 'day')) {
+                    const itemDate = parseTaskDate(item.date).startOf('day');
+                    if (itemDate.equals(calendarDate)) {
                         renderCalendarEvent(item, itemDate);
                     }
                 }
             });
+        }
+
+        function changeDate(delta) {
+            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+            
+            // Fade out old events
+            oldEvents.forEach(event => {
+                event.style.animation = 'fadeOut 0.3s forwards';
+            });
+
+            setTimeout(() => {
+                // Remove old events
+                oldEvents.forEach(event => event.remove());
+                
+                // Update date and render new calendar
+                currentDate = currentDate.plus({ days: delta });
+                updateDateDisplay();
+                renderCalendar();
+                
+                // Fade in new events
+                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                newEvents.forEach(event => {
+                    event.style.opacity = '0';
+                    event.style.animation = 'fadeIn 0.3s forwards';
+                });
+            }, 300);
         }
 
         function renderTasks(tasks) {
@@ -758,7 +793,7 @@
         }
 
         function parseTaskDate(dateString) {
-            const today = DateTime.local();
+            const today = DateTime.local().startOf('day');
 
             if (dateString) {
                 if (dateString === 'today') {
@@ -766,7 +801,7 @@
                 } else if (dateString === 'tomorrow') {
                     return today.plus({ days: 1 });
                 } else if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    return DateTime.fromISO(dateString);
+                    return DateTime.fromISO(dateString).startOf('day');
                 } else if (dateString.match(/^[a-z]+(\+\d+)?$/)) {
                     const [day, offset] = dateString.split('+');
                     let targetDate = today.set({ weekday: getDayNumber(day) });
@@ -779,7 +814,7 @@
                         targetDate = targetDate.plus({ weeks: 1 });
                     }
                     
-                    return targetDate;
+                    return targetDate.startOf('day');
                 }
             }
 
@@ -794,7 +829,6 @@
         }
 
         function timeToMinutes(time) {
-            console.log(time);
             const [hours, minutes] = time.split(':').map(Number);
             return hours * 60 + minutes;
         }
