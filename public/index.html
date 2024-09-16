@@ -525,25 +525,23 @@
         }
 
         function renderCalendarEvent(item, itemDate) {
-            if (itemDate.hasSame(currentDate, 'day')) {
-                const eventEl = document.createElement('div');
-                eventEl.className = 'calendar-event';
-                eventEl.textContent = item.name;
-                
-                const startMinutes = timeToMinutes(item.startTime);
-                eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                
-                if (item.endTime) {
-                    const endMinutes = timeToMinutes(item.endTime);
-                    const duration = endMinutes - startMinutes;
-                    eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
-                } else {
-                    eventEl.classList.add('partial');
-                    eventEl.style.height = '60px'; // 1 hour
-                }
-
-                calendar.appendChild(eventEl);
+            const eventEl = document.createElement('div');
+            eventEl.className = 'calendar-event';
+            eventEl.textContent = item.name;
+            
+            const startMinutes = timeToMinutes(item.startTime);
+            eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+            
+            if (item.endTime) {
+                const endMinutes = timeToMinutes(item.endTime);
+                const duration = endMinutes - startMinutes;
+                eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
+            } else {
+                eventEl.classList.add('partial');
+                eventEl.style.height = '60px'; // 1 hour
             }
+
+            calendar.appendChild(eventEl);
         }
 
         function renderTaskItem(item, itemDate, today, tomorrow, weekEnd) {
@@ -607,10 +605,12 @@
             calendar.innerHTML = '';
             renderCalendarTimeMarkers();
             
-            Object.values(taskEventDictionary).forEach(item => {
+            taskEventArray.forEach(item => {
                 if (item.kind === "event") {
                     const itemDate = parseTaskDate(item.date);
-                    renderCalendarEvent(item, itemDate);
+                    if (itemDate.hasSame(currentDate, 'day')) {
+                        renderCalendarEvent(item, itemDate);
+                    }
                 }
             });
         }
@@ -784,7 +784,8 @@
             const storedData = localStorage.getItem('taskEventArray');
             if (storedData) {
                 taskEventArray = JSON.parse(storedData);
-                renderAllData(); // Render all data after loading from local storage
+                updateDateDisplay();
+                renderCalendar();
             }
         }
 
