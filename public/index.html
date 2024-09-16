@@ -453,8 +453,6 @@
                 updateTaskEventArray(parsedTasks);
                 saveToLocalStorage();
                 renderAllData();
-                
-                renderTasks(parsedTasks);
             } catch (error) {
                 console.error('Error:', error);
             }
@@ -786,6 +784,7 @@
             const storedData = localStorage.getItem('taskEventArray');
             if (storedData) {
                 taskEventArray = JSON.parse(storedData);
+                renderAllData(); // Render all data after loading from local storage
             }
         }
 
