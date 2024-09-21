@@ -676,17 +676,14 @@
             localStorage.setItem('taskEventArray', JSON.stringify(taskEventArray));
         }
 
-        function loadFromLocalStorage() {
-            const storedData = localStorage.getItem('taskEventArray');
-            if (storedData) {
-                taskEventArray = JSON.parse(storedData);
-                updateDateDisplay();
-                renderCalendar();
-            }
+        // load from local storage
+        const storedData = localStorage.getItem('taskEventArray');
+        if (storedData) {
+            taskEventArray = JSON.parse(storedData);
+            updateDateDisplay();
+            renderCalendar();
         }
 
-        // Initial setup
-        loadFromLocalStorage();
         updateDateDisplay();
         renderAllData();
         adjustTextareaHeight();
