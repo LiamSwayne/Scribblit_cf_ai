@@ -557,28 +557,7 @@
             const weekEnd = today.plus({ days: 7 });
 
             taskEventArray.forEach(item => {
-                const itemDate = DateTime.fromISO(item.date);
-
-                if (item.kind === "event") {
-                    if (itemDate.hasSame(currentDate, 'day')) {
-                        const eventEl = document.createElement('div');
-                        eventEl.className = 'calendar-event';
-                        eventEl.textContent = item.name;
-                        
-                        const startMinutes = timeToMinutes(item.startTime || '00:00');
-                        eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                        
-                        if (item.endTime) {
-                            const endMinutes = timeToMinutes(item.endTime);
-                            eventEl.style.height = `calc(${(endMinutes - startMinutes) / 1440 * 100}% - 7px)`;
-                        } else {
-                            eventEl.classList.add('partial');
-                            eventEl.style.height = '60px'; // 1 hour
-                        }
-
-                        calendar.appendChild(eventEl);
-                    }
-                } else if (item.kind === "task") {
+                if (item.kind === "task") {
                     const listItem = document.createElement('div');
                     const taskContent = document.createElement('span');
                     taskContent.className = 'task-content';
@@ -656,10 +635,23 @@
 
             // Render events
             const calendarDate = currentDate.startOf('day');
-            events.forEach(item => {
+            events.forEach((item, index) => {
+                // how many events the start time of this event is within
+                const overlappingEvents = events.filter((other, otherIndex) => {
+                    if (otherIndex >= index) return false;
+                    const otherStart = timeToMinutes(other.startTime || '00:00');
+                    const otherEnd = timeToMinutes(other.endTime || '23:59');
+                    const thisStart = timeToMinutes(item.startTime || '00:00');
+                    return thisStart >= otherStart && thisStart < otherEnd;
+                });
+                const overlapOffset = overlappingEvents.length * 10;
+
                 const eventEl = document.createElement('div');
                 eventEl.className = 'calendar-event';
                 eventEl.textContent = item.name;
+                // reduce the width of the event based on how many events it overlaps with, subtracting from the left side
+                const generalCalOffset = 54;
+                eventEl.style.left = `${overlapOffset + generalCalOffset}px`;
                 
                 const startMinutes = timeToMinutes(item.startTime || '00:00');
                 eventEl.style.top = `${startMinutes / 1440 * 100}%`;
@@ -669,9 +661,13 @@
                     eventEl.style.height = `calc(${(endMinutes - startMinutes) / 1440 * 100}% - 7px)`;
                 } else {
                     eventEl.classList.add('partial');
-                    eventEl.style.height = '60px'; // 1 hour
+                    eventEl.style.height = `calc(${(100) / 1440 * 100}% - 7px)`; // 100 minutes
                 }
 
+                // Set z-index based on the event's position in the sorted array
+                eventEl.style.zIndex = index + 1;
+
+                console.log('eventel', eventEl);
                 calendar.appendChild(eventEl);
             });
         }
