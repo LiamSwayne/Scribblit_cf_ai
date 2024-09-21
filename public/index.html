@@ -643,9 +643,18 @@
                 calendar.appendChild(hourLabel);
             }
 
+            // create an array of only events taking place on the current date
+            let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
+            // sort the array by start time
+            events.sort((a, b) => {
+                const aTime = timeToMinutes(a.startTime || '00:00');
+                const bTime = timeToMinutes(b.startTime || '00:00');
+                return aTime - bTime;
+            });
+
             // Render events
             const calendarDate = currentDate.startOf('day');
-            taskEventArray.forEach(item => {
+            events.forEach(item => {
                 if (item.kind === "event" && DateTime.fromISO(item.date).hasSame(calendarDate, 'day')) {
                     const eventEl = document.createElement('div');
                     eventEl.className = 'calendar-event';
@@ -680,8 +689,6 @@
         const storedData = localStorage.getItem('taskEventArray');
         if (storedData) {
             taskEventArray = JSON.parse(storedData);
-            updateDateDisplay();
-            renderCalendar();
         }
 
         updateDateDisplay();
