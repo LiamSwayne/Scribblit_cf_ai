@@ -326,8 +326,7 @@
                 renderCalendar();
                 
                 // Fade in new events
-                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-                newEvents.forEach(event => {
+                Array.from(calendar.querySelectorAll('.calendar-event')).forEach(event => {
                     event.style.opacity = '0';
                     event.style.animation = 'fadeIn 0.3s forwards';
                 });
@@ -375,16 +374,12 @@
             animatedTextContainer.style.width = `${inputRect.width}px`;
             animatedTextContainer.style.height = `${inputRect.height}px`;
             
-            // Split input into lines
-            const lines = input.split('\n');
-            
-            // Create and append animated lines
-            const animatedLines = lines.map((line, index) => {
+            // Split input into lines and create animated lines
+            input.split('\n').forEach((line, index) => {
                 const animatedLine = document.createElement('div');
                 animatedLine.className = 'animated-text';
                 animatedLine.textContent = line;
                 animatedTextContainer.appendChild(animatedLine);
-                return animatedLine;
             });
 
             animationOverlay.appendChild(animatedTextContainer);
@@ -393,19 +388,16 @@
             taskInput.value = '';
             taskInput.style.height = currentHeight;
 
-            // Constant stagger time
-            const staggerTime = 50; // 50ms between each line start
-
             // Start all animations at once with different delays
-            animatedLines.forEach((line, index) => {
+            Array.from(animatedTextContainer.children).forEach((line, index) => {
                 setTimeout(() => {
                     line.style.opacity = '0';
                     line.style.transform = 'translateY(-10px)';
-                }, index * staggerTime);
+                }, index * 50);
             });
 
             // Wait for all animations to complete
-            await new Promise(resolve => setTimeout(resolve, (lines.length - 1) * staggerTime + 300));
+            await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
 
             // Clear animation overlay
             animationOverlay.innerHTML = '';
@@ -514,20 +506,13 @@
 
         function updateTaskEventArray(newItems) {
             newItems.forEach(item => {
-                const sanitizedItem = sanitizeItem(item);
+                const sanitizedItem = { ...item, date: convertToISODate(item.date) };
                 if (item.kind == 'event' && !item.startTime && !item.endTime) {
-                    // use 00:00 as the default start time for events
                     sanitizedItem.startTime = '00:00';
                 }
                 taskEventArray.push(sanitizedItem);
             });
             saveToLocalStorage();
-        }
-
-        function sanitizeItem(item) {
-            const sanitizedItem = { ...item };
-            sanitizedItem.date = convertToISODate(item.date);
-            return sanitizedItem;
         }
 
         function convertToISODate(dateString) {
@@ -542,7 +527,7 @@
                     return dateString; // Already in ISO format
                 } else if (dateString.match(/^[a-z]+(\+\d+)?$/)) {
                     const [day, offset] = dateString.split('+');
-                    let targetDate = today.set({ weekday: getDayNumber(day) });
+                    let targetDate = today.set({ weekday: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(day.toLowerCase()) + 1 });
                     
                     if (offset) {
                         targetDate = targetDate.plus({ weeks: parseInt(offset) });
@@ -560,7 +545,7 @@
             console.error(`Unable to parse date: ${dateString}`);
             return today.toISODate();
         }
- 
+
         function renderAllData() {
             todayTaskList.innerHTML = '';
             tomorrowTaskList.innerHTML = '';
@@ -572,262 +557,78 @@
             const weekEnd = today.plus({ days: 7 });
 
             taskEventArray.forEach(item => {
-                let itemDate = parseTaskDate(item.date);
+                const itemDate = DateTime.fromISO(item.date);
 
                 if (item.kind === "event") {
-                    const eventEl = document.createElement('div');
-                    eventEl.className = 'calendar-event';
-                    eventEl.textContent = item.name;
-                    
-                    const startMinutes = timeToMinutes(item.startTime || '00:00');
-                    eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                    
-                    if (item.endTime) {
-                        const endMinutes = timeToMinutes(item.endTime);
-                        const duration = endMinutes - startMinutes;
-                        eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
-                    } else {
-                        eventEl.classList.add('partial');
-                        eventEl.style.height = '60px'; // 1 hour
-                    }
+                    if (itemDate.hasSame(currentDate, 'day')) {
+                        const eventEl = document.createElement('div');
+                        eventEl.className = 'calendar-event';
+                        eventEl.textContent = item.name;
+                        
+                        const startMinutes = timeToMinutes(item.startTime || '00:00');
+                        eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                        
+                        if (item.endTime) {
+                            const endMinutes = timeToMinutes(item.endTime);
+                            eventEl.style.height = `calc(${(endMinutes - startMinutes) / 1440 * 100}% - 7px)`;
+                        } else {
+                            eventEl.classList.add('partial');
+                            eventEl.style.height = '60px'; // 1 hour
+                        }
 
-                    calendar.appendChild(eventEl);
+                        calendar.appendChild(eventEl);
+                    }
                 } else if (item.kind === "task") {
-                    renderTaskItem(item, itemDate, today, tomorrow, weekEnd);
+                    const listItem = document.createElement('div');
+                    const taskContent = document.createElement('span');
+                    taskContent.className = 'task-content';
+                    taskContent.textContent = item.name;
+
+                    if (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day')) {
+                        const timeSpan = document.createElement('span');
+                        if (item.endTime) {
+                            timeSpan.className = 'task-time';
+                            timeSpan.textContent = item.endTime;
+                        } else {
+                            timeSpan.className = 'task-asterisk';
+                            timeSpan.textContent = '*';
+                        }
+
+                        listItem.appendChild(timeSpan);
+                        listItem.appendChild(taskContent);
+                        
+                        if (itemDate.hasSame(today, 'day')) {
+                            todayTaskList.appendChild(listItem);
+                        } else {
+                            tomorrowTaskList.appendChild(listItem);
+                        }
+                    } else if (itemDate > tomorrow && itemDate <= weekEnd) {
+                        const dateTimeSpan = document.createElement('span');
+                        dateTimeSpan.className = 'task-date-time';
+                        const dateSpan = document.createElement('span');
+                        dateSpan.className = 'task-date';
+                        dateSpan.textContent = itemDate.toFormat('MM/dd');
+                        dateTimeSpan.appendChild(dateSpan);
+                        
+                        if (item.endTime) {
+                            const timeSpan = document.createElement('span');
+                            timeSpan.className = 'task-time';
+                            timeSpan.textContent = item.endTime;
+                            dateTimeSpan.appendChild(timeSpan);
+                        }
+                        
+                        listItem.appendChild(dateTimeSpan);
+                        listItem.appendChild(taskContent);
+                        weekTaskList.appendChild(listItem);
+                    }
                 }
             });
-        }
-
-        function renderTaskItem(item, itemDate, today, tomorrow, weekEnd) {
-            const listItem = document.createElement('div');
-            const taskContent = document.createElement('span');
-            taskContent.className = 'task-content';
-            taskContent.textContent = item.name;
-
-            if (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day')) {
-                const timeSpan = document.createElement('span');
-                if (item.endTime) {
-                    timeSpan.className = 'task-time';
-                    timeSpan.textContent = item.endTime;
-                }
-
-                // only add the asterisk when in the today or tomorrow section and there's no time, because this is when displaying the date looks repetitive between tasks
-                if (item.kind === 'task' && !item.startTime && !item.endTime) {
-                    timeSpan.className = 'task-asterisk';
-                    timeSpan.textContent = '*';
-                }
-
-                listItem.appendChild(timeSpan);
-                listItem.appendChild(taskContent);
-                
-                if (itemDate.hasSame(today, 'day')) {
-                    todayTaskList.appendChild(listItem);
-                } else {
-                    tomorrowTaskList.appendChild(listItem);
-                }
-            } else if (itemDate > tomorrow && itemDate <= weekEnd) {
-                appendTaskToWeekList(listItem, taskContent, item, itemDate, weekTaskList);
-            }
-        }
-
-        function appendTaskToWeekList(listItem, taskContent, item, itemDate, targetList) {
-            const dateTimeSpan = document.createElement('span');      
-            if (item.endTime) {
-                dateTimeSpan.className = 'task-date-time';
-                const dateSpan = document.createElement('span');
-                dateSpan.className = 'task-date';
-                dateSpan.textContent = itemDate.toFormat('MM/dd');
-                dateTimeSpan.appendChild(dateSpan);
-                const timeSpan = document.createElement('span');
-                timeSpan.className = 'task-time';
-                timeSpan.textContent = item.endTime;
-                dateTimeSpan.appendChild(timeSpan);
-            } else {
-                // no nested span is needed for the date if there's no time
-                dateTimeSpan.className = 'task-date';
-                dateTimeSpan.textContent = itemDate.toFormat('MM/dd');
-            }
-            
-            listItem.appendChild(dateTimeSpan);
-            listItem.appendChild(taskContent);
-            targetList.appendChild(listItem);
         }
 
         function renderCalendar() {
             calendar.innerHTML = '';
-            renderCalendarTimeMarkers();
             
-            const calendarDate = currentDate.startOf('day');
-            
-            taskEventArray.forEach(item => {
-                if (item.kind === "event") {
-                    const itemDate = parseTaskDate(item.date).startOf('day');
-                    if (itemDate.equals(calendarDate)) {
-                        renderCalendarEvent(item, itemDate);
-                    }
-                }
-            });
-        }
-
-        function changeDate(delta) {
-            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-            
-            // Fade out old events
-            oldEvents.forEach(event => {
-                event.style.animation = 'fadeOut 0.3s forwards';
-            });
-
-            setTimeout(() => {
-                // Remove old events
-                oldEvents.forEach(event => event.remove());
-                
-                // Update date and render new calendar
-                currentDate = currentDate.plus({ days: delta });
-                updateDateDisplay();
-                renderCalendar();
-                
-                // Fade in new events
-                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-                newEvents.forEach(event => {
-                    event.style.opacity = '0';
-                    event.style.animation = 'fadeIn 0.3s forwards';
-                });
-            }, 300);
-        }
-
-        function renderTasks(tasks) {
-            todayTaskList.innerHTML = '';
-            tomorrowTaskList.innerHTML = '';
-            weekTaskList.innerHTML = '';
-            calendar.innerHTML = '';
-
-            renderCalendarTimeMarkers();
-
-            const today = DateTime.local();
-            const tomorrow = today.plus({ days: 1 });
-            const weekEnd = today.plus({ days: 7 });
-
-            tasks.forEach(item => {
-                let itemDate = parseTaskDate(item.date);
-
-                if (itemDate) {
-                    if (item.kind === "event") {
-                        // This is an event, so we only add it to the calendar
-                        if (itemDate.hasSame(currentDate, 'day')) {
-                            const eventEl = document.createElement('div');
-                            eventEl.className = 'calendar-event';
-                            eventEl.textContent = item.name;
-                            
-                            const startMinutes = timeToMinutes(item.startTime);
-                            eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                            
-                            if (item.endTime) {
-                                const endMinutes = timeToMinutes(item.endTime);
-                                const duration = endMinutes - startMinutes;
-                                eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
-                            } else {
-                                eventEl.classList.add('partial');
-                                eventEl.style.height = '60px'; // 1 hour
-                            }
-
-                            calendar.appendChild(eventEl);
-                        }
-                    } else if (item.kind === "task") {
-                        const listItem = document.createElement('div');
-                        const taskContent = document.createElement('span');
-                        taskContent.className = 'task-content';
-                        taskContent.textContent = item.name;
-
-                        if (itemDate.hasSame(today, 'day')) {
-                            const timeSpan = document.createElement('span');
-                            if (item.endTime) {
-                                timeSpan.className = 'task-time';
-                                timeSpan.textContent = item.endTime;
-                            } else {
-                                timeSpan.className = 'task-asterisk';
-                                timeSpan.textContent = '*';
-                            }
-                            listItem.appendChild(timeSpan);
-                            listItem.appendChild(taskContent);
-                            todayTaskList.appendChild(listItem);
-                        } else if (itemDate.hasSame(tomorrow, 'day')) {
-                            const timeSpan = document.createElement('span');
-                            if (item.endTime) {
-                                timeSpan.className = 'task-time';
-                                timeSpan.textContent = item.endTime;
-                            } else {
-                                timeSpan.className = 'task-asterisk';
-                                timeSpan.textContent = '*';
-                            }
-                            listItem.appendChild(timeSpan);
-                            listItem.appendChild(taskContent);
-                            tomorrowTaskList.appendChild(listItem);
-                        } else if (itemDate > tomorrow && itemDate <= weekEnd) {
-                            const dateTimeSpan = document.createElement('span');
-                            dateTimeSpan.className = 'task-date-time';
-                            const dateSpan = document.createElement('span');
-                            dateSpan.className = 'task-date';
-                            dateSpan.textContent = itemDate.toFormat('MM/dd');
-                            dateTimeSpan.appendChild(dateSpan);
-                            
-                            if (item.endTime) {
-                                const timeSpan = document.createElement('span');
-                                timeSpan.className = 'task-time';
-                                timeSpan.textContent = item.endTime;
-                                dateTimeSpan.appendChild(timeSpan);
-                            }
-                            
-                            listItem.appendChild(dateTimeSpan);
-                            listItem.appendChild(taskContent);
-                            weekTaskList.appendChild(listItem);
-                        }
-                    }
-                }
-            });
-        }
-
-        function parseTaskDate(dateString) {
-            const today = DateTime.local().startOf('day');
-
-            if (dateString) {
-                if (dateString === 'today') {
-                    return today;
-                } else if (dateString === 'tomorrow') {
-                    return today.plus({ days: 1 });
-                } else if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    return DateTime.fromISO(dateString).startOf('day');
-                } else if (dateString.match(/^[a-z]+(\+\d+)?$/)) {
-                    const [day, offset] = dateString.split('+');
-                    let targetDate = today.set({ weekday: getDayNumber(day) });
-                    
-                    if (offset) {
-                        targetDate = targetDate.plus({ weeks: parseInt(offset) });
-                    }
-                    
-                    if (targetDate < today) {
-                        targetDate = targetDate.plus({ weeks: 1 });
-                    }
-                    
-                    return targetDate.startOf('day');
-                }
-            }
-
-            // If we can't parse the date, return today as a fallback
-            console.error(`Unable to parse date: ${dateString}`);
-            return today;
-        }
-
-        function getDayNumber(day) {
-            const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-            return days.indexOf(day.toLowerCase()) + 1;
-        }
-
-        function timeToMinutes(time) {
-            const [hours, minutes] = time.split(':').map(Number);
-            return hours * 60 + minutes;
-        }
-
-        function renderCalendarTimeMarkers() {
+            // Render time markers
             for (let i = 0; i < 24; i++) {
                 const hourMarker = document.createElement('div');
                 hourMarker.className = 'hour-marker';
@@ -841,19 +642,34 @@
                 calendar.appendChild(hourMarker);
                 calendar.appendChild(hourLabel);
             }
-        }
 
-        function renderCalendar() {
-            calendar.innerHTML = '';
-            renderCalendarTimeMarkers();
-        }
+            // Render events
+            const calendarDate = currentDate.startOf('day');
+            taskEventArray.forEach(item => {
+                if (item.kind === "event" && DateTime.fromISO(item.date).hasSame(calendarDate, 'day')) {
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'calendar-event';
+                    eventEl.textContent = item.name;
+                    
+                    const startMinutes = timeToMinutes(item.startTime || '00:00');
+                    eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                    
+                    if (item.endTime) {
+                        const endMinutes = timeToMinutes(item.endTime);
+                        eventEl.style.height = `calc(${(endMinutes - startMinutes) / 1440 * 100}% - 7px)`;
+                    } else {
+                        eventEl.classList.add('partial');
+                        eventEl.style.height = '60px'; // 1 hour
+                    }
 
-        function updateTaskEventArray(newItems) {
-            newItems.forEach(item => {
-                const sanitizedItem = sanitizeItem(item);
-                taskEventArray.push(sanitizedItem);
+                    calendar.appendChild(eventEl);
+                }
             });
-            saveToLocalStorage();
+        }
+
+        function timeToMinutes(time) {
+            const [hours, minutes] = time.split(':').map(Number);
+            return hours * 60 + minutes;
         }
 
         function saveToLocalStorage() {
@@ -869,6 +685,7 @@
             }
         }
 
+        // Initial setup
         loadFromLocalStorage();
         updateDateDisplay();
         renderAllData();
