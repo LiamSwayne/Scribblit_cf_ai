@@ -426,15 +426,15 @@
             }, 300);
 
             const prompt = `
-            You are a task parsing AI. You will receive a list of tasks or events, potentially messy or informal. Your job is to format and structure this information.
+            You are a task parsing AI. You will receive a list of tasks and/or events, potentially messy or informal. Your job is to format and structure this information.
 
-            For each task or event:
+            For each task/event:
             1. Apply proper formatting and capitalization.
             2. Infer the date. If no date is specified, assume it's for today (${currentDate.toFormat('yyyy-MM-dd')}). If "tomorrow" or a day of the week is mentioned, calculate the actual date.
             3. Determine the time, if applicable. If it's past noon and only a number is given (e.g., "at 3"), assume PM. Use reasoning to guess AM/PM when not explicitly stated. Do not assume the end time of events unless it can be figured out from the input. Some have a flexible end time, so they should just not be given an end time.
 
             Respond with a JSON array. Each item should have these properties:
-            - kind: "task" or "event"
+            - kind: "task" or "event". generally a task is anything that must be done by a certain date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
             - name: The formatted task name
             - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2"
             - startTime: In HH:mm format (24-hour) (only for events)
@@ -446,7 +446,7 @@
             Input:
             ${input}
 
-            Give me a JSON response and nothing else. Don't put it in a code block.`;
+            Give me a JSON response and nothing else.`;
 
             const MAX_RETRIES = 3;
             const RETRY_DELAY = 1000; // 1 second
