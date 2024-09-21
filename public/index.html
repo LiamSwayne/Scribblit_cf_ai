@@ -575,33 +575,28 @@
                 let itemDate = parseTaskDate(item.date);
 
                 if (item.kind === "event") {
-                    renderCalendarEvent(item, itemDate);
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'calendar-event';
+                    eventEl.textContent = item.name;
+                    
+                    const startMinutes = timeToMinutes(item.startTime || '00:00');
+                    eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                    
+                    if (item.endTime) {
+                        const endMinutes = timeToMinutes(item.endTime);
+                        const duration = endMinutes - startMinutes;
+                        eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
+                    } else {
+                        eventEl.classList.add('partial');
+                        eventEl.style.height = '60px'; // 1 hour
+                    }
+
+                    calendar.appendChild(eventEl);
                 } else if (item.kind === "task") {
                     renderTaskItem(item, itemDate, today, tomorrow, weekEnd);
                 }
             });
         }
-
-        function renderCalendarEvent(item, itemDate) {
-            const eventEl = document.createElement('div');
-            eventEl.className = 'calendar-event';
-            eventEl.textContent = item.name;
-            
-            const startMinutes = timeToMinutes(item.startTime || '00:00');
-            eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-            
-            if (item.endTime) {
-                const endMinutes = timeToMinutes(item.endTime);
-                const duration = endMinutes - startMinutes;
-                eventEl.style.height = `calc(${duration / 1440 * 100}% - 7px)`;
-            } else {
-                eventEl.classList.add('partial');
-                eventEl.style.height = '60px'; // 1 hour
-            }
-
-            calendar.appendChild(eventEl);
-        }
-
 
         function renderTaskItem(item, itemDate, today, tomorrow, weekEnd) {
             const listItem = document.createElement('div');
@@ -609,31 +604,30 @@
             taskContent.className = 'task-content';
             taskContent.textContent = item.name;
 
-            if (itemDate.hasSame(today, 'day')) {
-                appendTaskToList(listItem, taskContent, item, todayTaskList, itemDate, today, tomorrow);
-            } else if (itemDate.hasSame(tomorrow, 'day')) {
-                appendTaskToList(listItem, taskContent, item, tomorrowTaskList, itemDate, today, tomorrow);
+            if (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day')) {
+                const timeSpan = document.createElement('span');
+                if (item.endTime) {
+                    timeSpan.className = 'task-time';
+                    timeSpan.textContent = item.endTime;
+                }
+
+                // only add the asterisk when in the today or tomorrow section and there's no time, because this is when displaying the date looks repetitive between tasks
+                if (item.kind === 'task' && !item.startTime && !item.endTime) {
+                    timeSpan.className = 'task-asterisk';
+                    timeSpan.textContent = '*';
+                }
+
+                listItem.appendChild(timeSpan);
+                listItem.appendChild(taskContent);
+                
+                if (itemDate.hasSame(today, 'day')) {
+                    todayTaskList.appendChild(listItem);
+                } else {
+                    tomorrowTaskList.appendChild(listItem);
+                }
             } else if (itemDate > tomorrow && itemDate <= weekEnd) {
                 appendTaskToWeekList(listItem, taskContent, item, itemDate, weekTaskList);
             }
-        }
-
-        function appendTaskToList(listItem, taskContent, item, targetList, itemDate, today, tomorrow) {
-            const timeSpan = document.createElement('span');
-            if (item.endTime) {
-                timeSpan.className = 'task-time';
-                timeSpan.textContent = item.endTime;
-            }
-
-            // only add the asterisk when in the today or tomorrow section and there's no time, because this is when displaying the date looks repetitive between tasks
-            if (item.kind === 'task' && !item.startTime && !item.endTime && (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day'))) {
-                timeSpan.className = 'task-asterisk';
-                timeSpan.textContent = '*';
-            }
-
-            listItem.appendChild(timeSpan);
-            listItem.appendChild(taskContent);
-            targetList.appendChild(listItem);
         }
 
         function appendTaskToWeekList(listItem, taskContent, item, itemDate, targetList) {
