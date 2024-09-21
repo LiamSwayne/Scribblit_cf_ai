@@ -652,27 +652,27 @@
                 return aTime - bTime;
             });
 
+            console.log(events);
+
             // Render events
             const calendarDate = currentDate.startOf('day');
             events.forEach(item => {
-                if (item.kind === "event" && DateTime.fromISO(item.date).hasSame(calendarDate, 'day')) {
-                    const eventEl = document.createElement('div');
-                    eventEl.className = 'calendar-event';
-                    eventEl.textContent = item.name;
-                    
-                    const startMinutes = timeToMinutes(item.startTime || '00:00');
-                    eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-                    
-                    if (item.endTime) {
-                        const endMinutes = timeToMinutes(item.endTime);
-                        eventEl.style.height = `calc(${(endMinutes - startMinutes) / 1440 * 100}% - 7px)`;
-                    } else {
-                        eventEl.classList.add('partial');
-                        eventEl.style.height = '60px'; // 1 hour
-                    }
-
-                    calendar.appendChild(eventEl);
+                const eventEl = document.createElement('div');
+                eventEl.className = 'calendar-event';
+                eventEl.textContent = item.name;
+                
+                const startMinutes = timeToMinutes(item.startTime || '00:00');
+                eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+                
+                if (item.endTime) {
+                    const endMinutes = timeToMinutes(item.endTime);
+                    eventEl.style.height = `calc(${(endMinutes - startMinutes) / 1440 * 100}% - 7px)`;
+                } else {
+                    eventEl.classList.add('partial');
+                    eventEl.style.height = '60px'; // 1 hour
                 }
+
+                calendar.appendChild(eventEl);
             });
         }
 
