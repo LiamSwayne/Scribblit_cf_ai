@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scribblit</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" 
-    rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <!-- JSON parser that allows trailing commas produced by the LLM -->
     <script src="https://unpkg.com/json5@2/dist/index.min.js"></script>
     <style>
@@ -32,8 +31,8 @@
             height: auto;
         }
         .section-title {
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 20px;
+            font-weight: 700;
             margin-bottom: 10px;
         }
         .left-column {
@@ -236,9 +235,7 @@
             }
         }
         .all-day-events {
-            margin-bottom: 10px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
+            padding-bottom: 4px;
         }
         .all-day-event {
             display: flex;
@@ -576,7 +573,7 @@
         function renderCalendar() {
             calendar.innerHTML = '';
             const allDayEventsContainer = document.getElementById('allDayEvents');
-            allDayEventsContainer.innerHTML = '<div class="section-title">All-day</div>';
+            allDayEventsContainer.innerHTML = '';
             
             // Render time markers
             for (let i = 0; i < 24; i++) {
@@ -593,26 +590,42 @@
                 calendar.appendChild(hourLabel);
             }
 
-            // Filter events for the current date
+            // Process events
             let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
             
-            // Separate all-day events
-            let allDayEvents = events.filter(event => !event.startTime && !event.endTime);
-            let timedEvents = events.filter(event => event.startTime || event.endTime);
-
-            // Render all-day events
-            allDayEvents.forEach(event => {
-                const eventEl = document.createElement('div');
-                eventEl.className = 'all-day-event';
-                const asterisk = document.createElement('span');
-                asterisk.className = 'task-asterisk';
-                asterisk.textContent = '*';
-                const eventContent = document.createElement('span');
-                eventContent.textContent = event.name;
-                eventEl.appendChild(asterisk);
-                eventEl.appendChild(eventContent);
-                allDayEventsContainer.appendChild(eventEl);
+            events.forEach(event => {
+                if (event.startTime) {
+                    const calculatedDate = calculateActualDate(event.startTime);
+                    if (calculatedDate) {
+                        event.date = calculatedDate;
+                        delete event.startTime;
+                    } else {
+                        // delete the start time anyway because no information can be extracted from it
+                        delete event.startTime;
+                    }
+                }
             });
+
+            // Separate all-day events and events without calculable start times
+            let allDayEvents = events.filter(event => !event.startTime || !isValidTime(event.startTime));
+            let timedEvents = events.filter(event => event.startTime && isValidTime(event.startTime));
+
+            // Render all-day events only if there are any
+            if (allDayEvents.length > 0) {
+                allDayEventsContainer.innerHTML = '<div class="section-title">All-day</div>';
+                allDayEvents.forEach(event => {
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'all-day-event';
+                    const asterisk = document.createElement('span');
+                    asterisk.className = 'task-asterisk';
+                    asterisk.textContent = '*';
+                    const eventContent = document.createElement('span');
+                    eventContent.textContent = event.name;
+                    eventEl.appendChild(asterisk);
+                    eventEl.appendChild(eventContent);
+                    allDayEventsContainer.appendChild(eventEl);
+                });
+            }
 
             // Sort the timed events by start time
             timedEvents.sort((a, b) => {
@@ -739,6 +752,33 @@
 
         function saveToLocalStorage() {
             localStorage.setItem('taskEventArray', JSON.stringify(taskEventArray));
+        }
+
+        // take a date string from startTime, which shouldn't have a day but sometimes AI hallucinates and gives it a day, so we try to infer the correct date before clearing the field
+        function calculateActualDate(dateString) {
+            const today = DateTime.local();
+            
+            if (dateString === 'today') {
+                return today.toISODate();
+            } else if (dateString === 'tomorrow') {
+                return today.plus({ days: 1 }).toISODate();
+            } else {
+                const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                const dayIndex = daysOfWeek.indexOf(dateString.toLowerCase());
+                if (dayIndex !== -1) {
+                    let targetDate = today.set({ weekday: dayIndex + 1 });
+                    if (targetDate < today) {
+                        targetDate = targetDate.plus({ weeks: 1 });
+                    }
+                    return targetDate.toISODate();
+                }
+            }
+            
+            return null;
+        }
+
+        function isValidTime(timeString) {
+            return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
         }
 
         // load from local storage
