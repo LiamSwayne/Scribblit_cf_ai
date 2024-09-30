@@ -552,9 +552,7 @@
                     taskContent.className = 'task-content';
                     taskContent.textContent = item.name;
 
-                    console.log('item.date', item.date);
                     let date = DateTime.fromISO(item.date)
-                    console.log('date', date);
                     if (date.hasSame(today, 'day') || date.hasSame(tomorrow, 'day')) {
                         const timeSpan = document.createElement('span');
                         if (item.endTime) {
@@ -626,45 +624,45 @@
             console.log(events);
 
             const colors = ['#3a506b', '#5b7553', '#6b4f4f', '#4f4f6b', '#6b5b4f'];
+            const lanes = [];
 
             // Render events
             const calendarDate = currentDate.startOf('day');
             events.forEach((item, index) => {
-                // how many events the start time of this event is within
-                const overlappingEvents = events.filter((other, otherIndex) => {
-                    if (otherIndex >= index) return false;
-                    const otherStart = timeToMinutes(other.startTime || '00:00');
-                    let otherEnd;
-                    if (other.endTime) {
-                        otherEnd = timeToMinutes(other.endTime);
-                    } else {
-                        otherEnd = otherStart + 100;
-                        if (otherEnd > 1440) {
-                            otherEnd = 1440;
-                        }
+                const startMinutes = timeToMinutes(item.startTime || '00:00');
+                const endMinutes = item.endTime ? timeToMinutes(item.endTime) : Math.min(startMinutes + 100, 1440);
+
+                // Find the first available lane
+                let laneIndex = 0;
+                while (true) {
+                    if (!lanes[laneIndex]) {
+                        lanes[laneIndex] = [];
                     }
-                    const thisStart = timeToMinutes(item.startTime || '00:00');
-                    return thisStart >= otherStart && thisStart < otherEnd;
-                });
-                const overlapOffset = overlappingEvents.length * 10;
+                    const lane = lanes[laneIndex];
+                    const conflict = lane.some(event => {
+                        return (startMinutes < event.end && endMinutes > event.start);
+                    });
+                    if (!conflict) {
+                        lane.push({ start: startMinutes, end: endMinutes });
+                        break;
+                    }
+                    laneIndex++;
+                }
 
                 const eventEl = document.createElement('div');
                 eventEl.className = 'calendar-event';
                 eventEl.textContent = item.name;
                 // reduce the width of the event based on how many events it overlaps with, subtracting from the left side
                 const generalCalOffset = 54;
-                eventEl.style.left = `${overlapOffset + generalCalOffset}px`;
+                const laneWidth = 10;
+                eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset}px`;
                 
-                const startMinutes = timeToMinutes(item.startTime || '00:00');
                 eventEl.style.top = `${startMinutes / 1440 * 100}%`;
                 
                 // the color is the level indentation, basically the number of events it overlaps with
-                const color = colors[overlappingEvents.length % colors.length];
-                console.log('index: ', index);
-                console.log('color: ', color);
+                const color = colors[laneIndex % colors.length];
                 
                 if (item.endTime) {
-                    const endMinutes = timeToMinutes(item.endTime);
                     eventEl.style.height = `calc(${(endMinutes - startMinutes) / 1440 * 100}% - 7px)`;
                     eventEl.style.backgroundColor = color;
                 } else {
