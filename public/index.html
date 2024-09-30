@@ -147,7 +147,6 @@
         .calendar-event {
             position: absolute;
             left: 60px;
-            right: 0;
             padding-top: 2px;
             padding-left: 5px;
             padding-right: 5px;
@@ -612,6 +611,10 @@
                 const generalCalOffset = 54;
                 const laneWidth = 10;
                 eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset}px`;
+                
+                // calculate width
+                const calendarWidth = 280;
+                eventEl.style.width = `calc(${calendarWidth - (laneIndex * laneWidth) - generalCalOffset - 7}px)`;
                 
                 eventEl.style.top = `${startMinutes / 1440 * 100}%`;
                 
