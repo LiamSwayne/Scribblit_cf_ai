@@ -549,7 +549,8 @@
                     taskContent.className = 'task-content';
                     taskContent.textContent = item.name;
 
-                    if (itemDate.hasSame(today, 'day') || itemDate.hasSame(tomorrow, 'day')) {
+                    console.log('item.date', item.date);
+                    if (item.date.hasSame(today, 'day') || item.date.hasSame(tomorrow, 'day')) {
                         const timeSpan = document.createElement('span');
                         if (item.endTime) {
                             timeSpan.className = 'task-time';
@@ -562,17 +563,17 @@
                         listItem.appendChild(timeSpan);
                         listItem.appendChild(taskContent);
                         
-                        if (itemDate.hasSame(today, 'day')) {
+                        if (item.date.hasSame(today, 'day')) {
                             todayTaskList.appendChild(listItem);
                         } else {
                             tomorrowTaskList.appendChild(listItem);
                         }
-                    } else if (itemDate > tomorrow && itemDate <= weekEnd) {
+                    } else if (item.date > tomorrow && item.date <= weekEnd) {
                         const dateTimeSpan = document.createElement('span');
                         dateTimeSpan.className = 'task-date-time';
                         const dateSpan = document.createElement('span');
                         dateSpan.className = 'task-date';
-                        dateSpan.textContent = itemDate.toFormat('MM/dd');
+                        dateSpan.textContent = item.date.toFormat('MM/dd');
                         dateTimeSpan.appendChild(dateSpan);
                         
                         if (item.endTime) {
