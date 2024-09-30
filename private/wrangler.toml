@@ -1,3 +1,6 @@
-name = "scribblit-server"
+name = "your-worker-name"
 main = "main.js"
 compatibility_date = "2024-09-30"
+
+[[ai_bindings]]
+binding = "AI"
