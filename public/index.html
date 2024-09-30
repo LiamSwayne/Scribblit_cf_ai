@@ -415,6 +415,7 @@
                 });
 
                 if (!response.ok) {
+                    console.log('response (error):', response);
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
@@ -423,7 +424,8 @@
                 saveToLocalStorage();
                 renderAllData();
             } catch (error) {
-                console.log('Error processing input:', error);
+                console.log('Error processing input:', error.message);
+                console.log('Stack:', error.stack);
                 alert('Sorry, there was an error processing your input. Please try again later.');
             }
 
