@@ -61,6 +61,7 @@ export default {
         ];
 
         try {
+            console.log("Env: ", env);
             const response = await env.AI.run("@cf/meta/llama-3-8b-instruct-awq", { messages });
             
             // Parse the JSON to ensure it's valid
