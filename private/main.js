@@ -44,14 +44,12 @@ export default {
         3. Determine the time, if applicable. If it's past noon and only a number is given (e.g., "at 3"), assume PM. Use reasoning to guess AM/PM when not explicitly stated. Do not assume the end time of events unless it can be figured out from the input. Some have a flexible end time, so they should just not be given an end time.
 
         Respond with a JSON array. Each item should have these properties:
-        - kind: "task" or "event". generally a task is anything that must be done by a certain date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
-        - name: The formatted task name
-        - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2"
-        - startTime: In HH:mm format (24-hour) (only for events)
-        - endTime: In HH:mm format (24-hour) (the end of an event or the due date of a task)
-        If a field cannot be inferred, instead of giving a null value just omit it completely. For example: if not time is given, don't provide the startTime or endTime fields. Never use 23:59 as a default due date for a task.
-        
-        The input you are given is written very quickly and hastily, so you should expand parts where they meant a word but just typed a few characters. Like "HW" should be expanded to "Homework". This doesn't mean you should expand acronyms. Also remove words from the name that provide no value, like "due". So "slideshow due for Bio" should be "Slideshow for Bio". Omit trailing commas in the JSON. Generally do not shorten or abbreviate task names and never remove information from them.
+        - kind: "task" or "event". a task is anything that must be completed by a date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
+        - name: The name formatted to sentence case. The input you are given is written very hastily, so expand shorthand like "HW" to the full term like "Homework". Don't expand acronyms. Remove words from the name that provide no value, like "due". The name you produce shouldn't remove any details from the input.
+        - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2".
+        - startTime: In HH:mm format (24-hour). Only for events. All day events should not have a startTime.
+        - endTime: In HH:mm format (24-hour). The end of an event or the due date of a task.
+        If a field cannot be inferred, just omit it completely instead of making it null. For example: if not time is given, don't provide the startTime or endTime fields. Never use 23:59 as a default due date for a task.
 
         Give me a JSON response and nothing else.`;
 
