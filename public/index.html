@@ -141,7 +141,10 @@
             position: absolute;
             left: 60px;
             right: 0;
-            padding: 5px;
+            padding-top: 2px;
+            padding-left: 5px;
+            padding-right: 5px;
+            padding-bottom: 3px;
             margin: 3.5px;
             color: #e0e0e0;
             border-radius: 8px;
@@ -550,7 +553,9 @@
                     taskContent.textContent = item.name;
 
                     console.log('item.date', item.date);
-                    if (item.date.hasSame(today, 'day') || item.date.hasSame(tomorrow, 'day')) {
+                    let date = DateTime.fromISO(item.date)
+                    console.log('date', date);
+                    if (date.hasSame(today, 'day') || date.hasSame(tomorrow, 'day')) {
                         const timeSpan = document.createElement('span');
                         if (item.endTime) {
                             timeSpan.className = 'task-time';
@@ -563,17 +568,17 @@
                         listItem.appendChild(timeSpan);
                         listItem.appendChild(taskContent);
                         
-                        if (item.date.hasSame(today, 'day')) {
+                        if (date.hasSame(today, 'day')) {
                             todayTaskList.appendChild(listItem);
                         } else {
                             tomorrowTaskList.appendChild(listItem);
                         }
-                    } else if (item.date > tomorrow && item.date <= weekEnd) {
+                    } else if (date > tomorrow && date <= weekEnd) {
                         const dateTimeSpan = document.createElement('span');
                         dateTimeSpan.className = 'task-date-time';
                         const dateSpan = document.createElement('span');
                         dateSpan.className = 'task-date';
-                        dateSpan.textContent = item.date.toFormat('MM/dd');
+                        dateSpan.textContent = date.toFormat('MM/dd');
                         dateTimeSpan.appendChild(dateSpan);
                         
                         if (item.endTime) {
@@ -653,7 +658,10 @@
                 const startMinutes = timeToMinutes(item.startTime || '00:00');
                 eventEl.style.top = `${startMinutes / 1440 * 100}%`;
                 
-                const color = colors[index % colors.length];
+                // the color is the level indentation, basically the number of events it overlaps with
+                const color = colors[overlappingEvents.length % colors.length];
+                console.log('index: ', index);
+                console.log('color: ', color);
                 
                 if (item.endTime) {
                     const endMinutes = timeToMinutes(item.endTime);
@@ -679,7 +687,6 @@
                 // Set z-index based on the event's position in the sorted array
                 eventEl.style.zIndex = index + 1;
 
-                console.log('eventel', eventEl);
                 calendar.appendChild(eventEl);
             });
         }
