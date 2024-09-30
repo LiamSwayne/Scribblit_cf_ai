@@ -141,7 +141,7 @@
             left: 20px;
             right: 0;
             overflow-y: auto;
-            height: 1160px;
+            height: 1060px;
         }
         .calendar-event {
             position: absolute;
@@ -589,22 +589,35 @@
                 calendar.appendChild(hourMarker);
                 calendar.appendChild(hourLabel);
             }
-
-            // Process events
-            let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
             
-            events.forEach(event => {
-                if (event.startTime) {
-                    const calculatedDate = calculateActualDate(event.startTime);
-                    if (calculatedDate) {
-                        event.date = calculatedDate;
-                        delete event.startTime;
-                    } else {
-                        // delete the start time anyway because no information can be extracted from it
-                        delete event.startTime;
+            let shouldUpdateLocalStorage = false;
+            // this only operaties on events, but we want to edit task array so changes will be saved
+            taskEventArray.forEach(event => {
+                if (event.kind == "event") {
+                    if (event.startTime) {
+                        if (!isValidTime(event.startTime)) {
+                            shouldUpdateLocalStorage = true;
+                            const calculatedDate = calculateActualDate(event.startTime);
+                            if (calculatedDate) {
+                                event.date = calculatedDate;
+                                delete event.startTime;
+                            } else {
+                                // delete the time because no info can be inferred
+                                delete event.startTime;
+                            }
+                        }
                     }
                 }
             });
+
+            // Process events
+            let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
+
+            if (shouldUpdateLocalStorage) {
+                saveToLocalStorage();
+            }
+
+            console.log('events:', events);
 
             // Separate all-day events and events without calculable start times
             let allDayEvents = events.filter(event => !event.startTime || !isValidTime(event.startTime));
