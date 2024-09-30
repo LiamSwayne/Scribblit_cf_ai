@@ -138,7 +138,7 @@
         }
         #calendar {
             position: absolute;
-            top: 40px;
+            margin-top: 2px;
             left: 20px;
             right: 0;
             overflow-y: auto;
@@ -235,6 +235,19 @@
                 transform: scale(1);
             }
         }
+        .all-day-events {
+            margin-bottom: 10px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        .all-day-event {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 5px;
+        }
+        .all-day-event .task-asterisk {
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -266,6 +279,7 @@
                 <span id="currentDate">Today</span>
                 <button id="nextDay">&gt;</button>
             </div>
+            <div id="allDayEvents" class="all-day-events"></div>
             <div id="calendar"></div>
         </div>
     </div>
@@ -561,6 +575,8 @@
 
         function renderCalendar() {
             calendar.innerHTML = '';
+            const allDayEventsContainer = document.getElementById('allDayEvents');
+            allDayEventsContainer.innerHTML = '<div class="section-title">All-day</div>';
             
             // Render time markers
             for (let i = 0; i < 24; i++) {
@@ -577,10 +593,29 @@
                 calendar.appendChild(hourLabel);
             }
 
-            // Create an array of only events taking place on the current date
+            // Filter events for the current date
             let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
-            // Sort the array by start time
-            events.sort((a, b) => {
+            
+            // Separate all-day events
+            let allDayEvents = events.filter(event => !event.startTime && !event.endTime);
+            let timedEvents = events.filter(event => event.startTime || event.endTime);
+
+            // Render all-day events
+            allDayEvents.forEach(event => {
+                const eventEl = document.createElement('div');
+                eventEl.className = 'all-day-event';
+                const asterisk = document.createElement('span');
+                asterisk.className = 'task-asterisk';
+                asterisk.textContent = '*';
+                const eventContent = document.createElement('span');
+                eventContent.textContent = event.name;
+                eventEl.appendChild(asterisk);
+                eventEl.appendChild(eventContent);
+                allDayEventsContainer.appendChild(eventEl);
+            });
+
+            // Sort the timed events by start time
+            timedEvents.sort((a, b) => {
                 const aTime = timeToMinutes(a.startTime || '00:00');
                 const bTime = timeToMinutes(b.startTime || '00:00');
                 return aTime - bTime;
@@ -598,7 +633,7 @@
             let currentGroup = [];
             let currentStartTime = null;
 
-            events.forEach((event, index) => {
+            timedEvents.forEach((event, index) => {
                 const startTime = event.startTime || '00:00';
                 if (startTime !== currentStartTime) {
                     if (currentGroup.length > 0) {
@@ -610,12 +645,12 @@
                     currentGroup.push(event);
                 }
                 
-                if (index === events.length - 1 && currentGroup.length > 0) {
+                if (index === timedEvents.length - 1 && currentGroup.length > 0) {
                     eventGroups.push(currentGroup);
                 }
             });
 
-            // Render events
+            // Render timed events
             eventGroups.forEach(group => {
                 const groupStartMinutes = timeToMinutes(group[0].startTime || '00:00');
                 const groupEndMinutes = Math.max(...group.map(e => {
@@ -690,7 +725,7 @@
                     }
 
                     // Set z-index based on the event's position in the sorted array
-                    eventEl.style.zIndex = events.indexOf(item) + 1;
+                    eventEl.style.zIndex = timedEvents.indexOf(item) + 1;
 
                     calendar.appendChild(eventEl);
                 });
