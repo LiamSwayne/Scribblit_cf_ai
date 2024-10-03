@@ -34,7 +34,13 @@ export default {
         }
 
         const input = await request.text();
-        const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+
+        // Parse the input to get the date, time, and actual input
+        const firstCommaIndex = input.indexOf(',');
+        const secondCommaIndex = input.indexOf(',', firstCommaIndex + 1);
+        const date = input.slice(0, firstCommaIndex);
+        const time = input.slice(firstCommaIndex + 1, secondCommaIndex);
+        const actualInput = input.slice(secondCommaIndex + 1);
 
         const systemPrompt = `You are a task parsing AI. You will receive a list of tasks and/or events, potentially messy or informal. Your job is to format and structure this information.
 
@@ -54,16 +60,16 @@ export default {
 
         const messages = [
             { role: "system", content: systemPrompt },
-            { role: "user", content: input }
+            { role: "user", content: actualInput }
         ];
 
         try {
-            console.log("Env: ", env);
             const response = await env.AI.run("@cf/meta/llama-3-8b-instruct-awq", { messages });
             
-            // Parse the JSON to ensure it's valid
-            const parsedData = JSON.parse(response.response);
-            return SEND(parsedData);
+            // Don't parse the JSON to ensure it's valid
+            // this will instead be done on the front-end with a library that can handle trailing commas
+            // also it is ideal to reduce CPU time on the back-end
+            return SEND(response);
         } catch (error) {
             console.error('Error processing input:', error);
             return SEND({ error: 'Failed to process input' }, 500);
