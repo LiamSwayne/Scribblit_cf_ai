@@ -597,9 +597,6 @@
             try {
                 const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'text/plain',
-                    },
                     body: `${currentDate},${currentTime},${input}`
                 });
 
