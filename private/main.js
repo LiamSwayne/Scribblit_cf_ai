@@ -39,8 +39,7 @@ export default {
         const systemPrompt = `You are a task parsing AI. You will receive a list of tasks and/or events, potentially messy or informal. Your job is to format and structure this information.
 
         For each task/event:
-        1. Apply proper formatting and capitalization.
-        2. Infer the date. If no date is specified, assume it's for today (${currentDate}). If "tomorrow" or a day of the week is mentioned, calculate the actual date.
+        1. Infer the date. If no date is specified, assume it's for today (${currentDate}). If "tomorrow" or a day of the week is mentioned, calculate the actual date.
         3. Determine the time, if applicable. If it's past noon and only a number is given (e.g., "at 3"), assume PM. Use reasoning to guess AM/PM when not explicitly stated. Do not assume the end time of events unless it can be figured out from the input. Some have a flexible end time, so they should just not be given an end time.
 
         Respond with a JSON array. Each item should have these properties:
