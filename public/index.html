@@ -368,6 +368,9 @@
         // Global array to store all tasks and events
         let taskEventArray = [];
 
+        // how far the calendar is from the top of the page when there are no all-day events
+        const calendarToTopDistanceNoAllDay = 32;
+
         const DateTime = luxon.DateTime;
         let currentDate = DateTime.local();
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -435,14 +438,17 @@
 
                 const hasNewAllDayEvents = allDayEventsContainer.children.length > 0;
 
+                const allDayEventsHeight = allDayEventsContainer.offsetHeight;
+                const calendarToTopDistanceWithAllDay = allDayEventsHeight + calendarToTopDistanceNoAllDay;
+
                 // Handle animations based on all-day events presence
                 if (!hadAllDayEvents && hasNewAllDayEvents) {
                     // Calculate the height of the all-day events container
-                    const allDayEventsHeight = allDayEventsContainer.height;
+                    const allDayEventsHeight = allDayEventsContainer.offsetHeight;
                     
                     // Slide calendar down
-                    calendar.style.transition = 'transform 0.3s ease';
-                    calendar.style.transform = `translateY(${allDayEventsHeight}px)`;
+                    calendar.style.transition = 'top 0.3s ease';
+                    calendar.style.top = `${calendarToTopDistanceWithAllDay}px`;
                     
                     allDayEventsContainer.style.opacity = '0';
                     allDayEventsContainer.style.transition = 'opacity 0.3s ease';
@@ -452,12 +458,12 @@
                     }, 50);
                 } else if (hadAllDayEvents && !hasNewAllDayEvents) {
                     // Slide calendar up
-                    calendar.style.transition = 'transform 0.3s ease';
-                    calendar.style.transform = 'translateY(0)';
+                    calendar.style.transition = 'top 0.3s ease';
+                    calendar.style.top = `${calendarToTopDistanceNoAllDay}px`;
                 } else {
-                    // Reset transform if no change in all-day events
+                    // Reset position if no change in all-day events
                     calendar.style.transition = 'none';
-                    calendar.style.transform = 'translateY(0)';
+                    calendar.style.top = hasNewAllDayEvents ? `${calendarToTopDistanceWithAllDay}px` : `${calendarToTopDistanceNoAllDay}px`;
                     
                     if (hasNewAllDayEvents) {
                         allDayEventsContainer.style.opacity = '1';
@@ -984,6 +990,10 @@
         window.addEventListener('resize', () => {
             renderCalendar();
         });
+
+        // move the calendar to the right spot
+        document.getElementById('calendar').style.top = `${calendarToTopDistanceNoAllDay}px`;
+
     </script>
 </body>
 </html>
