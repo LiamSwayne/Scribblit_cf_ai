@@ -1,6 +1,5 @@
 function SEND(data, status = 200, contentType = 'json', headers = {}) {
     const corsHeaders = {
-        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
