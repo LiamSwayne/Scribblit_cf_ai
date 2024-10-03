@@ -145,14 +145,14 @@
             opacity: 0.5;
         }
         #calendar {
-            position: absolute;
-            margin-top: 2px;
-            left: 10px;
-            right: 0;
-            overflow-y: auto;
-            height: 1100px;
-            border-bottom: 1px solid #444; /* match the border above each border marker */
-        }
+    position: absolute;
+    margin-top: 2px;
+    left: 10px;
+    right: 0;
+    overflow-y: auto;
+    height: 1100px;
+    border-bottom: 1px solid #444;
+}
         .calendar-event {
             position: absolute;
             left: 60px;
@@ -288,8 +288,10 @@
                 transform: scale(1);
             }
         }
-        .all-day-events {
+        #allDayEvents {
             padding-bottom: 4px;
+            margin-left: 10px;
+            margin-top: 6px; /* make it as far away from the top arrows as the top of the calendar would be */
         }
         .all-day-event {
             display: flex;
@@ -354,7 +356,7 @@
                     </svg>
                 </button>
             </div>
-            <div id="allDayEvents" class="all-day-events"></div>
+            <div id="allDayEvents"></div>
             <div id="calendar"></div>
         </div>
     </div>
@@ -400,26 +402,82 @@
 
         function changeDate(delta) {
             const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+            const allDayEventsContainer = document.getElementById('allDayEvents');
+            // did the previously shown day have any all-day events?
+            // aka is the all-day events container currently showing
+            const hadAllDayEvents = allDayEventsContainer.children.length > 0;
+
+            // Set the opacity of the all-day events container to 0 if it is not currently showing
+            if (!hadAllDayEvents) {
+                allDayEventsContainer.style.opacity = '0';
+            }
             
             // Fade out old events
             oldEvents.forEach(event => {
                 event.style.animation = 'fadeOut 0.3s forwards';
             });
 
+            if (hadAllDayEvents) {
+                allDayEventsContainer.style.animation = 'fadeOut 0.3s forwards';
+            }
+
             setTimeout(() => {
                 // Remove old events
                 oldEvents.forEach(event => event.remove());
+                allDayEventsContainer.innerHTML = '';
+                allDayEventsContainer.style.animation = '';
                 
                 // Update date and render new calendar
                 currentDate = currentDate.plus({ days: delta });
                 updateDateDisplay();
-                renderCalendar();
                 
+                renderCalendar();
+
+                const hasNewAllDayEvents = allDayEventsContainer.children.length > 0;
+
+                // Handle animations based on all-day events presence
+                if (!hadAllDayEvents && hasNewAllDayEvents) {
+                    // Calculate the height of the all-day events container
+                    const allDayEventsHeight = allDayEventsContainer.height;
+                    
+                    // Slide calendar down
+                    calendar.style.transition = 'transform 0.3s ease';
+                    calendar.style.transform = `translateY(${allDayEventsHeight}px)`;
+                    
+                    allDayEventsContainer.style.opacity = '0';
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    
+                    setTimeout(() => {
+                        allDayEventsContainer.style.opacity = '1';
+                    }, 50);
+                } else if (hadAllDayEvents && !hasNewAllDayEvents) {
+                    // Slide calendar up
+                    calendar.style.transition = 'transform 0.3s ease';
+                    calendar.style.transform = 'translateY(0)';
+                } else {
+                    // Reset transform if no change in all-day events
+                    calendar.style.transition = 'none';
+                    calendar.style.transform = 'translateY(0)';
+                    
+                    if (hasNewAllDayEvents) {
+                        allDayEventsContainer.style.opacity = '1';
+                    }
+                }
+
                 // Fade in new events
                 Array.from(calendar.querySelectorAll('.calendar-event')).forEach(event => {
                     event.style.opacity = '0';
-                    event.style.animation = 'fadeIn 0.3s forwards';
+                    event.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        event.style.opacity = '1';
+                    }, 50);
                 });
+
+                // Reset transitions after animations complete
+                setTimeout(() => {
+                    calendar.style.transition = 'none';
+                    allDayEventsContainer.style.transition = 'none';
+                }, 350);
             }, 300);
         }
 
