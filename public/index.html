@@ -45,7 +45,7 @@
         .right-column {
             flex: 1;
             border-left: 2px solid #444;
-            padding-left: 10px;
+            padding-left: 0px;
             position: relative;
             height: calc(100% + 30px);
             margin-top: -30px;
@@ -73,10 +73,10 @@
             border-color: #444;
         }
         .task-section {
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
         .task-section:not(:last-child) {
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             border-bottom: 2px solid #444;
         }
         .task-list {
@@ -141,10 +141,13 @@
         .task-content {
             flex: 1;
         }
+        .empty-section {
+            opacity: 0.5;
+        }
         #calendar {
             position: absolute;
             margin-top: 2px;
-            left: 20px;
+            left: 10px;
             right: 0;
             overflow-y: auto;
             height: 1100px;
@@ -167,7 +170,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 2px;
         }
         .navigation button {
             background-color: transparent;
@@ -307,6 +310,11 @@
             100% {
                 transform: rotate(360deg);
             }
+        }
+        #prevDay {
+            left: 10px;
+        }
+        #nextDay {
         }
     </style>
 </head>
@@ -588,6 +596,10 @@
             const tomorrow = today.plus({ days: 1 });
             const weekEnd = today.plus({ days: 7 });
 
+            let todayTaskCount = 0;
+            let tomorrowTaskCount = 0;
+            let weekTaskCount = 0;
+
             taskEventArray.forEach(item => {
                 if (item.kind === "task") {
                     const listItem = document.createElement('div');
@@ -611,8 +623,10 @@
                         
                         if (date.hasSame(today, 'day')) {
                             todayTaskList.appendChild(listItem);
+                            todayTaskCount++;
                         } else {
                             tomorrowTaskList.appendChild(listItem);
+                            tomorrowTaskCount++;
                         }
                     } else if (date > tomorrow && date <= weekEnd) {
                         const dateTimeSpan = document.createElement('span');
@@ -636,9 +650,15 @@
                         listItem.appendChild(dateTimeSpan);
                         listItem.appendChild(taskContent);
                         weekTaskList.appendChild(listItem);
+                        weekTaskCount++;
                     }
                 }
             });
+
+            // Apply empty-section class if there are no tasks
+            todayTaskList.closest('.task-section').classList.toggle('empty-section', todayTaskCount === 0);
+            tomorrowTaskList.closest('.task-section').classList.toggle('empty-section', tomorrowTaskCount === 0);
+            weekTaskList.closest('.task-section').classList.toggle('empty-section', weekTaskCount === 0);
         }
 
         function renderCalendar() {
