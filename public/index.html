@@ -151,6 +151,7 @@
             right: 0;
             overflow-y: auto;
             height: 1100px;
+            border-bottom: 1px solid #444; /* match the border above each border marker */
         }
         .calendar-event {
             position: absolute;
@@ -367,6 +368,7 @@
 
         const DateTime = luxon.DateTime;
         let currentDate = DateTime.local();
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         // rotate during testing
         // AIzaSyDgiM5ZhWqxsI_hoNAaJeSChCh5SkztGoc
         // AIzaSyDxLOhwro6jpIHUBssb_hcavahQwOGrjPQ
@@ -449,6 +451,11 @@
             
             const currentHeight = taskInput.style.height;
             isAnimating = true;
+
+            // Get current date and time in user's timezone
+            const now = DateTime.now().setZone(userTimezone);
+            const currentDate = now.toISODate();
+            const currentTime = now.toFormat('HH:mm');
             
             const inputRect = taskInput.getBoundingClientRect();
             const overlayRect = animationOverlay.getBoundingClientRect();
@@ -508,7 +515,15 @@
             try {
                 const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
                     method: 'POST',
-                    body: input
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        input: input,
+                        userTimezone: userTimezone,
+                        currentDate: currentDate,
+                        currentTime: currentTime
+                    })
                 });
 
                 if (!response.ok) {
@@ -554,7 +569,7 @@
         }
 
         function convertToISODate(dateString) {
-            const today = DateTime.local();
+            const today = DateTime.local().setZone(userTimezone);
 
             if (dateString) {
                 if (dateString === 'today') {
@@ -590,7 +605,7 @@
             weekTaskList.innerHTML = '';
             renderCalendar();
 
-            const today = DateTime.local();
+            const today = DateTime.local().setZone(userTimezone);
             const tomorrow = today.plus({ days: 1 });
             const weekEnd = today.plus({ days: 7 });
 
@@ -858,7 +873,7 @@
 
         // take a date string from startTime, which shouldn't have a day but sometimes AI hallucinates and gives it a day, so we try to infer the correct date before clearing the field
         function calculateActualDate(dateString) {
-            const today = DateTime.local();
+            const today = DateTime.local().setZone(userTimezone);
             
             if (dateString === 'today') {
                 return today.toISODate();
