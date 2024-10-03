@@ -166,15 +166,59 @@
         .navigation {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 10px;
         }
         .navigation button {
-            background-color: #3a506b;
-            color: #e0e0e0;
+            background-color: transparent;
             border: none;
-            padding: 5px 10px;
             cursor: pointer;
-            font-family: 'Inter', sans-serif;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .navigation button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            transition: border-width 0.3s ease;
+        }
+        .navigation button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #61a3ff, #d477ff);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .navigation button:hover::before {
+            border-width: 0;
+        }
+        .navigation button:hover::after {
+            opacity: 1;
+            animation: rotateGradient 3.5s linear infinite;
+        }
+        .navigation button svg {
+            width: 14px;
+            height: 14px;
+            position: relative;
+            z-index: 1;
+            stroke: #ffffff;
+            stroke-width: 3;
         }
         .hour-marker {
             position: absolute;
@@ -251,6 +295,19 @@
         .all-day-event .task-asterisk {
             margin-right: 10px;
         }
+        #currentDate {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0 10px;
+        }
+        @keyframes rotateGradient {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 <body>
@@ -278,9 +335,17 @@
         </div>
         <div class="right-column">
             <div class="navigation">
-                <button id="prevDay">&lt;</button>
+                <button id="prevDay" aria-label="Previous day">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
                 <span id="currentDate">Today</span>
-                <button id="nextDay">&gt;</button>
+                <button id="nextDay" aria-label="Next day">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                </button>
             </div>
             <div id="allDayEvents" class="all-day-events"></div>
             <div id="calendar"></div>
@@ -806,9 +871,23 @@
             taskEventArray = JSON.parse(storedData);
         }
 
+        function updateButtonStyles() {
+            const buttons = document.querySelectorAll('.navigation button');
+            buttons.forEach(button => {
+                button.addEventListener('mouseenter', () => {
+                    button.style.color = '#ffffff';
+                });
+                button.addEventListener('mouseleave', () => {
+                    button.style.color = '';
+                });
+            });
+        }
+
+
         updateDateDisplay();
         renderAllData();
         adjustTextareaHeight();
+        updateButtonStyles();
 
         // Modified resize event listener
         window.addEventListener('resize', () => {
