@@ -69,7 +69,7 @@ export default {
             // Don't parse the JSON to ensure it's valid
             // this will instead be done on the front-end with a library that can handle trailing commas
             // also it is ideal to reduce CPU time on the back-end
-            return SEND(response);
+            return SEND(JSON.parse(response));
         } catch (error) {
             console.error('Error processing input:', error);
             return SEND({ error: 'Failed to process input' }, 500);
