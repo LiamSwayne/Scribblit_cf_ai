@@ -408,6 +408,11 @@
             const allDayEventsContainer = document.getElementById('allDayEvents');
             const hadAllDayEvents = allDayEventsContainer.children.length > 0;
 
+            // set initial opacity of all-day events container to 0 if it is not currently visible
+            if (!hadAllDayEvents) {
+                allDayEventsContainer.style.opacity = '0';
+            }
+
             // Update date immediately
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
@@ -452,6 +457,13 @@
                 // Render new calendar
                 renderCalendar();
 
+                // Get new events and set initial opacity to 0
+                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                newEvents.forEach(event => {
+                    event.style.opacity = '0';
+                    event.style.transition = 'opacity 0.3s ease';
+                });
+
                 const hasNewAllDayEvents = allDayEventsContainer.children.length > 0;
                 const allDayEventsHeight = allDayEventsContainer.offsetHeight;
                 const calendarToTopDistanceWithAllDay = allDayEventsHeight + calendarToTopDistanceNoAllDay;
@@ -474,12 +486,21 @@
                     allDayEventsContainer.style.opacity = '1';
                 }
 
-                // Fade in new events
-                Array.from(calendar.querySelectorAll('.calendar-event')).forEach(event => {
-                    handleTransition(event, { 
-                        opacity: '1', 
-                        transition: 'opacity 0.3s ease' 
-                    });
+                // Trigger reflow to ensure new opacity is applied before fading in
+                calendar.offsetHeight;
+
+                // Staggered fade-in for new events
+                const eventCount = newEvents.length;
+                newEvents.forEach((event, index) => {
+                    let delay;
+                    if (eventCount < 7) {
+                        delay = index * 50;
+                    } else {
+                        delay = (250 * index) / (eventCount - 1);
+                    }
+                    setTimeout(() => {
+                        event.style.opacity = '1';
+                    }, delay);
                 });
             });
         }
@@ -577,14 +598,9 @@
                 const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'text/plain',
                     },
-                    body: JSON.stringify({
-                        input: input,
-                        userTimezone: userTimezone,
-                        currentDate: currentDate,
-                        currentTime: currentTime
-                    })
+                    body: `${currentDate},${currentTime},${input}`
                 });
 
                 if (!response.ok) {
