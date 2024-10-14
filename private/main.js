@@ -94,8 +94,8 @@ Give me a JSON response and nothing else.`;
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const result = await response.text();
-            console.log(result);
+            const result = await response.json();
+            console.log(result.content[0].text);
             return SEND(result.content[0].text, contentType = 'text');
         } catch (error) {
             console.error('Error processing input:', error);
