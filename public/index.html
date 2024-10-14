@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <!-- JSON parser that allows trailing commas produced by the LLM -->
     <script src="https://unpkg.com/json5@2/dist/index.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <style>
         body {
             display: flex;
@@ -367,8 +368,6 @@
             <div id="calendar"></div>
         </div>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <script>
         let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
 
@@ -654,9 +653,6 @@
             console.log(typeof(newItems));
             newItems.forEach(item => {
                 const sanitizedItem = { ...item, date: convertToISODate(item.date) };
-                if (item.kind == 'event' && !item.startTime && !item.endTime) {
-                    sanitizedItem.startTime = '00:00';
-                }
                 taskEventArray.push(sanitizedItem);
             });
             saveToLocalStorage();
@@ -954,6 +950,8 @@
                     calendar.appendChild(eventEl);
                 });
             });
+
+            updateRightColumnHeight();
         }
 
         function timeToMinutes(time) {
@@ -992,12 +990,6 @@
             return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
         }
 
-        // load from local storage
-        const storedData = localStorage.getItem('taskEventArray');
-        if (storedData) {
-            taskEventArray = JSON.parse(storedData);
-        }
-
         function updateButtonStyles() {
             const buttons = document.querySelectorAll('.navigation button');
             buttons.forEach(button => {
@@ -1010,21 +1002,6 @@
             });
         }
 
-
-        updateDateDisplay();
-        renderAllData();
-        adjustTextareaHeight();
-        updateButtonStyles();
-        updateRightColumnHeight();
-
-        // Modified resize event listener
-        window.addEventListener('resize', () => {
-            renderCalendar();
-        });
-
-        // move the calendar to the right spot
-        document.getElementById('calendar').style.top = `${calendarToTopDistanceNoAllDay}px`;
-
         function updateRightColumnHeight() {
             const calendar = document.getElementById('calendar');
             const rightColumn = document.querySelector('.right-column');
@@ -1033,7 +1010,18 @@
             rightColumn.style.height = `${newHeight}px`;
         }
 
-        // Modified resize event listener
+        // load from local storage
+        const storedData = localStorage.getItem('taskEventArray');
+        if (storedData) {
+            taskEventArray = JSON.parse(storedData);
+        }
+
+        updateDateDisplay();
+        renderAllData();
+        adjustTextareaHeight();
+        updateButtonStyles();
+        updateRightColumnHeight();
+
         window.addEventListener('resize', () => {
             renderCalendar();
             updateRightColumnHeight();
@@ -1041,10 +1029,9 @@
 
         // !testing
         document.getElementById('taskInput').textContent =
-        `meeting with math teacher on tuseday
+        `meeting with advisor today (all-day event)
         math HW due 6 pm today!!!
         networking at the gates hillman super hill center from 3 to 9
-        bio lab on friday
         finish recording new song by tomorrow
         calc pre-test due by thursday
         programming homework before 15:00 friday
