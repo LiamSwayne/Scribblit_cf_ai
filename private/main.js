@@ -81,7 +81,7 @@ Give me a JSON response and nothing else.`;
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-API-Key': apiKey,
+                    'X-API-Key': env.ANTHROPIC_API_KEY,
                     'anthropic-version': '2023-06-01',
                     'anthropic-beta': 'prompt-caching-2024-07-31'
                 },
