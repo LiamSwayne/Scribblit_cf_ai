@@ -424,7 +424,13 @@
                 event.style.transition = 'opacity 0.3s ease';
             });
 
-            // Wait for fade out
+            // Fade out all-day events if they exist
+            if (oldAllDayEventCount > 0) {
+                allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                allDayEventsContainer.style.opacity = '0';
+            }
+
+            // Wait for fade out to complete
             setTimeout(() => {
                 // Remove old events
                 oldEvents.forEach(event => event.remove());
@@ -432,8 +438,8 @@
                 // Clear all-day events container
                 allDayEventsContainer.innerHTML = '';
                 
-                // Render new calendar
-                renderCalendar();
+                // Render new calendar without showing events
+                renderCalendar(false);
 
                 // Count new all-day events
                 const newAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
@@ -449,32 +455,23 @@
 
                 // Handle all-day events visibility
                 if (newAllDayEventCount > 0) {
-                    if (oldAllDayEventCount === 0) {
-                        // Fade in all-day section if it's new
-                        allDayEventsContainer.style.opacity = '0';
-                        allDayEventsContainer.style.transition = 'opacity 0.3s ease';
-                        setTimeout(() => {
-                            allDayEventsContainer.style.opacity = '1';
-                        }, 150);
-                    } else {
-                        // Keep visible if it was already there
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    allDayEventsContainer.style.opacity = '0';
+                    setTimeout(() => {
                         allDayEventsContainer.style.opacity = '1';
-                    }
+                    }, 150);
                 } else {
-                    // Hide if no all-day events
                     allDayEventsContainer.style.opacity = '0';
                 }
 
                 // Fade in new events
                 const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
                 newEvents.forEach((event, index) => {
-                    event.style.opacity = '0';
-                    event.style.transition = 'opacity 0.3s ease';
                     setTimeout(() => {
                         event.style.opacity = '1';
                     }, index * 50);
                 });
-            }, 300);
+            }, 300); // Wait for old events fade out to complete
         }
 
         function adjustTextareaHeight() {
@@ -729,7 +726,7 @@
             weekTaskList.closest('.task-section').classList.toggle('empty-section', weekTaskCount === 0);
         }
 
-        function renderCalendar() {
+        function renderCalendar(showEvents = true) {
             console.log("called renderCalendar");
             calendar.innerHTML = '';
             const allDayEventsContainer = document.getElementById('allDayEvents');
@@ -912,6 +909,10 @@
 
                     // Set z-index based on the event's position in the sorted array
                     eventEl.style.zIndex = timedEvents.indexOf(item) + 1;
+
+                    if (!showEvents) {
+                        eventEl.style.opacity = '0';
+                    }
 
                     calendar.appendChild(eventEl);
                 });
