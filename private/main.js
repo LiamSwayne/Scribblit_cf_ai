@@ -10,7 +10,10 @@ function SEND(data, status = 200, contentType = 'json', headers = {}) {
     };
     if (contentType === 'json') {
         defaultHeaders['Content-Type'] = 'application/json';
-    } else if (contentType === 'none') {
+        data = JSON.stringify(data);
+    } else if (contentType === 'text') {
+        defaultHeaders['Content-Type'] = 'text/plain';
+    } else if (contentType === 'none' || contentType === 'text-no-content-type') {
         // do not add content type header
     } else {
         data['SEND_function_error'] = 'SEND function on back-end received an invalid content type.';
@@ -96,7 +99,7 @@ Give me a JSON response and nothing else.`;
 
             const result = await response.json();
             console.log(result);
-            return SEND(result.content[0].text, 200, 'text');
+            return SEND(result.content[0].text, 200, 'text-no-content-type');
         } catch (error) {
             console.error('Error processing input:', error);
             return SEND({ error: 'Failed to process input' }, 500);
