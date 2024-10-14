@@ -410,6 +410,9 @@
         nextDayBtn.addEventListener('click', () => changeDate(1));
 
         function changeDate(delta) {
+            const allDayEventsContainer = document.getElementById('allDayEvents');
+            const oldAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
+
             // Update date immediately
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
@@ -426,17 +429,41 @@
                 // Remove old events
                 oldEvents.forEach(event => event.remove());
                 
+                // Clear all-day events container
+                allDayEventsContainer.innerHTML = '';
+                
                 // Render new calendar
                 renderCalendar();
 
-                // Calculate new height
-                const allDayEventsContainer = document.getElementById('allDayEvents');
-                const allDayEventsHeight = allDayEventsContainer.offsetHeight;
-                const newCalendarTop = allDayEventsHeight + calendarToTopDistanceNoAllDay;
+                // Count new all-day events
+                const newAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
+
+                // Calculate new calendar position
+                const newCalendarTop = newAllDayEventCount > 0 ? 
+                    allDayEventsContainer.offsetHeight + calendarToTopDistanceNoAllDay : 
+                    calendarToTopDistanceNoAllDay;
 
                 // Animate calendar to new position
                 calendar.style.transition = 'top 0.3s ease';
                 calendar.style.top = `${newCalendarTop}px`;
+
+                // Handle all-day events visibility
+                if (newAllDayEventCount > 0) {
+                    if (oldAllDayEventCount === 0) {
+                        // Fade in all-day section if it's new
+                        allDayEventsContainer.style.opacity = '0';
+                        allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                        setTimeout(() => {
+                            allDayEventsContainer.style.opacity = '1';
+                        }, 150);
+                    } else {
+                        // Keep visible if it was already there
+                        allDayEventsContainer.style.opacity = '1';
+                    }
+                } else {
+                    // Hide if no all-day events
+                    allDayEventsContainer.style.opacity = '0';
+                }
 
                 // Fade in new events
                 const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
@@ -445,18 +472,9 @@
                     event.style.transition = 'opacity 0.3s ease';
                     setTimeout(() => {
                         event.style.opacity = '1';
-                    }, index * 50); // Staggered fade-in
+                    }, index * 50);
                 });
-
-                // Fade in all-day events if any
-                if (allDayEventsHeight > 0) {
-                    allDayEventsContainer.style.opacity = '0';
-                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => {
-                        allDayEventsContainer.style.opacity = '1';
-                    }, 150); // Slight delay for smoother appearance
-                }
-            }, 300); // Wait for fade out to complete
+            }, 300);
         }
 
         function adjustTextareaHeight() {
