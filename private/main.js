@@ -89,6 +89,8 @@ Give me a JSON response and nothing else.`;
             });
 
             if (!response.ok) {
+                const errorBody = await response.text();
+                console.error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
