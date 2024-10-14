@@ -38,12 +38,14 @@ export default {
 
         const input = await request.text();
 
-        // Parse the input to get the date, time, and actual input
+        // Parse the input to get the date, time, dayOfWeek, and actual input
         const firstCommaIndex = input.indexOf(',');
         const secondCommaIndex = input.indexOf(',', firstCommaIndex + 1);
+        const thirdCommaIndex = input.indexOf(',', secondCommaIndex + 1);
         const date = input.slice(0, firstCommaIndex);
         const time = input.slice(firstCommaIndex + 1, secondCommaIndex);
-        const actualInput = input.slice(secondCommaIndex + 1);
+        const dayOfWeek = input.slice(secondCommaIndex + 1, thirdCommaIndex);
+        const actualInput = input.slice(thirdCommaIndex + 1);
 
         const systemPrompt = `You are a task parsing AI. You will receive a list of tasks and/or events, potentially messy or informal. Your job is to format and structure this information.
 
@@ -74,7 +76,7 @@ Give me a JSON response and nothing else.`;
             messages: [
                 {
                     role: "user",
-                    content: `The date is ${date} and the time is ${time}.\n\n${actualInput}`
+                    content: `The date is ${date} (${dayOfWeek}) and the time is ${time}.\n\n${actualInput}`
                 }
             ]
         };
