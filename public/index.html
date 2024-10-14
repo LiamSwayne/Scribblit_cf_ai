@@ -764,6 +764,7 @@
         }
 
         function renderCalendar() {
+            console.log("called renderCalendar");
             calendar.innerHTML = '';
             const allDayEventsContainer = document.getElementById('allDayEvents');
             allDayEventsContainer.innerHTML = '';
@@ -1028,18 +1029,21 @@
 
         // !testing
         document.getElementById('taskInput').textContent =
-        `meeting with advisor today
-        math HW due 6 pm today!!!
-        networking at the gates hillman super hill center from 3 to 9
-        finish recording new song by tomorrow
-        calc pre-test due by thursday
-        programming homework before 15:00 friday
-        study session starting at 5:00
-        studying from 1 pm to 3:25
-        studying from 7 to 8
-        meet up with omar for 20 minutes from 7:30
-        cycling practice from 7 to 8`
-        localStorage.removeItem('taskEventArray');
+        `meeting with math teacher on tuseday
+meeting with advisor today (all-day event)
+math HW due 6 pm today!!!
+networking at the gates hillman super hill center from 3 to 9
+bio lab on friday
+finish recording new song by tomorrow
+calc pre-test due by thursday
+programming homework before 15:00 friday
+remind me to buy carrots from target
+study session starting at 5:00
+studying from 1 pm to 3:25
+studying from 7 to 8
+meet up with omar for 20 minutes from 7:30
+cycling practice from 7 to 8
+remind Bill to pick up cold medicine`
     </script>
 </body>
 </html>
