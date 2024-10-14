@@ -649,6 +649,7 @@
         }
 
         function updateTaskEventArray(newItems) {
+            console.log("new items: ", newItems)
             newItems = JSON5.parse(newItems);
             console.log(typeof(newItems));
             newItems.forEach(item => {
