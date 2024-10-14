@@ -44,11 +44,17 @@
         }
         .right-column {
             flex: 1;
-            border-left: 2px solid #444;
             padding-left: 0px;
             position: relative;
-            height: calc(100% + 30px);
             margin-top: -30px;
+        }
+        #centerLine {
+            background-color: #444;
+            width: 2px;
+            position: fixed;
+            left: calc(50% + 4px);
+            top: 8px;
+            height: calc(100% - 16px);
         }
         #taskInput {
             width: 100%;
@@ -145,14 +151,14 @@
             opacity: 0.5;
         }
         #calendar {
-    position: absolute;
-    margin-top: 2px;
-    left: 10px;
-    right: 0;
-    overflow-y: auto;
-    height: 1100px;
-    border-bottom: 1px solid #444;
-}
+            position: absolute;
+            margin-top: 2px;
+            left: 10px;
+            right: 0;
+            overflow-y: auto;
+            height: 1100px;
+            border-bottom: 1px solid #444;
+        }
         .calendar-event {
             position: absolute;
             left: 60px;
@@ -320,6 +326,7 @@
     </style>
 </head>
 <body>
+    <div id="centerLine"></div>
     <div class="title">
         <img src="./scribblit_logo_2.svg" alt="Scribblit Logo" style="width: 200px; height: auto;">
     </div>
@@ -605,8 +612,19 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                const parsedTasks = await response.json();
-                updateTaskEventArray(parsedTasks);
+                const responseText = await response.text();
+
+                let parsedResponse;
+                try {
+                    parsedResponse = JSON5.parse(responseText);
+                } catch (parseError) {
+                    console.log('Error parsing response:', parseError);
+                    throw new Error('Invalid response format');
+                }
+
+                console.log('Parsed response:', parsedResponse);
+
+                updateTaskEventArray(parsedResponse);
                 saveToLocalStorage();
                 renderAllData();
             } catch (error) {
@@ -632,6 +650,8 @@
         }
 
         function updateTaskEventArray(newItems) {
+            newItems = JSON5.parse(newItems);
+            console.log(typeof(newItems));
             newItems.forEach(item => {
                 const sanitizedItem = { ...item, date: convertToISODate(item.date) };
                 if (item.kind == 'event' && !item.startTime && !item.endTime) {
@@ -666,11 +686,11 @@
                     
                     return targetDate.toISODate();
                 }
+            } else {
+                // The date is null, so return today as a fallback
+                console.log(`Null date found.`);
+                return today.toISODate();
             }
-
-            // If we can't parse the date, return today as a fallback
-            console.error(`Unable to parse date: ${dateString}`);
-            return today.toISODate();
         }
 
         function renderAllData() {
@@ -995,6 +1015,7 @@
         renderAllData();
         adjustTextareaHeight();
         updateButtonStyles();
+        updateRightColumnHeight();
 
         // Modified resize event listener
         window.addEventListener('resize', () => {
@@ -1004,6 +1025,35 @@
         // move the calendar to the right spot
         document.getElementById('calendar').style.top = `${calendarToTopDistanceNoAllDay}px`;
 
+        function updateRightColumnHeight() {
+            const calendar = document.getElementById('calendar');
+            const rightColumn = document.querySelector('.right-column');
+            const calendarRect = calendar.getBoundingClientRect();
+            const newHeight = calendarRect.bottom + 8 - rightColumn.offsetTop;
+            rightColumn.style.height = `${newHeight}px`;
+        }
+
+        // Modified resize event listener
+        window.addEventListener('resize', () => {
+            renderCalendar();
+            updateRightColumnHeight();
+        });
+
+        // !testing
+        document.getElementById('taskInput').textContent =
+        `meeting with math teacher on tuseday
+        math HW due 6 pm today!!!
+        networking at the gates hillman super hill center from 3 to 9
+        bio lab on friday
+        finish recording new song by tomorrow
+        calc pre-test due by thursday
+        programming homework before 15:00 friday
+        study session starting at 5:00
+        studying from 1 pm to 3:25
+        studying from 7 to 8
+        meet up with omar for 20 minutes from 7:30
+        cycling practice from 7 to 8`
+        localStorage.removeItem('taskEventArray');
     </script>
 </body>
 </html>
