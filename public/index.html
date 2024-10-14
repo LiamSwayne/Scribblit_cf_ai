@@ -410,105 +410,53 @@
         nextDayBtn.addEventListener('click', () => changeDate(1));
 
         function changeDate(delta) {
-            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-            const allDayEventsContainer = document.getElementById('allDayEvents');
-            const hadAllDayEvents = allDayEventsContainer.children.length > 0;
-
-            // set initial opacity of all-day events container to 0 if it is not currently visible
-            if (!hadAllDayEvents) {
-                allDayEventsContainer.style.opacity = '0';
-            }
-
             // Update date immediately
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
 
-            // Function to handle transitions
-            const handleTransition = (element, properties) => {
-                return new Promise(resolve => {
-                    const handleTransitionEnd = () => {
-                        element.removeEventListener('transitionend', handleTransitionEnd);
-                        resolve();
-                    };
-                    element.addEventListener('transitionend', handleTransitionEnd);
-                    Object.assign(element.style, properties);
-                });
-            };
-
             // Fade out old events
-            const fadeOutPromises = oldEvents.map(event => 
-                handleTransition(event, { opacity: '0', transition: 'opacity 0.3s ease' })
-            );
+            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+            oldEvents.forEach(event => {
+                event.style.opacity = '0';
+                event.style.transition = 'opacity 0.3s ease';
+            });
 
-            // Handle all-day events container
-            if (hadAllDayEvents) {
-                fadeOutPromises.push(handleTransition(allDayEventsContainer, { 
-                    opacity: '0', 
-                    transition: 'opacity 0.3s ease' 
-                }));
-                // Start the slide animation immediately when transitioning from a day with all-day events
-                handleTransition(calendar, { 
-                    top: `${calendarToTopDistanceNoAllDay}px`, 
-                    transition: 'top 0.3s ease' 
-                });
-            }
-
-            // Wait for all fade-out animations to complete
-            Promise.all(fadeOutPromises).then(() => {
-                // Remove old events and clear all-day events container
+            // Wait for fade out
+            setTimeout(() => {
+                // Remove old events
                 oldEvents.forEach(event => event.remove());
-                allDayEventsContainer.innerHTML = '';
-                allDayEventsContainer.style.transition = '';
                 
                 // Render new calendar
                 renderCalendar();
 
-                // Get new events and set initial opacity to 0
+                // Calculate new height
+                const allDayEventsContainer = document.getElementById('allDayEvents');
+                const allDayEventsHeight = allDayEventsContainer.offsetHeight;
+                const newCalendarTop = allDayEventsHeight + calendarToTopDistanceNoAllDay;
+
+                // Animate calendar to new position
+                calendar.style.transition = 'top 0.3s ease';
+                calendar.style.top = `${newCalendarTop}px`;
+
+                // Fade in new events
                 const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-                newEvents.forEach(event => {
+                newEvents.forEach((event, index) => {
                     event.style.opacity = '0';
                     event.style.transition = 'opacity 0.3s ease';
-                });
-
-                const hasNewAllDayEvents = allDayEventsContainer.children.length > 0;
-                const allDayEventsHeight = allDayEventsContainer.offsetHeight;
-                const calendarToTopDistanceWithAllDay = allDayEventsHeight + calendarToTopDistanceNoAllDay;
-
-                // Handle animations based on all-day events presence
-                if (!hadAllDayEvents && hasNewAllDayEvents) {
-                    handleTransition(calendar, { 
-                        top: `${calendarToTopDistanceWithAllDay}px`, 
-                        transition: 'top 0.3s ease' 
-                    });
-                    
-                    handleTransition(allDayEventsContainer, { 
-                        opacity: '1', 
-                        transition: 'opacity 0.3s ease' 
-                    });
-                } else if (!hasNewAllDayEvents) {
-                    calendar.style.top = `${calendarToTopDistanceNoAllDay}px`;
-                } else {
-                    calendar.style.top = `${calendarToTopDistanceWithAllDay}px`;
-                    allDayEventsContainer.style.opacity = '1';
-                }
-
-                // Trigger reflow to ensure new opacity is applied before fading in
-                calendar.offsetHeight;
-
-                // Staggered fade-in for new events
-                const eventCount = newEvents.length;
-                newEvents.forEach((event, index) => {
-                    let delay;
-                    if (eventCount < 7) {
-                        delay = index * 50;
-                    } else {
-                        delay = (250 * index) / (eventCount - 1);
-                    }
                     setTimeout(() => {
                         event.style.opacity = '1';
-                    }, delay);
+                    }, index * 50); // Staggered fade-in
                 });
-            });
+
+                // Fade in all-day events if any
+                if (allDayEventsHeight > 0) {
+                    allDayEventsContainer.style.opacity = '0';
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        allDayEventsContainer.style.opacity = '1';
+                    }, 150); // Slight delay for smoother appearance
+                }
+            }, 300); // Wait for fade out to complete
         }
 
         function adjustTextareaHeight() {
