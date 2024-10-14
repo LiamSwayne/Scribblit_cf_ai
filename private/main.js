@@ -96,7 +96,7 @@ Give me a JSON response and nothing else.`;
 
             const result = await response.json();
             console.log(result);
-            return SEND(result.content[0].text, contentType = 'text');
+            return SEND(result.content[0].text, 200, 'text');
         } catch (error) {
             console.error('Error processing input:', error);
             return SEND({ error: 'Failed to process input' }, 500);
