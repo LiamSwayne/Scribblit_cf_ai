@@ -649,9 +649,6 @@
         }
 
         function updateTaskEventArray(newItems) {
-            console.log("new items: ", newItems)
-            newItems = JSON5.parse(newItems);
-            console.log(typeof(newItems));
             newItems.forEach(item => {
                 const sanitizedItem = { ...item, date: convertToISODate(item.date) };
                 taskEventArray.push(sanitizedItem);
@@ -1030,7 +1027,7 @@
 
         // !testing
         document.getElementById('taskInput').textContent =
-        `meeting with advisor today (all-day event)
+        `meeting with advisor today
         math HW due 6 pm today!!!
         networking at the gates hillman super hill center from 3 to 9
         finish recording new song by tomorrow
