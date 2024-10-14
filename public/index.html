@@ -544,6 +544,7 @@
             const now = DateTime.now().setZone(userTimezone);
             const currentDate = now.toISODate();
             const currentTime = now.toFormat('HH:mm');
+            const dayOfWeek = now.weekdayLong.toLowerCase(); // Get the day of the week
             
             const inputRect = taskInput.getBoundingClientRect();
             const overlayRect = animationOverlay.getBoundingClientRect();
@@ -603,7 +604,7 @@
             try {
                 const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
                     method: 'POST',
-                    body: `${currentDate},${currentTime},${input}`
+                    body: `${currentDate},${currentTime},${dayOfWeek},${input}`
                 });
 
                 if (!response.ok) {
