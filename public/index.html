@@ -412,29 +412,14 @@
         function changeDate(delta) {
             const allDayEventsContainer = document.getElementById('allDayEvents');
             const oldAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
+            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
 
             // Update date immediately
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
 
-            // Fade out old events
-            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-            oldEvents.forEach(event => {
-                event.style.opacity = '0';
-                event.style.transition = 'opacity 0.3s ease';
-            });
-
-            // Fade out all-day events if they exist
-            if (oldAllDayEventCount > 0) {
-                allDayEventsContainer.style.transition = 'opacity 0.3s ease';
-                allDayEventsContainer.style.opacity = '0';
-            }
-
-            // Wait for fade out to complete
-            setTimeout(() => {
-                // Remove old events
-                oldEvents.forEach(event => event.remove());
-                
+            // Function to handle the main animation logic
+            const animateChanges = () => {
                 // Clear all-day events container
                 allDayEventsContainer.innerHTML = '';
                 
@@ -471,7 +456,32 @@
                         event.style.opacity = '1';
                     }, index * 50);
                 });
-            }, 300); // Wait for old events fade out to complete
+            };
+
+            // Check if the current day is empty
+            if (oldEvents.length === 0 && oldAllDayEventCount === 0) {
+                // If current day is empty, start animations immediately
+                animateChanges();
+            } else {
+                // If there are events, fade them out first
+                oldEvents.forEach(event => {
+                    event.style.opacity = '0';
+                    event.style.transition = 'opacity 0.3s ease';
+                });
+
+                // Fade out all-day events if they exist
+                if (oldAllDayEventCount > 0) {
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    allDayEventsContainer.style.opacity = '0';
+                }
+
+                // Wait for fade out to complete before starting new animations
+                setTimeout(() => {
+                    // Remove old events
+                    oldEvents.forEach(event => event.remove());
+                    animateChanges();
+                }, 300);
+            }
         }
 
         function adjustTextareaHeight() {
@@ -995,15 +1005,16 @@
         });
 
         // !testing
+        /*
         document.getElementById('taskInput').textContent =
         `meeting with math teacher on tuseday
-meeting with advisor today (all-day event)
+meeting with advisor today
 math HW due 6 pm today!!!
 networking at the gates hillman super hill center from 3 to 9
 bio lab on friday
 finish recording new song by tomorrow
 calc pre-test due by thursday
-programming homework before 15:00 friday
+programming homework before 3pm friday
 remind me to buy carrots from target
 study session starting at 5:00
 studying from 1 pm to 3:25
@@ -1011,6 +1022,7 @@ studying from 7 to 8
 meet up with omar for 20 minutes from 7:30
 cycling practice from 7 to 8
 remind Bill to pick up cold medicine`
+*/
     </script>
 </body>
 </html>
