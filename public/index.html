@@ -145,9 +145,6 @@
             font-size: 9.5px;
             margin-top: -2px;
         }
-        .task-content {
-            flex: 1;
-        }
         .empty-section {
             opacity: 0.5;
         }
@@ -323,6 +320,50 @@
         }
         #prevDay {
             left: 10px;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .task-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #444;
+            border-radius: 3px;
+            margin-left: 10px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .task-checkbox:checked {
+            background-color: #444;
+            border-color: #444;
+        }
+        .task-checkbox:checked::after {
+            content: '\2714';
+            font-size: 14px;
+            color: #e0e0e0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .task-checkbox:hover {
+            border-color: #666;
+        }
+        .task-checkbox:checked:hover {
+            background-color: #666;
+            border-color: #666;
+        }
+        .task-content {
+            flex: 1;
+            transition: color 0.3s, text-decoration 0.3s;
+        }
+        .empty-section .section-title {
+            color: #888;
         }
     </style>
 </head>
@@ -624,10 +665,27 @@
 
         function updateTaskEventArray(newItems) {
             newItems.forEach(item => {
-                const sanitizedItem = { ...item, date: convertToISODate(item.date) };
+                const sanitizedItem = { 
+                    ...item, 
+                    date: convertToISODate(item.date), 
+                    done: [false] // Initialize with a single false value
+                };
                 taskEventArray.push(sanitizedItem);
             });
             saveToLocalStorage();
+        }
+
+        function updateSectionTitleStyle(section, taskCount, completedCount) {
+            const sectionElement = document.querySelector(`.task-section:has(#${section}TaskList)`);
+            const titleElement = sectionElement.querySelector('.section-title');
+            
+            if (taskCount === 0 || taskCount === completedCount) {
+                sectionElement.classList.add('empty-section');
+                titleElement.style.color = '#888';
+            } else {
+                sectionElement.classList.remove('empty-section');
+                titleElement.style.color = '';
+            }
         }
 
         function convertToISODate(dateString) {
@@ -672,17 +730,28 @@
             const weekEnd = today.plus({ days: 7 });
 
             let todayTaskCount = 0;
+            let todayCompletedCount = 0;
             let tomorrowTaskCount = 0;
+            let tomorrowCompletedCount = 0;
             let weekTaskCount = 0;
+            let weekCompletedCount = 0;
 
             taskEventArray.forEach(item => {
                 if (item.kind === "task") {
                     const listItem = document.createElement('div');
+                    listItem.className = 'task-item';
                     const taskContent = document.createElement('span');
                     taskContent.className = 'task-content';
                     taskContent.textContent = item.name;
 
-                    let date = DateTime.fromISO(item.date)
+                    if (item.done[0]) { // Check the first (and currently only) value
+                        taskContent.style.textDecoration = 'line-through';
+                        taskContent.style.color = '#888';
+                    }
+
+                    const checkbox = createCheckbox(item, 0); // Pass 0 as the index
+
+                    let date = DateTime.fromISO(item.date);
                     if (date.hasSame(today, 'day') || date.hasSame(tomorrow, 'day')) {
                         const timeSpan = document.createElement('span');
                         if (item.endTime) {
@@ -695,13 +764,16 @@
 
                         listItem.appendChild(timeSpan);
                         listItem.appendChild(taskContent);
+                        listItem.appendChild(checkbox);
                         
                         if (date.hasSame(today, 'day')) {
                             todayTaskList.appendChild(listItem);
                             todayTaskCount++;
+                            if (item.done[0]) todayCompletedCount++;
                         } else {
                             tomorrowTaskList.appendChild(listItem);
                             tomorrowTaskCount++;
+                            if (item.done[0]) tomorrowCompletedCount++;
                         }
                     } else if (date > tomorrow && date <= weekEnd) {
                         const dateTimeSpan = document.createElement('span');
@@ -724,16 +796,18 @@
                         
                         listItem.appendChild(dateTimeSpan);
                         listItem.appendChild(taskContent);
+                        listItem.appendChild(checkbox);
                         weekTaskList.appendChild(listItem);
                         weekTaskCount++;
+                        if (item.done[0]) weekCompletedCount++;
                     }
                 }
             });
 
-            // Apply empty-section class if there are no tasks
-            todayTaskList.closest('.task-section').classList.toggle('empty-section', todayTaskCount === 0);
-            tomorrowTaskList.closest('.task-section').classList.toggle('empty-section', tomorrowTaskCount === 0);
-            weekTaskList.closest('.task-section').classList.toggle('empty-section', weekTaskCount === 0);
+            // Update section title styling
+            updateSectionTitleStyle('today', todayTaskCount, todayCompletedCount);
+            updateSectionTitleStyle('tomorrow', tomorrowTaskCount, tomorrowCompletedCount);
+            updateSectionTitleStyle('week', weekTaskCount, weekCompletedCount);
         }
 
         function renderCalendar(showEvents = true) {
@@ -1003,6 +1077,19 @@
             renderCalendar();
             updateRightColumnHeight();
         });
+
+        function createCheckbox(task, index = 0) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'task-checkbox';
+            checkbox.checked = task.done[index] || false;
+            checkbox.addEventListener('change', () => {
+                task.done[index] = checkbox.checked;
+                saveToLocalStorage();
+                renderAllData();
+            });
+            return checkbox;
+        }
 
         // !testing
         /*
