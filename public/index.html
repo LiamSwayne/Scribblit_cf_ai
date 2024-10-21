@@ -463,7 +463,7 @@
         const calendarToTopDistanceNoAllDay = 32;
 
         const DateTime = luxon.DateTime;
-        let currentDate = DateTime.fromISO('1900-01-01');
+        let currentDate = DateTime.now().minus({ days: 100000 });; // start here so that the first call to changeDate will set it to today
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
         const taskInput = document.getElementById('taskInput');
@@ -1133,12 +1133,6 @@
             return checkbox;
         }
 
-        // load from local storage
-        const storedData = localStorage.getItem('taskEventArray');
-        if (storedData) {
-            taskEventArray = JSON.parse(storedData);
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
             // Load from local storage
             const storedData = localStorage.getItem('taskEventArray');
@@ -1146,17 +1140,18 @@
                 taskEventArray = JSON.parse(storedData);
             }
 
-            // Initialize the calendar with January 1, 1900
             document.getElementById('allDayEvents').style.opacity = '0';
+            document.getElementById('currentDate').style.opacity = '0';
             updateDateDisplay();
-            renderCalendar(false); // Render the empty 1900 calendar without showing events
+            renderCalendar(false);
 
-            // After a short delay, switch to the current date
             setTimeout(() => {
-                const today = DateTime.now();
-                const daysDifference = today.diff(currentDate, 'days').days;
-                changeDate(daysDifference);
-            }, 100); // Short delay to ensure the empty calendar is rendered first
+                changeDate(100000);
+            }, 100);
+
+            // fade in current date
+            document.getElementById('currentDate').style.transition = 'opacity 0.3s ease';
+            document.getElementById('currentDate').style.opacity = '1';
 
             // Keep these lines if they're not already present in your initialization
             updateButtonStyles();
