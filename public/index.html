@@ -11,417 +11,414 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <style>
         body {
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    padding: 10px;
-    box-sizing: border-box;
-    font-family: 'Inter', sans-serif;
-    background-color: #1e1e1e;
-    color: #e0e0e0;
-}
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+        }
 
-.container {
-    display: flex;
-    flex-grow: 1;
-    height: calc(100vh - 54px);
-    position: relative;
-}
+        .container {
+            display: flex;
+            flex-grow: 1;
+            height: calc(100vh - 54px);
+            position: relative;
+        }
 
-.left-column {
-    width: calc(50% - 10px);
-    padding-right: 10px;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-}
+        .left-column {
+            width: calc(50% - 10px);
+            padding-right: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
 
-#centerLine {
-    background-color: #444;
-    width: 2px;
-    position: fixed;
-    left: 50%;
-    top: 8px;
-    height: calc(100% - 16px);
-}
+        #centerLine {
+            background-color: #444;
+            width: 2px;
+            position: fixed;
+            left: 50%;
+            top: 8px;
+            height: calc(100% - 16px);
+        }
 
-#taskInput {
-    width: 100%;
-    min-height: 100px;
-    margin-bottom: 30px;
-    background-color: #2d2d2d;
-    color: #e0e0e0;
-    border: 1px solid #444;
-    padding: 10px;
-    resize: none;
-    position: relative;
-    top: 30px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    overflow-y: hidden;
-    box-sizing: border-box;
-    transition: min-height 0.3s ease, height 0.3s ease;
-}
+        #taskInput {
+            width: 100%;
+            min-height: 100px;
+            margin-bottom: 30px;
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 10px;
+            resize: none;
+            position: relative;
+            top: 30px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-y: hidden;
+            box-sizing: border-box;
+            transition: min-height 0.3s ease, height 0.3s ease;
+        }
 
-#taskInput:focus {
-    outline: none;
-    border-color: #444;
-}
+        #taskInput:focus {
+            outline: none;
+            border-color: #444;
+        }
 
-.task-section-container {
-    width: 100%;
-}
+        .task-section-container {
+            width: 100%;
+        }
 
-.task-section {
-    width: 100%;
-    transition: opacity 0.3s ease;
-}
+        .task-section {
+            width: 100%;
+            transition: opacity 0.3s ease;
+        }
 
-.section-border {
-    height: 2px;
-    background-color: #444;
-    margin: 5px 0;
-}
+        .section-border {
+            height: 2px;
+            background-color: #444;
+            margin: 5px 0;
+        }
 
-.empty-section .task-section {
-    opacity: 0.5;
-}
+        .empty-section .task-section {
+            opacity: 0.5;
+        }
 
-.empty-section .section-title {
-    color: #888;
-}
+        .empty-section .section-title {
+            color: #888;
+        }
 
-.section-title {
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 4px;
-}
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
 
-.task-list {
-    padding: 0;
-    width: 100%;
-}
+        .task-list {
+            padding: 0;
+            width: 100%;
+        }
 
-.task-list > div {
-    margin-bottom: 8px;
-    display: flex;
-    align-items: flex-start;
-}
+        .task-list > div {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+        }
 
-.task-list li {
-    margin-bottom: 8px;
-    display: flex;
-    align-items: flex-start;
-}
+        .task-list li {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+        }
 
-.task-asterisk {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: #888;
-    margin-right: 21px;
-    min-width: 24px;
-    text-align: right;
-    margin-top: 0px;
-}
+        .task-asterisk {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: #888;
+            margin-right: 21px;
+            min-width: 24px;
+            text-align: right;
+            margin-top: 0px;
+        }
 
-.task-date {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: #888;
-    margin-right: 7px;
-    min-width: 38px;
-    text-align: right;
-    margin-top: 2px;
-}
+        .task-date {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #888;
+            margin-right: 7px;
+            min-width: 38px;
+            text-align: right;
+            margin-top: 2px;
+        }
 
-.task-time {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: #888;
-    margin-right: 7px;
-    min-width: 38px;
-    text-align: right;
-    margin-top: 2px;
-    text-align: center;
-}
+        .task-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #888;
+            margin-right: 7px;
+            min-width: 38px;
+            text-align: right;
+            margin-top: 2px;
+            text-align: center;
+        }
 
-.task-date-time {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    margin-right: 0px;
-    margin-top: -6px;
-}
+        .task-date-time {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 0px;
+            margin-top: -6px;
+        }
 
-.task-date-no-time {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    margin-right: 0px;
-    margin-top: 0px;
-}
+        .task-date-no-time {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 0px;
+            margin-top: 0px;
+        }
 
-.task-date-time .task-time {
-    font-size: 9.5px;
-    margin-top: -2px;
-}
+        .task-date-time .task-time {
+            font-size: 9.5px;
+            margin-top: -2px;
+        }
 
-.navigation {
-    position: absolute;
-    top: 0;
-    left: calc(50% + 10px);
-    right: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+        .navigation {
+            position: absolute;
+            top: 0;
+            left: calc(50% + 10px);
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-#allDayEvents {
-    position: absolute;
-    top: 30px;
-    left: calc(50% + 10px);
-    right: 10px;
-}
+        #allDayEvents {
+            position: absolute;
+            top: 24px;
+            left: calc(50% + 14px);
+            right: 4px;
+            padding-bottom: 4px;
+            margin-top: 6px;
+        }
 
-#calendar {
-    position: absolute;
-    top: 60px;
-    left: calc(50% + 10px);
-    right: 10px;
-    bottom: 10px;
-    overflow-y: auto;
-}
+        #calendar {
+            position: absolute;
+            top: 60px;
+            left: calc(50% + 10px);
+            right: 10px;
+            bottom: 10px;
+            overflow-y: auto;
+        }
 
-.calendar-event {
-    position: absolute;
-    left: 60px;
-    padding-top: 2px;
-    padding-left: 5px;
-    padding-right: 5px;
-    padding-bottom: 3px;
-    margin: 3.5px;
-    color: #e0e0e0;
-    border-radius: 8px;
-    font-size: 12px;
-    box-sizing: border-box;
-    transition: opacity 0.3s ease;
-}
+        .calendar-event {
+            position: absolute;
+            left: 60px;
+            padding-top: 2px;
+            padding-left: 5px;
+            padding-right: 5px;
+            padding-bottom: 3px;
+            margin: 3.5px;
+            color: #e0e0e0;
+            border-radius: 8px;
+            font-size: 12px;
+            box-sizing: border-box;
+            transition: opacity 0.3s ease;
+        }
 
-.navigation button {
-    background-color: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    position: relative;
-    overflow: hidden;
-}
+        .navigation button {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            position: relative;
+            overflow: hidden;
+        }
 
-.navigation button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border: 2px solid #e0e0e0;
-    border-radius: 50%;
-    transition: border-width 0.3s ease;
-}
+        .navigation button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            transition: border-width 0.3s ease;
+        }
 
-.navigation button::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 50%;
-    background: linear-gradient(45deg, #61a3ff, #d477ff);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
+        .navigation button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #61a3ff, #d477ff);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
 
-.navigation button:hover::before {
-    border-width: 0;
-}
+        .navigation button:hover::before {
+            border-width: 0;
+        }
 
-.navigation button:hover::after {
-    opacity: 1;
-    animation: rotateGradient 3.5s linear infinite;
-}
+        .navigation button:hover::after {
+            opacity: 1;
+            animation: rotateGradient 3.5s linear infinite;
+        }
 
-.navigation button svg {
-    width: 14px;
-    height: 14px;
-    position: relative;
-    z-index: 1;
-    stroke: #ffffff;
-    stroke-width: 3;
-}
+        .navigation button svg {
+            width: 14px;
+            height: 14px;
+            position: relative;
+            z-index: 1;
+            stroke: #ffffff;
+            stroke-width: 3;
+        }
 
-.hour-marker {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-top: 1px solid #444;
-    pointer-events: none;
-}
+        .hour-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-top: 1px solid #444;
+            pointer-events: none;
+        }
 
-.hour-label {
-    position: absolute;
-    left: 0;
-    width: 50px;
-    text-align: right;
-    padding-right: 5px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: #888;
-}
+        .hour-label {
+            position: absolute;
+            left: 0;
+            width: 50px;
+            text-align: right;
+            padding-right: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #888;
+        }
 
-.animated-text-container {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    color: #e0e0e0;
-    background-color: #2d2d2d;
-    padding: 10px;
-    box-sizing: border-box;
-    overflow: hidden;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
+        .animated-text-container {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #e0e0e0;
+            background-color: #2d2d2d;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
 
-.animated-text {
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
+        .animated-text {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
 
-#animationOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    overflow: hidden;
-    padding: 1px;
-}
+        #animationOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+            padding: 1px;
+        }
 
-#allDayEvents {
-    padding-bottom: 4px;
-    margin-left: 10px;
-    margin-top: 6px;
-}
+        .all-day-event {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 5px;
+        }
 
-.all-day-event {
-    display: flex;
-    align-items: flex-start;
-    margin-bottom: 5px;
-}
+        .all-day-event .task-asterisk {
+            margin-right: 10px;
+        }
 
-.all-day-event .task-asterisk {
-    margin-right: 10px;
-}
+        #currentDate {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0 10px;
+            opacity: 0;
+        }
 
-#currentDate {
-    font-size: 18px;
-    font-weight: bold;
-    margin: 0 10px;
-}
+        #prevDay {
+            left: 10px;
+        }
 
-#prevDay {
-    left: 10px;
-}
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            width: 100%;
+        }
 
-.task-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    width: 100%;
-}
+        .task-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #444;
+            border-radius: 3px;
+            margin-left: 10px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
 
-.task-checkbox {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border: 2px solid #444;
-    border-radius: 3px;
-    margin-left: 10px;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s, border-color 0.3s;
-}
+        .task-checkbox:checked {
+            background-color: #444;
+            border-color: #444;
+        }
 
-.task-checkbox:checked {
-    background-color: #444;
-    border-color: #444;
-}
+        .task-checkbox:checked::after {
+            content: '\2714';
+            font-size: 14px;
+            color: #e0e0e0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
 
-.task-checkbox:checked::after {
-    content: '\2714';
-    font-size: 14px;
-    color: #e0e0e0;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
+        .task-checkbox:hover {
+            border-color: #666;
+        }
 
-.task-checkbox:hover {
-    border-color: #666;
-}
+        .task-checkbox:checked:hover {
+            background-color: #666;
+            border-color: #666;
+        }
 
-.task-checkbox:checked:hover {
-    background-color: #666;
-    border-color: #666;
-}
+        .task-content {
+            flex: 1;
+            transition: color 0.3s, text-decoration 0.3s;
+        }
 
-.task-content {
-    flex: 1;
-    transition: color 0.3s, text-decoration 0.3s;
-}
+        @keyframes slideUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100%); opacity: 0; }
+        }
 
-@keyframes slideUp {
-    0% { transform: translateY(0); opacity: 1; }
-    100% { transform: translateY(-100%); opacity: 0; }
-}
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
 
-@keyframes fadeOut {
-    0% { opacity: 1; }
-    100% { opacity: 0; }
-}
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
 
-@keyframes fadeIn {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
-}
+        @keyframes fadeInGrow {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
 
-@keyframes fadeInGrow {
-    from {
-        opacity: 0;
-        transform: scale(0.8);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes rotateGradient {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
+        @keyframes rotateGradient {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 <body>
@@ -1141,17 +1138,16 @@
             }
 
             document.getElementById('allDayEvents').style.opacity = '0';
-            document.getElementById('currentDate').style.opacity = '0';
             updateDateDisplay();
             renderCalendar(false);
 
+            // wait for the animations to finish
             setTimeout(() => {
                 changeDate(100000);
-            }, 100);
-
-            // fade in current date
-            document.getElementById('currentDate').style.transition = 'opacity 0.3s ease';
-            document.getElementById('currentDate').style.opacity = '1';
+                // fade in current date
+                document.getElementById('currentDate').style.transition = 'opacity 0.3s ease';
+                document.getElementById('currentDate').style.opacity = '1';
+            }, 350);
 
             // Keep these lines if they're not already present in your initialization
             updateButtonStyles();
