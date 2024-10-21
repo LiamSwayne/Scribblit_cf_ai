@@ -10,7 +10,10 @@ function SEND(data, status = 200, contentType = 'json', headers = {}) {
     };
     if (contentType === 'json') {
         defaultHeaders['Content-Type'] = 'application/json';
-    } else if (contentType === 'none') {
+        data = JSON.stringify(data);
+    } else if (contentType === 'text') {
+        defaultHeaders['Content-Type'] = 'text/plain';
+    } else if (contentType === 'none' || contentType === 'text-no-content-type') {
         // do not add content type header
     } else {
         data['SEND_function_error'] = 'SEND function on back-end received an invalid content type.';
@@ -35,41 +38,70 @@ export default {
 
         const input = await request.text();
 
-        // Parse the input to get the date, time, and actual input
+        // Parse the input to get the date, time, dayOfWeek, and actual input
         const firstCommaIndex = input.indexOf(',');
         const secondCommaIndex = input.indexOf(',', firstCommaIndex + 1);
+        const thirdCommaIndex = input.indexOf(',', secondCommaIndex + 1);
         const date = input.slice(0, firstCommaIndex);
         const time = input.slice(firstCommaIndex + 1, secondCommaIndex);
-        const actualInput = input.slice(secondCommaIndex + 1);
+        const dayOfWeek = input.slice(secondCommaIndex + 1, thirdCommaIndex);
+        const actualInput = input.slice(thirdCommaIndex + 1);
 
         const systemPrompt = `You are a task parsing AI. You will receive a list of tasks and/or events, potentially messy or informal. Your job is to format and structure this information.
 
-        For each task/event:
-        1. Infer the date. If no date is specified, assume it's for today (${date}). The current time is ${time}. If "tomorrow" or a day of the week is mentioned, calculate the actual date.
-        3. Determine the time, if applicable. If it's past noon and only a number is given (e.g., "at 3"), assume PM. Use reasoning to guess AM/PM when not explicitly stated. Do not assume the end time of events unless it can be figured out from the input. Some have a flexible end time, so they should just not be given an end time.
+For each task/event:
+1. Infer the date. If no date is specified, assume it's today. If "tomorrow" or a day of the week is mentioned, calculate the actual date.
+2. Determine the time, if applicable. If it's past noon and only a number is given (e.g., "at 3"), assume PM. Use reasoning to guess AM/PM when not explicitly stated. Do not assume the end time of events unless it can be figured out from the input. Some have a flexible end time, so they should just not be given an end time.
 
-        Respond with a JSON array. Each item should have these properties:
-        - kind: "task" or "event". a task is anything that must be completed by a date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
-        - name: The name formatted to use sentence case, not title case. The input you are given is written very hastily, so expand shorthand like "HW" to the full term like "Homework". Don't expand acronyms. Remove words from the name that provide no value, like "due". The name you produce shouldn't remove any details from the input.
-        - date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2". The date may contain typos.
-        - startTime: In HH:mm format (24-hour). Only for events. All day events should not have a startTime.
-        - endTime: In HH:mm format (24-hour). The end of an event or the due date of a task.
-        If a field cannot be inferred, just omit it completely instead of making it null. For example: if not time is given, don't provide the startTime or endTime fields. Never use 23:59 as a default due date for a task.
+Respond with a JSON array. Each item should have these properties:
+- kind: "task" or "event". a task is anything that must be completed by a date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
+- name: The name formatted to use sentence case, not title case. The input you are given is written very hastily, so expand shorthand like "HW" to the full term like "Homework". Don't expand acronyms. Remove words from the name that provide no value, like "due". The name you produce shouldn't remove any details from the input.
+- date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a day of the week is found like "this monday" return that day as a string like "monday". If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today". if a day phrase relative to the span of a week like "next monday" is given, return "monday+1". this extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2". The date may contain typos.
+- startTime: In HH:mm format (24-hour). Only for events. All day events should not have a startTime.
+- endTime: In HH:mm format (24-hour). The end of an event or the due date of a task.
+If a field cannot be inferred, just omit it completely instead of making it null. For example: if not time is given, don't provide the startTime or endTime fields. Never use 23:59 as a default due date for a task, instead just make it due on that date and leave the time blank.
 
-        Give me a JSON response and nothing else.`;
+Give me a JSON response and nothing else.`;
 
-        const messages = [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: actualInput }
-        ];
+        const requestBody = {
+            model: 'claude-3-5-sonnet-20240620',
+            max_tokens: 1024,
+            system: [
+                {
+                    type: "text",
+                    text: systemPrompt,
+                    cache_control: { type: "ephemeral" }
+                }
+            ],
+            messages: [
+                {
+                    role: "user",
+                    content: `The date is ${date} (${dayOfWeek}) and the time is ${time}.\n\n${actualInput}`
+                }
+            ]
+        };
 
         try {
-            const response = await env.AI.run("@cf/meta/llama-3-8b-instruct-awq", { messages });
-            
-            // Don't parse the JSON to ensure it's valid
-            // this will instead be done on the front-end with a library that can handle trailing commas
-            // also it is ideal to reduce CPU time on the back-end
-            return SEND(response.response);
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': env.ANTHROPIC_API_KEY,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-beta': 'prompt-caching-2024-07-31'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log(result);
+            return SEND(result.content[0].text, 200, 'text-no-content-type');
         } catch (error) {
             console.error('Error processing input:', error);
             return SEND({ error: 'Failed to process input' }, 500);
