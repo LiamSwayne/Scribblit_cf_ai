@@ -421,10 +421,6 @@
         const DateTime = luxon.DateTime;
         let currentDate = DateTime.local();
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        // rotate during testing
-        // AIzaSyDgiM5ZhWqxsI_hoNAaJeSChCh5SkztGoc
-        // AIzaSyDxLOhwro6jpIHUBssb_hcavahQwOGrjPQ
-        const apiKey = 'AIzaSyDxLOhwro6jpIHUBssb_hcavahQwOGrjPQ';
 
         const taskInput = document.getElementById('taskInput');
         const originalHeight = '100px'; // Store the original height
@@ -1092,7 +1088,7 @@
         }
 
         // !testing
-        /*
+        localStorage.removeItem('taskEventArray');
         document.getElementById('taskInput').textContent =
         `meeting with math teacher on tuseday
 meeting with advisor today
@@ -1109,7 +1105,6 @@ studying from 7 to 8
 meet up with omar for 20 minutes from 7:30
 cycling practice from 7 to 8
 remind Bill to pick up cold medicine`
-*/
     </script>
 </body>
 </html>
