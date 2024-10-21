@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <!-- JSON parser that allows trailing commas produced by the LLM -->
     <script src="https://unpkg.com/json5@2/dist/index.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <style>
         body {
             display: flex;
@@ -44,11 +45,17 @@
         }
         .right-column {
             flex: 1;
-            border-left: 2px solid #444;
             padding-left: 0px;
             position: relative;
-            height: calc(100% + 30px);
             margin-top: -30px;
+        }
+        #centerLine {
+            background-color: #444;
+            width: 2px;
+            position: fixed;
+            left: calc(50% + 4px);
+            top: 8px;
+            height: calc(100% - 16px);
         }
         #taskInput {
             width: 100%;
@@ -137,9 +144,6 @@
         .task-date-time .task-time {
             font-size: 9.5px;
             margin-top: -2px;
-        }
-        .task-content {
-            flex: 1;
         }
         .empty-section {
             opacity: 0.5;
@@ -317,9 +321,54 @@
         #prevDay {
             left: 10px;
         }
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .task-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #444;
+            border-radius: 3px;
+            margin-left: 10px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .task-checkbox:checked {
+            background-color: #444;
+            border-color: #444;
+        }
+        .task-checkbox:checked::after {
+            content: '\2714';
+            font-size: 14px;
+            color: #e0e0e0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .task-checkbox:hover {
+            border-color: #666;
+        }
+        .task-checkbox:checked:hover {
+            background-color: #666;
+            border-color: #666;
+        }
+        .task-content {
+            flex: 1;
+            transition: color 0.3s, text-decoration 0.3s;
+        }
+        .empty-section .section-title {
+            color: #888;
+        }
     </style>
 </head>
 <body>
+    <div id="centerLine"></div>
     <div class="title">
         <img src="./scribblit_logo_2.svg" alt="Scribblit Logo" style="width: 200px; height: auto;">
     </div>
@@ -360,8 +409,6 @@
             <div id="calendar"></div>
         </div>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <script>
         let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
 
@@ -404,105 +451,78 @@
         nextDayBtn.addEventListener('click', () => changeDate(1));
 
         function changeDate(delta) {
-            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
             const allDayEventsContainer = document.getElementById('allDayEvents');
-            const hadAllDayEvents = allDayEventsContainer.children.length > 0;
-
-            // set initial opacity of all-day events container to 0 if it is not currently visible
-            if (!hadAllDayEvents) {
-                allDayEventsContainer.style.opacity = '0';
-            }
+            const oldAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
+            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
 
             // Update date immediately
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
 
-            // Function to handle transitions
-            const handleTransition = (element, properties) => {
-                return new Promise(resolve => {
-                    const handleTransitionEnd = () => {
-                        element.removeEventListener('transitionend', handleTransitionEnd);
-                        resolve();
-                    };
-                    element.addEventListener('transitionend', handleTransitionEnd);
-                    Object.assign(element.style, properties);
+            // Function to handle the main animation logic
+            const animateChanges = () => {
+                // Clear all-day events container
+                allDayEventsContainer.innerHTML = '';
+                
+                // Render new calendar without showing events
+                renderCalendar(false);
+
+                // Count new all-day events
+                const newAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
+
+                // Calculate new calendar position
+                const newCalendarTop = newAllDayEventCount > 0 ? 
+                    allDayEventsContainer.offsetHeight + calendarToTopDistanceNoAllDay : 
+                    calendarToTopDistanceNoAllDay;
+
+                // Animate calendar to new position
+                calendar.style.transition = 'top 0.3s ease';
+                calendar.style.top = `${newCalendarTop}px`;
+
+                // Handle all-day events visibility
+                if (newAllDayEventCount > 0) {
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    allDayEventsContainer.style.opacity = '0';
+                    setTimeout(() => {
+                        allDayEventsContainer.style.opacity = '1';
+                    }, 150);
+                } else {
+                    allDayEventsContainer.style.opacity = '0';
+                }
+
+                // Fade in new events
+                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                newEvents.forEach((event, index) => {
+                    setTimeout(() => {
+                        event.style.opacity = '1';
+                    }, index * 50);
                 });
             };
 
-            // Fade out old events
-            const fadeOutPromises = oldEvents.map(event => 
-                handleTransition(event, { opacity: '0', transition: 'opacity 0.3s ease' })
-            );
-
-            // Handle all-day events container
-            if (hadAllDayEvents) {
-                fadeOutPromises.push(handleTransition(allDayEventsContainer, { 
-                    opacity: '0', 
-                    transition: 'opacity 0.3s ease' 
-                }));
-                // Start the slide animation immediately when transitioning from a day with all-day events
-                handleTransition(calendar, { 
-                    top: `${calendarToTopDistanceNoAllDay}px`, 
-                    transition: 'top 0.3s ease' 
-                });
-            }
-
-            // Wait for all fade-out animations to complete
-            Promise.all(fadeOutPromises).then(() => {
-                // Remove old events and clear all-day events container
-                oldEvents.forEach(event => event.remove());
-                allDayEventsContainer.innerHTML = '';
-                allDayEventsContainer.style.transition = '';
-                
-                // Render new calendar
-                renderCalendar();
-
-                // Get new events and set initial opacity to 0
-                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-                newEvents.forEach(event => {
+            // Check if the current day is empty
+            if (oldEvents.length === 0 && oldAllDayEventCount === 0) {
+                // If current day is empty, start animations immediately
+                animateChanges();
+            } else {
+                // If there are events, fade them out first
+                oldEvents.forEach(event => {
                     event.style.opacity = '0';
                     event.style.transition = 'opacity 0.3s ease';
                 });
 
-                const hasNewAllDayEvents = allDayEventsContainer.children.length > 0;
-                const allDayEventsHeight = allDayEventsContainer.offsetHeight;
-                const calendarToTopDistanceWithAllDay = allDayEventsHeight + calendarToTopDistanceNoAllDay;
-
-                // Handle animations based on all-day events presence
-                if (!hadAllDayEvents && hasNewAllDayEvents) {
-                    handleTransition(calendar, { 
-                        top: `${calendarToTopDistanceWithAllDay}px`, 
-                        transition: 'top 0.3s ease' 
-                    });
-                    
-                    handleTransition(allDayEventsContainer, { 
-                        opacity: '1', 
-                        transition: 'opacity 0.3s ease' 
-                    });
-                } else if (!hasNewAllDayEvents) {
-                    calendar.style.top = `${calendarToTopDistanceNoAllDay}px`;
-                } else {
-                    calendar.style.top = `${calendarToTopDistanceWithAllDay}px`;
-                    allDayEventsContainer.style.opacity = '1';
+                // Fade out all-day events if they exist
+                if (oldAllDayEventCount > 0) {
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    allDayEventsContainer.style.opacity = '0';
                 }
 
-                // Trigger reflow to ensure new opacity is applied before fading in
-                calendar.offsetHeight;
-
-                // Staggered fade-in for new events
-                const eventCount = newEvents.length;
-                newEvents.forEach((event, index) => {
-                    let delay;
-                    if (eventCount < 7) {
-                        delay = index * 50;
-                    } else {
-                        delay = (250 * index) / (eventCount - 1);
-                    }
-                    setTimeout(() => {
-                        event.style.opacity = '1';
-                    }, delay);
-                });
-            });
+                // Wait for fade out to complete before starting new animations
+                setTimeout(() => {
+                    // Remove old events
+                    oldEvents.forEach(event => event.remove());
+                    animateChanges();
+                }, 300);
+            }
         }
 
         function adjustTextareaHeight() {
@@ -538,6 +558,7 @@
             const now = DateTime.now().setZone(userTimezone);
             const currentDate = now.toISODate();
             const currentTime = now.toFormat('HH:mm');
+            const dayOfWeek = now.weekdayLong.toLowerCase(); // Get the day of the week
             
             const inputRect = taskInput.getBoundingClientRect();
             const overlayRect = animationOverlay.getBoundingClientRect();
@@ -597,7 +618,7 @@
             try {
                 const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
                     method: 'POST',
-                    body: `${currentDate},${currentTime},${input}`
+                    body: `${currentDate},${currentTime},${dayOfWeek},${input}`
                 });
 
                 if (!response.ok) {
@@ -605,8 +626,19 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                const parsedTasks = await response.json();
-                updateTaskEventArray(parsedTasks);
+                const responseText = await response.text();
+
+                let parsedResponse;
+                try {
+                    parsedResponse = JSON5.parse(responseText);
+                } catch (parseError) {
+                    console.log('Error parsing response:', parseError);
+                    throw new Error('Invalid response format');
+                }
+
+                console.log('Parsed response:', parsedResponse);
+
+                updateTaskEventArray(parsedResponse);
                 saveToLocalStorage();
                 renderAllData();
             } catch (error) {
@@ -633,13 +665,27 @@
 
         function updateTaskEventArray(newItems) {
             newItems.forEach(item => {
-                const sanitizedItem = { ...item, date: convertToISODate(item.date) };
-                if (item.kind == 'event' && !item.startTime && !item.endTime) {
-                    sanitizedItem.startTime = '00:00';
-                }
+                const sanitizedItem = { 
+                    ...item, 
+                    date: convertToISODate(item.date), 
+                    done: [false] // Initialize with a single false value
+                };
                 taskEventArray.push(sanitizedItem);
             });
             saveToLocalStorage();
+        }
+
+        function updateSectionTitleStyle(section, taskCount, completedCount) {
+            const sectionElement = document.querySelector(`.task-section:has(#${section}TaskList)`);
+            const titleElement = sectionElement.querySelector('.section-title');
+            
+            if (taskCount === 0 || taskCount === completedCount) {
+                sectionElement.classList.add('empty-section');
+                titleElement.style.color = '#888';
+            } else {
+                sectionElement.classList.remove('empty-section');
+                titleElement.style.color = '';
+            }
         }
 
         function convertToISODate(dateString) {
@@ -666,11 +712,11 @@
                     
                     return targetDate.toISODate();
                 }
+            } else {
+                // The date is null, so return today as a fallback
+                console.log(`Null date found.`);
+                return today.toISODate();
             }
-
-            // If we can't parse the date, return today as a fallback
-            console.error(`Unable to parse date: ${dateString}`);
-            return today.toISODate();
         }
 
         function renderAllData() {
@@ -684,17 +730,28 @@
             const weekEnd = today.plus({ days: 7 });
 
             let todayTaskCount = 0;
+            let todayCompletedCount = 0;
             let tomorrowTaskCount = 0;
+            let tomorrowCompletedCount = 0;
             let weekTaskCount = 0;
+            let weekCompletedCount = 0;
 
             taskEventArray.forEach(item => {
                 if (item.kind === "task") {
                     const listItem = document.createElement('div');
+                    listItem.className = 'task-item';
                     const taskContent = document.createElement('span');
                     taskContent.className = 'task-content';
                     taskContent.textContent = item.name;
 
-                    let date = DateTime.fromISO(item.date)
+                    if (item.done[0]) { // Check the first (and currently only) value
+                        taskContent.style.textDecoration = 'line-through';
+                        taskContent.style.color = '#888';
+                    }
+
+                    const checkbox = createCheckbox(item, 0); // Pass 0 as the index
+
+                    let date = DateTime.fromISO(item.date);
                     if (date.hasSame(today, 'day') || date.hasSame(tomorrow, 'day')) {
                         const timeSpan = document.createElement('span');
                         if (item.endTime) {
@@ -707,13 +764,16 @@
 
                         listItem.appendChild(timeSpan);
                         listItem.appendChild(taskContent);
+                        listItem.appendChild(checkbox);
                         
                         if (date.hasSame(today, 'day')) {
                             todayTaskList.appendChild(listItem);
                             todayTaskCount++;
+                            if (item.done[0]) todayCompletedCount++;
                         } else {
                             tomorrowTaskList.appendChild(listItem);
                             tomorrowTaskCount++;
+                            if (item.done[0]) tomorrowCompletedCount++;
                         }
                     } else if (date > tomorrow && date <= weekEnd) {
                         const dateTimeSpan = document.createElement('span');
@@ -736,19 +796,22 @@
                         
                         listItem.appendChild(dateTimeSpan);
                         listItem.appendChild(taskContent);
+                        listItem.appendChild(checkbox);
                         weekTaskList.appendChild(listItem);
                         weekTaskCount++;
+                        if (item.done[0]) weekCompletedCount++;
                     }
                 }
             });
 
-            // Apply empty-section class if there are no tasks
-            todayTaskList.closest('.task-section').classList.toggle('empty-section', todayTaskCount === 0);
-            tomorrowTaskList.closest('.task-section').classList.toggle('empty-section', tomorrowTaskCount === 0);
-            weekTaskList.closest('.task-section').classList.toggle('empty-section', weekTaskCount === 0);
+            // Update section title styling
+            updateSectionTitleStyle('today', todayTaskCount, todayCompletedCount);
+            updateSectionTitleStyle('tomorrow', tomorrowTaskCount, tomorrowCompletedCount);
+            updateSectionTitleStyle('week', weekTaskCount, weekCompletedCount);
         }
 
-        function renderCalendar() {
+        function renderCalendar(showEvents = true) {
+            console.log("called renderCalendar");
             calendar.innerHTML = '';
             const allDayEventsContainer = document.getElementById('allDayEvents');
             allDayEventsContainer.innerHTML = '';
@@ -931,9 +994,15 @@
                     // Set z-index based on the event's position in the sorted array
                     eventEl.style.zIndex = timedEvents.indexOf(item) + 1;
 
+                    if (!showEvents) {
+                        eventEl.style.opacity = '0';
+                    }
+
                     calendar.appendChild(eventEl);
                 });
             });
+
+            updateRightColumnHeight();
         }
 
         function timeToMinutes(time) {
@@ -972,12 +1041,6 @@
             return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
         }
 
-        // load from local storage
-        const storedData = localStorage.getItem('taskEventArray');
-        if (storedData) {
-            taskEventArray = JSON.parse(storedData);
-        }
-
         function updateButtonStyles() {
             const buttons = document.querySelectorAll('.navigation button');
             buttons.forEach(button => {
@@ -990,20 +1053,63 @@
             });
         }
 
+        function updateRightColumnHeight() {
+            const calendar = document.getElementById('calendar');
+            const rightColumn = document.querySelector('.right-column');
+            const calendarRect = calendar.getBoundingClientRect();
+            const newHeight = calendarRect.bottom + 9 - rightColumn.offsetTop;
+            rightColumn.style.height = `${newHeight}px`;
+        }
+
+        // load from local storage
+        const storedData = localStorage.getItem('taskEventArray');
+        if (storedData) {
+            taskEventArray = JSON.parse(storedData);
+        }
 
         updateDateDisplay();
         renderAllData();
         adjustTextareaHeight();
         updateButtonStyles();
+        updateRightColumnHeight();
 
-        // Modified resize event listener
         window.addEventListener('resize', () => {
             renderCalendar();
+            updateRightColumnHeight();
         });
 
-        // move the calendar to the right spot
-        document.getElementById('calendar').style.top = `${calendarToTopDistanceNoAllDay}px`;
+        function createCheckbox(task, index = 0) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'task-checkbox';
+            checkbox.checked = task.done[index] || false;
+            checkbox.addEventListener('change', () => {
+                task.done[index] = checkbox.checked;
+                saveToLocalStorage();
+                renderAllData();
+            });
+            return checkbox;
+        }
 
+        // !testing
+        /*
+        document.getElementById('taskInput').textContent =
+        `meeting with math teacher on tuseday
+meeting with advisor today
+math HW due 6 pm today!!!
+networking at the gates hillman super hill center from 3 to 9
+bio lab on friday
+finish recording new song by tomorrow
+calc pre-test due by thursday
+programming homework before 3pm friday
+remind me to buy carrots from target
+study session starting at 5:00
+studying from 1 pm to 3:25
+studying from 7 to 8
+meet up with omar for 20 minutes from 7:30
+cycling practice from 7 to 8
+remind Bill to pick up cold medicine`
+*/
     </script>
 </body>
 </html>
