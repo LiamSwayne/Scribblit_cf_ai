@@ -730,13 +730,21 @@
 
         function updateSectionTitleStyle(section, taskCount, completedCount) {
             const sectionContainer = document.querySelector(`.task-section-container:has(#${section}TaskList)`);
-            const sectionElement = sectionContainer.querySelector('.task-section');
-            const titleElement = sectionElement.querySelector('.section-title');
+            const titleElement = sectionContainer.querySelector('.section-title');
             
             if (taskCount === 0 || taskCount === completedCount) {
-                sectionContainer.classList.add('empty-section');
+                titleElement.style.color = '#666'; // Darken the title
             } else {
-                sectionContainer.classList.remove('empty-section');
+                titleElement.style.color = ''; // Reset to default color
+            }
+
+            // Special handling for overdue section
+            if (section === 'overdue') {
+                if (taskCount === 0) {
+                    sectionContainer.style.display = 'none';
+                } else {
+                    sectionContainer.style.display = 'block';
+                }
             }
         }
 
@@ -848,7 +856,7 @@
 
                 if (item.done[0]) {
                     taskContent.style.textDecoration = 'line-through';
-                    taskContent.style.color = '#888';
+                    taskContent.style.color = '#666';
                 }
 
                 const checkbox = createCheckbox(item, 0);
@@ -877,6 +885,10 @@
                         timeSpan.textContent = item.endTime;
                         dateTimeSpan.appendChild(timeSpan);
                     }
+
+                    if (item.done[0]) {
+                        dateTimeSpan.style.color = '#666';
+                    }
                     
                     listItem.appendChild(dateTimeSpan);
                     listItem.appendChild(taskContent);
@@ -895,6 +907,10 @@
                         timeSpan.textContent = '*';
                     }
 
+                    if (item.done[0]) {
+                        timeSpan.style.color = '#666';
+                    }
+
                     listItem.appendChild(timeSpan);
                     listItem.appendChild(taskContent);
                     listItem.appendChild(checkbox);
@@ -910,6 +926,10 @@
                     } else {
                         timeSpan.className = 'task-asterisk';
                         timeSpan.textContent = '*';
+                    }
+
+                    if (item.done[0]) {
+                        timeSpan.style.color = '#666';
                     }
 
                     listItem.appendChild(timeSpan);
@@ -937,7 +957,14 @@
                         timeSpan.textContent = item.endTime;
                         dateTimeSpan.appendChild(timeSpan);
                     }
-                    
+
+                    if (item.done[0]) {
+                        dateSpan.style.color = '#666';
+                        if (item.endTime) {
+                            dateTimeSpan.querySelector('.task-time').style.color = '#666';
+                        }
+                    }
+
                     listItem.appendChild(dateTimeSpan);
                     listItem.appendChild(taskContent);
                     listItem.appendChild(checkbox);
