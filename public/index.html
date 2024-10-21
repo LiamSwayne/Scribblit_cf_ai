@@ -180,7 +180,7 @@
 
         #allDayEvents {
             position: absolute;
-            top: 24px;
+            top: 23px;
             left: calc(50% + 14px);
             right: 4px;
             padding-bottom: 4px;
@@ -509,7 +509,7 @@
 
                 // Calculate new calendar position
                 const newCalendarTop = newAllDayEventCount > 0 ? 
-                    allDayEventsContainer.offsetHeight + calendarToTopDistanceNoAllDay : 
+                    allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay : 
                     calendarToTopDistanceNoAllDay;
 
                 // Animate calendar to new position
