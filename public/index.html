@@ -11,384 +11,430 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <style>
         body {
-            display: flex;
-            flex-direction: column;
-            margin: 0;
-            padding: 10px;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-            background-color: #1e1e1e;
-            color: #e0e0e0;
-        }
-        .container {
-            display: flex;
-            flex-grow: 1;
-            height: calc(100vh - 54px);
-        }
-        .title {
-            margin-bottom: 4px;
-        }
-        .title img {
-            max-width: 100px;
-            height: auto;
-        }
-        .section-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-        .left-column {
-            flex: 1;
-            padding-right: 10px;
-            display: flex;
-            flex-direction: column;
-        }
-        .right-column {
-            flex: 1;
-            padding-left: 0px;
-            position: relative;
-            margin-top: -30px;
-        }
-        #centerLine {
-            background-color: #444;
-            width: 2px;
-            position: fixed;
-            left: calc(50% + 4px);
-            top: 8px;
-            height: calc(100% - 16px);
-        }
-        #taskInput {
-            width: 100%;
-            min-height: 100px;
-            margin-bottom: 10px;
-            background-color: #2d2d2d;
-            color: #e0e0e0;
-            border: 1px solid #444;
-            padding: 10px;
-            resize: none;
-            position: relative;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            overflow-y: hidden;
-            box-sizing: border-box;
-            transition: min-height 0.3s ease, height 0.3s ease;
-        }
-        #taskInput:focus {
-            outline: none;
-            border-color: #444;
-        }
-        .task-section {
-            margin-bottom: 5px;
-        }
-        .task-section:not(:last-child) {
-            margin-bottom: 5px;
-            border-bottom: 2px solid #444;
-        }
-        .task-list {
-            padding: 0;
-        }
-        .task-list > div {
-            margin-bottom: 8px;
-            display: flex;
-            align-items: flex-start;
-        }
-        .task-list li {
-            margin-bottom: 8px;
-            display: flex;
-            align-items: flex-start;
-        }
-        .task-asterisk {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            color: #888;
-            margin-right: 21px;
-            min-width: 24px;
-            text-align: right;
-            margin-top: 0px;
-        }
-        .task-date {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            color: #888;
-            margin-right: 7px;
-            min-width: 38px;
-            text-align: right;
-            margin-top: 2px;
-        }
-        .task-time {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            color: #888;
-            margin-right: 7px;
-            min-width: 38px;
-            text-align: right;
-            margin-top: 2px;
-            text-align: center;
-        }
-        .task-date-time {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            margin-right: 0px;
-            margin-top: -6px;
-        }
-        .task-date-no-time {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            margin-right: 0px;
-            margin-top: 0px;
-        }
-        .task-date-time .task-time {
-            font-size: 9.5px;
-            margin-top: -2px;
-        }
-        .empty-section {
-            opacity: 0.5;
-        }
-        #calendar {
-            position: absolute;
-            margin-top: 2px;
-            left: 10px;
-            right: 0;
-            overflow-y: auto;
-            height: 1100px;
-            border-bottom: 1px solid #444;
-        }
-        .calendar-event {
-            position: absolute;
-            left: 60px;
-            padding-top: 2px;
-            padding-left: 5px;
-            padding-right: 5px;
-            padding-bottom: 3px;
-            margin: 3.5px;
-            color: #e0e0e0;
-            border-radius: 8px;
-            font-size: 12px;
-            box-sizing: border-box;
-            transition: opacity 0.3s ease;
-        }
-        .navigation {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2px;
-        }
-        .navigation button {
-            background-color: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            position: relative;
-            overflow: hidden;
-        }
-        .navigation button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border: 2px solid #e0e0e0;
-            border-radius: 50%;
-            transition: border-width 0.3s ease;
-        }
-        .navigation button::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #61a3ff, #d477ff);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .navigation button:hover::before {
-            border-width: 0;
-        }
-        .navigation button:hover::after {
-            opacity: 1;
-            animation: rotateGradient 3.5s linear infinite;
-        }
-        .navigation button svg {
-            width: 14px;
-            height: 14px;
-            position: relative;
-            z-index: 1;
-            stroke: #ffffff;
-            stroke-width: 3;
-        }
-        .hour-marker {
-            position: absolute;
-            left: 0;
-            right: 0;
-            border-top: 1px solid #444;
-            pointer-events: none;
-        }
-        .hour-label {
-            position: absolute;
-            left: 0;
-            width: 50px;
-            text-align: right;
-            padding-right: 5px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            color: #888;
-        }
-        @keyframes slideUp {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(-100%); opacity: 0; }
-        }
-        @keyframes fadeOut {
-            0% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        @keyframes fadeIn {
-            0% { opacity: 0; }
-            100% { opacity: 1; }
-        }
-        .animated-text-container {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #e0e0e0;
-            background-color: #2d2d2d;
-            padding: 10px;
-            box-sizing: border-box;
-            overflow: hidden;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        .animated-text {
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        }
-        #animationOverlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            pointer-events: none;
-            overflow: hidden;
-            padding: 1px;
-        }
-        @keyframes fadeInGrow {
-            from {
-                opacity: 0;
-                transform: scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-        #allDayEvents {
-            padding-bottom: 4px;
-            margin-left: 10px;
-            margin-top: 6px;
-        }
-        .all-day-event {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 5px;
-        }
-        .all-day-event .task-asterisk {
-            margin-right: 10px;
-        }
-        #currentDate {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 0 10px;
-        }
-        @keyframes rotateGradient {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-        #prevDay {
-            left: 10px;
-        }
-        .task-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .task-checkbox {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border: 2px solid #444;
-            border-radius: 3px;
-            margin-left: 10px;
-            cursor: pointer;
-            position: relative;
-            transition: background-color 0.3s, border-color 0.3s;
-        }
-        .task-checkbox:checked {
-            background-color: #444;
-            border-color: #444;
-        }
-        .task-checkbox:checked::after {
-            content: '\2714';
-            font-size: 14px;
-            color: #e0e0e0;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        .task-checkbox:hover {
-            border-color: #666;
-        }
-        .task-checkbox:checked:hover {
-            background-color: #666;
-            border-color: #666;
-        }
-        .task-content {
-            flex: 1;
-            transition: color 0.3s, text-decoration 0.3s;
-        }
-        .empty-section .section-title {
-            color: #888;
-        }
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+}
+
+.container {
+    display: flex;
+    flex-grow: 1;
+    height: calc(100vh - 54px);
+    position: relative;
+}
+
+.left-column {
+    width: calc(50% - 10px);
+    padding-right: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+#centerLine {
+    background-color: #444;
+    width: 2px;
+    position: fixed;
+    left: 50%;
+    top: 8px;
+    height: calc(100% - 16px);
+}
+
+#taskInput {
+    width: 100%;
+    min-height: 100px;
+    margin-bottom: 30px;
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    padding: 10px;
+    resize: none;
+    position: relative;
+    top: 30px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-y: hidden;
+    box-sizing: border-box;
+    transition: min-height 0.3s ease, height 0.3s ease;
+}
+
+#taskInput:focus {
+    outline: none;
+    border-color: #444;
+}
+
+.task-section-container {
+    width: 100%;
+}
+
+.task-section {
+    width: 100%;
+    transition: opacity 0.3s ease;
+}
+
+.section-border {
+    height: 2px;
+    background-color: #444;
+    margin: 5px 0;
+}
+
+.empty-section .task-section {
+    opacity: 0.5;
+}
+
+.empty-section .section-title {
+    color: #888;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.task-list {
+    padding: 0;
+    width: 100%;
+}
+
+.task-list > div {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+}
+
+.task-list li {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+}
+
+.task-asterisk {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: #888;
+    margin-right: 21px;
+    min-width: 24px;
+    text-align: right;
+    margin-top: 0px;
+}
+
+.task-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+    margin-right: 7px;
+    min-width: 38px;
+    text-align: right;
+    margin-top: 2px;
+}
+
+.task-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+    margin-right: 7px;
+    min-width: 38px;
+    text-align: right;
+    margin-top: 2px;
+    text-align: center;
+}
+
+.task-date-time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-right: 0px;
+    margin-top: -6px;
+}
+
+.task-date-no-time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-right: 0px;
+    margin-top: 0px;
+}
+
+.task-date-time .task-time {
+    font-size: 9.5px;
+    margin-top: -2px;
+}
+
+.navigation {
+    position: absolute;
+    top: 0;
+    left: calc(50% + 10px);
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#allDayEvents {
+    position: absolute;
+    top: 30px;
+    left: calc(50% + 10px);
+    right: 10px;
+}
+
+#calendar {
+    position: absolute;
+    top: 60px;
+    left: calc(50% + 10px);
+    right: 10px;
+    bottom: 10px;
+    overflow-y: auto;
+}
+
+.calendar-event {
+    position: absolute;
+    left: 60px;
+    padding-top: 2px;
+    padding-left: 5px;
+    padding-right: 5px;
+    padding-bottom: 3px;
+    margin: 3.5px;
+    color: #e0e0e0;
+    border-radius: 8px;
+    font-size: 12px;
+    box-sizing: border-box;
+    transition: opacity 0.3s ease;
+}
+
+.navigation button {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.navigation button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid #e0e0e0;
+    border-radius: 50%;
+    transition: border-width 0.3s ease;
+}
+
+.navigation button::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #61a3ff, #d477ff);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.navigation button:hover::before {
+    border-width: 0;
+}
+
+.navigation button:hover::after {
+    opacity: 1;
+    animation: rotateGradient 3.5s linear infinite;
+}
+
+.navigation button svg {
+    width: 14px;
+    height: 14px;
+    position: relative;
+    z-index: 1;
+    stroke: #ffffff;
+    stroke-width: 3;
+}
+
+.hour-marker {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #444;
+    pointer-events: none;
+}
+
+.hour-label {
+    position: absolute;
+    left: 0;
+    width: 50px;
+    text-align: right;
+    padding-right: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+}
+
+.animated-text-container {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #e0e0e0;
+    background-color: #2d2d2d;
+    padding: 10px;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.animated-text {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#animationOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    overflow: hidden;
+    padding: 1px;
+}
+
+#allDayEvents {
+    padding-bottom: 4px;
+    margin-left: 10px;
+    margin-top: 6px;
+}
+
+.all-day-event {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 5px;
+}
+
+.all-day-event .task-asterisk {
+    margin-right: 10px;
+}
+
+#currentDate {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0 10px;
+}
+
+#prevDay {
+    left: 10px;
+}
+
+.task-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.task-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #444;
+    border-radius: 3px;
+    margin-left: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+.task-checkbox:checked {
+    background-color: #444;
+    border-color: #444;
+}
+
+.task-checkbox:checked::after {
+    content: '\2714';
+    font-size: 14px;
+    color: #e0e0e0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.task-checkbox:hover {
+    border-color: #666;
+}
+
+.task-checkbox:checked:hover {
+    background-color: #666;
+    border-color: #666;
+}
+
+.task-content {
+    flex: 1;
+    transition: color 0.3s, text-decoration 0.3s;
+}
+
+@keyframes slideUp {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-100%); opacity: 0; }
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+@keyframes fadeInGrow {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes rotateGradient {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
     </style>
 </head>
 <body>
     <div id="centerLine"></div>
-    <div class="title">
-        <img src="./scribblit_logo_2.svg" alt="Scribblit Logo" style="width: 200px; height: auto;">
-    </div>
+    <img src="./scribblit_logo_2.svg" alt="Scribblit Logo" style="position: fixed; width: 100px; height: auto;">
     <div class="container">
         <div class="left-column">
             <div style="position: relative;">
                 <textarea id="taskInput" spellcheck="false" placeholder="Scribble your tasks here..."></textarea>
                 <div id="animationOverlay"></div>
             </div>
-            <div class="task-section">
-                <div class="section-title">Today</div>
-                <div id="todayTaskList" class="task-list"></div>
-            </div>
-            <div class="task-section">
-                <div class="section-title">Tomorrow</div>
-                <div id="tomorrowTaskList" class="task-list"></div>
-            </div>
-            <div class="task-section">
-                <div class="section-title">This Week</div>
-                <div id="weekTaskList" class="task-list"></div>
+            <div id="taskSections">
+                <!-- Task sections will be dynamically inserted here -->
             </div>
         </div>
         <div class="right-column">
@@ -672,15 +718,14 @@
         }
 
         function updateSectionTitleStyle(section, taskCount, completedCount) {
-            const sectionElement = document.querySelector(`.task-section:has(#${section}TaskList)`);
+            const sectionContainer = document.querySelector(`.task-section-container:has(#${section}TaskList)`);
+            const sectionElement = sectionContainer.querySelector('.task-section');
             const titleElement = sectionElement.querySelector('.section-title');
             
             if (taskCount === 0 || taskCount === completedCount) {
-                sectionElement.classList.add('empty-section');
-                titleElement.style.color = '#888';
+                sectionContainer.classList.add('empty-section');
             } else {
-                sectionElement.classList.remove('empty-section');
-                titleElement.style.color = '';
+                sectionContainer.classList.remove('empty-section');
             }
         }
 
@@ -716,14 +761,42 @@
         }
 
         function renderAllData() {
-            todayTaskList.innerHTML = '';
-            tomorrowTaskList.innerHTML = '';
-            weekTaskList.innerHTML = '';
-            renderCalendar();
+            const taskSections = document.getElementById('taskSections');
+            taskSections.innerHTML = ''; // Clear existing sections
 
-            const today = DateTime.local().setZone(userTimezone);
+            const today = DateTime.now().setZone(userTimezone);
             const tomorrow = today.plus({ days: 1 });
             const weekEnd = today.plus({ days: 7 });
+
+            const sections = ['today', 'tomorrow', 'week'];
+            sections.forEach((section, index) => {
+                const sectionContainer = document.createElement('div');
+                sectionContainer.className = 'task-section-container';
+
+                const sectionElement = document.createElement('div');
+                sectionElement.className = 'task-section';
+                
+                const titleElement = document.createElement('div');
+                titleElement.className = 'section-title';
+                titleElement.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+                
+                const taskList = document.createElement('div');
+                taskList.id = `${section}TaskList`;
+                taskList.className = 'task-list';
+                
+                sectionElement.appendChild(titleElement);
+                sectionElement.appendChild(taskList);
+                sectionContainer.appendChild(sectionElement);
+                
+                // Add border after each section except the last one
+                if (index < sections.length - 1) {
+                    const border = document.createElement('div');
+                    border.className = 'section-border';
+                    sectionContainer.appendChild(border);
+                }
+                
+                taskSections.appendChild(sectionContainer);
+            });
 
             let todayTaskCount = 0;
             let todayCompletedCount = 0;
@@ -740,12 +813,12 @@
                     taskContent.className = 'task-content';
                     taskContent.textContent = item.name;
 
-                    if (item.done[0]) { // Check the first (and currently only) value
+                    if (item.done[0]) {
                         taskContent.style.textDecoration = 'line-through';
                         taskContent.style.color = '#888';
                     }
 
-                    const checkbox = createCheckbox(item, 0); // Pass 0 as the index
+                    const checkbox = createCheckbox(item, 0);
 
                     let date = DateTime.fromISO(item.date);
                     if (date.hasSame(today, 'day') || date.hasSame(tomorrow, 'day')) {
@@ -763,11 +836,11 @@
                         listItem.appendChild(checkbox);
                         
                         if (date.hasSame(today, 'day')) {
-                            todayTaskList.appendChild(listItem);
+                            document.getElementById('todayTaskList').appendChild(listItem);
                             todayTaskCount++;
                             if (item.done[0]) todayCompletedCount++;
                         } else {
-                            tomorrowTaskList.appendChild(listItem);
+                            document.getElementById('tomorrowTaskList').appendChild(listItem);
                             tomorrowTaskCount++;
                             if (item.done[0]) tomorrowCompletedCount++;
                         }
@@ -793,7 +866,7 @@
                         listItem.appendChild(dateTimeSpan);
                         listItem.appendChild(taskContent);
                         listItem.appendChild(checkbox);
-                        weekTaskList.appendChild(listItem);
+                        document.getElementById('weekTaskList').appendChild(listItem);
                         weekTaskCount++;
                         if (item.done[0]) weekCompletedCount++;
                     }
@@ -804,6 +877,8 @@
             updateSectionTitleStyle('today', todayTaskCount, todayCompletedCount);
             updateSectionTitleStyle('tomorrow', tomorrowTaskCount, tomorrowCompletedCount);
             updateSectionTitleStyle('week', weekTaskCount, weekCompletedCount);
+
+            renderCalendar();
         }
 
         function renderCalendar(showEvents = true) {
@@ -1088,6 +1163,7 @@
         }
 
         // !testing
+        /*
         localStorage.removeItem('taskEventArray');
         document.getElementById('taskInput').textContent =
         `meeting with math teacher on tuseday
@@ -1105,6 +1181,7 @@ studying from 7 to 8
 meet up with omar for 20 minutes from 7:30
 cycling practice from 7 to 8
 remind Bill to pick up cold medicine`
+*/
     </script>
 </body>
 </html>
