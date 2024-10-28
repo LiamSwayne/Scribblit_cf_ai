@@ -64,8 +64,8 @@ If a field cannot be inferred, just omit it completely instead of making it null
 Give me a JSON response and nothing else.`;
 
         const requestBody = {
-            model: 'claude-3-5-sonnet-20240620',
-            max_tokens: 1024,
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 8192,
             system: [
                 {
                     type: "text",
