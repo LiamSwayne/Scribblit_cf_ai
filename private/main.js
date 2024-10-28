@@ -95,8 +95,8 @@ Give me a JSON response and nothing else.`;
 
             if (!response.ok) {
                 const errorBody = await response.text();
-                console.error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.error(`Error in anthropic API! status: ${response.status}, body: ${errorBody}`);
+                return SEND({ error: errorBody }, 562);
             }
 
             const result = await response.json();
@@ -104,7 +104,7 @@ Give me a JSON response and nothing else.`;
             return SEND(result.content[0].text, 200, 'text-no-content-type');
         } catch (error) {
             console.error('Error processing input:', error);
-            return SEND({ error: 'Failed to process input' }, 500);
+            return SEND({ error: 'Failed to process input' }, 563);
         }
     }
 }
