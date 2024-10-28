@@ -460,6 +460,9 @@
                 transform: rotate(360deg);
             }
         }
+        .calendar-no-transition {
+            transition: none !important;
+        }
     </style>
 </head>
 <body>
@@ -508,6 +511,7 @@
         const originalHeight = '100px'; // Store the original height
         let isAnimating = false;
         let animationCooldown = false;
+        let isFirstRender = true;
 
         const todayTaskList = document.getElementById('todayTaskList');
         const tomorrowTaskList = document.getElementById('tomorrowTaskList');
@@ -1016,6 +1020,11 @@
             const allDayEventsContainer = document.getElementById('allDayEvents');
             allDayEventsContainer.innerHTML = '';
             
+            // Remove transition for first render
+            if (isFirstRender) {
+                calendar.classList.add('calendar-no-transition');
+            }
+
             // Render time markers
             for (let i = 0; i < 24; i++) {
                 const hourMarker = document.createElement('div');
@@ -1064,7 +1073,7 @@
             let allDayEvents = events.filter(event => !event.startTime || !isValidTime(event.startTime));
             let timedEvents = events.filter(event => event.startTime && isValidTime(event.startTime));
 
-            // Render all-day events only if there are any
+            // Handle all-day events
             if (allDayEvents.length > 0) {
                 allDayEventsContainer.innerHTML = '<div class="section-title">All-day</div>';
                 allDayEvents.forEach(event => {
@@ -1079,6 +1088,30 @@
                     eventEl.appendChild(eventContent);
                     allDayEventsContainer.appendChild(eventEl);
                 });
+            }
+
+            // Calculate new calendar position immediately
+            const newCalendarTop = allDayEvents.length > 0 ? 
+                allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay : 
+                calendarToTopDistanceNoAllDay;
+
+            // Set position without transition on first render
+            if (isFirstRender) {
+                calendar.style.top = `${newCalendarTop}px`;
+                allDayEventsContainer.style.opacity = allDayEvents.length > 0 ? '1' : '0';
+            } else {
+                calendar.style.transition = 'top 0.3s ease';
+                calendar.style.top = `${newCalendarTop}px`;
+                
+                if (allDayEvents.length > 0) {
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    allDayEventsContainer.style.opacity = '0';
+                    setTimeout(() => {
+                        allDayEventsContainer.style.opacity = '1';
+                    }, 150);
+                } else {
+                    allDayEventsContainer.style.opacity = '0';
+                }
             }
 
             // Sort the timed events by start time
@@ -1202,6 +1235,14 @@
                 });
             });
 
+            // After the first render, remove the no-transition class and set the flag
+            if (isFirstRender) {
+                // Use requestAnimationFrame to ensure the no-transition class is removed after the initial render
+                requestAnimationFrame(() => {
+                    calendar.classList.remove('calendar-no-transition');
+                    isFirstRender = false;
+                });
+            }
         }
 
         function timeToMinutes(time) {
