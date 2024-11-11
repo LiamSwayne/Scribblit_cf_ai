@@ -790,24 +790,39 @@
                 } else if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
                     return dateString; // Already in ISO format
                 } else if (dateString.match(/^[a-z]+(\+\d+)?$/)) {
-                    const [day, offset] = dateString.split('+');
-                    let targetDate = today.set({ weekday: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(day.toLowerCase()) + 1 });
+                    // Extract the day name and optional offset
+                    const match = dateString.match(/^([a-z]+)(?:\+(\d+))?$/);
+                    if (!match) return today.toISODate(); // Fallback to today if match fails
                     
-                    if (offset) {
-                        targetDate = targetDate.plus({ weeks: parseInt(offset) });
-                    }
+                    const [_, day, offsetStr] = match;
+                    const offset = offsetStr ? parseInt(offsetStr) : 0;
                     
+                    // Get the weekday index (1-7, where 1 is Monday)
+                    const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                        .indexOf(day.toLowerCase()) + 1;
+                    
+                    if (weekdayIndex === 0) return today.toISODate(); // Invalid day name
+                    
+                    // Find the next occurrence of this weekday
+                    let targetDate = today.set({ weekday: weekdayIndex });
+                    
+                    // If the target date is before today, move to next week
                     if (targetDate < today) {
                         targetDate = targetDate.plus({ weeks: 1 });
                     }
                     
+                    // Add any additional weeks specified by the offset
+                    if (offset > 0) {
+                        targetDate = targetDate.plus({ weeks: offset });
+                    }
+                    
                     return targetDate.toISODate();
                 }
-            } else {
-                // The date is null, so return today as a fallback
-                console.log(`Null date found.`);
-                return today.toISODate();
             }
+            
+            // The date is null or invalid format, return today as fallback
+            console.log(`Invalid or null date found: ${dateString}`);
+            return today.toISODate();
         }
 
         function renderTasks() {
