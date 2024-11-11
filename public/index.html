@@ -827,7 +827,7 @@
 
         function renderTasks() {
             const taskSections = document.getElementById('taskSections');
-            taskSections.innerHTML = ''; // Clear existing sections
+            taskSections.innerHTML = '';
 
             const now = DateTime.now().setZone(userTimezone);
             const today = now.startOf('day');
@@ -873,7 +873,27 @@
 
             // Filter and sort tasks
             const tasks = taskEventArray.filter(item => item.kind === "task");
-            tasks.sort((a, b) => {
+            
+            // Generate all dates for recurring tasks within the week range
+            const expandedTasks = [];
+            tasks.forEach(task => {
+                if (task.recurPattern) {
+                    const dates = generateRecurringDates(task, today.toISODate(), weekEnd.toISODate());
+                    dates.forEach(date => {
+                        expandedTasks.push({
+                            ...task,
+                            date: date,
+                            originalDate: task.date,
+                            isRecurring: true
+                        });
+                    });
+                } else {
+                    expandedTasks.push({ ...task, isRecurring: false });
+                }
+            });
+
+            // Sort expanded tasks
+            expandedTasks.sort((a, b) => {
                 const aDate = DateTime.fromISO(a.date);
                 const bDate = DateTime.fromISO(b.date);
                 if (aDate.equals(bDate)) {
@@ -884,36 +904,73 @@
                 return aDate.valueOf() - bDate.valueOf();
             });
 
-            tasks.forEach(item => {
+            expandedTasks.forEach(task => {
+                const taskDate = DateTime.fromISO(task.date);
+                
+                // Create the task list item
                 const listItem = document.createElement('div');
                 listItem.className = 'task-item';
+                
+                // Create task content
                 const taskContent = document.createElement('span');
                 taskContent.className = 'task-content';
-                taskContent.textContent = item.name;
+                taskContent.textContent = task.name;
+                if (task.isRecurring) {
+                    taskContent.textContent += ' (recurring)';
+                }
 
-                const completionData = item.done[item.date];
+                // Create checkbox
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'task-checkbox';
+                
+                // Check completion status
+                const completionData = task.done[task.date];
                 const isCompleted = completionData?.completed || false;
                 const completedAt = completionData?.completedAt ? DateTime.fromISO(completionData.completedAt) : null;
                 const completedToday = completedAt?.hasSame(today, 'day') || false;
+
+                checkbox.checked = isCompleted;
+                
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        task.done[task.date] = {
+                            completed: true,
+                            completedAt: now.toISO()
+                        };
+                    } else {
+                        delete task.done[task.date];
+                    }
+                    
+                    saveToLocalStorage();
+                    
+                    const taskItem = checkbox.closest('.task-item');
+                    if (taskItem.classList.contains('overdue-task')) {
+                        if (checkbox.checked) {
+                            taskItem.classList.add('overdue-task-done');
+                        } else {
+                            taskItem.classList.remove('overdue-task-done');
+                        }
+                    }
+                    
+                    renderTasks();
+                });
 
                 if (isCompleted) {
                     taskContent.style.textDecoration = 'line-through';
                     taskContent.style.color = '#666';
                 }
 
-                const checkbox = createCheckbox(item, item.date);
-
-                let taskDate = DateTime.fromISO(item.date);
-                let taskDateTime = item.endTime ? 
+                let taskDateTime = task.endTime ? 
                     taskDate.set({
-                        hour: parseInt(item.endTime.split(':')[0]),
-                        minute: parseInt(item.endTime.split(':')[1])
+                        hour: parseInt(task.endTime.split(':')[0]),
+                        minute: parseInt(task.endTime.split(':')[1])
                     }) : 
                     taskDate.endOf('day');
 
                 const isOverdue = taskDateTime < now;
                 const isDueToday = taskDate.hasSame(today, 'day');
-
+                
                 // Determine if the task should be shown in today's section
                 const showInToday = isDueToday || // Due today
                                 (isOverdue && !isCompleted) || // Overdue and not completed
@@ -925,23 +982,23 @@
                     
                     if (isOverdue && !isDueToday) {
                         // Show full date for overdue tasks not due today
-                        dateTimeSpan.className = item.endTime ? 'task-date-time' : 'task-date-no-time';
+                        dateTimeSpan.className = task.endTime ? 'task-date-time' : 'task-date-no-time';
                         const dateSpan = document.createElement('span');
                         dateSpan.className = 'task-date';
                         dateSpan.textContent = taskDate.toFormat('MM/dd');
                         dateTimeSpan.appendChild(dateSpan);
                         
-                        if (item.endTime) {
+                        if (task.endTime) {
                             const timeSpan = document.createElement('span');
                             timeSpan.className = 'task-time';
-                            timeSpan.textContent = item.endTime;
+                            timeSpan.textContent = task.endTime;
                             dateTimeSpan.appendChild(timeSpan);
                         }
                     } else {
                         // Show just time or asterisk for today's tasks
-                        if (item.endTime) {
+                        if (task.endTime) {
                             dateTimeSpan.className = 'task-time';
-                            dateTimeSpan.textContent = item.endTime;
+                            dateTimeSpan.textContent = task.endTime;
                         } else {
                             dateTimeSpan.className = 'task-asterisk';
                             dateTimeSpan.textContent = '*';
@@ -955,7 +1012,6 @@
                         }
                         dateTimeSpan.style.color = isCompleted ? '#666' : '#ff4444';
                     } else if (isCompleted) {
-                        // Non-overdue completed tasks should have the same gray color
                         dateTimeSpan.style.color = '#666';
                     }
 
@@ -969,9 +1025,9 @@
                 } else if (taskDate.hasSame(tomorrow, 'day')) {
                     // Tomorrow's tasks
                     const timeSpan = document.createElement('span');
-                    if (item.endTime) {
+                    if (task.endTime) {
                         timeSpan.className = 'task-time';
-                        timeSpan.textContent = item.endTime;
+                        timeSpan.textContent = task.endTime;
                     } else {
                         timeSpan.className = 'task-asterisk';
                         timeSpan.textContent = '*';
@@ -991,7 +1047,7 @@
                 } else if (taskDate > tomorrow && taskDate <= weekEnd) {
                     // Week's tasks
                     const dateTimeSpan = document.createElement('span');
-                    if (item.endTime) {
+                    if (task.endTime) {
                         dateTimeSpan.className = 'task-date-time';
                     } else {
                         dateTimeSpan.className = 'task-date-no-time';
@@ -1001,16 +1057,16 @@
                     dateSpan.textContent = taskDate.toFormat('MM/dd');
                     dateTimeSpan.appendChild(dateSpan);
                     
-                    if (item.endTime) {
+                    if (task.endTime) {
                         const timeSpan = document.createElement('span');
                         timeSpan.className = 'task-time';
-                        timeSpan.textContent = item.endTime;
+                        timeSpan.textContent = task.endTime;
                         dateTimeSpan.appendChild(timeSpan);
                     }
 
                     if (isCompleted) {
                         dateSpan.style.color = '#666';
-                        if (item.endTime) {
+                        if (task.endTime) {
                             dateTimeSpan.querySelector('.task-time').style.color = '#666';
                         }
                     }
@@ -1309,48 +1365,6 @@
             });
         }
 
-        function createCheckbox(task, dateStr = null) {
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'task-checkbox';
-            
-            // If no specific date is provided, use the task's date
-            const dateKey = dateStr || task.date;
-            
-            // Check if there's a completion status for this date
-            checkbox.checked = task.done[dateKey]?.completed || false;
-            
-            checkbox.addEventListener('change', () => {
-                const now = DateTime.now().setZone(userTimezone);
-                
-                if (checkbox.checked) {
-                    // Store completion timestamp when marking as done
-                    task.done[dateKey] = {
-                        completed: true,
-                        completedAt: now.toISO()
-                    };
-                } else {
-                    // Remove completion data when unchecking
-                    delete task.done[dateKey];
-                }
-                
-                saveToLocalStorage();
-                
-                // Handle overdue task animation
-                const taskItem = checkbox.closest('.task-item');
-                if (taskItem.classList.contains('overdue-task')) {
-                    if (checkbox.checked) {
-                        taskItem.classList.add('overdue-task-done');
-                    } else {
-                        taskItem.classList.remove('overdue-task-done');
-                    }
-                }
-                
-                renderTasks();
-            });
-            return checkbox;
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
             // Load from local storage
             const storedData = localStorage.getItem('taskEventArray');
@@ -1384,6 +1398,120 @@
                 renderCalendar();
             });
         });
+
+        // helper function to generate recurring dates from the string returned by the AI
+        function generateRecurringDates(task, startDate, endDate) {
+            const start = DateTime.fromISO(startDate);
+            const end = DateTime.fromISO(endDate);
+            const dates = [];
+            
+            if (!task.recurPattern) return [task.date];
+
+            let current = DateTime.fromISO(task.date);
+            
+            // Handle specific weekday patterns like "monday,tuesday" or "monday@15:00,tuesday@16:00"
+            if (task.recurPattern.includes(',')) {
+                const patterns = task.recurPattern.split(',');
+                while (current <= end) {
+                    patterns.forEach(pattern => {
+                        let [day, time] = pattern.split('@');
+                        const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                            .indexOf(day.toLowerCase());
+                        
+                        if (weekdayIndex !== -1) {
+                            let nextOccurrence = current.set({ weekday: weekdayIndex + 1 });
+                            if (nextOccurrence < current) {
+                                nextOccurrence = nextOccurrence.plus({ weeks: 1 });
+                            }
+                            
+                            // If this specific weekday has a time override
+                            if (time) {
+                                const [hours, minutes] = time.split(':').map(Number);
+                                task.endTime = time;
+                            }
+                            
+                            if (nextOccurrence >= start && nextOccurrence <= end) {
+                                dates.push(nextOccurrence.toISODate());
+                            }
+                        }
+                    });
+                    current = current.plus({ weeks: 1 });
+                }
+                return [...new Set(dates)]; // Remove duplicates
+            }
+
+            // Handle monthly patterns
+            if (task.recurPattern.startsWith('monthly_')) {
+                const pattern = task.recurPattern.substring(8); // Remove 'monthly_' prefix
+                while (current <= end) {
+                    let nextDate = current;
+                    
+                    if (pattern === 'first_day') {
+                        nextDate = current.startOf('month');
+                    } else if (pattern.includes('_')) {
+                        const [ord, day] = pattern.split('_'); // e.g., 'first', 'monday'
+                        const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                            .indexOf(day.toLowerCase());
+                        
+                        if (weekdayIndex !== -1) {
+                            const ordinalMap = {
+                                'first': 1, 'second': 2, 'third': 3, 'fourth': 4, 'last': -1
+                            };
+                            
+                            const ordinal = ordinalMap[ord];
+                            if (ordinal) {
+                                if (ordinal === -1) {
+                                    nextDate = current.endOf('month').set({ weekday: weekdayIndex + 1 });
+                                    while (nextDate.month !== current.month) {
+                                        nextDate = nextDate.minus({ weeks: 1 });
+                                    }
+                                } else {
+                                    nextDate = current.startOf('month').set({ weekday: weekdayIndex + 1 });
+                                    nextDate = nextDate.plus({ weeks: ordinal - 1 });
+                                    while (nextDate.month !== current.month) {
+                                        nextDate = nextDate.minus({ weeks: 1 });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (nextDate >= start && nextDate <= end) {
+                        dates.push(nextDate.toISODate());
+                    }
+                    
+                    current = current.plus({ months: 1 });
+                }
+                return dates;
+            }
+
+            // Handle other recurrence patterns
+            const intervalMap = {
+                'daily': { days: 1 },
+                'weekly': { weeks: 1 },
+                'biweekly': { weeks: 2 },
+                'monthly': { months: 1 },
+                'yearly': { years: 1 }
+            };
+
+            // Handle "weekly+n" pattern
+            if (task.recurPattern.startsWith('weekly+')) {
+                const weeks = parseInt(task.recurPattern.split('+')[1]);
+                intervalMap.custom = { weeks };
+            }
+
+            const interval = intervalMap[task.recurPattern] || intervalMap.custom;
+            if (!interval) return [task.date];
+
+            while (current <= end) {
+                if (current >= start) {
+                    dates.push(current.toISODate());
+                }
+                current = current.plus(interval);
+            }
+
+            return dates;
+        }
 
         // !testing
         /*
