@@ -826,209 +826,209 @@
         }
 
         function renderTasks() {
-    const taskSections = document.getElementById('taskSections');
-    taskSections.innerHTML = ''; // Clear existing sections
+            const taskSections = document.getElementById('taskSections');
+            taskSections.innerHTML = ''; // Clear existing sections
 
-    const now = DateTime.now().setZone(userTimezone);
-    const today = now.startOf('day');
-    const tomorrow = today.plus({ days: 1 });
-    const weekEnd = today.plus({ days: 7 });
+            const now = DateTime.now().setZone(userTimezone);
+            const today = now.startOf('day');
+            const tomorrow = today.plus({ days: 1 });
+            const weekEnd = today.plus({ days: 7 });
 
-    // Create sections
-    const sections = ['today', 'tomorrow', 'week'];
-    sections.forEach((section, index) => {
-        const sectionContainer = document.createElement('div');
-        sectionContainer.className = 'task-section-container';
-        
-        const sectionElement = document.createElement('div');
-        sectionElement.className = 'task-section';
-        
-        const titleElement = document.createElement('div');
-        titleElement.className = 'section-title';
-        titleElement.textContent = section.charAt(0).toUpperCase() + section.slice(1);
-        
-        const taskList = document.createElement('div');
-        taskList.id = `${section}TaskList`;
-        taskList.className = 'task-list';
-        
-        sectionElement.appendChild(titleElement);
-        sectionElement.appendChild(taskList);
-        sectionContainer.appendChild(sectionElement);
-        
-        if (index < sections.length - 1) {
-            const border = document.createElement('div');
-            border.className = 'section-border';
-            sectionContainer.appendChild(border);
-        }
-        
-        taskSections.appendChild(sectionContainer);
-    });
-
-    let todayTaskCount = 0;
-    let todayCompletedCount = 0;
-    let tomorrowTaskCount = 0;
-    let tomorrowCompletedCount = 0;
-    let weekTaskCount = 0;
-    let weekCompletedCount = 0;
-
-    // Filter and sort tasks
-    const tasks = taskEventArray.filter(item => item.kind === "task");
-    tasks.sort((a, b) => {
-        const aDate = DateTime.fromISO(a.date);
-        const bDate = DateTime.fromISO(b.date);
-        if (aDate.equals(bDate)) {
-            const aTime = a.endTime ? timeToMinutes(a.endTime) : 1440;
-            const bTime = b.endTime ? timeToMinutes(b.endTime) : 1440;
-            return aTime - bTime;
-        }
-        return aDate.valueOf() - bDate.valueOf();
-    });
-
-    tasks.forEach(item => {
-        const listItem = document.createElement('div');
-        listItem.className = 'task-item';
-        const taskContent = document.createElement('span');
-        taskContent.className = 'task-content';
-        taskContent.textContent = item.name;
-
-        const completionData = item.done[item.date];
-        const isCompleted = completionData?.completed || false;
-        const completedAt = completionData?.completedAt ? DateTime.fromISO(completionData.completedAt) : null;
-        const completedToday = completedAt?.hasSame(today, 'day') || false;
-
-        if (isCompleted) {
-            taskContent.style.textDecoration = 'line-through';
-            taskContent.style.color = '#666';
-        }
-
-        const checkbox = createCheckbox(item, item.date);
-
-        let taskDate = DateTime.fromISO(item.date);
-        let taskDateTime = item.endTime ? 
-            taskDate.set({
-                hour: parseInt(item.endTime.split(':')[0]),
-                minute: parseInt(item.endTime.split(':')[1])
-            }) : 
-            taskDate.endOf('day');
-
-        const isOverdue = taskDateTime < now;
-        const isDueToday = taskDate.hasSame(today, 'day');
-
-        // Determine if the task should be shown in today's section
-        const showInToday = isDueToday || // Due today
-                           (isOverdue && !isCompleted) || // Overdue and not completed
-                           (isOverdue && isCompleted && completedToday); // Overdue and completed today
-
-        if (showInToday) {
-            // Today's tasks (including relevant overdue tasks)
-            const dateTimeSpan = document.createElement('span');
-            
-            if (isOverdue && !isDueToday) {
-                // Show full date for overdue tasks not due today
-                dateTimeSpan.className = item.endTime ? 'task-date-time' : 'task-date-no-time';
-                const dateSpan = document.createElement('span');
-                dateSpan.className = 'task-date';
-                dateSpan.textContent = taskDate.toFormat('MM/dd');
-                dateTimeSpan.appendChild(dateSpan);
+            // Create sections
+            const sections = ['today', 'tomorrow', 'week'];
+            sections.forEach((section, index) => {
+                const sectionContainer = document.createElement('div');
+                sectionContainer.className = 'task-section-container';
                 
-                if (item.endTime) {
-                    const timeSpan = document.createElement('span');
-                    timeSpan.className = 'task-time';
-                    timeSpan.textContent = item.endTime;
-                    dateTimeSpan.appendChild(timeSpan);
+                const sectionElement = document.createElement('div');
+                sectionElement.className = 'task-section';
+                
+                const titleElement = document.createElement('div');
+                titleElement.className = 'section-title';
+                titleElement.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+                
+                const taskList = document.createElement('div');
+                taskList.id = `${section}TaskList`;
+                taskList.className = 'task-list';
+                
+                sectionElement.appendChild(titleElement);
+                sectionElement.appendChild(taskList);
+                sectionContainer.appendChild(sectionElement);
+                
+                if (index < sections.length - 1) {
+                    const border = document.createElement('div');
+                    border.className = 'section-border';
+                    sectionContainer.appendChild(border);
                 }
-            } else {
-                // Show just time or asterisk for today's tasks
-                if (item.endTime) {
-                    dateTimeSpan.className = 'task-time';
-                    dateTimeSpan.textContent = item.endTime;
-                } else {
-                    dateTimeSpan.className = 'task-asterisk';
-                    dateTimeSpan.textContent = '*';
-                }
-            }
+                
+                taskSections.appendChild(sectionContainer);
+            });
 
-            if (isOverdue) {
-                listItem.classList.add('overdue-task');
+            let todayTaskCount = 0;
+            let todayCompletedCount = 0;
+            let tomorrowTaskCount = 0;
+            let tomorrowCompletedCount = 0;
+            let weekTaskCount = 0;
+            let weekCompletedCount = 0;
+
+            // Filter and sort tasks
+            const tasks = taskEventArray.filter(item => item.kind === "task");
+            tasks.sort((a, b) => {
+                const aDate = DateTime.fromISO(a.date);
+                const bDate = DateTime.fromISO(b.date);
+                if (aDate.equals(bDate)) {
+                    const aTime = a.endTime ? timeToMinutes(a.endTime) : 1440;
+                    const bTime = b.endTime ? timeToMinutes(b.endTime) : 1440;
+                    return aTime - bTime;
+                }
+                return aDate.valueOf() - bDate.valueOf();
+            });
+
+            tasks.forEach(item => {
+                const listItem = document.createElement('div');
+                listItem.className = 'task-item';
+                const taskContent = document.createElement('span');
+                taskContent.className = 'task-content';
+                taskContent.textContent = item.name;
+
+                const completionData = item.done[item.date];
+                const isCompleted = completionData?.completed || false;
+                const completedAt = completionData?.completedAt ? DateTime.fromISO(completionData.completedAt) : null;
+                const completedToday = completedAt?.hasSame(today, 'day') || false;
+
                 if (isCompleted) {
-                    listItem.classList.add('overdue-task-done');
+                    taskContent.style.textDecoration = 'line-through';
+                    taskContent.style.color = '#666';
                 }
-                dateTimeSpan.style.color = isCompleted ? '#666' : '#ff4444';
-            } else if (isCompleted) {
-                // Non-overdue completed tasks should have the same gray color
-                dateTimeSpan.style.color = '#666';
-            }
 
-            listItem.appendChild(dateTimeSpan);
-            listItem.appendChild(taskContent);
-            listItem.appendChild(checkbox);
-            document.getElementById('todayTaskList').appendChild(listItem);
-            todayTaskCount++;
-            if (isCompleted) todayCompletedCount++;
+                const checkbox = createCheckbox(item, item.date);
 
-        } else if (taskDate.hasSame(tomorrow, 'day')) {
-            // Tomorrow's tasks
-            const timeSpan = document.createElement('span');
-            if (item.endTime) {
-                timeSpan.className = 'task-time';
-                timeSpan.textContent = item.endTime;
-            } else {
-                timeSpan.className = 'task-asterisk';
-                timeSpan.textContent = '*';
-            }
+                let taskDate = DateTime.fromISO(item.date);
+                let taskDateTime = item.endTime ? 
+                    taskDate.set({
+                        hour: parseInt(item.endTime.split(':')[0]),
+                        minute: parseInt(item.endTime.split(':')[1])
+                    }) : 
+                    taskDate.endOf('day');
 
-            if (isCompleted) {
-                timeSpan.style.color = '#666';
-            }
+                const isOverdue = taskDateTime < now;
+                const isDueToday = taskDate.hasSame(today, 'day');
 
-            listItem.appendChild(timeSpan);
-            listItem.appendChild(taskContent);
-            listItem.appendChild(checkbox);
-            document.getElementById('tomorrowTaskList').appendChild(listItem);
-            tomorrowTaskCount++;
-            if (isCompleted) tomorrowCompletedCount++;
+                // Determine if the task should be shown in today's section
+                const showInToday = isDueToday || // Due today
+                                (isOverdue && !isCompleted) || // Overdue and not completed
+                                (isOverdue && isCompleted && completedToday); // Overdue and completed today
 
-        } else if (taskDate > tomorrow && taskDate <= weekEnd) {
-            // Week's tasks
-            const dateTimeSpan = document.createElement('span');
-            if (item.endTime) {
-                dateTimeSpan.className = 'task-date-time';
-            } else {
-                dateTimeSpan.className = 'task-date-no-time';
-            }
-            const dateSpan = document.createElement('span');
-            dateSpan.className = 'task-date';
-            dateSpan.textContent = taskDate.toFormat('MM/dd');
-            dateTimeSpan.appendChild(dateSpan);
-            
-            if (item.endTime) {
-                const timeSpan = document.createElement('span');
-                timeSpan.className = 'task-time';
-                timeSpan.textContent = item.endTime;
-                dateTimeSpan.appendChild(timeSpan);
-            }
+                if (showInToday) {
+                    // Today's tasks (including relevant overdue tasks)
+                    const dateTimeSpan = document.createElement('span');
+                    
+                    if (isOverdue && !isDueToday) {
+                        // Show full date for overdue tasks not due today
+                        dateTimeSpan.className = item.endTime ? 'task-date-time' : 'task-date-no-time';
+                        const dateSpan = document.createElement('span');
+                        dateSpan.className = 'task-date';
+                        dateSpan.textContent = taskDate.toFormat('MM/dd');
+                        dateTimeSpan.appendChild(dateSpan);
+                        
+                        if (item.endTime) {
+                            const timeSpan = document.createElement('span');
+                            timeSpan.className = 'task-time';
+                            timeSpan.textContent = item.endTime;
+                            dateTimeSpan.appendChild(timeSpan);
+                        }
+                    } else {
+                        // Show just time or asterisk for today's tasks
+                        if (item.endTime) {
+                            dateTimeSpan.className = 'task-time';
+                            dateTimeSpan.textContent = item.endTime;
+                        } else {
+                            dateTimeSpan.className = 'task-asterisk';
+                            dateTimeSpan.textContent = '*';
+                        }
+                    }
 
-            if (isCompleted) {
-                dateSpan.style.color = '#666';
-                if (item.endTime) {
-                    dateTimeSpan.querySelector('.task-time').style.color = '#666';
+                    if (isOverdue) {
+                        listItem.classList.add('overdue-task');
+                        if (isCompleted) {
+                            listItem.classList.add('overdue-task-done');
+                        }
+                        dateTimeSpan.style.color = isCompleted ? '#666' : '#ff4444';
+                    } else if (isCompleted) {
+                        // Non-overdue completed tasks should have the same gray color
+                        dateTimeSpan.style.color = '#666';
+                    }
+
+                    listItem.appendChild(dateTimeSpan);
+                    listItem.appendChild(taskContent);
+                    listItem.appendChild(checkbox);
+                    document.getElementById('todayTaskList').appendChild(listItem);
+                    todayTaskCount++;
+                    if (isCompleted) todayCompletedCount++;
+
+                } else if (taskDate.hasSame(tomorrow, 'day')) {
+                    // Tomorrow's tasks
+                    const timeSpan = document.createElement('span');
+                    if (item.endTime) {
+                        timeSpan.className = 'task-time';
+                        timeSpan.textContent = item.endTime;
+                    } else {
+                        timeSpan.className = 'task-asterisk';
+                        timeSpan.textContent = '*';
+                    }
+
+                    if (isCompleted) {
+                        timeSpan.style.color = '#666';
+                    }
+
+                    listItem.appendChild(timeSpan);
+                    listItem.appendChild(taskContent);
+                    listItem.appendChild(checkbox);
+                    document.getElementById('tomorrowTaskList').appendChild(listItem);
+                    tomorrowTaskCount++;
+                    if (isCompleted) tomorrowCompletedCount++;
+
+                } else if (taskDate > tomorrow && taskDate <= weekEnd) {
+                    // Week's tasks
+                    const dateTimeSpan = document.createElement('span');
+                    if (item.endTime) {
+                        dateTimeSpan.className = 'task-date-time';
+                    } else {
+                        dateTimeSpan.className = 'task-date-no-time';
+                    }
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'task-date';
+                    dateSpan.textContent = taskDate.toFormat('MM/dd');
+                    dateTimeSpan.appendChild(dateSpan);
+                    
+                    if (item.endTime) {
+                        const timeSpan = document.createElement('span');
+                        timeSpan.className = 'task-time';
+                        timeSpan.textContent = item.endTime;
+                        dateTimeSpan.appendChild(timeSpan);
+                    }
+
+                    if (isCompleted) {
+                        dateSpan.style.color = '#666';
+                        if (item.endTime) {
+                            dateTimeSpan.querySelector('.task-time').style.color = '#666';
+                        }
+                    }
+
+                    listItem.appendChild(dateTimeSpan);
+                    listItem.appendChild(taskContent);
+                    listItem.appendChild(checkbox);
+                    document.getElementById('weekTaskList').appendChild(listItem);
+                    weekTaskCount++;
+                    if (isCompleted) weekCompletedCount++;
                 }
-            }
+            });
 
-            listItem.appendChild(dateTimeSpan);
-            listItem.appendChild(taskContent);
-            listItem.appendChild(checkbox);
-            document.getElementById('weekTaskList').appendChild(listItem);
-            weekTaskCount++;
-            if (isCompleted) weekCompletedCount++;
+            // Update section title styling
+            updateSectionTitleStyle('today', todayTaskCount, todayCompletedCount);
+            updateSectionTitleStyle('tomorrow', tomorrowTaskCount, tomorrowCompletedCount);
+            updateSectionTitleStyle('week', weekTaskCount, weekCompletedCount);
         }
-    });
-
-    // Update section title styling
-    updateSectionTitleStyle('today', todayTaskCount, todayCompletedCount);
-    updateSectionTitleStyle('tomorrow', tomorrowTaskCount, tomorrowCompletedCount);
-    updateSectionTitleStyle('week', weekTaskCount, weekCompletedCount);
-}
 
         function renderCalendar(showEvents = true) {
             console.log("called renderCalendar");
