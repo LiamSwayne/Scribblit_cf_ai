@@ -458,6 +458,34 @@
             color: var(--grey-3);
         }
 
+        .current-time-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #ff4444;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .time-triangle {
+            position: absolute;
+            left: 0px;
+            width: 0;
+            height: 0;
+            border-left: 14px solid #ff4444;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            pointer-events: none;
+            z-index: 1000;
+            transform: translateY(-3px); /* Half of total height (20px) minus 1px to align with 2px line */
+        }
+
+        .past-event {
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
         @keyframes slideUp {
             0% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(-100%); opacity: 0; }
@@ -586,6 +614,12 @@
                 // Render new calendar without showing events
                 renderCalendar(false);
 
+                // Remove any existing time markers
+                const existingMarker = document.querySelector('.current-time-marker');
+                const existingTriangle = document.querySelector('.time-triangle');
+                if (existingMarker) existingMarker.remove();
+                if (existingTriangle) existingTriangle.remove();
+
                 // Count new all-day events
                 const newAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
 
@@ -616,6 +650,34 @@
                         event.style.opacity = '1';
                     }, index * 50);
                 });
+
+                // Add time marker if viewing today
+                const now = DateTime.now().setZone(userTimezone);
+                if (currentDate.hasSame(now, 'day')) {
+                    // Calculate position based on current time
+                    const minutes = now.hour * 60 + now.minute;
+                    const percentage = (minutes / 1440) * 100;
+
+                    // Create marker line
+                    const timeMarker = document.createElement('div');
+                    timeMarker.className = 'current-time-marker';
+                    timeMarker.style.top = `${percentage}%`;
+                    calendar.appendChild(timeMarker);
+
+                    // Create triangle
+                    const timeTriangle = document.createElement('div');
+                    timeTriangle.className = 'time-triangle';
+                    timeTriangle.style.top = `calc(${percentage}% - 6px)`;
+                    calendar.appendChild(timeTriangle);
+
+                    // Update opacity of events
+                    newEvents.forEach(event => {
+                        const eventTop = parseFloat(event.style.top);
+                        if (eventTop < percentage) {
+                            event.classList.add('past-event');
+                        }
+                    });
+                }
             };
 
             // Check if the current day is empty
@@ -757,6 +819,13 @@
                 } catch (parseError) {
                     console.log('Error parsing response:', parseError);
                     throw new Error('Invalid response format');
+                }
+
+                // If the start time exists but end time is 0, then you know it's actually supposed to end at the end of the day
+                for (let i = 0; i < parsedResponse.length; i++) {
+                    if (parsedResponse[i].kind === "event" && parsedResponse[i].startTime && parsedResponse[i].endTime === "00:00") {
+                        parsedResponse[i].endTime = "24:00";
+                    }
                 }
 
                 console.log('Parsed response:', parsedResponse);
@@ -1151,6 +1220,8 @@
                 calendar.appendChild(hourMarker);
                 calendar.appendChild(hourLabel);
             }
+
+            updateTimeMarker();
             
             let shouldUpdateLocalStorage = false;
             // this only operaties on events, but we want to edit task array so changes will be saved
@@ -1405,40 +1476,6 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            // Load from local storage
-            const storedData = localStorage.getItem('taskEventArray');
-            if (storedData) {
-                taskEventArray = JSON.parse(storedData);
-            }
-
-            document.getElementById('allDayEvents').style.opacity = '0';
-            updateDateDisplay();
-            renderCalendar(false);
-
-            // wait for the animations to finish
-            setTimeout(() => {
-                changeDate(100000);
-                // fade in current date
-                document.getElementById('currentDate').style.transition = 'opacity 0.3s ease';
-                document.getElementById('currentDate').style.opacity = '1';
-            }, 350);
-
-            // Keep these lines if they're not already present in your initialization
-            updateButtonStyles();
-            adjustTextareaHeight();
-
-                // Perform other initializations
-                updateButtonStyles();
-                adjustTextareaHeight();
-                renderTasks();
-
-            // Set up resize event listener
-            window.addEventListener('resize', () => {
-                renderCalendar();
-            });
-        });
-
         // helper function to generate recurring dates from the string returned by the AI
         function generateRecurringDates(task, startDate, endDate) {
             const start = DateTime.fromISO(startDate);
@@ -1552,6 +1589,89 @@
 
             return dates;
         }
+
+        function updateTimeMarker() {
+            const now = DateTime.now().setZone(userTimezone);
+            
+            // Only show marker if we're viewing today
+            if (!currentDate.hasSame(now, 'day')) {
+                const existingMarker = document.querySelector('.current-time-marker');
+                const existingTriangle = document.querySelector('.time-triangle');
+                if (existingMarker) existingMarker.remove();
+                if (existingTriangle) existingTriangle.remove();
+                return;
+            }
+
+            // Calculate position based on current time
+            const minutes = now.hour * 60 + now.minute;
+            const percentage = (minutes / 1440) * 100;
+
+            // Update or create the marker line
+            let timeMarker = document.querySelector('.current-time-marker');
+            if (!timeMarker) {
+                timeMarker = document.createElement('div');
+                timeMarker.className = 'current-time-marker';
+                calendar.appendChild(timeMarker);
+            }
+            timeMarker.style.top = `${percentage}%`;
+
+            // Update or create the triangle
+            let timeTriangle = document.querySelector('.time-triangle');
+            if (!timeTriangle) {
+                timeTriangle = document.createElement('div');
+                timeTriangle.className = 'time-triangle';
+                calendar.appendChild(timeTriangle);
+            }
+            timeTriangle.style.top = `calc(${percentage}% - 6px)`;
+
+            // Update opacity of events
+            const events = document.querySelectorAll('.calendar-event');
+            events.forEach(event => {
+                const eventTop = parseFloat(event.style.top);
+                if (eventTop < percentage) {
+                    event.classList.add('past-event');
+                } else {
+                    event.classList.remove('past-event');
+                }
+            });
+        }
+
+        // Update the time marker every minute
+        setInterval(updateTimeMarker, 60000);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load from local storage
+            const storedData = localStorage.getItem('taskEventArray');
+            if (storedData) {
+                taskEventArray = JSON.parse(storedData);
+            }
+
+            document.getElementById('allDayEvents').style.opacity = '0';
+            updateDateDisplay();
+            renderCalendar(false);
+
+            // wait for the animations to finish
+            setTimeout(() => {
+                changeDate(100000);
+                // fade in current date
+                document.getElementById('currentDate').style.transition = 'opacity 0.3s ease';
+                document.getElementById('currentDate').style.opacity = '1';
+            }, 350);
+
+            // Keep these lines if they're not already present in your initialization
+            updateButtonStyles();
+            adjustTextareaHeight();
+
+                // Perform other initializations
+                updateButtonStyles();
+                adjustTextareaHeight();
+                renderTasks();
+
+            // Set up resize event listener
+            window.addEventListener('resize', () => {
+                renderCalendar();
+            });
+        });
 
         // !testing
         /*
