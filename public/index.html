@@ -234,6 +234,14 @@
             transition: opacity 0.3s ease;
         }
 
+        .past-event {
+            opacity: 0.5 !important;
+        }
+
+        .past-event:hover {
+            opacity: 1 !important;
+        }
+
         .navigation button {
             background-color: transparent;
             border: none;
@@ -478,7 +486,7 @@
             border-bottom: 10px solid transparent;
             pointer-events: none;
             z-index: 1000;
-            transform: translateY(-3px);
+            transform: translateY(-6px);
         }
 
         .past-event {
@@ -667,14 +675,39 @@
                     // Create triangle
                     const timeTriangle = document.createElement('div');
                     timeTriangle.className = 'time-triangle';
-                    timeTriangle.style.top = `calc(${percentage}% - 6px)`;
+                    timeTriangle.style.top = `calc(${percentage}% - 3px)`;
                     calendar.appendChild(timeTriangle);
 
                     // Update opacity of events
                     newEvents.forEach(event => {
-                        const eventTop = parseFloat(event.style.top);
-                        if (eventTop < percentage) {
-                            event.classList.add('past-event');
+                        const eventElement = event;
+                        console.log('Event element:', {
+                            text: eventElement.textContent,
+                            top: eventElement.style.top,
+                            element: eventElement
+                        });
+                        
+                        const eventData = taskEventArray.find(item => 
+                            item.kind === "event" && 
+                            item.name === eventElement.textContent
+                        );
+                        console.log('Found event data:', eventData);
+                        
+                        if (eventData && eventData.endTime) {
+                            const endMinutes = timeToMinutes(eventData.endTime);
+                            console.log('Event end time in minutes:', endMinutes, 'Current minutes:', minutes);
+                            if (endMinutes < minutes) {
+                                eventElement.classList.add('past-event');
+                                console.log('Added past-event class (end time check)');
+                            }
+                        } else {
+                            // For events without end time, check if their start time is past
+                            const eventTop = parseFloat(eventElement.style.top);
+                            console.log('No end time, checking position. Event top:', eventTop, 'Current percentage:', percentage);
+                            if (eventTop < percentage) {
+                                eventElement.classList.add('past-event');
+                                console.log('Added past-event class (position check)');
+                            }
                         }
                     });
                 }
