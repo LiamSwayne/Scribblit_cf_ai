@@ -75,10 +75,23 @@
             transition: min-height 0.3s ease, height 0.3s ease;
         }
 
+        @keyframes cursorPulse {
+            0% {
+                caret-color: #61a3ff; /* Starting with blue */
+            }
+            50% {
+                caret-color: #d477ff; /* Transitioning to purple */
+            }
+            100% {
+                caret-color: #61a3ff; /* Back to blue */
+            }
+        }
+
         #taskInput:focus {
             outline: none;
             border-color: var(--grey-4);
-        }
+            animation: cursorPulse 3s infinite ease-in-out;
+        } 
 
         .task-section-container {
             width: 100%;
@@ -180,7 +193,6 @@
 
         .navigation {
             position: absolute;
-            top: 0;
             left: calc(50% + 10px);
             right: 10px;
             display: flex;
@@ -337,10 +349,20 @@
         }
 
         #currentDate {
-            font-size: 18px;
+            position: absolute;
+            top: -7px;
+            font-size: 16px;
             font-weight: bold;
             margin: 0 10px;
             opacity: 0;
+        }
+
+        #dayOfWeek {
+            position: absolute;
+            top: 14px;
+            color: var(--grey-2);
+            font-size: 13px;
+            margin-top: -2px;
         }
 
         #prevDay {
@@ -495,7 +517,10 @@
                         <path d="M15 18l-6-6 6-6"/>
                     </svg>
                 </button>
-                <span id="currentDate"></span>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <span id="currentDate"></span>
+                    <span id="dayOfWeek"></span>
+                </div>
                 <button id="nextDay" aria-label="Next day">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 18l6-6-6-6"/>
@@ -529,6 +554,7 @@
         const weekTaskList = document.getElementById('weekTaskList');
         const calendar = document.getElementById('calendar');
         const currentDateEl = document.getElementById('currentDate');
+        const dayOfWeekEl = document.getElementById('dayOfWeek');
         const prevDayBtn = document.getElementById('prevDay');
         const nextDayBtn = document.getElementById('nextDay');
 
@@ -629,6 +655,7 @@
 
         function updateDateDisplay() {
             const today = DateTime.local();
+            
             if (currentDate.hasSame(today, 'day')) {
                 currentDateEl.textContent = 'Today';
             } else if (currentDate.hasSame(today.plus({ days: 1 }), 'day')) {
@@ -638,6 +665,9 @@
             } else {
                 currentDateEl.textContent = currentDate.toFormat('M/d');
             }
+            
+            // Update day of week
+            dayOfWeekEl.textContent = currentDate.toFormat('cccc');
         }
 
         async function processInput() {
