@@ -10,6 +10,15 @@
     <script src="https://unpkg.com/json5@2/dist/index.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
     <style>
+        :root {
+            --grey-1: #e0e0e0;  /* Lightest - Used for text */
+            --grey-2: #888888;  /* Used for task dates and times */
+            --grey-3: #666666;  /* Used for hover states */
+            --grey-4: #444444;  /* Used for borders and lines */
+            --grey-5: #2d2d2d;  /* Used for input background */
+            --grey-6: #1e1e1e;  /* Darkest - Used for body background */
+        }
+
         body {
             display: flex;
             flex-direction: column;
@@ -18,8 +27,8 @@
             padding-left: 10px;
             box-sizing: border-box;
             font-family: 'Lexend', sans-serif;
-            background-color: #1e1e1e;
-            color: #e0e0e0;
+            background-color: var(--grey-6);
+            color: var(--grey-1);
         }
 
         .container {
@@ -38,10 +47,10 @@
         }
 
         #centerLine {
-            background-color: #444;
+            background-color: var(--grey-4);
             width: 2px;
             position: fixed;
-            left: 50%;
+            left: calc(50% + 4px);
             top: 8px;
             height: calc(100% - 16px);
         }
@@ -50,9 +59,9 @@
             width: calc(100% - 3px);
             min-height: 100px;
             margin-bottom: 30px;
-            background-color: #2d2d2d;
-            color: #e0e0e0;
-            border: 1px solid #444;
+            background-color: var(--grey-5);
+            color: var(--grey-1);
+            border: 1px solid var(--grey-4);
             padding: 10px;
             resize: none;
             position: relative;
@@ -68,7 +77,7 @@
 
         #taskInput:focus {
             outline: none;
-            border-color: #444;
+            border-color: var(--grey-4);
         }
 
         .task-section-container {
@@ -82,7 +91,7 @@
 
         .section-border {
             height: 2px;
-            background-color: #444;
+            background-color: var(--grey-4);
             margin: 5px 0;
         }
 
@@ -91,7 +100,7 @@
         }
 
         .empty-section .section-title {
-            color: #888;
+            color: var(--grey-2);
         }
 
         .section-title {
@@ -120,7 +129,7 @@
         .task-asterisk {
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
-            color: #888;
+            color: var(--grey-2);
             margin-right: 21px;
             min-width: 24px;
             text-align: right;
@@ -130,7 +139,7 @@
         .task-date {
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
-            color: #888;
+            color: var(--grey-2);
             margin-right: 7px;
             min-width: 38px;
             text-align: right;
@@ -140,7 +149,7 @@
         .task-time {
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
-            color: #888;
+            color: var(--grey-2);
             margin-right: 7px;
             min-width: 38px;
             text-align: right;
@@ -195,7 +204,7 @@
             right: 10px;
             bottom: 10px;
             overflow-y: auto;
-            border-bottom: 1px solid #444;
+            border-bottom: 1px solid var(--grey-4);
         }
 
         .calendar-event {
@@ -206,7 +215,7 @@
             padding-right: 5px;
             padding-bottom: 3px;
             margin: 3.5px;
-            color: #e0e0e0;
+            color: var(--grey-1);
             border-radius: 8px;
             font-size: 12px;
             box-sizing: border-box;
@@ -234,7 +243,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--grey-1);
             border-radius: 50%;
             transition: border-width 0.3s ease;
         }
@@ -274,7 +283,7 @@
             position: absolute;
             left: 0;
             right: 0;
-            border-top: 1px solid #444;
+            border-top: 1px solid var(--grey-4);
             pointer-events: none;
         }
 
@@ -286,15 +295,15 @@
             padding-right: 5px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
-            color: #888;
+            color: var(--grey-2);
         }
 
         .animated-text-container {
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             line-height: 1.5;
-            color: #e0e0e0;
-            background-color: #2d2d2d;
+            color: var(--grey-1);
+            background-color: var(--grey-5);
             padding: 10px;
             box-sizing: border-box;
             overflow: hidden;
@@ -351,7 +360,7 @@
             width: 16px;
             height: 16px;
             margin-left: 8px;
-            border: 2px solid #444;
+            border: 2px solid var(--grey-4);
             border-radius: 3px;
             cursor: pointer;
             position: relative;
@@ -361,14 +370,14 @@
         }
 
         .task-checkbox:checked {
-            background-color: #444;
-            border-color: #444;
+            background-color: var(--grey-4);
+            border-color: var(--grey-4);
         }
 
         .task-checkbox:checked::after {
             content: '\2714';
             font-size: 12px;
-            color: #e0e0e0;
+            color: var(--grey-1);
             position: absolute;
             top: 50%;
             left: 50%;
@@ -376,12 +385,12 @@
         }
 
         .task-checkbox:hover {
-            border-color: #666;
+            border-color: var(--grey-3);
         }
 
         .task-checkbox:checked:hover {
-            background-color: #666;
-            border-color: #666;
+            background-color: var(--grey-3);
+            border-color: var(--grey-3);
         }
 
         .task-content {
@@ -424,7 +433,7 @@
 
         .overdue-task-done .task-date,
         .overdue-task-done .task-time {
-            color: #666;
+            color: var(--grey-3);
         }
 
         @keyframes slideUp {
@@ -461,6 +470,7 @@
                 transform: rotate(360deg);
             }
         }
+
         .calendar-no-transition {
             transition: none !important;
         }
