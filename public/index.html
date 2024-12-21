@@ -486,7 +486,6 @@
             border-bottom: 10px solid transparent;
             pointer-events: none;
             z-index: 1000;
-            transform: translateY(-6px);
         }
 
         .past-event {
@@ -677,39 +676,6 @@
                     timeTriangle.className = 'time-triangle';
                     timeTriangle.style.top = `calc(${percentage}% - 3px)`;
                     calendar.appendChild(timeTriangle);
-
-                    // Update opacity of events
-                    newEvents.forEach(event => {
-                        const eventElement = event;
-                        console.log('Event element:', {
-                            text: eventElement.textContent,
-                            top: eventElement.style.top,
-                            element: eventElement
-                        });
-                        
-                        const eventData = taskEventArray.find(item => 
-                            item.kind === "event" && 
-                            item.name === eventElement.textContent
-                        );
-                        console.log('Found event data:', eventData);
-                        
-                        if (eventData && eventData.endTime) {
-                            const endMinutes = timeToMinutes(eventData.endTime);
-                            console.log('Event end time in minutes:', endMinutes, 'Current minutes:', minutes);
-                            if (endMinutes < minutes) {
-                                eventElement.classList.add('past-event');
-                                console.log('Added past-event class (end time check)');
-                            }
-                        } else {
-                            // For events without end time, check if their start time is past
-                            const eventTop = parseFloat(eventElement.style.top);
-                            console.log('No end time, checking position. Event top:', eventTop, 'Current percentage:', percentage);
-                            if (eventTop < percentage) {
-                                eventElement.classList.add('past-event');
-                                console.log('Added past-event class (position check)');
-                            }
-                        }
-                    });
                 }
             };
 
@@ -1229,7 +1195,6 @@
         }
 
         function renderCalendar(showEvents = true) {
-            console.log("called renderCalendar");
             calendar.innerHTML = '';
             const allDayEventsContainer = document.getElementById('allDayEvents');
             allDayEventsContainer.innerHTML = '';
@@ -1254,10 +1219,12 @@
                 calendar.appendChild(hourLabel);
             }
 
+            const now = DateTime.now().setZone(userTimezone);
+            const currentMinutes = now.hour * 60 + now.minute;
+
             updateTimeMarker();
             
             let shouldUpdateLocalStorage = false;
-            // this only operaties on events, but we want to edit task array so changes will be saved
             taskEventArray.forEach(event => {
                 if (event.kind == "event") {
                     if (event.startTime) {
@@ -1268,7 +1235,6 @@
                                 event.date = calculatedDate;
                                 delete event.startTime;
                             } else {
-                                // delete the time because no info can be inferred
                                 delete event.startTime;
                             }
                         }
@@ -1282,8 +1248,6 @@
             if (shouldUpdateLocalStorage) {
                 saveToLocalStorage();
             }
-
-            console.log('events:', events);
 
             // Separate all-day events and events without calculable start times
             let allDayEvents = events.filter(event => !event.startTime || !isValidTime(event.startTime));
@@ -1388,8 +1352,8 @@
                     let conflict = false;
                     for (let i = 0; i < lane.length; i++) {
                         const event = lane[i];
-                        const eventStart = event.start || 0; // Default to 0 if null
-                        const eventEnd = event.end || Math.min(eventStart + 100, 1440); // Default to 100 minutes if null
+                        const eventStart = event.start || 0;
+                        const eventEnd = event.end || Math.min(eventStart + 100, 1440);
 
                         if (groupStartMinutes < eventEnd && groupEndMinutes > eventStart) {
                             conflict = true;
@@ -1411,8 +1375,16 @@
                     const itemStartMinutes = timeToMinutes(item.startTime || '00:00');
                     const itemEndMinutes = item.endTime ? timeToMinutes(item.endTime) : Math.min(itemStartMinutes + 100, 1440);
 
+                    // Determine if event is in the past
+                    const isPastEvent = currentDate.hasSame(now, 'day') && 
+                        (item.endTime ? itemEndMinutes < currentMinutes : itemStartMinutes < currentMinutes);
+
                     const eventEl = document.createElement('div');
                     eventEl.className = 'calendar-event';
+                    if (isPastEvent) {
+                        eventEl.classList.add('past-event');
+                    }
+                    
                     eventEl.textContent = item.name;
                     eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + (index * (eventWidth + spaceBetweenEvents))}px`;
                     eventEl.style.width = `${eventWidth}px`;
@@ -1424,7 +1396,7 @@
                         eventEl.style.height = `calc(${(itemEndMinutes - itemStartMinutes) / 1440 * 100}% - 7px)`;
                         eventEl.style.backgroundColor = color;
                     } else {
-                        eventEl.style.height = `calc(${(100) / 1440 * 100}% - 7px)`; // 100 minutes
+                        eventEl.style.height = `calc(${(100) / 1440 * 100}% - 7px)`;
                         eventEl.style.background = `linear-gradient(
                             to bottom,
                             ${color} 0%,
@@ -1440,7 +1412,6 @@
                         eventEl.style.borderBottomRightRadius = '0';
                     }
 
-                    // Set z-index based on the event's position in the sorted array
                     eventEl.style.zIndex = timedEvents.indexOf(item) + 1;
 
                     if (!showEvents) {
@@ -1451,9 +1422,7 @@
                 });
             });
 
-            // After the first render, remove the no-transition class and set the flag
             if (isFirstRender) {
-                // Use requestAnimationFrame to ensure the no-transition class is removed after the initial render
                 requestAnimationFrame(() => {
                     calendar.classList.remove('calendar-no-transition');
                     isFirstRender = false;
@@ -1655,17 +1624,6 @@
                 timeTriangle.className = 'time-triangle';
                 calendar.appendChild(timeTriangle);
             }
-
-            // Update opacity of events
-            const events = document.querySelectorAll('.calendar-event');
-            events.forEach(event => {
-                const eventTop = parseFloat(event.style.top);
-                if (eventTop < percentage) {
-                    event.classList.add('past-event');
-                } else {
-                    event.classList.remove('past-event');
-                }
-            });
         }
 
         // Update the time marker every minute
