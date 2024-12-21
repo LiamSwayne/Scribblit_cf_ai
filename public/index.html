@@ -235,11 +235,13 @@
         }
 
         .past-event {
-            opacity: 0.5 !important;
+            filter: opacity(0.5);
+            transition: filter 0.3s ease, opacity 0.3s ease;
         }
 
         .past-event:hover {
-            opacity: 1 !important;
+            filter: opacity(1);
+            transition: filter 0.3s ease, opacity 0.3s ease;
         }
 
         .navigation button {
