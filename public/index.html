@@ -579,6 +579,8 @@
         // Global array to store all tasks and events
         let taskEventArray = [];
 
+        let showTimeMarkerBeforePlayingHideAnimation = false;
+
         // how far the calendar is from the top of the page when there are no all-day events
         const calendarToTopDistanceNoAllDay = 32;
 
@@ -620,6 +622,13 @@
             // Update date immediately
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
+
+            if (!currentDate.hasSame(DateTime.now(), 'day')) {
+                // we're changing to a day other than today
+                // this tells the updateTimeMarker function to show the
+                // marker instantly after the calendar is cleared, then play the fadeout animation
+                showTimeMarkerBeforePlayingHideAnimation = true;
+            }
 
             // Function to handle the main animation logic
             const animateChanges = () => {
@@ -1579,8 +1588,53 @@
             const existingMarker = document.querySelector('.current-time-marker');
             const existingTriangle = document.querySelector('.time-triangle');
             
-            // Check if we should show the marker
+            // Calculate position based on current time
+            const minutes = now.hour * 60 + now.minute;
+            const percentage = (minutes / 1440) * 100;
+
+            // If we're showing marker before hiding it
+            if (showTimeMarkerBeforePlayingHideAnimation) {
+                // Create and show marker immediately if it doesn't exist
+                if (!existingMarker) {
+                    const timeMarker = document.createElement('div');
+                    timeMarker.className = 'current-time-marker';
+                    calendar.appendChild(timeMarker);
+                    timeMarker.style.top = `${percentage}%`;
+                }
+                
+                // Create and show triangle immediately if it doesn't exist
+                if (!existingTriangle) {
+                    const timeTriangle = document.createElement('div');
+                    timeTriangle.className = 'time-triangle';
+                    calendar.appendChild(timeTriangle);
+                    timeTriangle.style.top = `calc(${percentage}% - 9px)`;
+                }
+                
+                // Reset the flag
+                showTimeMarkerBeforePlayingHideAnimation = false;
+                
+                // Start fade out animation in the next frame
+                requestAnimationFrame(() => {
+                    if (existingMarker || document.querySelector('.current-time-marker')) {
+                        const marker = existingMarker || document.querySelector('.current-time-marker');
+                        marker.style.transition = 'opacity 0.3s ease';
+                        marker.style.opacity = '0';
+                        setTimeout(() => marker.remove(), 300);
+                    }
+                    
+                    if (existingTriangle || document.querySelector('.time-triangle')) {
+                        const triangle = existingTriangle || document.querySelector('.time-triangle');
+                        triangle.classList.add('time-triangle-hidden');
+                        setTimeout(() => triangle.remove(), 300);
+                    }
+                });
+                
+                return;
+            }
+
+            // Regular handling for non-today days
             if (!currentDate.hasSame(now, 'day')) {
+                // Remove existing markers with fade out animation
                 if (existingMarker) {
                     existingMarker.style.transition = 'opacity 0.3s ease';
                     existingMarker.style.opacity = '0';
@@ -1592,10 +1646,6 @@
                 }
                 return;
             }
-
-            // Calculate position based on current time
-            const minutes = now.hour * 60 + now.minute;
-            const percentage = (minutes / 1440) * 100;
 
             // Update or create the marker line
             let timeMarker = existingMarker;
