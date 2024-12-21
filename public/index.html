@@ -621,12 +621,6 @@
                 // Render new calendar without showing events
                 renderCalendar(false);
 
-                // Remove any existing time markers
-                const existingMarker = document.querySelector('.current-time-marker');
-                const existingTriangle = document.querySelector('.time-triangle');
-                if (existingMarker) existingMarker.remove();
-                if (existingTriangle) existingTriangle.remove();
-
                 // Count new all-day events
                 const newAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
 
@@ -657,26 +651,6 @@
                         event.style.opacity = '1';
                     }, index * 50);
                 });
-
-                // Add time marker if viewing today
-                const now = DateTime.now().setZone(userTimezone);
-                if (currentDate.hasSame(now, 'day')) {
-                    // Calculate position based on current time
-                    const minutes = now.hour * 60 + now.minute;
-                    const percentage = (minutes / 1440) * 100;
-
-                    // Create marker line
-                    const timeMarker = document.createElement('div');
-                    timeMarker.className = 'current-time-marker';
-                    timeMarker.style.top = `${percentage}%`;
-                    calendar.appendChild(timeMarker);
-
-                    // Create triangle
-                    const timeTriangle = document.createElement('div');
-                    timeTriangle.className = 'time-triangle';
-                    timeTriangle.style.top = `calc(${percentage}% - 3px)`;
-                    calendar.appendChild(timeTriangle);
-                }
             };
 
             // Check if the current day is empty
@@ -1624,6 +1598,7 @@
                 timeTriangle.className = 'time-triangle';
                 calendar.appendChild(timeTriangle);
             }
+            timeTriangle.style.top = `calc(${percentage}% - 9px)`;
         }
 
         // Update the time marker every minute
@@ -1662,27 +1637,6 @@
                 renderCalendar();
             });
         });
-
-        // !testing
-        /*
-        localStorage.removeItem('taskEventArray');
-        document.getElementById('taskInput').textContent =
-        `meeting with math teacher on tuseday
-meeting with advisor today
-math HW due 6 pm today!!!
-networking at the gates hillman super hill center from 3 to 9
-bio lab on friday
-finish recording new song by tomorrow
-calc pre-test due by thursday
-programming homework before 3pm friday
-remind me to buy carrots from target
-study session starting at 5:00
-studying from 1 pm to 3:25
-studying from 7 to 8
-meet up with omar for 20 minutes from 7:30
-cycling practice from 7 to 8
-remind Bill to pick up cold medicine`
-*/
     </script>
 </body>
 </html>
