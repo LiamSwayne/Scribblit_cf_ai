@@ -469,26 +469,32 @@
         }
 
         .current-time-marker {
-            position: absolute;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #ff444455;
-            pointer-events: none;
-            z-index: 1000;
-        }
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #ff444455;
+    pointer-events: none;
+    z-index: 1000;
+    transition: opacity 0.3s ease;
+}
 
-        .time-triangle {
-            position: absolute;
-            left: 0px;
-            width: 0;
-            height: 0;
-            border-left: 14px solid #ff4444;
-            border-top: 10px solid transparent;
-            border-bottom: 10px solid transparent;
-            pointer-events: none;
-            z-index: 1000;
-        }
+.time-triangle {
+    position: absolute;
+    left: 0px;
+    width: 0;
+    height: 0;
+    border-left: 14px solid #ff4444;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    pointer-events: none;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+}
+
+.time-triangle-hidden {
+    transform: translateX(-14px);
+}
 
         .past-event {
             opacity: 0.5;
@@ -1570,13 +1576,20 @@
 
         function updateTimeMarker() {
             const now = DateTime.now().setZone(userTimezone);
+            const existingMarker = document.querySelector('.current-time-marker');
+            const existingTriangle = document.querySelector('.time-triangle');
             
-            // Only show marker if we're viewing today
+            // Check if we should show the marker
             if (!currentDate.hasSame(now, 'day')) {
-                const existingMarker = document.querySelector('.current-time-marker');
-                const existingTriangle = document.querySelector('.time-triangle');
-                if (existingMarker) existingMarker.remove();
-                if (existingTriangle) existingTriangle.remove();
+                if (existingMarker) {
+                    existingMarker.style.transition = 'opacity 0.3s ease';
+                    existingMarker.style.opacity = '0';
+                    setTimeout(() => existingMarker.remove(), 300);
+                }
+                if (existingTriangle) {
+                    existingTriangle.classList.add('time-triangle-hidden');
+                    setTimeout(() => existingTriangle.remove(), 300);
+                }
                 return;
             }
 
@@ -1585,20 +1598,29 @@
             const percentage = (minutes / 1440) * 100;
 
             // Update or create the marker line
-            let timeMarker = document.querySelector('.current-time-marker');
+            let timeMarker = existingMarker;
             if (!timeMarker) {
                 timeMarker = document.createElement('div');
                 timeMarker.className = 'current-time-marker';
+                timeMarker.style.opacity = '0';
                 calendar.appendChild(timeMarker);
+                // Force reflow
+                timeMarker.offsetHeight;
+                timeMarker.style.opacity = '1';
             }
             timeMarker.style.top = `${percentage}%`;
 
             // Update or create the triangle
-            let timeTriangle = document.querySelector('.time-triangle');
+            let timeTriangle = existingTriangle;
             if (!timeTriangle) {
                 timeTriangle = document.createElement('div');
-                timeTriangle.className = 'time-triangle';
+                timeTriangle.className = 'time-triangle time-triangle-hidden';
                 calendar.appendChild(timeTriangle);
+                // Force reflow
+                timeTriangle.offsetHeight;
+                requestAnimationFrame(() => {
+                    timeTriangle.classList.remove('time-triangle-hidden');
+                });
             }
             timeTriangle.style.top = `calc(${percentage}% - 9px)`;
         }
