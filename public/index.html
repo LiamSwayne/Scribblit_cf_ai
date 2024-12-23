@@ -1494,6 +1494,13 @@
             localStorage.setItem('taskEventArray', JSON.stringify(taskEventArray));
         }
 
+        function loadUserData() {
+            const data = localStorage.getItem('taskEventArray');
+            if (data) {
+                taskEventArray = JSON.parse(data);
+            }
+        }
+
         // take a date string from startTime, which shouldn't have a day but sometimes AI hallucinates and gives it a day, so we try to infer the correct date before clearing the field
         function calculateActualDate(dateString) {
             const today = DateTime.local().setZone(userTimezone);
@@ -1720,11 +1727,7 @@
         setInterval(updateTimeMarker, 60000);
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Load from local storage
-            const storedData = localStorage.getItem('taskEventArray');
-            if (storedData) {
-                taskEventArray = JSON.parse(storedData);
-            }
+            loadUserData();
 
             document.getElementById('allDayEvents').style.opacity = '0';
             updateDateDisplay();
