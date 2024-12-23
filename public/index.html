@@ -91,7 +91,7 @@
             outline: none;
             border-color: var(--grey-4);
             animation: cursorPulse 3s infinite ease-in-out;
-        } 
+        }
 
         .task-section-container {
             width: 100%;
@@ -744,7 +744,7 @@
             </div>
         </div>
         <div id="gear-background" onclick="showModal('settings')"></div>
-        <img src="gear_icon.svg" alt="Settings" id="gear-icon" onclick="showModal('settings')">    
+        <img src="gear_icon.svg" alt="Settings" id="gear-icon" onclick="showModal('settings')">
         <div class="navigation">
             <button id="prevDay" aria-label="Previous day">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -857,7 +857,7 @@
             const animateChanges = () => {
                 // Clear all-day events container
                 allDayEventsContainer.innerHTML = '';
-                
+
                 // Render new calendar without showing events
                 renderCalendar(false);
 
@@ -865,8 +865,8 @@
                 const newAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
 
                 // Calculate new calendar position
-                const newCalendarTop = newAllDayEventCount > 0 ? 
-                    allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay : 
+                const newCalendarTop = newAllDayEventCount > 0 ?
+                    allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay :
                     calendarToTopDistanceNoAllDay;
 
                 // Animate calendar to new position
@@ -930,7 +930,7 @@
 
         function updateDateDisplay() {
             const today = DateTime.local();
-            
+
             if (currentDate.hasSame(today, 'day')) {
                 currentDateEl.textContent = 'Today';
             } else if (currentDate.hasSame(today.plus({ days: 1 }), 'day')) {
@@ -940,7 +940,7 @@
             } else {
                 currentDateEl.textContent = currentDate.toFormat('M/d');
             }
-            
+
             // Update day of week
             dayOfWeekEl.textContent = currentDate.toFormat('cccc');
         }
@@ -948,7 +948,7 @@
         async function processInput() {
             const input = taskInput.value;
             const animationOverlay = document.getElementById('animationOverlay');
-            
+
             const currentHeight = taskInput.style.height;
             isAnimating = true;
 
@@ -957,10 +957,10 @@
             const currentDate = now.toISODate();
             const currentTime = now.toFormat('HH:mm');
             const dayOfWeek = now.weekdayLong.toLowerCase(); // Get the day of the week
-            
+
             const inputRect = taskInput.getBoundingClientRect();
             const overlayRect = animationOverlay.getBoundingClientRect();
-            
+
             // Create a single container for all lines
             const animatedTextContainer = document.createElement('div');
             animatedTextContainer.className = 'animated-text-container';
@@ -969,7 +969,7 @@
             animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
             animatedTextContainer.style.width = `${inputRect.width}px`;
             animatedTextContainer.style.height = `${inputRect.height}px`;
-            
+
             // Split input into lines and create animated lines
             input.split('\n').forEach((line, index) => {
                 const animatedLine = document.createElement('div');
@@ -1071,9 +1071,9 @@
 
         function updateTaskEventArray(newItems) {
             newItems.forEach(item => {
-                const sanitizedItem = { 
-                    ...item, 
-                    date: convertToISODate(item.date), 
+                const sanitizedItem = {
+                    ...item,
+                    date: convertToISODate(item.date),
                     done: {}
                 };
                 taskEventArray.push(sanitizedItem);
@@ -1084,7 +1084,7 @@
         function updateSectionTitleStyle(section, taskCount, completedCount) {
             const sectionContainer = document.querySelector(`.task-section-container:has(#${section}TaskList)`);
             const titleElement = sectionContainer.querySelector('.section-title');
-            
+
             if (taskCount === 0 || taskCount === completedCount) {
                 titleElement.style.color = '#666'; // Darken the title
             } else {
@@ -1115,33 +1115,33 @@
                     // Extract the day name and optional offset
                     const match = dateString.match(/^([a-z]+)(?:\+(\d+))?$/);
                     if (!match) return today.toISODate(); // Fallback to today if match fails
-                    
+
                     const [_, day, offsetStr] = match;
                     const offset = offsetStr ? parseInt(offsetStr) : 0;
-                    
+
                     // Get the weekday index (1-7, where 1 is Monday)
                     const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
                         .indexOf(day.toLowerCase()) + 1;
-                    
+
                     if (weekdayIndex === 0) return today.toISODate(); // Invalid day name
-                    
+
                     // Find the next occurrence of this weekday
                     let targetDate = today.set({ weekday: weekdayIndex });
-                    
+
                     // If the target date is before today, move to next week
                     if (targetDate < today) {
                         targetDate = targetDate.plus({ weeks: 1 });
                     }
-                    
+
                     // Add any additional weeks specified by the offset
                     if (offset > 0) {
                         targetDate = targetDate.plus({ weeks: offset });
                     }
-                    
+
                     return targetDate.toISODate();
                 }
             }
-            
+
             // The date is null or invalid format, return today as fallback
             console.log(`Invalid or null date found: ${dateString}`);
             return today.toISODate();
@@ -1161,28 +1161,28 @@
             sections.forEach((section, index) => {
                 const sectionContainer = document.createElement('div');
                 sectionContainer.className = 'task-section-container';
-                
+
                 const sectionElement = document.createElement('div');
                 sectionElement.className = 'task-section';
-                
+
                 const titleElement = document.createElement('div');
                 titleElement.className = 'section-title';
                 titleElement.textContent = section.charAt(0).toUpperCase() + section.slice(1);
-                
+
                 const taskList = document.createElement('div');
                 taskList.id = `${section}TaskList`;
                 taskList.className = 'task-list';
-                
+
                 sectionElement.appendChild(titleElement);
                 sectionElement.appendChild(taskList);
                 sectionContainer.appendChild(sectionElement);
-                
+
                 if (index < sections.length - 1) {
                     const border = document.createElement('div');
                     border.className = 'section-border';
                     sectionContainer.appendChild(border);
                 }
-                
+
                 taskSections.appendChild(sectionContainer);
             });
 
@@ -1195,7 +1195,7 @@
 
             // Filter and sort tasks
             const tasks = taskEventArray.filter(item => item.kind === "task");
-            
+
             // Generate all dates for recurring tasks within the week range
             const expandedTasks = [];
             tasks.forEach(task => {
@@ -1228,11 +1228,11 @@
 
             expandedTasks.forEach(task => {
                 const taskDate = DateTime.fromISO(task.date);
-                
+
                 // Create the task list item
                 const listItem = document.createElement('div');
                 listItem.className = 'task-item';
-                
+
                 // Create task content
                 const taskContent = document.createElement('span');
                 taskContent.className = 'task-content';
@@ -1245,7 +1245,7 @@
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'task-checkbox';
-                
+
                 // Check completion status
                 const completionData = task.done[task.date];
                 const isCompleted = completionData?.completed || false;
@@ -1253,7 +1253,7 @@
                 const completedToday = completedAt?.hasSame(today, 'day') || false;
 
                 checkbox.checked = isCompleted;
-                
+
                 checkbox.addEventListener('change', () => {
                     if (checkbox.checked) {
                         task.done[task.date] = {
@@ -1263,9 +1263,9 @@
                     } else {
                         delete task.done[task.date];
                     }
-                    
+
                     saveUserData();
-                    
+
                     const taskItem = checkbox.closest('.task-item');
                     if (taskItem.classList.contains('overdue-task')) {
                         if (checkbox.checked) {
@@ -1274,7 +1274,7 @@
                             taskItem.classList.remove('overdue-task-done');
                         }
                     }
-                    
+
                     renderTasks();
                 });
 
@@ -1283,16 +1283,16 @@
                     taskContent.style.color = '#666';
                 }
 
-                let taskDateTime = task.endTime ? 
+                let taskDateTime = task.endTime ?
                     taskDate.set({
                         hour: parseInt(task.endTime.split(':')[0]),
                         minute: parseInt(task.endTime.split(':')[1])
-                    }) : 
+                    }) :
                     taskDate.endOf('day');
 
                 const isOverdue = taskDateTime < now;
                 const isDueToday = taskDate.hasSame(today, 'day');
-                
+
                 // Determine if the task should be shown in today's section
                 const showInToday = isDueToday || // Due today
                                 (isOverdue && !isCompleted) || // Overdue and not completed
@@ -1301,7 +1301,7 @@
                 if (showInToday) {
                     // Today's tasks (including relevant overdue tasks)
                     const dateTimeSpan = document.createElement('span');
-                    
+
                     if (isOverdue && !isDueToday) {
                         // Show full date for overdue tasks not due today
                         dateTimeSpan.className = task.endTime ? 'task-date-time' : 'task-date-no-time';
@@ -1309,7 +1309,7 @@
                         dateSpan.className = 'task-date';
                         dateSpan.textContent = taskDate.toFormat('MM/dd');
                         dateTimeSpan.appendChild(dateSpan);
-                        
+
                         if (task.endTime) {
                             const timeSpan = document.createElement('span');
                             timeSpan.className = 'task-time';
@@ -1378,7 +1378,7 @@
                     dateSpan.className = 'task-date';
                     dateSpan.textContent = taskDate.toFormat('MM/dd');
                     dateTimeSpan.appendChild(dateSpan);
-                    
+
                     if (task.endTime) {
                         const timeSpan = document.createElement('span');
                         timeSpan.className = 'task-time';
@@ -1413,7 +1413,7 @@
             const existingMarker = document.querySelector('.current-time-marker');
             const existingTriangle = document.querySelector('.time-triangle');
             let markerStyle, triangleStyle;
-            
+
             if (existingMarker) {
                 markerStyle = {
                     top: existingMarker.style.top,
@@ -1448,7 +1448,7 @@
             }
             const allDayEventsContainer = document.getElementById('allDayEvents');
             allDayEventsContainer.innerHTML = '';
-            
+
             // Remove transition for first render
             if (isFirstRender) {
                 calendar.classList.add('calendar-no-transition');
@@ -1471,7 +1471,7 @@
 
             const now = DateTime.now().setZone(userTimezone);
             const currentMinutes = now.hour * 60 + now.minute;
-            
+
             let shouldUpdateLocalStorage = false;
             taskEventArray.forEach(event => {
                 if (event.kind == "event") {
@@ -1519,8 +1519,8 @@
             }
 
             // Calculate new calendar position immediately
-            const newCalendarTop = allDayEvents.length > 0 ? 
-                allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay : 
+            const newCalendarTop = allDayEvents.length > 0 ?
+                allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay :
                 calendarToTopDistanceNoAllDay;
 
             // Set position without transition on first render
@@ -1530,7 +1530,7 @@
             } else {
                 calendar.style.transition = 'top 0.3s ease';
                 calendar.style.top = `${newCalendarTop}px`;
-                
+
                 if (allDayEvents.length > 0) {
                     allDayEventsContainer.style.transition = 'opacity 0.3s ease';
                     allDayEventsContainer.style.opacity = '0';
@@ -1572,7 +1572,7 @@
                 } else {
                     currentGroup.push(event);
                 }
-                
+
                 if (index === timedEvents.length - 1 && currentGroup.length > 0) {
                     eventGroups.push(currentGroup);
                 }
@@ -1596,7 +1596,7 @@
                         lanes[laneIndex] = [];
                     }
                     const lane = lanes[laneIndex];
-                    
+
                     let conflict = false;
                     for (let i = 0; i < lane.length; i++) {
                         const event = lane[i];
@@ -1624,7 +1624,7 @@
                     const itemEndMinutes = item.endTime ? timeToMinutes(item.endTime) : Math.min(itemStartMinutes + 100, 1440);
 
                     // Determine if event is in the past
-                    const isPastEvent = currentDate.hasSame(now, 'day') && 
+                    const isPastEvent = currentDate.hasSame(now, 'day') &&
                         (item.endTime ? itemEndMinutes < currentMinutes : itemStartMinutes < currentMinutes);
 
                     const eventEl = document.createElement('div');
@@ -1632,14 +1632,14 @@
                     if (isPastEvent) {
                         eventEl.classList.add('past-event');
                     }
-                    
+
                     eventEl.textContent = item.name;
                     eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + (index * (eventWidth + spaceBetweenEvents))}px`;
                     eventEl.style.width = `${eventWidth}px`;
                     eventEl.style.top = `${itemStartMinutes / 1440 * 100}%`;
-                    
+
                     const color = colors[laneIndex % colors.length];
-                    
+
                     if (item.endTime) {
                         eventEl.style.height = `calc(${(itemEndMinutes - itemStartMinutes) / 1440 * 100}% - 7px)`;
                         eventEl.style.backgroundColor = color;
@@ -1700,7 +1700,7 @@
         // take a date string from startTime, which shouldn't have a day but sometimes AI hallucinates and gives it a day, so we try to infer the correct date before clearing the field
         function calculateActualDate(dateString) {
             const today = DateTime.local().setZone(userTimezone);
-            
+
             if (dateString === 'today') {
                 return today.toISODate();
             } else if (dateString === 'tomorrow') {
@@ -1716,7 +1716,7 @@
                     return targetDate.toISODate();
                 }
             }
-            
+
             return null;
         }
 
@@ -1741,11 +1741,11 @@
             const start = DateTime.fromISO(startDate);
             const end = DateTime.fromISO(endDate);
             const dates = [];
-            
+
             if (!task.recurPattern) return [task.date];
 
             let current = DateTime.fromISO(task.date);
-            
+
             // Handle specific weekday patterns like "monday,tuesday" or "monday@15:00,tuesday@16:00"
             if (task.recurPattern.includes(',')) {
                 const patterns = task.recurPattern.split(',');
@@ -1754,19 +1754,19 @@
                         let [day, time] = pattern.split('@');
                         const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
                             .indexOf(day.toLowerCase());
-                        
+
                         if (weekdayIndex !== -1) {
                             let nextOccurrence = current.set({ weekday: weekdayIndex + 1 });
                             if (nextOccurrence < current) {
                                 nextOccurrence = nextOccurrence.plus({ weeks: 1 });
                             }
-                            
+
                             // If this specific weekday has a time override
                             if (time) {
                                 const [hours, minutes] = time.split(':').map(Number);
                                 task.endTime = time;
                             }
-                            
+
                             if (nextOccurrence >= start && nextOccurrence <= end) {
                                 dates.push(nextOccurrence.toISODate());
                             }
@@ -1782,19 +1782,19 @@
                 const pattern = task.recurPattern.substring(8); // Remove 'monthly_' prefix
                 while (current <= end) {
                     let nextDate = current;
-                    
+
                     if (pattern === 'first_day') {
                         nextDate = current.startOf('month');
                     } else if (pattern.includes('_')) {
                         const [ord, day] = pattern.split('_'); // e.g., 'first', 'monday'
                         const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
                             .indexOf(day.toLowerCase());
-                        
+
                         if (weekdayIndex !== -1) {
                             const ordinalMap = {
                                 'first': 1, 'second': 2, 'third': 3, 'fourth': 4, 'last': -1
                             };
-                            
+
                             const ordinal = ordinalMap[ord];
                             if (ordinal) {
                                 if (ordinal === -1) {
@@ -1812,11 +1812,11 @@
                             }
                         }
                     }
-                    
+
                     if (nextDate >= start && nextDate <= end) {
                         dates.push(nextDate.toISODate());
                     }
-                    
+
                     current = current.plus({ months: 1 });
                 }
                 return dates;
@@ -1855,7 +1855,7 @@
             const shouldShowMarker = currentDate.hasSame(now, 'day');
             const existingMarker = document.querySelector('.current-time-marker');
             const existingTriangle = document.querySelector('.time-triangle');
-            
+
             // Calculate position based on current time
             const minutes = now.hour * 60 + now.minute;
             const percentage = (minutes / 1440) * 100;
@@ -1869,30 +1869,30 @@
                     timeMarker.style.opacity = '0';  // Start invisible
                     timeMarker.style.top = `${percentage}%`;
                     calendar.appendChild(timeMarker);
-                    
+
                     // Force reflow
                     timeMarker.offsetHeight;
-                    
+
                     // Fade in
                     timeMarker.style.transition = 'opacity 0.3s ease';
                     timeMarker.style.opacity = '1';
                 }
-                
+
                 if (!existingTriangle) {
                     const timeTriangle = document.createElement('div');
                     timeTriangle.className = 'time-triangle time-triangle-hidden';  // Start with hidden class
                     timeTriangle.style.top = `calc(${percentage}% - 9px)`;
                     calendar.appendChild(timeTriangle);
-                    
+
                     // Force reflow
                     timeTriangle.offsetHeight;
-                    
+
                     // Animate in
                     requestAnimationFrame(() => {
                         timeTriangle.classList.remove('time-triangle-hidden');
                     });
                 }
-                
+
                 isTimeMarkerShowing = true;
             } else if (!shouldShowMarker && isTimeMarkerShowing) {
                 // Remove markers with animation
@@ -1901,12 +1901,12 @@
                     existingMarker.style.opacity = '0';
                     setTimeout(() => existingMarker.remove(), 300);
                 }
-                
+
                 if (existingTriangle) {
                     existingTriangle.classList.add('time-triangle-hidden');
                     setTimeout(() => existingTriangle.remove(), 300);
                 }
-                
+
                 isTimeMarkerShowing = false;
             } else if (shouldShowMarker && isTimeMarkerShowing) {
                 // Update position of existing markers
@@ -1959,7 +1959,7 @@
             const savedSettings = localStorage.getItem('userSettings');
             if (savedSettings) {
                 userSettings = JSON.parse(savedSettings);
-                
+
                 // Apply saved settings to toggle switches
                 document.querySelectorAll('.toggle-track').forEach(track => {
                     const setting = track.dataset.setting;
@@ -1967,21 +1967,21 @@
                         track.classList.add('active');
                     }
                 });
-                
+
                 // Apply saved settings to selectors
                 document.querySelectorAll('.selector-container').forEach(container => {
                     const setting = container.dataset.setting;
                     const savedValue = userSettings[setting];
-                    
+
                     // Use setTimeout to ensure elements are rendered
                     setTimeout(() => {
-                        const option = savedValue ? 
-                            container.querySelector(`[data-value="${savedValue}"]`) : 
+                        const option = savedValue ?
+                            container.querySelector(`[data-value="${savedValue}"]`) :
                             container.querySelector('.selector-option');
-                        
+
                         if (option) {
                             updateSelector(option, option.dataset.value);
-                            
+
                             // Save default value if none was saved
                             if (!savedValue) {
                                 saveUserSettings(setting, option.dataset.value);
@@ -1994,6 +1994,8 @@
             } else {
                 // Default settings
                 userSettings = defaultSettings;
+                localStorage.setItem('userSettings', JSON.stringify(userSettings));
+                loadUserSettings();
             }
         }
 
@@ -2009,18 +2011,18 @@
             const setting = container.dataset.setting;
             const highlight = container.querySelector('.selector-highlight');
             const allOptions = container.querySelectorAll('.selector-option');
-            
+
             // Remove active class from all options
             allOptions.forEach(opt => opt.classList.remove('active'));
-            
+
             // Add active class to selected option
             optionElement.classList.add('active');
-            
+
             // Move highlight
             const optionIndex = Array.from(allOptions).indexOf(optionElement);
             highlight.style.width = String(optionElement.offsetWidth - 4) + 'px';
             highlight.style.transform = `translateX(${optionElement.offsetLeft}px)`;
-            
+
             // Save setting
             saveUserSettings(setting, value);
         }
