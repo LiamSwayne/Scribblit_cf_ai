@@ -1679,14 +1679,10 @@
                     const itemStartMinutes = timeToMinutes(item.startTime || '00:00');
                     const itemEndMinutes = item.endTime ? timeToMinutes(item.endTime) : Math.min(itemStartMinutes + 100, 1440);
 
-                    // Determine if event is in the past - only if it has an explicit end time
-                    const isPastEvent = currentDate.hasSame(now, 'day') && item.endTime && itemEndMinutes < currentMinutes;
-
                     const eventEl = document.createElement('div');
                     eventEl.className = 'calendar-event';
-                    if (isPastEvent) {
-                        eventEl.classList.add('past-event');
-                    }
+                    eventEl.dataset.startTime = item.startTime || '00:00';
+                    eventEl.dataset.endTime = item.endTime || '';
 
                     eventEl.textContent = item.name;
                     eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + (index * (eventWidth + spaceBetweenEvents))}px`;
@@ -1907,15 +1903,31 @@
 
         function updateTimeMarker() {
             const now = DateTime.now().setZone(userTimezone);
+            const currentMinutes = now.hour * 60 + now.minute;
             const shouldShowMarker = currentDate.hasSame(now, 'day');
             const existingMarker = document.querySelector('.current-time-marker');
             const existingTriangle = document.querySelector('.time-triangle');
 
             // Calculate position based on current time
-            const minutes = now.hour * 60 + now.minute;
-            const percentage = (minutes / 1440) * 100;
+            const percentage = (currentMinutes / 1440) * 100;
 
-            // Handle showing/hiding the marker
+            // Update past-event status for all calendar events
+            if (shouldShowMarker) {
+                const calendarEvents = document.querySelectorAll('.calendar-event');
+                calendarEvents.forEach(eventEl => {
+                    // Only handle events with end times
+                    if (eventEl.dataset.endTime) {
+                        const endTimeMinutes = timeToMinutes(eventEl.dataset.endTime);
+                        if (endTimeMinutes < currentMinutes) {
+                            eventEl.classList.add('past-event');
+                        } else {
+                            eventEl.classList.remove('past-event');
+                        }
+                    }
+                });
+            }
+
+            // Rest of the time marker update code...
             if (shouldShowMarker && !isTimeMarkerShowing) {
                 // Create and show markers with fade in
                 if (!existingMarker) {
@@ -1973,9 +1985,6 @@
                 }
             }
         }
-
-        // Update the time marker every minute
-        setInterval(updateTimeMarker, 60000);
 
         function showVignette() {
             const vignette = document.getElementById('vignette');
@@ -2224,6 +2233,17 @@
             updateButtonStyles();
             adjustTextareaHeight();
             renderTasks();
+
+            // Calculate delay until start of next minute
+            const now = new Date();
+            const delay = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+            
+            // First timeout to sync with minute start
+            setTimeout(() => {
+                updateTimeMarker();
+                // After first sync, run every minute
+                setInterval(updateTimeMarker, 60000);
+            }, delay);
 
             // Set up resize event listener
             window.addEventListener('resize', () => {
