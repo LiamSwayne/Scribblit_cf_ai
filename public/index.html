@@ -318,6 +318,13 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             color: var(--grey-2);
+            /* make it act like part of the background */
+            /* the user never wants to interact with this text */
+            /* it would only happen on accident */
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            pointer-events: none;
         }
 
         .animated-text-container {
