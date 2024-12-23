@@ -606,7 +606,7 @@
         // Global array to store all tasks and events
         let taskEventArray = [];
 
-        let showTimeMarkerBeforePlayingHideAnimation = false;
+        let isTimeMarkerShowing = false;
 
         // how far the calendar is from the top of the page when there are no all-day events
         const calendarToTopDistanceNoAllDay = 32;
@@ -649,13 +649,6 @@
             // Update date immediately
             currentDate = currentDate.plus({ days: delta });
             updateDateDisplay();
-
-            if (!currentDate.hasSame(DateTime.now(), 'day')) {
-                // we're changing to a day other than today
-                // this tells the updateTimeMarker function to show the
-                // marker instantly after the calendar is cleared, then play the fadeout animation
-                showTimeMarkerBeforePlayingHideAnimation = true;
-            }
 
             // Function to handle the main animation logic
             const animateChanges = () => {
@@ -1213,7 +1206,43 @@
         }
 
         function renderCalendar(showEvents = true) {
+            // Preserve time marker elements if they exist
+            const existingMarker = document.querySelector('.current-time-marker');
+            const existingTriangle = document.querySelector('.time-triangle');
+            let markerStyle, triangleStyle;
+            
+            if (existingMarker) {
+                markerStyle = {
+                    top: existingMarker.style.top,
+                    opacity: existingMarker.style.opacity,
+                    transition: existingMarker.style.transition
+                };
+            }
+            if (existingTriangle) {
+                triangleStyle = {
+                    top: existingTriangle.style.top,
+                    className: existingTriangle.className
+                };
+            }
+
+            // Clear calendar
             calendar.innerHTML = '';
+
+            // Immediately restore time marker elements if they existed
+            if (existingMarker) {
+                const timeMarker = document.createElement('div');
+                timeMarker.className = 'current-time-marker';
+                timeMarker.style.top = markerStyle.top;
+                timeMarker.style.opacity = markerStyle.opacity;
+                timeMarker.style.transition = markerStyle.transition;
+                calendar.appendChild(timeMarker);
+            }
+            if (existingTriangle) {
+                const timeTriangle = document.createElement('div');
+                timeTriangle.className = triangleStyle.className;
+                timeTriangle.style.top = triangleStyle.top;
+                calendar.appendChild(timeTriangle);
+            }
             const allDayEventsContainer = document.getElementById('allDayEvents');
             allDayEventsContainer.innerHTML = '';
             
@@ -1239,8 +1268,6 @@
 
             const now = DateTime.now().setZone(userTimezone);
             const currentMinutes = now.hour * 60 + now.minute;
-
-            updateTimeMarker();
             
             let shouldUpdateLocalStorage = false;
             taskEventArray.forEach(event => {
@@ -1446,6 +1473,9 @@
                     isFirstRender = false;
                 });
             }
+
+            // we want time to pass in-between the time marker code at the top of this function and now
+            updateTimeMarker();
         }
 
         function timeToMinutes(time) {
@@ -1612,6 +1642,7 @@
 
         function updateTimeMarker() {
             const now = DateTime.now().setZone(userTimezone);
+            const shouldShowMarker = currentDate.hasSame(now, 'day');
             const existingMarker = document.querySelector('.current-time-marker');
             const existingTriangle = document.querySelector('.time-triangle');
             
@@ -1619,87 +1650,63 @@
             const minutes = now.hour * 60 + now.minute;
             const percentage = (minutes / 1440) * 100;
 
-            // If we're showing marker before hiding it
-            if (showTimeMarkerBeforePlayingHideAnimation) {
-                // Create and show marker immediately if it doesn't exist
+            // Handle showing/hiding the marker
+            if (shouldShowMarker && !isTimeMarkerShowing) {
+                // Create and show markers with fade in
                 if (!existingMarker) {
                     const timeMarker = document.createElement('div');
                     timeMarker.className = 'current-time-marker';
-                    calendar.appendChild(timeMarker);
+                    timeMarker.style.opacity = '0';  // Start invisible
                     timeMarker.style.top = `${percentage}%`;
+                    calendar.appendChild(timeMarker);
+                    
+                    // Force reflow
+                    timeMarker.offsetHeight;
+                    
+                    // Fade in
+                    timeMarker.style.transition = 'opacity 0.3s ease';
+                    timeMarker.style.opacity = '1';
                 }
                 
-                // Create and show triangle immediately if it doesn't exist
                 if (!existingTriangle) {
                     const timeTriangle = document.createElement('div');
-                    timeTriangle.className = 'time-triangle';
-                    calendar.appendChild(timeTriangle);
+                    timeTriangle.className = 'time-triangle time-triangle-hidden';  // Start with hidden class
                     timeTriangle.style.top = `calc(${percentage}% - 9px)`;
+                    calendar.appendChild(timeTriangle);
+                    
+                    // Force reflow
+                    timeTriangle.offsetHeight;
+                    
+                    // Animate in
+                    requestAnimationFrame(() => {
+                        timeTriangle.classList.remove('time-triangle-hidden');
+                    });
                 }
                 
-                // Reset the flag
-                showTimeMarkerBeforePlayingHideAnimation = false;
-                
-                // Start fade out animation in the next frame
-                requestAnimationFrame(() => {
-                    if (existingMarker || document.querySelector('.current-time-marker')) {
-                        const marker = existingMarker || document.querySelector('.current-time-marker');
-                        marker.style.transition = 'opacity 0.3s ease';
-                        marker.style.opacity = '0';
-                        setTimeout(() => marker.remove(), 300);
-                    }
-                    
-                    if (existingTriangle || document.querySelector('.time-triangle')) {
-                        const triangle = existingTriangle || document.querySelector('.time-triangle');
-                        triangle.classList.add('time-triangle-hidden');
-                        setTimeout(() => triangle.remove(), 300);
-                    }
-                });
-                
-                return;
-            }
-
-            // Regular handling for non-today days
-            if (!currentDate.hasSame(now, 'day')) {
-                // Remove existing markers with fade out animation
+                isTimeMarkerShowing = true;
+            } else if (!shouldShowMarker && isTimeMarkerShowing) {
+                // Remove markers with animation
                 if (existingMarker) {
                     existingMarker.style.transition = 'opacity 0.3s ease';
                     existingMarker.style.opacity = '0';
                     setTimeout(() => existingMarker.remove(), 300);
                 }
+                
                 if (existingTriangle) {
                     existingTriangle.classList.add('time-triangle-hidden');
                     setTimeout(() => existingTriangle.remove(), 300);
                 }
-                return;
+                
+                isTimeMarkerShowing = false;
+            } else if (shouldShowMarker && isTimeMarkerShowing) {
+                // Update position of existing markers
+                if (existingMarker) {
+                    existingMarker.style.top = `${percentage}%`;
+                }
+                if (existingTriangle) {
+                    existingTriangle.style.top = `calc(${percentage}% - 9px)`;
+                }
             }
-
-            // Update or create the marker line
-            let timeMarker = existingMarker;
-            if (!timeMarker) {
-                timeMarker = document.createElement('div');
-                timeMarker.className = 'current-time-marker';
-                timeMarker.style.opacity = '0';
-                calendar.appendChild(timeMarker);
-                // Force reflow
-                timeMarker.offsetHeight;
-                timeMarker.style.opacity = '1';
-            }
-            timeMarker.style.top = `${percentage}%`;
-
-            // Update or create the triangle
-            let timeTriangle = existingTriangle;
-            if (!timeTriangle) {
-                timeTriangle = document.createElement('div');
-                timeTriangle.className = 'time-triangle time-triangle-hidden';
-                calendar.appendChild(timeTriangle);
-                // Force reflow
-                timeTriangle.offsetHeight;
-                requestAnimationFrame(() => {
-                    timeTriangle.classList.remove('time-triangle-hidden');
-                });
-            }
-            timeTriangle.style.top = `calc(${percentage}% - 9px)`;
         }
 
         // Update the time marker every minute
