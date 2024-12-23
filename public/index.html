@@ -2042,41 +2042,49 @@
         }
 
         function animateTimeFormatChange(to24Hour) {
-    const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
-    const totalLabels = hourLabels.length;
-    const intervalBetweenStarts = 600 / totalLabels;
-    
-    // Update data-value immediately for all labels
-    hourLabels.forEach(label => {
-        const currentDataValue = label.dataset.value;
-        let hour;
-        if (currentDataValue.includes('AM') || currentDataValue.includes('PM')) {
-            const [timeStr, period] = currentDataValue.split(' ');
-            hour = parseInt(timeStr);
-            if (period === 'PM' && hour !== 12) hour += 12;
-            if (period === 'AM' && hour === 12) hour = 0;
-        } else {
-            hour = parseInt(currentDataValue);
+            const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
+            const totalLabels = hourLabels.length;
+            const intervalBetweenStarts = 600 / totalLabels;
+            
+            // Update data-value immediately for all labels
+            hourLabels.forEach(label => {
+                const currentDataValue = label.dataset.value;
+                let hour;
+                if (currentDataValue.includes('AM') || currentDataValue.includes('PM')) {
+                    const [timeStr, period] = currentDataValue.split(' ');
+                    hour = parseInt(timeStr);
+                    if (period === 'PM' && hour !== 12) hour += 12;
+                    if (period === 'AM' && hour === 12) hour = 0;
+                } else {
+                    hour = parseInt(currentDataValue);
+                }
+                label.dataset.value = formatTime(hour, to24Hour);
+            });
+            
+            const shuffledLabels = hourLabels
+                .map(value => ({ value, sort: Math.random() }))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({ value }) => value);
+            
+            shuffledLabels.forEach((label, index) => {
+                setTimeout(() => {
+                    if (label.textContent !== label.dataset.value && !hourLabelsCurrentlyAnimating[label.id]) {
+                        hourLabelsCurrentlyAnimating[label.id] = true;
+                        animateHourLabel(label);
+                    }
+                }, index * intervalBetweenStarts);
+            });
         }
-        label.dataset.value = formatTime(hour, to24Hour);
-    });
-    
-    const shuffledLabels = hourLabels
-        .map(value => ({ value, sort: Math.random() }))
-        .sort((a, b) => a.sort - b.sort)
-        .map(({ value }) => value);
-    
-    shuffledLabels.forEach((label, index) => {
-        setTimeout(() => {
-            if (label.textContent !== label.dataset.value && !hourLabelsCurrentlyAnimating[label.id]) {
-                hourLabelsCurrentlyAnimating[label.id] = true;
-                animateHourLabel(label);
-            }
-        }, index * intervalBetweenStarts);
-    });
-}
 
         function animateHourLabel(label) {
+            // Exit if label no longer exists in DOM
+            if (!label || !document.getElementById(label.id)) {
+                if (label?.id) {
+                    hourLabelsCurrentlyAnimating[label.id] = false;
+                }
+                return;
+            }
+
             // Extract the hour from the current text (handles both formats)
             const currentText = label.textContent;
             let hour;
@@ -2095,6 +2103,15 @@
             // First, delete characters one by one
             let currentDisplayText = oldText;
             const deleteInterval = setInterval(() => {
+                // Check again if label still exists
+                if (!document.getElementById(label.id)) {
+                    clearInterval(deleteInterval);
+                    if (label.id) {
+                        hourLabelsCurrentlyAnimating[label.id] = false;
+                    }
+                    return;
+                }
+
                 if (currentDisplayText.length > 0) {
                     currentDisplayText = currentDisplayText.slice(0, -1);
                     label.textContent = currentDisplayText;
@@ -2104,6 +2121,15 @@
                     // Add new characters one by one
                     let currentIndex = 0;
                     const addInterval = setInterval(() => {
+                        // Check again if label still exists
+                        if (!document.getElementById(label.id)) {
+                            clearInterval(addInterval);
+                            if (label.id) {
+                                hourLabelsCurrentlyAnimating[label.id] = false;
+                            }
+                            return;
+                        }
+
                         if (currentIndex <= newText.length) {
                             label.textContent = newText.slice(0, currentIndex);
                             currentIndex++;
