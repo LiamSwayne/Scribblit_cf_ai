@@ -571,6 +571,117 @@
         .calendar-no-transition {
             transition: none !important;
         }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            background-color: var(--grey-6);
+            border: 1px solid var(--grey-4);
+            border-radius: 8px;
+            padding: 14px;
+            min-width: 300px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+        }
+
+        .modal.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        #vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(
+                circle at center,
+                rgba(0, 0, 0, 0.2) 0%,
+                rgba(0, 0, 0, 0.5) 50%,
+                rgba(0, 0, 0, 0.98) 100%
+            );
+            z-index: 9998;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        #vignette.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            color: var(--grey-1);
+        }
+
+        .modal-close {
+            cursor: pointer;
+            position: absolute;
+            right: 14px;
+            top: 14px;
+            transition: color 0.3s ease;
+            color: var(--grey-2);
+        }
+
+        .modal-close:hover {
+            color: var(--grey-1);
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .toggle-label {
+            flex-grow: 1;
+            color: var(--grey-1);
+        }
+
+        .toggle-track {
+            position: relative;
+            width: 40px;
+            height: 24px;
+            background-color: var(--grey-4);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .toggle-track.active {
+            background-color: #4CAF50;
+        }
+
+        .toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: var(--grey-1);
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-track.active .toggle-handle {
+            transform: translateX(16px);
+        }
     </style>
 </head>
 <body>
@@ -586,8 +697,8 @@
                 <!-- Task sections will be dynamically inserted here -->
             </div>
         </div>
-        <div id="gear-background"></div>
-        <img src="gear_icon.svg" alt="Settings" id="gear-icon">
+        <div id="gear-background" onclick="showModal('settings')"></div>
+        <img src="gear_icon.svg" alt="Settings" id="gear-icon" onclick="showModal('settings')">    
         <div class="navigation">
             <button id="prevDay" aria-label="Previous day">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -607,11 +718,28 @@
         <div id="allDayEvents"></div>
         <div id="calendar"></div>
     </div>
+    <div id="vignette" onclick="hideModal('all')"></div>
+    <div id="settingsModal" class="modal">
+        <svg class="modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('settings')">
+            <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="modal-header">
+            <span class="modal-title">Settings</span>
+        </div>
+        <div class="toggle-switch">
+            <span class="toggle-label">Example Setting</span>
+            <div class="toggle-track" data-setting="exampleSetting" onclick="toggleSetting(this)">
+                <div class="toggle-handle"></div>
+            </div>
+        </div>
+    </div>
     <script>
         let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
 
         // Global array to store all tasks and events
         let taskEventArray = [];
+        // Dictionary of user settings
+        let userSettings = {};
 
         let isTimeMarkerShowing = false;
 
@@ -1726,7 +1854,63 @@
         // Update the time marker every minute
         setInterval(updateTimeMarker, 60000);
 
+        function showVignette() {
+            const vignette = document.getElementById('vignette');
+            vignette.classList.add('visible');
+        }
+
+        function hideVignette() {
+            const vignette = document.getElementById('vignette');
+            vignette.classList.remove('visible');
+        }
+
+        function showModal(modalType) {
+            showVignette();
+            const modal = document.getElementById(`${modalType}Modal`);
+            modal.classList.add('visible');
+        }
+
+        function hideModal(modalType) {
+            hideVignette();
+            if (modalType === 'all') {
+                document.querySelectorAll('.modal.visible').forEach(modal => {
+                    modal.classList.remove('visible');
+                });
+            } else {
+                const modal = document.getElementById(`${modalType}Modal`);
+                modal.classList.remove('visible');
+            }
+        }
+
+        function saveUserSettings(setting, value) {
+            userSettings[setting] = value;
+            localStorage.setItem('userSettings', JSON.stringify(userSettings));
+        }
+
+        function loadUserSettings() {
+            const savedSettings = localStorage.getItem('userSettings');
+            if (savedSettings) {
+                userSettings = JSON.parse(savedSettings);
+                
+                // Apply saved settings to toggle switches
+                document.querySelectorAll('.toggle-track').forEach(track => {
+                    const setting = track.dataset.setting;
+                    if (userSettings[setting]) {
+                        track.classList.add('active');
+                    }
+                });
+            }
+        }
+
+        function toggleSetting(trackElement) {
+            const setting = trackElement.dataset.setting;
+            const newValue = !trackElement.classList.contains('active');
+            trackElement.classList.toggle('active');
+            saveUserSettings(setting, newValue);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            loadUserSettings();
             loadUserData();
 
             document.getElementById('allDayEvents').style.opacity = '0';
@@ -1741,14 +1925,9 @@
                 document.getElementById('currentDate').style.opacity = '1';
             }, 350);
 
-            // Keep these lines if they're not already present in your initialization
             updateButtonStyles();
             adjustTextareaHeight();
-
-                // Perform other initializations
-                updateButtonStyles();
-                adjustTextareaHeight();
-                renderTasks();
+            renderTasks();
 
             // Set up resize event listener
             window.addEventListener('resize', () => {
