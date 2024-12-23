@@ -234,14 +234,14 @@
             transition: opacity 0.3s ease;
         }
 
+        /* overrides existing event opacity */
         .past-event {
-            filter: opacity(0.5);
-            transition: filter 0.3s ease, opacity 0.3s ease;
+            opacity: 0.5 !important;
+            transition: opacity 0.3s ease, filter 0.3s ease;
         }
 
         .past-event:hover {
-            filter: opacity(1);
-            transition: filter 0.3s ease, opacity 0.3s ease;
+            opacity: 1 !important;
         }
 
         .navigation button {
