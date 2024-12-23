@@ -580,8 +580,8 @@
             background-color: var(--grey-6);
             border: 1px solid var(--grey-4);
             border-radius: 8px;
-            padding: 14px;
-            min-width: 300px;
+            padding: 20px;
+            min-width: 400px;
             z-index: 9999;
             opacity: 0;
             transition: opacity 0.3s ease, transform 0.3s ease;
@@ -682,6 +682,52 @@
         .toggle-track.active .toggle-handle {
             transform: translateX(16px);
         }
+
+        .selector-switch {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .selector-label {
+            flex-grow: 1;
+            color: var(--grey-1);
+        }
+
+        .selector-container {
+            display: flex;
+            background-color: var(--grey-5);
+            border-radius: 4px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            padding-left: 2px;
+            padding-right: 2px;
+            position: relative;
+        }
+
+        .selector-option {
+            padding: 2px 8px;
+            cursor: pointer;
+            color: var(--grey-2);
+            z-index: 1;
+            transition: color 0.3s ease;
+            user-select: none;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .selector-option.active {
+            color: var(--grey-1);
+        }
+
+        .selector-highlight {
+            position: absolute;
+            height: calc(100% - 8px);
+            background-color: var(--grey-4);
+            border-radius: 3px;
+            transition: transform 0.3s ease, width 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -732,6 +778,23 @@
                 <div class="toggle-handle"></div>
             </div>
         </div>
+        <div class="selector-switch">
+            <span class="selector-label">Time format</span>
+            <div class="selector-container" data-setting="timeFormat">
+                <div class="selector-highlight"></div>
+                <div class="selector-option" onclick="updateSelector(this, 'AM/PM')" data-value="AM/PM">AM/PM</div>
+                <div class="selector-option" onclick="updateSelector(this, '24h')" data-value="24h">24h</div>
+            </div>
+        </div>
+        <div class="selector-switch">
+            <span class="selector-label">Calendar color style</span>
+            <div class="selector-container" data-setting="calendarStyle">
+                <div class="selector-highlight"></div>
+                <div class="selector-option" onclick="updateSelector(this, 'clean')" data-value="clean">Clean</div>
+                <div class="selector-option" onclick="updateSelector(this, 'colorful')" data-value="colorful">Colorful</div>
+                <div class="selector-option" onclick="updateSelector(this, 'tag-friendly')" data-value="tag-friendly">Tag-friendly</div>
+            </div>
+        </div>
     </div>
     <script>
         let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
@@ -740,6 +803,11 @@
         let taskEventArray = [];
         // Dictionary of user settings
         let userSettings = {};
+
+        let defaultSettings = {
+            'timeFormat':'24h', // options AM/PM, 24h
+            'calendarStyle':'tag-friendly' // options clean, colorful, tag-friendly
+        };
 
         let isTimeMarkerShowing = false;
 
@@ -1899,6 +1967,33 @@
                         track.classList.add('active');
                     }
                 });
+                
+                // Apply saved settings to selectors
+                document.querySelectorAll('.selector-container').forEach(container => {
+                    const setting = container.dataset.setting;
+                    const savedValue = userSettings[setting];
+                    
+                    // Use setTimeout to ensure elements are rendered
+                    setTimeout(() => {
+                        const option = savedValue ? 
+                            container.querySelector(`[data-value="${savedValue}"]`) : 
+                            container.querySelector('.selector-option');
+                        
+                        if (option) {
+                            updateSelector(option, option.dataset.value);
+                            
+                            // Save default value if none was saved
+                            if (!savedValue) {
+                                saveUserSettings(setting, option.dataset.value);
+                            }
+                        } else {
+                            console.error(`Invalid saved value for setting: ${setting}`);
+                        }
+                    }, 300);
+                });
+            } else {
+                // Default settings
+                userSettings = defaultSettings;
             }
         }
 
@@ -1907,6 +2002,27 @@
             const newValue = !trackElement.classList.contains('active');
             trackElement.classList.toggle('active');
             saveUserSettings(setting, newValue);
+        }
+
+        function updateSelector(optionElement, value) {
+            const container = optionElement.parentElement;
+            const setting = container.dataset.setting;
+            const highlight = container.querySelector('.selector-highlight');
+            const allOptions = container.querySelectorAll('.selector-option');
+            
+            // Remove active class from all options
+            allOptions.forEach(opt => opt.classList.remove('active'));
+            
+            // Add active class to selected option
+            optionElement.classList.add('active');
+            
+            // Move highlight
+            const optionIndex = Array.from(allOptions).indexOf(optionElement);
+            highlight.style.width = String(optionElement.offsetWidth - 4) + 'px';
+            highlight.style.transform = `translateX(${optionElement.offsetLeft}px)`;
+            
+            // Save setting
+            saveUserSettings(setting, value);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
