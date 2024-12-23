@@ -848,7 +848,7 @@
                 console.log('Parsed response:', parsedResponse);
 
                 updateTaskEventArray(parsedResponse);
-                saveToLocalStorage();
+                saveUserData();
                 renderTasks();
                 renderCalendar();
             } catch (error) {
@@ -882,7 +882,7 @@
                 };
                 taskEventArray.push(sanitizedItem);
             });
-            saveToLocalStorage();
+            saveUserData();
         }
 
         function updateSectionTitleStyle(section, taskCount, completedCount) {
@@ -1068,7 +1068,7 @@
                         delete task.done[task.date];
                     }
                     
-                    saveToLocalStorage();
+                    saveUserData();
                     
                     const taskItem = checkbox.closest('.task-item');
                     if (taskItem.classList.contains('overdue-task')) {
@@ -1298,7 +1298,7 @@
             let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
 
             if (shouldUpdateLocalStorage) {
-                saveToLocalStorage();
+                saveUserData();
             }
 
             // Separate all-day events and events without calculable start times
@@ -1490,7 +1490,7 @@
             return hours * 60 + minutes;
         }
 
-        function saveToLocalStorage() {
+        function saveUserData() {
             localStorage.setItem('taskEventArray', JSON.stringify(taskEventArray));
         }
 
