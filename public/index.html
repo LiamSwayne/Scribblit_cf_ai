@@ -811,6 +811,9 @@
 
         let isTimeMarkerShowing = false;
 
+        // keys are randomized hour label IDs, values are true/false
+        let hourLabelsCurrentlyAnimating = {};
+
         // how far the calendar is from the top of the page when there are no all-day events
         const calendarToTopDistanceNoAllDay = 32;
 
@@ -1462,7 +1465,11 @@
 
                 const hourLabel = document.createElement('div');
                 hourLabel.className = 'hour-label';
-                hourLabel.textContent = `${i.toString().padStart(2, '0')}:00`;
+                const timeText = formatTime(i, userSettings.timeFormat === '24h');
+                hourLabel.textContent = timeText;
+                hourLabel.dataset.value = timeText;
+                // Assign random unique ID
+                hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
                 hourLabel.style.top = `${i / 24 * 100}%`;
 
                 calendar.appendChild(hourMarker);
@@ -1950,8 +1957,7 @@
             }
         }
 
-        function saveUserSettings(setting, value) {
-            userSettings[setting] = value;
+        function saveUserSettings() {
             localStorage.setItem('userSettings', JSON.stringify(userSettings));
         }
 
@@ -1984,7 +1990,8 @@
 
                             // Save default value if none was saved
                             if (!savedValue) {
-                                saveUserSettings(setting, option.dataset.value);
+                                userSettings[setting] = option.dataset.value;
+                                saveUserSettings();
                             }
                         } else {
                             console.error(`Invalid saved value for setting: ${setting}`);
@@ -2003,7 +2010,8 @@
             const setting = trackElement.dataset.setting;
             const newValue = !trackElement.classList.contains('active');
             trackElement.classList.toggle('active');
-            saveUserSettings(setting, newValue);
+            userSettings[setting] = newValue;
+            saveUserSettings();
         }
 
         function updateSelector(optionElement, value) {
@@ -2024,7 +2032,103 @@
             highlight.style.transform = `translateX(${optionElement.offsetLeft}px)`;
 
             // Save setting
-            saveUserSettings(setting, value);
+            userSettings[setting] = value;
+            saveUserSettings();
+
+            // If this is the time format setting, trigger the animation
+            if (setting === 'timeFormat') {
+                animateTimeFormatChange(value === '24h');
+            }
+        }
+
+        function animateTimeFormatChange(to24Hour) {
+    const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
+    const totalLabels = hourLabels.length;
+    const intervalBetweenStarts = 600 / totalLabels;
+    
+    // Update data-value immediately for all labels
+    hourLabels.forEach(label => {
+        const currentDataValue = label.dataset.value;
+        let hour;
+        if (currentDataValue.includes('AM') || currentDataValue.includes('PM')) {
+            const [timeStr, period] = currentDataValue.split(' ');
+            hour = parseInt(timeStr);
+            if (period === 'PM' && hour !== 12) hour += 12;
+            if (period === 'AM' && hour === 12) hour = 0;
+        } else {
+            hour = parseInt(currentDataValue);
+        }
+        label.dataset.value = formatTime(hour, to24Hour);
+    });
+    
+    const shuffledLabels = hourLabels
+        .map(value => ({ value, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ value }) => value);
+    
+    shuffledLabels.forEach((label, index) => {
+        setTimeout(() => {
+            if (label.textContent !== label.dataset.value && !hourLabelsCurrentlyAnimating[label.id]) {
+                hourLabelsCurrentlyAnimating[label.id] = true;
+                animateHourLabel(label);
+            }
+        }, index * intervalBetweenStarts);
+    });
+}
+
+        function animateHourLabel(label) {
+            // Extract the hour from the current text (handles both formats)
+            const currentText = label.textContent;
+            let hour;
+            if (currentText.includes('AM') || currentText.includes('PM')) {
+                const [timeStr, period] = currentText.split(' ');
+                hour = parseInt(timeStr);
+                if (period === 'PM' && hour !== 12) hour += 12;
+                if (period === 'AM' && hour === 12) hour = 0;
+            } else {
+                hour = parseInt(currentText);
+            }
+            
+            let oldText = label.textContent;
+            let newText = label.dataset.value;
+            
+            // First, delete characters one by one
+            let currentDisplayText = oldText;
+            const deleteInterval = setInterval(() => {
+                if (currentDisplayText.length > 0) {
+                    currentDisplayText = currentDisplayText.slice(0, -1);
+                    label.textContent = currentDisplayText;
+                } else {
+                    clearInterval(deleteInterval);
+                    
+                    // Add new characters one by one
+                    let currentIndex = 0;
+                    const addInterval = setInterval(() => {
+                        if (currentIndex <= newText.length) {
+                            label.textContent = newText.slice(0, currentIndex);
+                            currentIndex++;
+                        } else {
+                            clearInterval(addInterval);
+                            if (label.textContent !== label.dataset.value) {
+                                animateHourLabel(label);
+                            } else {
+                                // Mark this label as no longer animating
+                                hourLabelsCurrentlyAnimating[label.id] = false;
+                            }
+                        }
+                    }, 400 / newText.length);
+                }
+            }, 400 / oldText.length);
+        }
+
+        function formatTime(hour, to24Hour) {
+            if (to24Hour) {
+                return `${hour.toString().padStart(2, '0')}:00`;
+            } else {
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                return `${hour12.toString().padStart(2, '0')} ${period}`;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
