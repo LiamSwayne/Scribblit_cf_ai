@@ -392,6 +392,7 @@
             margin-bottom: 8px;
             width: 100%;
             position: relative;
+            cursor: pointer;
         }
 
         .task-item::after {
@@ -425,6 +426,7 @@
             top: 0px;
             right: 0px;
             transition: background-color 0.3s, border-color 0.3s;
+            z-index: 2;
         }
 
         .task-checkbox:checked {
@@ -761,8 +763,12 @@
             transition: transform 0.3s ease, width 0.3s ease;
         }
 
+        .task-modal-header {
+            margin-bottom: 20px;
+        }
+
         .task-edit-input {
-            width: calc(100% - 18px);
+            width: calc(100% - 40px);
             padding: 8px;
             background-color: var(--grey-5);
             border: 1px solid var(--grey-4);
@@ -777,41 +783,111 @@
             border-color: var(--grey-3);
         }
 
-        .modal-button {
-            padding: 8px 16px;
-            border: none;
+        .task-type-selector {
+            position: relative;
+            margin-bottom: 20px;
+            height: 32px;
+            background-color: var(--grey-5);
             border-radius: 4px;
-            cursor: pointer;
-            font-family: 'Lexend', sans-serif;
+            padding: 4px 2px;
+        }
+
+        .task-type-selector .selector-option {
             font-size: 14px;
-            transition: background-color 0.3s ease;
+            width: 50%;
+            display: flex;
+            justify-content: center;
         }
 
-        .modal-button.primary {
-            background-color: #4CAF50;
-            color: white;
+        .task-type-highlight {
+            position: absolute;
+            top: 4px;
+            width: calc(50% - 2px);
+            height: calc(100vh - 180px);
+            min-height: 45px;
+            background-color: var(--grey-4);
+            opacity: 0.2;
+            z-index: 0;
+            border-radius: 3px;
         }
 
-        .modal-button.primary:hover {
-            background-color: #45a049;
+        .task-settings-container {
+            display: flex;
+            margin: 0 -14px;
+            margin-bottom: 50px;
+            position: relative;
+            z-index: 1;
         }
 
-        .modal-button.danger {
-            background-color: #ff4444;
-            color: white;
+        .task-settings-side {
+            flex: 1;
+            padding: 20px;
+            transition: opacity 0.3s ease;
         }
 
-        .modal-button.danger:hover {
-            background-color: #ff3333;
+        .task-settings-side.inactive {
+            opacity: 0.5;
         }
 
-        .task-item {
+        .setting-label {
+            text-align: center;
+            margin-bottom: 15px;
+            color: var(--grey-1);
+        }
+
+        .date-time-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .date-input {
+            display: flex;
+            gap: 2px;
+            align-items: center;
+        }
+
+        .time-input {
+            display: flex;
+            gap: 2px;
+            align-items: center;
+        }
+
+        .date-input input, .time-input input {
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2px 3px;
+            width: 28px;
+            background-color: var(--grey-5);
+            border: 1px solid var(--grey-4);
+            border-radius: 4px;
+            color: var(--grey-1);
+            text-align: center;
+        }
+
+        .date-input input:last-child {
+            width: 45px;
+        }
+
+        .date-separator, .time-separator {
+            color: var(--grey-2);
+            font-family: 'JetBrains Mono', monospace;
+            padding: 0 2px;
+        }
+
+        .task-delete-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            width: 16px;
+            height: 16px;
             cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
         }
 
-        .task-checkbox {
-            cursor: pointer;
-            z-index: 2;
+        .task-delete-btn:hover {
+            opacity: 1;
         }
     </style>
 </head>
@@ -893,16 +969,102 @@
         <svg class="modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('editTask')">
             <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <div class="modal-header">
-            <span class="modal-title">Edit Task</span>
+        <div class="task-modal-header">
+            <input id="editTaskInput" type="text" class="task-edit-input" placeholder="Task name">
         </div>
-        <div style="margin-bottom: 15px;">
-            <input id="editTaskInput" type="text" class="task-edit-input">
+        <div class="selector-container task-type-selector" data-setting="taskType">
+            <div class="selector-highlight task-type-highlight"></div>
+            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'event')" data-type="event">Event</div>
+            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'task')" data-type="task">Task</div>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button id="deleteTaskBtn" class="modal-button danger">Delete</button>
-            <button id="saveTaskBtn" class="modal-button primary">Save</button>
+        <div class="task-settings-container">
+            <div class="task-settings-side">
+                <div class="setting-label">Start date</div>
+                <div class="date-time-controls">
+                    <div class="toggle-switch">
+                        <div class="toggle-track" data-setting="startDate" onclick="toggleTaskSetting(this)">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                    <div class="date-input">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
+                    </div>
+                </div>
+                <div class="date-time-controls">
+                    <div class="toggle-switch">
+                        <div class="toggle-track" data-setting="startTime" onclick="toggleTaskSetting(this)">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                    <div class="time-input">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
+                    </div>
+                </div>
+                <div class="setting-label">End date</div>
+                <div class="date-time-controls">
+                    <div class="toggle-switch">
+                        <div class="toggle-track" data-setting="endDate" onclick="toggleTaskSetting(this)">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                    <div class="date-input">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
+                    </div>
+                </div>
+                <div class="date-time-controls">
+                    <div class="toggle-switch">
+                        <div class="toggle-track" data-setting="endTime" onclick="toggleTaskSetting(this)">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                    <div class="time-input">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
+                    </div>
+                </div>
+            </div>
+            <div class="task-settings-side">
+                <div class="setting-label">Due date</div>
+                <div class="date-time-controls">
+                    <div class="toggle-switch">
+                        <div class="toggle-track" data-setting="dueDate" onclick="toggleTaskSetting(this)">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                    <div class="date-input">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
+                    </div>
+                </div>
+                <div class="date-time-controls">
+                    <div class="toggle-switch">
+                        <div class="toggle-track" data-setting="dueTime" onclick="toggleTaskSetting(this)">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                    <div class="time-input">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
+                    </div>
+                </div>
+            </div>
         </div>
+        <img src="./trash_icon.svg" class="task-delete-btn" onclick="deleteCurrentTask()">
     </div>
     <script>
         let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
@@ -2296,56 +2458,93 @@
         }
 
         function constructTaskEditorModal(taskId) {
+            const editTaskModal = document.getElementById('editTaskModal');
             const task = taskEventArray.find(t => t.id === taskId);
             if (!task) return;
 
-            const editTaskInput = document.getElementById('editTaskInput');
-            const saveTaskBtn = document.getElementById('saveTaskBtn');
-            const deleteTaskBtn = document.getElementById('deleteTaskBtn');
+            editTaskModal.dataset.taskId = taskId;
+            const nameInput = document.getElementById('editTaskInput');
+            nameInput.value = task.name;
 
-            // Set up initial value
-            editTaskInput.value = task.name;
-
-            // Remove any existing listeners to prevent duplicates
-            const newSaveBtn = saveTaskBtn.cloneNode(true);
-            const newDeleteBtn = deleteTaskBtn.cloneNode(true);
-            saveTaskBtn.parentNode.replaceChild(newSaveBtn, saveTaskBtn);
-            deleteTaskBtn.parentNode.replaceChild(newDeleteBtn, deleteTaskBtn);
-
-            // Add new listeners specific to this task
-            newSaveBtn.addEventListener('click', () => {
-                const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
-                if (taskIndex !== -1) {
-                    taskEventArray[taskIndex].name = editTaskInput.value;
-                    saveUserData();
-                    renderTasks();
-                    renderCalendar();
-                    hideModal('editTask');
+            // Set up type
+            const typeOptions = document.querySelectorAll('.task-type-option');
+            typeOptions.forEach(option => {
+                if (option.dataset.type === task.kind) {
+                    switchTaskType(option, task.kind);
                 }
             });
 
-            newDeleteBtn.addEventListener('click', () => {
-                const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
-                if (taskIndex !== -1) {
-                    taskEventArray.splice(taskIndex, 1);
-                    saveUserData();
-                    renderTasks();
-                    renderCalendar();
-                    hideModal('editTask');
-                }
-            });
-
-            // Set up keyboard shortcuts
-            editTaskInput.onkeydown = (e) => {
-                if (e.key === 'Enter') {
-                    newSaveBtn.click();
-                } else if (e.key === 'Escape') {
-                    hideModal('editTask');
-                }
+            // Auto-save on input changes
+            nameInput.oninput = () => {
+                task.name = nameInput.value;
+                saveUserData();
             };
 
-            // Show the modal
             showModal('editTask');
+        }
+
+        function deleteCurrentTask() {
+            const taskId = editTaskModal.dataset.taskId;
+            const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                taskEventArray.splice(taskIndex, 1);
+                saveUserData();
+                renderTasks();
+                renderCalendar();
+                hideModal('editTask');
+            }
+        }
+
+        function switchTaskType(element, type) {
+            const container = element.parentElement;
+            const highlight = container.querySelector('.task-type-highlight');
+            const allOptions = container.querySelectorAll('.selector-option');
+            const taskSettings = document.querySelector('.task-settings-side:last-child');
+            const eventSettings = document.querySelector('.task-settings-side:first-child');
+
+            if (type === 'task') {
+                highlight.style.transform = 'translateX(100%)';
+            } else {
+                highlight.style.transform = 'translateX(4px)';
+            }
+
+            allOptions.forEach(opt => opt.classList.remove('active'));
+            element.classList.add('active');
+
+            if (type === 'event') {
+                eventSettings.classList.remove('inactive');
+                taskSettings.classList.add('inactive');
+            } else {
+                eventSettings.classList.add('inactive');
+                taskSettings.classList.remove('inactive');
+            }
+
+            const taskId = editTaskModal.dataset.taskId;
+            const task = taskEventArray.find(t => t.id === taskId);
+            if (task) {
+                task.kind = type;
+                saveUserData();
+            }
+        }
+
+        function toggleTaskSetting(trackElement) {
+            const setting = trackElement.dataset.setting;
+            const isActive = trackElement.classList.contains('active');
+            trackElement.classList.toggle('active');
+            
+            // Show/hide corresponding input fields
+            const container = trackElement.closest('.date-time-controls');
+            const inputs = container.querySelector('.date-input, .time-input');
+            inputs.style.opacity = isActive ? '0.5' : '1';
+            inputs.style.pointerEvents = isActive ? 'none' : 'auto';
+
+            // Auto-save the setting
+            const taskId = editTaskModal.dataset.taskId;
+            const task = taskEventArray.find(t => t.id === taskId);
+            if (task) {
+                task[setting + 'Enabled'] = !isActive;
+                saveUserData();
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
