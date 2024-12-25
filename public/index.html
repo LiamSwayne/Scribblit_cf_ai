@@ -616,6 +616,7 @@
             padding-top: 12px;
             padding-bottom: 0px;
             min-width: 400px;
+            max-width: 400px;
             z-index: 9999;
             opacity: 0;
             transition: opacity 0.3s ease, transform 0.3s ease;
@@ -763,16 +764,33 @@
             transition: transform 0.3s ease, width 0.3s ease;
         }
 
-        .task-modal-header {
-            margin-bottom: 20px;
+        .task-modal {
+            background-color: var(--grey-6);
+            border: 1px solid var(--grey-4);
+            border-radius: 8px;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .task-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .task-modal-close {
+            cursor: pointer;
+            color: var(--grey-2);
+            transition: color 0.3s ease;
+        }
+
+        .task-modal-close:hover {
+            color: var(--grey-1);
         }
 
         .task-edit-input {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 38px;
-            padding: 8px;
             background-color: var(--grey-5);
             border: 1px solid var(--grey-4);
             border-radius: 4px;
@@ -787,44 +805,17 @@
         }
 
         .task-type-selector {
-            position: relative;
-            margin-bottom: 20px;
-            height: 32px;
             background-color: var(--grey-5);
             border-radius: 4px;
-            padding: 4px 2px;
-        }
-
-        .task-type-selector .selector-option {
-            font-size: 14px;
-            width: 50%;
-            display: flex;
-            justify-content: center;
         }
 
         .task-type-highlight {
-            position: absolute;
-            top: 4px;
-            width: calc(50% - 2px);
-            height: calc(100vh - 180px);
-            min-height: 45px;
-            background-color: var(--grey-4);
+            background-color: #83cb9a;
             opacity: 0.2;
-            z-index: 0;
             border-radius: 3px;
         }
-
-        .task-settings-container {
-            display: flex;
-            margin: 0 -14px;
-            margin-bottom: 50px;
-            position: relative;
-            z-index: 1;
-        }
-
+  
         .task-settings-side {
-            flex: 1;
-            padding: 20px;
             transition: opacity 0.3s ease;
         }
 
@@ -832,35 +823,12 @@
             opacity: 0.5;
         }
 
-        .setting-label {
-            text-align: center;
-            margin-bottom: 15px;
+        .task-setting-label {
             color: var(--grey-1);
         }
 
-        .date-time-controls {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-
-        .date-input {
-            display: flex;
-            gap: 2px;
-            align-items: center;
-        }
-
-        .time-input {
-            display: flex;
-            gap: 2px;
-            align-items: center;
-        }
-
-        .date-input input, .time-input input {
+        .task-date-time-input input {
             font-family: 'JetBrains Mono', monospace;
-            padding: 2px 3px;
-            width: 28px;
             background-color: var(--grey-5);
             border: 1px solid var(--grey-4);
             border-radius: 4px;
@@ -868,22 +836,33 @@
             text-align: center;
         }
 
-        .date-input input:last-child {
-            width: 45px;
-        }
-
-        .date-separator, .time-separator {
+        .task-date-time-separator {
             color: var(--grey-2);
             font-family: 'JetBrains Mono', monospace;
-            padding: 0 2px;
+        }
+
+        .task-toggle-track {
+            background-color: var(--grey-4);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .task-toggle-track.active {
+            background-color: #4CAF50;
+        }
+
+        .task-toggle-handle {
+            background-color: var(--grey-1);
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+
+        .task-toggle-track.active .task-toggle-handle {
+            transform: translateX(16px);
         }
 
         .task-delete-btn {
-            position: absolute;
-            bottom: 15px;
-            right: 15px;
-            width: 16px;
-            height: 16px;
             cursor: pointer;
             opacity: 0.6;
             transition: opacity 0.3s ease;
@@ -968,106 +947,121 @@
             </div>
         </div>
     </div>
-    <div id="editTaskModal" class="modal">
-        <svg class="modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('editTask')">
+    <div id="editTaskModal" class="task-modal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); padding: 12px 14px 0 14px; min-width: 400px; max-width: 400px;">
+        <svg class="task-modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('editTask')" style="position: absolute; right: 14px; top: 14px;">
             <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
+        
         <div class="task-modal-header">
-            <input id="editTaskInput" type="text" class="task-edit-input" placeholder="Task name">
+            <input id="editTaskInput" type="text" class="task-edit-input" placeholder="Task name" style="position: absolute; top: 10px; left: 10px; right: 38px; padding: 8px;">
         </div>
-        <div class="selector-container task-type-selector" data-setting="taskType">
-            <div class="selector-highlight task-type-highlight"></div>
-            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'event')" data-type="event">Event</div>
-            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'task')" data-type="task">Task</div>
+        
+        <div class="selector-container task-type-selector" data-setting="taskType" style="position: absolute; margin-bottom: 20px; height: 32px; padding: 4px 2px; top: 50px; left: 10px; right: 10px; border-radius: 4px;">
+            <div class="selector-highlight task-type-highlight" style="position: absolute; top: 4px; width: calc(50% - 2px); height: 300px; z-index: 0;"></div>
+            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'event')" data-type="event" style="width: 50%; display: flex; justify-content: center;">Event</div>
+            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'task')" data-type="task" style="width: 50%; display: flex; justify-content: center;">Task</div>
         </div>
-        <div class="task-settings-container">
-            <div class="task-settings-side">
-                <div class="setting-label">Start date</div>
-                <div class="date-time-controls">
-                    <div class="toggle-switch">
-                        <div class="toggle-track" data-setting="startDate" onclick="toggleTaskSetting(this)">
-                            <div class="toggle-handle"></div>
+
+        <!-- center line -->
+        <div style="position: absolute; width: 2px; background-color: var(--grey-4); left: 50%; top: 62px; bottom: 0;"></div>
+        
+        <div class="task-settings-container" style="display: flex; margin: 0 -14px; margin-bottom: 50px; position: relative; z-index: 1;">
+            <div class="task-settings-side" style="flex: 1; padding: 20px;">
+                <div class="task-setting-label" style="text-align: center; position: absolute; top: 80px; left: calc(25% - 30px);">Start date</div>
+                
+                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
+                        <div class="task-toggle-track" data-setting="startDate" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 100px;">
+                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
                         </div>
                     </div>
-                    <div class="date-input">
-                        <input type="text" maxlength="2" placeholder="MM">
-                        <span class="date-separator">/</span>
-                        <input type="text" maxlength="2" placeholder="DD">
-                        <span class="date-separator">/</span>
-                        <input type="text" maxlength="4" placeholder="YYYY">
+                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center; position: absolute; top: 100px; left: calc(50% - 160px);">
+                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
+                        <input type="text" maxlength="2" placeholder="DD" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY" style="width: 45px; padding: 2px 3px;">
                     </div>
                 </div>
-                <div class="date-time-controls">
-                    <div class="toggle-switch">
-                        <div class="toggle-track" data-setting="startTime" onclick="toggleTaskSetting(this)">
-                            <div class="toggle-handle"></div>
+    
+                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
+                        <div class="task-toggle-track" data-setting="startTime" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 130px">
+                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
                         </div>
                     </div>
-                    <div class="time-input">
-                        <input type="text" maxlength="2" placeholder="HH">
-                        <span class="time-separator">:</span>
-                        <input type="text" maxlength="2" placeholder="MM">
+                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
+                        <input type="text" maxlength="2" placeholder="HH" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">:</span>
+                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
                     </div>
                 </div>
-                <div class="setting-label">End date</div>
-                <div class="date-time-controls">
-                    <div class="toggle-switch">
-                        <div class="toggle-track" data-setting="endDate" onclick="toggleTaskSetting(this)">
-                            <div class="toggle-handle"></div>
+    
+                <div class="task-setting-label" style="text-align: center; position: absolute; top: 180px; left: calc(25% - 25px);">End date</div>
+                
+                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
+                        <div class="task-toggle-track" data-setting="endDate" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 200px;">
+                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
                         </div>
                     </div>
-                    <div class="date-input">
-                        <input type="text" maxlength="2" placeholder="MM">
-                        <span class="date-separator">/</span>
-                        <input type="text" maxlength="2" placeholder="DD">
-                        <span class="date-separator">/</span>
-                        <input type="text" maxlength="4" placeholder="YYYY">
+                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center; position: absolute; top: 200px; left: calc(50% - 160px);">
+                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
+                        <input type="text" maxlength="2" placeholder="DD" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY" style="width: 45px; padding: 2px 3px;">
                     </div>
                 </div>
-                <div class="date-time-controls">
-                    <div class="toggle-switch">
-                        <div class="toggle-track" data-setting="endTime" onclick="toggleTaskSetting(this)">
-                            <div class="toggle-handle"></div>
+    
+                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
+                        <div class="task-toggle-track" data-setting="endTime" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 220px;">
+                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
                         </div>
                     </div>
-                    <div class="time-input">
-                        <input type="text" maxlength="2" placeholder="HH">
-                        <span class="time-separator">:</span>
-                        <input type="text" maxlength="2" placeholder="MM">
+                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
+                        <input type="text" maxlength="2" placeholder="HH" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">:</span>
+                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
                     </div>
                 </div>
             </div>
-            <div class="task-settings-side">
-                <div class="setting-label">Due date</div>
-                <div class="date-time-controls">
-                    <div class="toggle-switch">
-                        <div class="toggle-track" data-setting="dueDate" onclick="toggleTaskSetting(this)">
-                            <div class="toggle-handle"></div>
+            
+            <div class="task-settings-side" style="flex: 1; padding: 20px;">
+                <div class="task-setting-label" style="text-align: center; margin-bottom: 15px;">Due date</div>
+                
+                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
+                        <div class="task-toggle-track" data-setting="dueDate" onclick="toggleTaskSetting(this)" style="position: relative; width: 40px; height: 24px;">
+                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
                         </div>
                     </div>
-                    <div class="date-input">
-                        <input type="text" maxlength="2" placeholder="MM">
-                        <span class="date-separator">/</span>
-                        <input type="text" maxlength="2" placeholder="DD">
-                        <span class="date-separator">/</span>
-                        <input type="text" maxlength="4" placeholder="YYYY">
+                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
+                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
+                        <input type="text" maxlength="2" placeholder="DD" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY" style="width: 45px; padding: 2px 3px;">
                     </div>
                 </div>
-                <div class="date-time-controls">
-                    <div class="toggle-switch">
-                        <div class="toggle-track" data-setting="dueTime" onclick="toggleTaskSetting(this)">
-                            <div class="toggle-handle"></div>
+    
+                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
+                        <div class="task-toggle-track" data-setting="dueTime" onclick="toggleTaskSetting(this)" style="position: relative; width: 40px; height: 24px;">
+                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
                         </div>
                     </div>
-                    <div class="time-input">
-                        <input type="text" maxlength="2" placeholder="HH">
-                        <span class="time-separator">:</span>
-                        <input type="text" maxlength="2" placeholder="MM">
+                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
+                        <input type="text" maxlength="2" placeholder="HH" style="width: 28px; padding: 2px 3px;">
+                        <span class="task-date-time-separator" style="padding: 0 2px;">:</span>
+                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
                     </div>
                 </div>
             </div>
         </div>
-        <img src="./trash_icon.svg" class="task-delete-btn" onclick="deleteCurrentTask()">
+        
+        <img src="./trash_icon.svg" class="task-delete-btn" style="position: absolute; bottom: 15px; right: 15px; width: 16px; height: 16px;">
     </div>
     <script>
         let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
