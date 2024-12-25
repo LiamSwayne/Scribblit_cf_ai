@@ -765,112 +765,257 @@
         }
 
         .task-modal {
-            background-color: var(--grey-6);
-            border: 1px solid var(--grey-4);
-            border-radius: 8px;
-            z-index: 9999;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        }
+    display: grid;
+    grid-template-areas:
+        "header header"
+        "type type"
+        "event task"
+        "footer footer";
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 20px;
+    padding: 10px;
+    min-width: 400px;
+    max-width: 400px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    background: var(--grey-6);
+    border: 1px solid var(--grey-4);
+    border-radius: 8px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 9999;
+}
 
-        .task-modal.visible {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translate(-50%, -50%) scale(1);
-        }
+.task-modal-center-line {
+    position: absolute;
+    top: 104px; /* Position it below the type selector */
+    bottom: 50px; /* Leave space for footer */
+    left: 50%;
+    width: 2px;
+    background-color: var(--grey-4);
+    transform: translateX(-50%);
+}
 
-        .task-modal-close {
-            cursor: pointer;
-            color: var(--grey-2);
-            transition: color 0.3s ease;
-        }
+.task-modal.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+}
 
-        .task-modal-close:hover {
-            color: var(--grey-1);
-        }
+/* Header Section */
+.task-modal-header {
+    grid-area: header;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: start;
+}
 
-        .task-edit-input {
-            background-color: var(--grey-5);
-            border: 1px solid var(--grey-4);
-            border-radius: 4px;
-            color: var(--grey-1);
-            font-family: 'Lexend', sans-serif;
-            font-size: 14px;
-        }
+.task-modal-close {
+    cursor: pointer;
+    color: var(--grey-2);
+    transition: color 0.3s ease;
+    right: 10px;
+    top: 10px;
+    position: absolute;
+}
 
-        .task-edit-input:focus {
-            outline: none;
-            border-color: var(--grey-3);
-        }
+.task-modal-close:hover {
+    color: var(--grey-1);
+}
 
-        .task-type-selector {
-            background-color: var(--grey-5);
-            border-radius: 4px;
-        }
+.task-edit-input {
+    padding: 8px;
+    background: var(--grey-5);
+    border: 1px solid var(--grey-4);
+    border-radius: 4px;
+    color: var(--grey-1);
+    font-family: 'Lexend', sans-serif;
+    font-size: 14px;
+    left: 10px;
+    right: 34px;
+    top: 10px;
+    position: absolute;
+}
 
-        .task-type-highlight {
-            background-color: #83cb9a;
-            opacity: 0.2;
-            border-radius: 3px;
-        }
-  
-        .task-settings-side {
-            transition: opacity 0.3s ease;
-        }
+.task-edit-input:focus {
+    outline: none;
+}
 
-        .task-settings-side.inactive {
-            opacity: 0.5;
-        }
+/* Type Selector */
+.task-type-selector {
+    grid-area: type;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--grey-5);
+    border-radius: 4px;
+    padding: 4px;
+    position: relative;
+    height: 32px;
+    width: calc(100% - 8px);
+    margin-top: 24px;
+    margin-bottom: -14px;
+}
 
-        .task-setting-label {
-            color: var(--grey-1);
-        }
+.task-type-highlight {
+    position: absolute;
+    top: 4px;
+    height: calc(100% - 8px);
+    width: calc(50% - 4px);
+    background-color: #83cb9a;
+    opacity: 0.2;
+    border-radius: 3px;
+    transition: transform 0.3s ease;
+}
 
-        .task-date-time-input input {
-            font-family: 'JetBrains Mono', monospace;
-            background-color: var(--grey-5);
-            border: 1px solid var(--grey-4);
-            border-radius: 4px;
-            color: var(--grey-1);
-            text-align: center;
-        }
+.task-type-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--grey-2);
+    transition: color 0.3s ease;
+    z-index: 1;
+    user-select: none;
+}
 
-        .task-date-time-separator {
-            color: var(--grey-2);
-            font-family: 'JetBrains Mono', monospace;
-        }
+.task-type-option.active {
+    color: var(--grey-1);
+}
 
-        .task-toggle-track {
-            background-color: var(--grey-4);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
+/* Settings Sections */
+.task-settings-event,
+.task-settings-task {
+    display: grid;
+    gap: 15px;
+    align-content: start; /* This ensures content aligns to top */
+    transition: opacity 0.3s ease; /* Add transition */
+}
 
-        .task-toggle-track.active {
-            background-color: #4CAF50;
-        }
+.task-settings-event {
+    grid-area: event;
+}
 
-        .task-toggle-handle {
-            background-color: var(--grey-1);
-            border-radius: 50%;
-            transition: transform 0.3s ease;
-        }
+.task-settings-task {
+    grid-area: task;
+}
 
-        .task-toggle-track.active .task-toggle-handle {
-            transform: translateX(16px);
-        }
+.task-settings-event.inactive,
+.task-settings-task.inactive {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 0.3s ease; /* Add transition */
+}
 
-        .task-delete-btn {
-            cursor: pointer;
-            opacity: 0.6;
-            transition: opacity 0.3s ease;
-        }
+/* Date/Time Groups */
+.date-time-group {
+    display: grid;
+    gap: 10px;
+    align-content: start; /* This ensures content aligns to top */
+}
 
-        .task-delete-btn:hover {
-            opacity: 1;
-        }
+.setting-label {
+    color: var(--grey-1);
+    font-size: 14px;
+    margin-bottom: -5px;
+}
+
+.date-time-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.date-time-inputs,
+.time-inputs {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* Toggle Switch */
+.task-toggle-track {
+    width: 40px;
+    height: 24px;
+    background-color: var(--grey-4);
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.3s ease;
+}
+
+.task-toggle-track.active {
+    background-color: #4CAF50;
+}
+
+.task-toggle-handle {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: var(--grey-1);
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+}
+
+.task-toggle-track.active .task-toggle-handle {
+    transform: translateX(16px);
+}
+
+/* Inputs */
+.date-time-inputs input,
+.time-inputs input {
+    width: 20px;
+    padding: 0px 0px; /* Reduced from 3px */
+    font-family: 'JetBrains Mono', monospace;
+    background-color: var(--grey-5);
+    border: 1px solid var(--grey-4);
+    border-radius: 4px;
+    color: var(--grey-1);
+    text-align: center;
+    outline: none; /* Add this to hide outline */
+}
+
+.date-time-inputs input:focus,
+.time-inputs input:focus {
+    outline: none; /* Add this to ensure outline is hidden on focus */
+}
+
+.date-time-inputs input[placeholder="YYYY"] {
+    width: 40px;
+}
+
+.date-time-separator {
+    color: var(--grey-2);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Footer */
+.task-modal-footer {
+    grid-area: footer;
+    display: grid;
+    justify-items: end;
+    padding-top: 10px;
+}
+
+.task-delete-btn {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+}
+
+.task-delete-btn:hover {
+    opacity: 1;
+}
     </style>
 </head>
 <body>
@@ -947,121 +1092,107 @@
             </div>
         </div>
     </div>
-    <div id="editTaskModal" class="task-modal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); padding: 12px 14px 0 14px; min-width: 400px; max-width: 400px;">
-        <svg class="task-modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('editTask')" style="position: absolute; right: 14px; top: 14px;">
-            <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        
+    <div id="editTaskModal" class="task-modal">
         <div class="task-modal-header">
-            <input id="editTaskInput" type="text" class="task-edit-input" placeholder="Task name" style="position: absolute; top: 10px; left: 10px; right: 38px; padding: 8px;">
+            <input id="editTaskInput" type="text" class="task-edit-input" placeholder="Task name">
+            <svg class="task-modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('editTask')">
+                <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
         </div>
-        
-        <div class="selector-container task-type-selector" data-setting="taskType" style="position: absolute; margin-bottom: 20px; height: 32px; padding: 4px 2px; top: 50px; left: 10px; right: 10px; border-radius: 4px;">
-            <div class="selector-highlight task-type-highlight" style="position: absolute; top: 4px; width: calc(50% - 2px); height: 300px; z-index: 0;"></div>
-            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'event')" data-type="event" style="width: 50%; display: flex; justify-content: center;">Event</div>
-            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'task')" data-type="task" style="width: 50%; display: flex; justify-content: center;">Task</div>
+    
+        <div class="task-type-selector" data-setting="taskType">
+            <div class="selector-highlight task-type-highlight"></div>
+            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'event')" data-type="event">Event</div>
+            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'task')" data-type="task">Task</div>
         </div>
 
-        <!-- center line -->
-        <div style="position: absolute; width: 2px; background-color: var(--grey-4); left: 50%; top: 62px; bottom: 0;"></div>
-        
-        <div class="task-settings-container" style="display: flex; margin: 0 -14px; margin-bottom: 50px; position: relative; z-index: 1;">
-            <div class="task-settings-side" style="flex: 1; padding: 20px;">
-                <div class="task-setting-label" style="text-align: center; position: absolute; top: 80px; left: calc(25% - 30px);">Start date</div>
-                
-                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
-                        <div class="task-toggle-track" data-setting="startDate" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 100px;">
-                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
-                        </div>
+        <div class="task-modal-center-line"></div>
+    
+        <div class="task-settings-event">
+            <div class="date-time-group">
+                <div class="setting-label">Start</div>
+                <div class="date-time-row">
+                    <div class="task-toggle-track" data-setting="startDate" onclick="toggleTaskSetting(this)">
+                        <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center; position: absolute; top: 100px; left: calc(50% - 160px);">
-                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
-                        <input type="text" maxlength="2" placeholder="DD" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
-                        <input type="text" maxlength="4" placeholder="YYYY" style="width: 45px; padding: 2px 3px;">
+                    <div class="date-time-inputs">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
                     </div>
                 </div>
-    
-                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
-                        <div class="task-toggle-track" data-setting="startTime" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 130px">
-                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
-                        </div>
+                <div class="date-time-row">
+                    <div class="task-toggle-track" data-setting="startTime" onclick="toggleTaskSetting(this)">
+                        <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
-                        <input type="text" maxlength="2" placeholder="HH" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">:</span>
-                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
-                    </div>
-                </div>
-    
-                <div class="task-setting-label" style="text-align: center; position: absolute; top: 180px; left: calc(25% - 25px);">End date</div>
-                
-                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
-                        <div class="task-toggle-track" data-setting="endDate" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 200px;">
-                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
-                        </div>
-                    </div>
-                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center; position: absolute; top: 200px; left: calc(50% - 160px);">
-                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
-                        <input type="text" maxlength="2" placeholder="DD" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
-                        <input type="text" maxlength="4" placeholder="YYYY" style="width: 45px; padding: 2px 3px;">
-                    </div>
-                </div>
-    
-                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
-                        <div class="task-toggle-track" data-setting="endTime" onclick="toggleTaskSetting(this)" style="position: absolute; width: 40px; left: 10px; height: 24px; top: 220px;">
-                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
-                        </div>
-                    </div>
-                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
-                        <input type="text" maxlength="2" placeholder="HH" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">:</span>
-                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
+                    <div class="time-inputs">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="date-time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
                     </div>
                 </div>
             </div>
-            
-            <div class="task-settings-side" style="flex: 1; padding: 20px;">
-                <div class="task-setting-label" style="text-align: center; margin-bottom: 15px;">Due date</div>
-                
-                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
-                        <div class="task-toggle-track" data-setting="dueDate" onclick="toggleTaskSetting(this)" style="position: relative; width: 40px; height: 24px;">
-                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
-                        </div>
+    
+            <div class="date-time-group">
+                <div class="setting-label">End</div>
+                <div class="date-time-row">
+                    <div class="task-toggle-track" data-setting="endDate" onclick="toggleTaskSetting(this)">
+                        <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
-                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
-                        <input type="text" maxlength="2" placeholder="DD" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">/</span>
-                        <input type="text" maxlength="4" placeholder="YYYY" style="width: 45px; padding: 2px 3px;">
+                    <div class="date-time-inputs">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
                     </div>
                 </div>
-    
-                <div class="task-date-time-controls" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <div class="task-toggle-switch" style="display: flex; align-items: center;">
-                        <div class="task-toggle-track" data-setting="dueTime" onclick="toggleTaskSetting(this)" style="position: relative; width: 40px; height: 24px;">
-                            <div class="task-toggle-handle" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;"></div>
-                        </div>
+                <div class="date-time-row">
+                    <div class="task-toggle-track" data-setting="endTime" onclick="toggleTaskSetting(this)">
+                        <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="task-date-time-input" style="display: flex; gap: 2px; align-items: center;">
-                        <input type="text" maxlength="2" placeholder="HH" style="width: 28px; padding: 2px 3px;">
-                        <span class="task-date-time-separator" style="padding: 0 2px;">:</span>
-                        <input type="text" maxlength="2" placeholder="MM" style="width: 28px; padding: 2px 3px;">
+                    <div class="time-inputs">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="date-time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
                     </div>
                 </div>
             </div>
         </div>
-        
-        <img src="./trash_icon.svg" class="task-delete-btn" style="position: absolute; bottom: 15px; right: 15px; width: 16px; height: 16px;">
+    
+        <div class="task-settings-task">
+            <div class="date-time-group">
+                <div class="setting-label">Due</div>
+                <div class="date-time-row">
+                    <div class="task-toggle-track" data-setting="dueDate" onclick="toggleTaskSetting(this)">
+                        <div class="task-toggle-handle"></div>
+                    </div>
+                    <div class="date-time-inputs">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
+                    </div>
+                </div>
+                <div class="date-time-row">
+                    <div class="task-toggle-track" data-setting="dueTime" onclick="toggleTaskSetting(this)">
+                        <div class="task-toggle-handle"></div>
+                    </div>
+                    <div class="time-inputs">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="date-time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div class="task-modal-footer">
+            <img src="./trash_icon.svg" class="task-delete-btn" onclick="deleteCurrentTask()">
+        </div>
     </div>
     <script>
         let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
@@ -2245,12 +2376,43 @@
         function hideModal(modalType) {
             hideVignette();
             if (modalType === 'all') {
-                document.querySelectorAll('.modal.visible').forEach(modal => {
+                // Handle task editor modal specifically
+                const taskModal = document.getElementById('editTaskModal');
+                if (taskModal.classList.contains('visible')) {
+                    saveTaskChanges(taskModal);
+                }
+
+                document.querySelectorAll('.modal.visible, .task-modal.visible').forEach(modal => {
                     modal.classList.remove('visible');
                 });
+            } else if (modalType === 'editTask') {
+                const modal = document.getElementById('editTaskModal');
+                saveTaskChanges(modal);
+                modal.classList.remove('visible');
             } else {
                 const modal = document.getElementById(`${modalType}Modal`);
                 modal.classList.remove('visible');
+            }
+        }
+
+        function saveTaskChanges(modal) {
+            const taskId = modal.dataset.taskId;
+            const task = taskEventArray.find(t => t.id === taskId);
+            if (task) {
+                // Apply any pending changes
+                if (modal.dataset.pendingType) {
+                    task.kind = modal.dataset.pendingType;
+                    delete modal.dataset.pendingType;
+                }
+                
+                // Save name changes
+                const nameInput = modal.querySelector('#editTaskInput');
+                task.name = nameInput.value;
+                
+                // Save and render
+                saveUserData();
+                renderTasks();
+                renderCalendar();
             }
         }
 
@@ -2455,30 +2617,145 @@
         }
 
         function constructTaskEditorModal(taskId) {
-            const editTaskModal = document.getElementById('editTaskModal');
-            const task = taskEventArray.find(t => t.id === taskId);
-            if (!task) return;
+    const editTaskModal = document.getElementById('editTaskModal');
+    const task = taskEventArray.find(t => t.id === taskId);
+    if (!task) return;
 
-            editTaskModal.dataset.taskId = taskId;
-            const nameInput = document.getElementById('editTaskInput');
-            nameInput.value = task.name;
+    console.log('Task data:', task);
 
-            // Set up type
-            const typeOptions = document.querySelectorAll('.task-type-option');
-            typeOptions.forEach(option => {
-                if (option.dataset.type === task.kind) {
-                    switchTaskType(option, task.kind);
-                }
-            });
+    // Clear any pending changes
+    delete editTaskModal.dataset.pendingType;
+    
+    // Set task ID and name
+    editTaskModal.dataset.taskId = taskId;
+    const nameInput = document.getElementById('editTaskInput');
+    nameInput.value = task.name;
 
-            // Auto-save on input changes
-            nameInput.oninput = () => {
-                task.name = nameInput.value;
-                saveUserData();
-            };
+    // Set task type
+    const typeContainer = editTaskModal.querySelector('.task-type-selector');
+    const highlight = typeContainer.querySelector('.task-type-highlight');
+    const eventOption = typeContainer.querySelector('[data-type="event"]');
+    const taskOption = typeContainer.querySelector('[data-type="task"]');
+    
+    // Reset both options
+    eventOption.classList.remove('active');
+    taskOption.classList.remove('active');
+    
+    // Activate correct option and position highlight
+    if (task.kind === 'event') {
+        eventOption.classList.add('active');
+        highlight.style.transform = 'translateX(4px)';
+        document.querySelector('.task-settings-event').classList.remove('inactive');
+        document.querySelector('.task-settings-task').classList.add('inactive');
+    } else {
+        taskOption.classList.add('active');
+        highlight.style.transform = 'translateX(calc(100% + 4px))';
+        document.querySelector('.task-settings-event').classList.add('inactive');
+        document.querySelector('.task-settings-task').classList.remove('inactive');
+    }
 
-            showModal('editTask');
+    // Helper function to fill date/time inputs
+    function fillDateTimeInputs(container, date, time) {
+        if (date) {
+            const [year, month, day] = date.split('-');
+            const dateInputs = container.querySelectorAll('.date-time-inputs input');
+            dateInputs[0].value = month;
+            dateInputs[1].value = day;
+            dateInputs[2].value = year;
         }
+        if (time) {
+            const [hour, minute] = time.split(':');
+            const timeInputs = container.querySelectorAll('.time-inputs input');
+            timeInputs[0].value = hour;
+            timeInputs[1].value = minute;
+        }
+    }
+
+    // Set date/time values based on task type
+    const eventSettings = editTaskModal.querySelector('.task-settings-event');
+    const startDateGroup = eventSettings.querySelectorAll('.date-time-group')[0];
+    const endDateGroup = eventSettings.querySelectorAll('.date-time-group')[1];
+    const taskSettings = editTaskModal.querySelector('.task-settings-task');
+    const dueDateGroup = taskSettings.querySelector('.date-time-group');
+
+    // Add lock icon to start date toggle and force enable it for events
+    const startDateToggle = startDateGroup.querySelector('[data-setting="startDate"]');
+    const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
+    
+    // Add lock icon if not already present
+    if (!startDateHandle.querySelector('.lock-icon')) {
+        const lockIcon = document.createElement('img');
+        lockIcon.src = './lock_icon.svg';
+        lockIcon.className = 'lock-icon';
+        lockIcon.style.width = '12px';
+        lockIcon.style.height = '12px';
+        lockIcon.style.position = 'absolute';
+        lockIcon.style.top = '50%';
+        lockIcon.style.left = '50%';
+        lockIcon.style.transform = 'translate(-50%, -50%)';
+        startDateHandle.appendChild(lockIcon);
+    }
+
+    if (task.kind === 'event') {
+        // Fill event dates/times
+        fillDateTimeInputs(startDateGroup, task.date, task.startTime);
+        fillDateTimeInputs(endDateGroup, task.date, task.endTime);
+        // Mirror event times to task side
+        fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
+
+        // Force enable start date
+        startDateToggle.classList.add('active');
+        startDateToggle.style.pointerEvents = 'none';
+        const startDateInputs = startDateToggle.closest('.date-time-row').querySelector('.date-time-inputs');
+        startDateInputs.style.opacity = '1';
+        startDateInputs.style.pointerEvents = 'auto';
+    } else {
+        // Fill task due date/time
+        fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
+        // Mirror task times to event side
+        fillDateTimeInputs(startDateGroup, task.date, task.startTime);
+        fillDateTimeInputs(endDateGroup, task.date, task.endTime);
+        
+        // Remove lock icon and enable pointer events when in task mode
+        startDateToggle.style.pointerEvents = 'auto';
+        const lockIcon = startDateHandle.querySelector('.lock-icon');
+        if (lockIcon) {
+            lockIcon.remove();
+        }
+    }
+
+    // Set initial state of toggles and inputs
+    const toggles = editTaskModal.querySelectorAll('.task-toggle-track');
+    toggles.forEach(toggle => {
+        const setting = toggle.dataset.setting;
+        const enabled = task[setting + 'Enabled'] || false;
+
+        // Skip start date toggle for events as it's handled above
+        if (task.kind === 'event' && setting === 'startDate') {
+            return;
+        }
+        
+        if (enabled) {
+            toggle.classList.add('active');
+            
+            // Enable associated inputs
+            const row = toggle.closest('.date-time-row');
+            const inputs = row.querySelector('.date-time-inputs, .time-inputs');
+            inputs.style.opacity = '1';
+            inputs.style.pointerEvents = 'auto';
+        } else {
+            toggle.classList.remove('active');
+            
+            // Disable associated inputs
+            const row = toggle.closest('.date-time-row');
+            const inputs = row.querySelector('.date-time-inputs, .time-inputs');
+            inputs.style.opacity = '0.5';
+            inputs.style.pointerEvents = 'none';
+        }
+    });
+
+    showModal('editTask');
+}
 
         function deleteCurrentTask() {
             const taskId = editTaskModal.dataset.taskId;
@@ -2493,56 +2770,88 @@
         }
 
         function switchTaskType(element, type) {
-            const container = element.parentElement;
+            const container = element.closest('.task-type-selector');
             const highlight = container.querySelector('.task-type-highlight');
             const allOptions = container.querySelectorAll('.selector-option');
-            const taskSettings = document.querySelector('.task-settings-side:last-child');
-            const eventSettings = document.querySelector('.task-settings-side:first-child');
+            const eventSettings = document.querySelector('.task-settings-event');
+            const taskSettings = document.querySelector('.task-settings-task');
 
-            if (type === 'task') {
-                highlight.style.transform = 'translateX(100%)';
-            } else {
-                highlight.style.transform = 'translateX(4px)';
-            }
-
+            // Remove active class from all options
             allOptions.forEach(opt => opt.classList.remove('active'));
+            
+            // Add active class to clicked option
             element.classList.add('active');
 
+            // Move highlight and update settings visibility
             if (type === 'event') {
+                highlight.style.transform = 'translateX(4px)';
                 eventSettings.classList.remove('inactive');
                 taskSettings.classList.add('inactive');
             } else {
+                highlight.style.transform = 'translateX(calc(100% + 4px))';
                 eventSettings.classList.add('inactive');
                 taskSettings.classList.remove('inactive');
             }
 
-            const taskId = editTaskModal.dataset.taskId;
-            const task = taskEventArray.find(t => t.id === taskId);
-            if (task) {
-                task.kind = type;
-                saveUserData();
-            }
+            // Store changes in modal's dataset instead of saving immediately
+            const modal = element.closest('.task-modal');
+            modal.dataset.pendingType = type;
         }
 
         function toggleTaskSetting(trackElement) {
-            const setting = trackElement.dataset.setting;
-            const isActive = trackElement.classList.contains('active');
-            trackElement.classList.toggle('active');
-            
-            // Show/hide corresponding input fields
-            const container = trackElement.closest('.date-time-controls');
-            const inputs = container.querySelector('.date-input, .time-input');
-            inputs.style.opacity = isActive ? '0.5' : '1';
-            inputs.style.pointerEvents = isActive ? 'none' : 'auto';
+    const setting = trackElement.dataset.setting;
+    
+    // Prevent toggling start time for events
+    if (setting === 'startDate') {
+        const taskId = trackElement.closest('.task-modal').dataset.taskId;
+        const task = taskEventArray.find(t => t.id === taskId);
+        if (task && task.kind === 'event') {
+            return;
+        }
+    }
 
-            // Auto-save the setting
-            const taskId = editTaskModal.dataset.taskId;
-            const task = taskEventArray.find(t => t.id === taskId);
-            if (task) {
-                task[setting + 'Enabled'] = !isActive;
-                saveUserData();
+    trackElement.classList.toggle('active');
+    
+    // Find the associated inputs container
+    const row = trackElement.closest('.date-time-row');
+    const inputs = row.querySelector('.date-time-inputs, .time-inputs');
+    
+    const isActive = trackElement.classList.contains('active');
+    
+    // Update inputs state
+    if (isActive) {
+        inputs.style.opacity = '1';
+        inputs.style.pointerEvents = 'auto';
+    } else {
+        inputs.style.opacity = '0.5';
+        inputs.style.pointerEvents = 'none';
+        
+        // If this is a date toggle being disabled, also disable the corresponding time toggle
+        if (setting === 'endDate' || setting === 'dueDate') {
+            const timeToggle = row.parentElement.querySelector(`[data-setting="${setting.replace('Date', 'Time')}"]`);
+            if (timeToggle) {
+                timeToggle.classList.remove('active');
+                const timeInputs = timeToggle.closest('.date-time-row').querySelector('.time-inputs');
+                timeInputs.style.opacity = '0.5';
+                timeInputs.style.pointerEvents = 'none';
             }
         }
+    }
+
+    // Update task data
+    const taskId = trackElement.closest('.task-modal').dataset.taskId;
+    const task = taskEventArray.find(t => t.id === taskId);
+    if (task) {
+        task[setting + 'Enabled'] = isActive;
+        
+        // If this is a date being disabled, also disable the time in task data
+        if (!isActive && (setting === 'endDate' || setting === 'dueDate')) {
+            task[setting.replace('Date', 'Time') + 'Enabled'] = false;
+        }
+        
+        saveUserData();
+    }
+}
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUserSettings();
