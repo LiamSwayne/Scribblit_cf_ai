@@ -845,7 +845,6 @@
     outline: none;
 }
 
-/* Type Selector */
 .task-type-selector {
     grid-area: type;
     display: grid;
@@ -887,13 +886,12 @@
     color: var(--grey-1);
 }
 
-/* Settings Sections */
 .task-settings-event,
 .task-settings-task {
     display: grid;
     gap: 15px;
-    align-content: start; /* This ensures content aligns to top */
-    transition: opacity 0.3s ease; /* Add transition */
+    align-content: start;
+    transition: opacity 0.3s ease;
 }
 
 .task-settings-event {
@@ -908,14 +906,13 @@
 .task-settings-task.inactive {
     opacity: 0.5;
     pointer-events: none;
-    transition: opacity 0.3s ease; /* Add transition */
+    transition: opacity 0.3s ease;
 }
 
-/* Date/Time Groups */
 .date-time-group {
     display: grid;
     gap: 10px;
-    align-content: start; /* This ensures content aligns to top */
+    align-content: start;
 }
 
 .setting-label {
@@ -937,9 +934,9 @@
     gap: 2px;
     align-items: center;
     justify-content: flex-end;
+    transition: opacity 0.3s ease;
 }
 
-/* Toggle Switch */
 .task-toggle-track {
     width: 40px;
     height: 24px;
@@ -972,23 +969,22 @@
     transform: translateX(16px);
 }
 
-/* Inputs */
 .date-time-inputs input,
 .time-inputs input {
     width: 20px;
-    padding: 0px 0px; /* Reduced from 3px */
+    padding: 0px 0px;
     font-family: 'JetBrains Mono', monospace;
     background-color: var(--grey-5);
     border: 1px solid var(--grey-4);
     border-radius: 4px;
     color: var(--grey-1);
     text-align: center;
-    outline: none; /* Add this to hide outline */
+    outline: none;
 }
 
 .date-time-inputs input:focus,
 .time-inputs input:focus {
-    outline: none; /* Add this to ensure outline is hidden on focus */
+    outline: none;
 }
 
 .date-time-inputs input[placeholder="YYYY"] {
@@ -1000,7 +996,6 @@
     font-family: 'JetBrains Mono', monospace;
 }
 
-/* Footer */
 .task-modal-footer {
     grid-area: footer;
     display: grid;
@@ -1097,28 +1092,28 @@
     </div>
     <div id="editTaskModal" class="task-modal">
         <div class="task-modal-header">
-            <input id="editTaskInput" type="text" class="task-edit-input" placeholder="Task name">
-            <svg class="task-modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('editTask')">
+            <input id="editTaskName" type="text" class="task-edit-input" placeholder="Task name">
+            <svg id="editTaskClose" class="task-modal-close" width="16" height="16" viewBox="0 0 16 16">
                 <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
         </div>
     
-        <div class="task-type-selector" data-setting="taskType">
-            <div class="selector-highlight task-type-highlight"></div>
-            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'event')" data-type="event">Event</div>
-            <div class="selector-option task-type-option" onclick="switchTaskType(this, 'task')" data-type="task">Task</div>
+        <div class="task-type-selector">
+            <div class="task-type-highlight"></div>
+            <div id="eventTypeBtn" class="task-type-option" data-type="event">Event</div>
+            <div id="taskTypeBtn" class="task-type-option" data-type="task">Task</div>
         </div>
-
+    
         <div class="task-modal-center-line"></div>
     
         <div class="task-settings-event">
             <div class="date-time-group">
                 <div class="setting-label">Start</div>
                 <div class="date-time-row">
-                    <div class="task-toggle-track" data-setting="startDate" onclick="toggleTaskSetting(this)">
+                    <div id="startDateSwitch" class="task-toggle-track">
                         <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="date-time-inputs">
+                    <div id="startDateInputs" class="date-time-inputs">
                         <input type="text" maxlength="2" placeholder="MM">
                         <span class="date-time-separator">/</span>
                         <input type="text" maxlength="2" placeholder="DD">
@@ -1127,10 +1122,10 @@
                     </div>
                 </div>
                 <div class="date-time-row">
-                    <div class="task-toggle-track" data-setting="startTime" onclick="toggleTaskSetting(this)">
+                    <div id="startTimeSwitch" class="task-toggle-track">
                         <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="time-inputs">
+                    <div id="startTimeInputs" class="time-inputs">
                         <input type="text" maxlength="2" placeholder="HH">
                         <span class="date-time-separator">:</span>
                         <input type="text" maxlength="2" placeholder="MM">
@@ -1141,10 +1136,10 @@
             <div class="date-time-group">
                 <div class="setting-label">End</div>
                 <div class="date-time-row">
-                    <div class="task-toggle-track" data-setting="endDate" onclick="toggleTaskSetting(this)">
+                    <div id="endDateSwitch" class="task-toggle-track">
                         <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="date-time-inputs">
+                    <div id="endDateInputs" class="date-time-inputs">
                         <input type="text" maxlength="2" placeholder="MM">
                         <span class="date-time-separator">/</span>
                         <input type="text" maxlength="2" placeholder="DD">
@@ -1153,10 +1148,10 @@
                     </div>
                 </div>
                 <div class="date-time-row">
-                    <div class="task-toggle-track" data-setting="endTime" onclick="toggleTaskSetting(this)">
+                    <div id="endTimeSwitch" class="task-toggle-track">
                         <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="time-inputs">
+                    <div id="endTimeInputs" class="time-inputs">
                         <input type="text" maxlength="2" placeholder="HH">
                         <span class="date-time-separator">:</span>
                         <input type="text" maxlength="2" placeholder="MM">
@@ -1169,10 +1164,10 @@
             <div class="date-time-group">
                 <div class="setting-label">Due</div>
                 <div class="date-time-row">
-                    <div class="task-toggle-track" data-setting="dueDate" onclick="toggleTaskSetting(this)">
+                    <div id="dueDateSwitch" class="task-toggle-track">
                         <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="date-time-inputs">
+                    <div id="dueDateInputs" class="date-time-inputs">
                         <input type="text" maxlength="2" placeholder="MM">
                         <span class="date-time-separator">/</span>
                         <input type="text" maxlength="2" placeholder="DD">
@@ -1181,10 +1176,10 @@
                     </div>
                 </div>
                 <div class="date-time-row">
-                    <div class="task-toggle-track" data-setting="dueTime" onclick="toggleTaskSetting(this)">
+                    <div id="dueTimeSwitch" class="task-toggle-track">
                         <div class="task-toggle-handle"></div>
                     </div>
-                    <div class="time-inputs">
+                    <div id="dueTimeInputs" class="time-inputs">
                         <input type="text" maxlength="2" placeholder="HH">
                         <span class="date-time-separator">:</span>
                         <input type="text" maxlength="2" placeholder="MM">
@@ -1194,7 +1189,7 @@
         </div>
     
         <div class="task-modal-footer">
-            <img src="./trash_icon.svg" class="task-delete-btn" onclick="deleteCurrentTask()">
+            <img id="deleteTaskBtn" src="./trash_icon.svg" class="task-delete-btn">
         </div>
     </div>
     <script>
@@ -2378,44 +2373,65 @@
 
         function hideModal(modalType) {
             hideVignette();
-            if (modalType === 'all') {
-                // Handle task editor modal specifically
-                const taskModal = document.getElementById('editTaskModal');
-                if (taskModal.classList.contains('visible')) {
-                    saveTaskChanges(taskModal);
-                }
+            if (modalType === 'all' || modalType === 'editTask') {
+                const modal = document.getElementById('editTaskModal');
+                if (modal.classList.contains('visible')) {
+                    const taskId = modal.dataset.taskId;
+                    const task = taskEventArray.find(t => t.id === taskId);
+                    if (task) {
+                        // Save name
+                        task.name = document.getElementById('editTaskName').value;
+                        
+                        // Save dates
+                        ['due', 'start', 'end'].forEach(prefix => {
+                            const dateSwitch = document.getElementById(`${prefix}DateSwitch`);
+                            const dateInputs = document.getElementById(`${prefix}DateInputs`).querySelectorAll('input');
+                            const timeSwitch = document.getElementById(`${prefix}TimeSwitch`);
+                            const timeInputs = document.getElementById(`${prefix}TimeInputs`).querySelectorAll('input');
 
+                            if (dateSwitch.classList.contains('active')) {
+                                const [month, day, year] = [...dateInputs].map(input => input.value);
+                                if (month && day && year) {
+                                    task.date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                                }
+                            }
+
+                            if (timeSwitch.classList.contains('active')) {
+                                const [hours, minutes] = [...timeInputs].map(input => input.value);
+                                if (hours && minutes) {
+                                    if (prefix === 'due' || prefix === 'end') {
+                                        task.endTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+                                    } else if (prefix === 'start') {
+                                        task.startTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+                                    }
+                                }
+                            } else {
+                                // Clear times if switches are off
+                                if (prefix === 'due' || prefix === 'end') {
+                                    task.endTime = null;
+                                } else if (prefix === 'start') {
+                                    task.startTime = null;
+                                }
+                            }
+                        });
+
+                        // Save changes
+                        saveUserData();
+                        renderTasks();
+                        renderCalendar();
+                    }
+                }
+            }
+
+            if (modalType === 'all') {
                 document.querySelectorAll('.modal.visible, .task-modal.visible').forEach(modal => {
                     modal.classList.remove('visible');
                 });
-            } else if (modalType === 'editTask') {
-                const modal = document.getElementById('editTaskModal');
-                saveTaskChanges(modal);
-                modal.classList.remove('visible');
             } else {
                 const modal = document.getElementById(`${modalType}Modal`);
-                modal.classList.remove('visible');
-            }
-        }
-
-        function saveTaskChanges(modal) {
-            const taskId = modal.dataset.taskId;
-            const task = taskEventArray.find(t => t.id === taskId);
-            if (task) {
-                // Apply any pending changes
-                if (modal.dataset.pendingType) {
-                    task.kind = modal.dataset.pendingType;
-                    delete modal.dataset.pendingType;
+                if (modal) {
+                    modal.classList.remove('visible');
                 }
-                
-                // Save name changes
-                const nameInput = modal.querySelector('#editTaskInput');
-                task.name = nameInput.value;
-                
-                // Save and render
-                saveUserData();
-                renderTasks();
-                renderCalendar();
             }
         }
 
@@ -2620,285 +2636,218 @@
         }
 
         function constructTaskEditorModal(taskId) {
-    const editTaskModal = document.getElementById('editTaskModal');
+    const modal = document.getElementById('editTaskModal');
     const task = taskEventArray.find(t => t.id === taskId);
     if (!task) return;
-
-    // Clear any pending changes
-    delete editTaskModal.dataset.pendingType;
     
-    // Set task ID and name
-    editTaskModal.dataset.taskId = taskId;
-    const nameInput = document.getElementById('editTaskInput');
-    nameInput.value = task.name;
+    // First, remove any existing event listeners by cloning and replacing elements
+    const switches = ['dueDate', 'dueTime', 'startDate', 'startTime', 'endDate', 'endTime'];
+    switches.forEach(switchType => {
+        const switchEl = document.getElementById(`${switchType}Switch`);
+        const newSwitch = switchEl.cloneNode(true);
+        switchEl.parentNode.replaceChild(newSwitch, switchEl);
+    });
 
-    // Set task type
-    const typeContainer = editTaskModal.querySelector('.task-type-selector');
-    const highlight = typeContainer.querySelector('.task-type-highlight');
-    const eventOption = typeContainer.querySelector('[data-type="event"]');
-    const taskOption = typeContainer.querySelector('[data-type="task"]');
-    
-    // Reset both options
-    eventOption.classList.remove('active');
-    taskOption.classList.remove('active');
+    const eventBtn = document.getElementById('eventTypeBtn');
+    const taskBtn = document.getElementById('taskTypeBtn');
+    const newEventBtn = eventBtn.cloneNode(true);
+    const newTaskBtn = taskBtn.cloneNode(true);
+    eventBtn.parentNode.replaceChild(newEventBtn, eventBtn);
+    taskBtn.parentNode.replaceChild(newTaskBtn, taskBtn);
 
-    // Helper function to enable time inputs
-    function enableTimeInputs(inputs) {
-        inputs.querySelectorAll('input').forEach(input => {
-            input.readOnly = false;
-            input.removeAttribute('style');
-        });
-        inputs.style.opacity = '1';
+    const closeBtn = document.getElementById('editTaskClose');
+    const newCloseBtn = closeBtn.cloneNode(true);
+    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
+    const deleteBtn = document.getElementById('deleteTaskBtn');
+    const newDeleteBtn = deleteBtn.cloneNode(true);
+    deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+
+    // Now continue with the rest of the function using the new elements
+    modal.dataset.taskId = taskId;
+    document.getElementById('editTaskName').value = task.name;
+
+    // Set up task type switching
+    const highlight = modal.querySelector('.task-type-highlight');
+    const eventSettings = modal.querySelector('.task-settings-event');
+    const taskSettings = modal.querySelector('.task-settings-task');
+
+    // First set initial classes without triggering clicks
+    if (task.kind === 'event') {
+        newEventBtn.classList.add('active');
+        newTaskBtn.classList.remove('active');
+        highlight.style.transform = 'translateX(4px)';
+        eventSettings.classList.remove('inactive');
+        taskSettings.classList.add('inactive');
+    } else {
+        newTaskBtn.classList.add('active');
+        newEventBtn.classList.remove('active');
+        highlight.style.transform = 'translateX(calc(100% + 4px))';
+        eventSettings.classList.add('inactive');
+        taskSettings.classList.remove('inactive');
     }
 
-    // Helper function to disable time inputs
-    function disableTimeInputs(inputs) {
-        inputs.querySelectorAll('input').forEach(input => {
-            input.readOnly = true;
-            input.removeAttribute('style');
-        });
-        inputs.style.opacity = '0.5';
-    }
+    // Then set up click handlers
+    newEventBtn.addEventListener('click', () => {
+        newEventBtn.classList.add('active');
+        newTaskBtn.classList.remove('active');
+        highlight.style.transform = 'translateX(4px)';
+        eventSettings.classList.remove('inactive');
+        taskSettings.classList.add('inactive');
+        task.kind = 'event';
+    });
 
-    // Helper function to fill date/time inputs and activate switches based on data
-    function fillDateTimeInputs(container, date, time, activateToggles = true) {
-        const dateToggle = container.querySelector('[data-setting$="Date"]');
-        const timeToggle = container.querySelector('[data-setting$="Time"]');
-        
-        if (date) {
-            const [year, month, day] = date.split('-');
-            const dateInputs = container.querySelectorAll('.date-time-inputs input');
-            dateInputs[0].value = month;
-            dateInputs[1].value = day;
-            dateInputs[2].value = year;
-            
-            if (activateToggles) {
-                dateToggle.classList.add('active');
-                const dateRow = dateToggle.closest('.date-time-row');
-                const dateInputsContainer = dateRow.querySelector('.date-time-inputs');
-                dateInputsContainer.style.opacity = '1';
-            }
-        }
-        
-        if (time) {
-            const [hour, minute] = time.split(':');
-            const timeInputs = container.querySelectorAll('.time-inputs input');
-            timeInputs[0].value = hour;
-            timeInputs[1].value = minute;
-            
-            if (activateToggles) {
-                timeToggle.classList.add('active');
-                const timeRow = timeToggle.closest('.date-time-row');
-                const timeInputsContainer = timeRow.querySelector('.time-inputs');
-                timeInputsContainer.style.opacity = '1';
-                enableTimeInputs(timeInputsContainer);
-            }
-        }
-    }
+    newTaskBtn.addEventListener('click', () => {
+        newTaskBtn.classList.add('active');
+        newEventBtn.classList.remove('active');
+        highlight.style.transform = 'translateX(calc(100% + 4px))';
+        eventSettings.classList.add('inactive');
+        taskSettings.classList.remove('inactive');
+        task.kind = 'task';
+    });
 
-    // Set date/time values based on task type
-    const eventSettings = editTaskModal.querySelector('.task-settings-event');
-    const startDateGroup = eventSettings.querySelectorAll('.date-time-group')[0];
-    const endDateGroup = eventSettings.querySelectorAll('.date-time-group')[1];
-    const taskSettings = editTaskModal.querySelector('.task-settings-task');
-    const dueDateGroup = taskSettings.querySelector('.date-time-group');
-    
-    // Set up start date toggle - ONLY this gets pointer-events: none
-    const startDateToggle = startDateGroup.querySelector('[data-setting="startDate"]');
-    const startDateRow = startDateToggle.closest('.date-time-row');
-    const startTimeToggle = startDateGroup.querySelector('[data-setting="startTime"]');
-    const startTimeRow = startTimeToggle.closest('.date-time-row');
-    const startTimeInputs = startTimeRow.querySelector('.time-inputs');
-    
-    // Lock start date toggle - this is the ONLY place we set pointer-events
+    // Lock the start date toggle for events
+    const startDateToggle = document.getElementById('startDateSwitch');
+    const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
     startDateToggle.classList.add('active');
     startDateToggle.style.pointerEvents = 'none';
-    const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
-    startDateHandle.classList.add('locked');
     
-    // Add lock icon if needed
+    // Add lock icon
     if (!startDateHandle.querySelector('.lock-icon')) {
         const lockIcon = document.createElement('img');
-        lockIcon.src = 'lock_icon.svg';
+        lockIcon.src = './lock_icon.svg';
         lockIcon.className = 'lock-icon';
         lockIcon.style.width = '10px';
         lockIcon.style.height = '10px';
         lockIcon.style.opacity = '0.7';
         startDateHandle.appendChild(lockIcon);
     }
-    
-    startDateRow.querySelector('.date-time-inputs').style.opacity = '1';
-    
-    if (task.kind === 'event') {
-        eventOption.classList.add('active');
-        highlight.style.transform = 'translateX(4px)';
-        document.querySelector('.task-settings-event').classList.remove('inactive');
-        document.querySelector('.task-settings-task').classList.add('inactive');
+    document.getElementById('startDateInputs').style.opacity = '1';
 
-        // Handle start time toggle
-        const startTimeContainer = startTimeRow.querySelector('.time-inputs');
-        if (task.startTime) {
-            startTimeToggle.classList.add('active');
-            startTimeContainer.style.opacity = '1';
-            enableTimeInputs(startTimeContainer);
-        } else {
-            startTimeToggle.classList.remove('active');
-            startTimeContainer.style.opacity = '0.5';
-            disableTimeInputs(startTimeContainer);
-        }
-
-        // Handle end time toggle
-        const endTimeToggle = endDateGroup.querySelector('[data-setting="endTime"]');
-        const endTimeRow = endTimeToggle.closest('.date-time-row');
-        const endTimeContainer = endTimeRow.querySelector('.time-inputs');
+    // Set up event listeners for date/time switches
+    switches.forEach(switchType => {
+        const switchEl = document.getElementById(`${switchType}Switch`);
+        const inputsEl = document.getElementById(`${switchType}Inputs`);
         
-        if (task.endTime) {
-            endTimeToggle.classList.add('active');
-            endTimeContainer.style.opacity = '1';
-            enableTimeInputs(endTimeContainer);
-        } else {
-            endTimeToggle.classList.remove('active');
-            endTimeContainer.style.opacity = '0.5';
-            disableTimeInputs(endTimeContainer);
-        }
+        switchEl.addEventListener('click', () => {
+            if (switchType === 'startDate') return; // Prevent toggling start date
+            
+            const isActive = switchEl.classList.toggle('active');
+            inputsEl.style.opacity = isActive ? '1' : '0.5';
+            
+            const inputs = inputsEl.querySelectorAll('input');
+            if (isActive) {
+                inputs.forEach(input => input.removeAttribute('readonly'));
+            } else {
+                inputs.forEach(input => input.setAttribute('readonly', 'true'));
+                // If turning off a date switch, also turn off corresponding time switch
+                if (switchType.endsWith('Date')) {
+                    const timeSwitch = document.getElementById(`${switchType.replace('Date', 'Time')}Switch`);
+                    const timeInputs = document.getElementById(`${switchType.replace('Date', 'Time')}Inputs`);
+                    timeSwitch.classList.remove('active');
+                    timeInputs.style.opacity = '0.5';
+                    timeInputs.querySelectorAll('input').forEach(input => input.setAttribute('readonly', 'true'));
+                }
+            }
+            
+            // If turning on a time switch, ensure date switch is on
+            if (switchType.endsWith('Time') && isActive) {
+                const dateSwitch = document.getElementById(`${switchType.replace('Time', 'Date')}Switch`);
+                const dateInputs = document.getElementById(`${switchType.replace('Time', 'Date')}Inputs`);
+                dateSwitch.classList.add('active');
+                dateInputs.style.opacity = '1';
+                dateInputs.querySelectorAll('input').forEach(input => input.removeAttribute('readonly'));
+            }
+        });
+    });
 
-        // Fill event dates/times
-        fillDateTimeInputs(startDateGroup, task.date, task.startTime);
-        fillDateTimeInputs(endDateGroup, task.date, task.endTime);
-        fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
-
-        task.startDateEnabled = true;
-
-    } else {
-        taskOption.classList.add('active');
-        highlight.style.transform = 'translateX(calc(100% + 4px))';
-        document.querySelector('.task-settings-event').classList.add('inactive');
-        document.querySelector('.task-settings-task').classList.remove('inactive');
-
-        fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
-        fillDateTimeInputs(startDateGroup, task.date, task.endTime, false);
-        fillDateTimeInputs(endDateGroup, task.date, task.endTime, false);
-        
-        // Handle start time visibility
-        startTimeToggle.classList.remove('active');
-        disableTimeInputs(startTimeInputs);
-
-        // Handle end time visibility
-        const endTimeToggle = endDateGroup.querySelector('[data-setting="endTime"]');
-        const endTimeContainer = endTimeToggle.closest('.date-time-row').querySelector('.time-inputs');
-        endTimeToggle.classList.remove('active');
-        disableTimeInputs(endTimeContainer);
+    // Fill in existing values if task has them
+    if (task.date) {
+        const [year, month, day] = task.date.split('-');
+        ['due', 'start', 'end'].forEach(prefix => {
+            const dateInputs = document.getElementById(`${prefix}DateInputs`).querySelectorAll('input');
+            dateInputs[0].value = month;
+            dateInputs[1].value = day;
+            dateInputs[2].value = year;
+            
+            document.getElementById(`${prefix}DateSwitch`).classList.add('active');
+            document.getElementById(`${prefix}DateInputs`).style.opacity = '1';
+            dateInputs.forEach(input => input.removeAttribute('readonly'));
+        });
     }
+
+    // Only fill time inputs and activate time switches if there's a time
+    if (task.endTime) {
+        const [hours, minutes] = task.endTime.split(':');
+        
+        // For tasks, fill the due time
+        if (task.kind === 'task') {
+            const timeSwitch = document.getElementById('dueTimeSwitch');
+            const timeInputs = document.getElementById('dueTimeInputs');
+            const inputs = timeInputs.querySelectorAll('input');
+            
+            inputs[0].value = hours;
+            inputs[1].value = minutes;
+            timeSwitch.classList.add('active');
+            timeInputs.style.opacity = '1';
+            inputs.forEach(input => input.removeAttribute('readonly'));
+
+            // Only copy to start time (not end time) when switching to event
+            const startTimeSwitch = document.getElementById('startTimeSwitch');
+            const startTimeInputs = document.getElementById('startTimeInputs');
+            const startInputs = startTimeInputs.querySelectorAll('input');
+            
+            startInputs[0].value = hours;
+            startInputs[1].value = minutes;
+            startTimeSwitch.classList.add('active');
+            startTimeInputs.style.opacity = '1';
+            startInputs.forEach(input => input.removeAttribute('readonly'));
+
+            // Leave end time empty and switched off
+            const endTimeSwitch = document.getElementById('endTimeSwitch');
+            const endTimeInputs = document.getElementById('endTimeInputs');
+            const endInputs = endTimeInputs.querySelectorAll('input');
+            
+            endInputs.forEach(input => {
+                input.value = '';
+                input.setAttribute('readonly', 'true');
+            });
+            endTimeSwitch.classList.remove('active');
+            endTimeInputs.style.opacity = '0.5';
+        }
+    } else {
+        // If no time, ensure time switches are off and inputs are empty
+        ['due', 'start', 'end'].forEach(prefix => {
+            const timeSwitch = document.getElementById(`${prefix}TimeSwitch`);
+            const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+            const inputs = timeInputs.querySelectorAll('input');
+            
+            // Clear and deactivate
+            inputs.forEach(input => {
+                input.value = '';
+                input.setAttribute('readonly', 'true');
+            });
+            timeSwitch.classList.remove('active');
+            timeInputs.style.opacity = '0.5';
+        });
+    }
+
+    // Close button event listener
+    newCloseBtn.addEventListener('click', () => hideModal('editTask'));
+    
+    // Delete button event listener
+    newDeleteBtn.addEventListener('click', () => {
+        const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
+        if (taskIndex !== -1) {
+            taskEventArray.splice(taskIndex, 1);
+            saveUserData();
+            renderTasks();
+            renderCalendar();
+            hideModal('editTask');
+        }
+    });
 
     showModal('editTask');
-}
-
-        function deleteCurrentTask() {
-            const taskId = editTaskModal.dataset.taskId;
-            const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
-            if (taskIndex !== -1) {
-                taskEventArray.splice(taskIndex, 1);
-                saveUserData();
-                renderTasks();
-                renderCalendar();
-                hideModal('editTask');
-            }
-        }
-
-        function switchTaskType(element, type) {
-            const container = element.closest('.task-type-selector');
-            const highlight = container.querySelector('.task-type-highlight');
-            const allOptions = container.querySelectorAll('.selector-option');
-            const eventSettings = document.querySelector('.task-settings-event');
-            const taskSettings = document.querySelector('.task-settings-task');
-
-            // Remove active class from all options
-            allOptions.forEach(opt => opt.classList.remove('active'));
-            
-            // Add active class to clicked option
-            element.classList.add('active');
-
-            // Move highlight and update settings visibility
-            if (type === 'event') {
-                highlight.style.transform = 'translateX(4px)';
-                eventSettings.classList.remove('inactive');
-                taskSettings.classList.add('inactive');
-            } else {
-                highlight.style.transform = 'translateX(calc(100% + 4px))';
-                eventSettings.classList.add('inactive');
-                taskSettings.classList.remove('inactive');
-            }
-
-            // Store changes in modal's dataset instead of saving immediately
-            const modal = element.closest('.task-modal');
-            modal.dataset.pendingType = type;
-        }
-
-        function toggleTaskSetting(trackElement) {
-    const setting = trackElement.dataset.setting;
-    
-    // Prevent toggling start date for events
-    if (setting === 'startDate' && trackElement.closest('.task-settings-event')) {
-        return;
-    }
-
-    // If enabling time, make sure date is enabled
-    if ((setting === 'endTime' || setting === 'dueTime' || setting === 'startTime')) {
-        const dateToggle = trackElement.closest('.date-time-group').querySelector(`[data-setting="${setting.replace('Time', 'Date')}"]`);
-        if (dateToggle) {
-            dateToggle.classList.add('active');
-            const dateInputs = dateToggle.closest('.date-time-row').querySelector('.date-time-inputs');
-            dateInputs.style.opacity = '1';
-            dateInputs.style.pointerEvents = 'auto';
-        }
-    }
-    
-    trackElement.classList.toggle('active');
-    
-    // Find the associated inputs container
-    const row = trackElement.closest('.date-time-row');
-    const inputs = row.querySelector('.date-time-inputs, .time-inputs');
-    
-    const isActive = trackElement.classList.contains('active');
-    
-    // Update inputs state
-    if (isActive) {
-        inputs.style.opacity = '1';
-        inputs.style.pointerEvents = 'auto';
-    } else {
-        inputs.style.opacity = '0.5';
-        inputs.style.pointerEvents = 'none';
-        
-        // If this is a date toggle being disabled, also disable the corresponding time toggle
-        if (setting === 'endDate' || setting === 'dueDate') {
-            const timeToggle = row.parentElement.querySelector(`[data-setting="${setting.replace('Date', 'Time')}"]`);
-            if (timeToggle) {
-                timeToggle.classList.remove('active');
-                const timeInputs = timeToggle.closest('.date-time-row').querySelector('.time-inputs');
-                timeInputs.style.opacity = '0.5';
-                timeInputs.style.pointerEvents = 'none';
-            }
-        }
-    }
-
-    // Update task data
-    const taskId = trackElement.closest('.task-modal').dataset.taskId;
-    const task = taskEventArray.find(t => t.id === taskId);
-    if (task) {
-        task[setting + 'Enabled'] = isActive;
-        
-        // If enabling time, ensure date is enabled in task data
-        if (isActive && (setting === 'endTime' || setting === 'dueTime' || setting === 'startTime')) {
-            task[setting.replace('Time', 'Date') + 'Enabled'] = true;
-        }
-        
-        // If this is a date being disabled, also disable the time in task data
-        if (!isActive && (setting === 'endDate' || setting === 'dueDate')) {
-            task[setting.replace('Date', 'Time') + 'Enabled'] = false;
-        }
-        
-        saveUserData();
-    }
 }
 
         document.addEventListener('DOMContentLoaded', () => {
