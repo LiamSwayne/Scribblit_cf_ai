@@ -2378,9 +2378,14 @@
                 if (modal.classList.contains('visible')) {
                     const taskId = modal.dataset.taskId;
                     const task = taskEventArray.find(t => t.id === taskId);
+                    let wasOnCalendar = task.kind === 'event';
                     if (task) {
                         // Save name
                         task.name = document.getElementById('editTaskName').value;
+
+                        // clear start and end times
+                        task.startTime = null;
+                        task.endTime = null;
                         
                         // Save dates
                         ['due', 'start', 'end'].forEach(prefix => {
@@ -2405,20 +2410,16 @@
                                         task.startTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
                                     }
                                 }
-                            } else {
-                                // Clear times if switches are off
-                                if (prefix === 'due' || prefix === 'end') {
-                                    task.endTime = null;
-                                } else if (prefix === 'start') {
-                                    task.startTime = null;
-                                }
                             }
                         });
 
                         // Save changes
                         saveUserData();
                         renderTasks();
-                        renderCalendar();
+                        // was it on the calendar before or now?
+                        if (wasOnCalendar || task.kind === 'event') {
+                            renderCalendar();
+                        }
                     }
                 }
             }
