@@ -963,6 +963,16 @@
     background-color: var(--grey-1);
     border-radius: 50%;
     transition: transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.task-toggle-handle.locked::after {
+    content: url('lock_icon.svg');
+    width: 10px;
+    height: 10px;
+    opacity: 0.7;
 }
 
 .task-toggle-track.active .task-toggle-handle {
@@ -2621,8 +2631,6 @@
     const task = taskEventArray.find(t => t.id === taskId);
     if (!task) return;
 
-    console.log('Task data:', task);
-
     // Clear any pending changes
     delete editTaskModal.dataset.pendingType;
     
@@ -2640,34 +2648,43 @@
     // Reset both options
     eventOption.classList.remove('active');
     taskOption.classList.remove('active');
-    
-    // Activate correct option and position highlight
-    if (task.kind === 'event') {
-        eventOption.classList.add('active');
-        highlight.style.transform = 'translateX(4px)';
-        document.querySelector('.task-settings-event').classList.remove('inactive');
-        document.querySelector('.task-settings-task').classList.add('inactive');
-    } else {
-        taskOption.classList.add('active');
-        highlight.style.transform = 'translateX(calc(100% + 4px))';
-        document.querySelector('.task-settings-event').classList.add('inactive');
-        document.querySelector('.task-settings-task').classList.remove('inactive');
-    }
 
-    // Helper function to fill date/time inputs
-    function fillDateTimeInputs(container, date, time) {
+    // Helper function to fill date/time inputs and activate switches based on data
+    function fillDateTimeInputs(container, date, time, activateToggles = true) {
+        const dateToggle = container.querySelector('[data-setting$="Date"]');
+        const timeToggle = container.querySelector('[data-setting$="Time"]');
+        
         if (date) {
             const [year, month, day] = date.split('-');
             const dateInputs = container.querySelectorAll('.date-time-inputs input');
             dateInputs[0].value = month;
             dateInputs[1].value = day;
             dateInputs[2].value = year;
+            
+            if (activateToggles) {
+                // Activate date toggle
+                dateToggle.classList.add('active');
+                const dateRow = dateToggle.closest('.date-time-row');
+                const dateInputsContainer = dateRow.querySelector('.date-time-inputs');
+                dateInputsContainer.style.opacity = '1';
+                dateInputsContainer.style.pointerEvents = 'auto';
+            }
         }
+        
         if (time) {
             const [hour, minute] = time.split(':');
             const timeInputs = container.querySelectorAll('.time-inputs input');
             timeInputs[0].value = hour;
             timeInputs[1].value = minute;
+            
+            if (activateToggles) {
+                // Activate time toggle
+                timeToggle.classList.add('active');
+                const timeRow = timeToggle.closest('.date-time-row');
+                const timeInputsContainer = timeRow.querySelector('.time-inputs');
+                timeInputsContainer.style.opacity = '1';
+                timeInputsContainer.style.pointerEvents = 'auto';
+            }
         }
     }
 
@@ -2677,82 +2694,55 @@
     const endDateGroup = eventSettings.querySelectorAll('.date-time-group')[1];
     const taskSettings = editTaskModal.querySelector('.task-settings-task');
     const dueDateGroup = taskSettings.querySelector('.date-time-group');
-
-    // Add lock icon to start date toggle and force enable it for events
-    const startDateToggle = startDateGroup.querySelector('[data-setting="startDate"]');
-    const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
     
-    // Add lock icon if not already present
-    if (!startDateHandle.querySelector('.lock-icon')) {
-        const lockIcon = document.createElement('img');
-        lockIcon.src = './lock_icon.svg';
-        lockIcon.className = 'lock-icon';
-        lockIcon.style.width = '12px';
-        lockIcon.style.height = '12px';
-        lockIcon.style.position = 'absolute';
-        lockIcon.style.top = '50%';
-        lockIcon.style.left = '50%';
-        lockIcon.style.transform = 'translate(-50%, -50%)';
-        startDateHandle.appendChild(lockIcon);
-    }
-
+    // Always set up start date toggle regardless of type
+    const startDateToggle = startDateGroup.querySelector('[data-setting="startDate"]');
+    const startDateRow = startDateToggle.closest('.date-time-row');
+    
+    // Always force start date toggle to be active and locked
+    startDateToggle.classList.add('active');
+    startDateToggle.style.pointerEvents = 'none';
+    startDateToggle.style.opacity = '0.8';
+    startDateRow.querySelector('.date-time-inputs').style.opacity = '1';
+    startDateRow.querySelector('.date-time-inputs').style.pointerEvents = 'auto';
+    
     if (task.kind === 'event') {
+        eventOption.classList.add('active');
+        highlight.style.transform = 'translateX(4px)';
+        document.querySelector('.task-settings-event').classList.remove('inactive');
+        document.querySelector('.task-settings-task').classList.add('inactive');
+
+        // Handle start time toggle
+        const startTimeToggle = startDateGroup.querySelector('[data-setting="startTime"]');
+        const startTimeRow = startTimeToggle.closest('.date-time-row');
+
         // Fill event dates/times
         fillDateTimeInputs(startDateGroup, task.date, task.startTime);
         fillDateTimeInputs(endDateGroup, task.date, task.endTime);
         // Mirror event times to task side
         fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
 
-        // Force enable start date
-        startDateToggle.classList.add('active');
-        startDateToggle.style.pointerEvents = 'none';
-        const startDateInputs = startDateToggle.closest('.date-time-row').querySelector('.date-time-inputs');
-        startDateInputs.style.opacity = '1';
-        startDateInputs.style.pointerEvents = 'auto';
+        // Set these as enabled in the task data
+        task.startDateEnabled = true;
+
     } else {
+        taskOption.classList.add('active');
+        highlight.style.transform = 'translateX(calc(100% + 4px))';
+        document.querySelector('.task-settings-event').classList.add('inactive');
+        document.querySelector('.task-settings-task').classList.remove('inactive');
+
         // Fill task due date/time
         fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
-        // Mirror task times to event side
-        fillDateTimeInputs(startDateGroup, task.date, task.startTime);
-        fillDateTimeInputs(endDateGroup, task.date, task.endTime);
         
-        // Remove lock icon and enable pointer events when in task mode
-        startDateToggle.style.pointerEvents = 'auto';
-        const lockIcon = startDateHandle.querySelector('.lock-icon');
-        if (lockIcon) {
-            lockIcon.remove();
-        }
+        // Mirror task times to both start and end times in event side
+        fillDateTimeInputs(startDateGroup, task.date, task.endTime, false); // Copy due time to start time
+        fillDateTimeInputs(endDateGroup, task.date, task.endTime, false);
+        
+        // Handle start time toggle - should be normal toggle in task mode
+        const startTimeToggle = startDateGroup.querySelector('[data-setting="startTime"]');
+        startTimeToggle.style.pointerEvents = 'auto';
+        startTimeToggle.style.opacity = '1';
     }
-
-    // Set initial state of toggles and inputs
-    const toggles = editTaskModal.querySelectorAll('.task-toggle-track');
-    toggles.forEach(toggle => {
-        const setting = toggle.dataset.setting;
-        const enabled = task[setting + 'Enabled'] || false;
-
-        // Skip start date toggle for events as it's handled above
-        if (task.kind === 'event' && setting === 'startDate') {
-            return;
-        }
-        
-        if (enabled) {
-            toggle.classList.add('active');
-            
-            // Enable associated inputs
-            const row = toggle.closest('.date-time-row');
-            const inputs = row.querySelector('.date-time-inputs, .time-inputs');
-            inputs.style.opacity = '1';
-            inputs.style.pointerEvents = 'auto';
-        } else {
-            toggle.classList.remove('active');
-            
-            // Disable associated inputs
-            const row = toggle.closest('.date-time-row');
-            const inputs = row.querySelector('.date-time-inputs, .time-inputs');
-            inputs.style.opacity = '0.5';
-            inputs.style.pointerEvents = 'none';
-        }
-    });
 
     showModal('editTask');
 }
@@ -2801,15 +2791,22 @@
         function toggleTaskSetting(trackElement) {
     const setting = trackElement.dataset.setting;
     
-    // Prevent toggling start time for events
-    if (setting === 'startDate') {
-        const taskId = trackElement.closest('.task-modal').dataset.taskId;
-        const task = taskEventArray.find(t => t.id === taskId);
-        if (task && task.kind === 'event') {
-            return;
-        }
+    // Prevent toggling start date for events
+    if (setting === 'startDate' && trackElement.closest('.task-settings-event')) {
+        return;
     }
 
+    // If enabling time, make sure date is enabled
+    if ((setting === 'endTime' || setting === 'dueTime' || setting === 'startTime')) {
+        const dateToggle = trackElement.closest('.date-time-group').querySelector(`[data-setting="${setting.replace('Time', 'Date')}"]`);
+        if (dateToggle) {
+            dateToggle.classList.add('active');
+            const dateInputs = dateToggle.closest('.date-time-row').querySelector('.date-time-inputs');
+            dateInputs.style.opacity = '1';
+            dateInputs.style.pointerEvents = 'auto';
+        }
+    }
+    
     trackElement.classList.toggle('active');
     
     // Find the associated inputs container
@@ -2843,6 +2840,11 @@
     const task = taskEventArray.find(t => t.id === taskId);
     if (task) {
         task[setting + 'Enabled'] = isActive;
+        
+        // If enabling time, ensure date is enabled in task data
+        if (isActive && (setting === 'endTime' || setting === 'dueTime' || setting === 'startTime')) {
+            task[setting.replace('Time', 'Date') + 'Enabled'] = true;
+        }
         
         // If this is a date being disabled, also disable the time in task data
         if (!isActive && (setting === 'endDate' || setting === 'dueDate')) {
