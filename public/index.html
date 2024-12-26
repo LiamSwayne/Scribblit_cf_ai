@@ -968,13 +968,6 @@
     justify-content: center;
 }
 
-.task-toggle-handle.locked::after {
-    content: url('lock_icon.svg');
-    width: 10px;
-    height: 10px;
-    opacity: 0.7;
-}
-
 .task-toggle-track.active .task-toggle-handle {
     transform: translateX(16px);
 }
@@ -2649,6 +2642,24 @@
     eventOption.classList.remove('active');
     taskOption.classList.remove('active');
 
+    // Helper function to enable time inputs
+    function enableTimeInputs(inputs) {
+        inputs.querySelectorAll('input').forEach(input => {
+            input.readOnly = false;
+            input.removeAttribute('style');
+        });
+        inputs.style.opacity = '1';
+    }
+
+    // Helper function to disable time inputs
+    function disableTimeInputs(inputs) {
+        inputs.querySelectorAll('input').forEach(input => {
+            input.readOnly = true;
+            input.removeAttribute('style');
+        });
+        inputs.style.opacity = '0.5';
+    }
+
     // Helper function to fill date/time inputs and activate switches based on data
     function fillDateTimeInputs(container, date, time, activateToggles = true) {
         const dateToggle = container.querySelector('[data-setting$="Date"]');
@@ -2662,12 +2673,10 @@
             dateInputs[2].value = year;
             
             if (activateToggles) {
-                // Activate date toggle
                 dateToggle.classList.add('active');
                 const dateRow = dateToggle.closest('.date-time-row');
                 const dateInputsContainer = dateRow.querySelector('.date-time-inputs');
                 dateInputsContainer.style.opacity = '1';
-                dateInputsContainer.style.pointerEvents = 'auto';
             }
         }
         
@@ -2678,12 +2687,11 @@
             timeInputs[1].value = minute;
             
             if (activateToggles) {
-                // Activate time toggle
                 timeToggle.classList.add('active');
                 const timeRow = timeToggle.closest('.date-time-row');
                 const timeInputsContainer = timeRow.querySelector('.time-inputs');
                 timeInputsContainer.style.opacity = '1';
-                timeInputsContainer.style.pointerEvents = 'auto';
+                enableTimeInputs(timeInputsContainer);
             }
         }
     }
@@ -2695,17 +2703,31 @@
     const taskSettings = editTaskModal.querySelector('.task-settings-task');
     const dueDateGroup = taskSettings.querySelector('.date-time-group');
     
-    // Always set up start date toggle regardless of type
+    // Set up start date toggle - ONLY this gets pointer-events: none
     const startDateToggle = startDateGroup.querySelector('[data-setting="startDate"]');
     const startDateRow = startDateToggle.closest('.date-time-row');
+    const startTimeToggle = startDateGroup.querySelector('[data-setting="startTime"]');
+    const startTimeRow = startTimeToggle.closest('.date-time-row');
+    const startTimeInputs = startTimeRow.querySelector('.time-inputs');
     
-    // Always force start date toggle to be active and locked
+    // Lock start date toggle - this is the ONLY place we set pointer-events
     startDateToggle.classList.add('active');
     startDateToggle.style.pointerEvents = 'none';
     const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
     startDateHandle.classList.add('locked');
+    
+    // Add lock icon if needed
+    if (!startDateHandle.querySelector('.lock-icon')) {
+        const lockIcon = document.createElement('img');
+        lockIcon.src = 'lock_icon.svg';
+        lockIcon.className = 'lock-icon';
+        lockIcon.style.width = '10px';
+        lockIcon.style.height = '10px';
+        lockIcon.style.opacity = '0.7';
+        startDateHandle.appendChild(lockIcon);
+    }
+    
     startDateRow.querySelector('.date-time-inputs').style.opacity = '1';
-    startDateRow.querySelector('.date-time-inputs').style.pointerEvents = 'auto';
     
     if (task.kind === 'event') {
         eventOption.classList.add('active');
@@ -2714,16 +2736,37 @@
         document.querySelector('.task-settings-task').classList.add('inactive');
 
         // Handle start time toggle
-        const startTimeToggle = startDateGroup.querySelector('[data-setting="startTime"]');
-        const startTimeRow = startTimeToggle.closest('.date-time-row');
+        const startTimeContainer = startTimeRow.querySelector('.time-inputs');
+        if (task.startTime) {
+            startTimeToggle.classList.add('active');
+            startTimeContainer.style.opacity = '1';
+            enableTimeInputs(startTimeContainer);
+        } else {
+            startTimeToggle.classList.remove('active');
+            startTimeContainer.style.opacity = '0.5';
+            disableTimeInputs(startTimeContainer);
+        }
+
+        // Handle end time toggle
+        const endTimeToggle = endDateGroup.querySelector('[data-setting="endTime"]');
+        const endTimeRow = endTimeToggle.closest('.date-time-row');
+        const endTimeContainer = endTimeRow.querySelector('.time-inputs');
+        
+        if (task.endTime) {
+            endTimeToggle.classList.add('active');
+            endTimeContainer.style.opacity = '1';
+            enableTimeInputs(endTimeContainer);
+        } else {
+            endTimeToggle.classList.remove('active');
+            endTimeContainer.style.opacity = '0.5';
+            disableTimeInputs(endTimeContainer);
+        }
 
         // Fill event dates/times
         fillDateTimeInputs(startDateGroup, task.date, task.startTime);
         fillDateTimeInputs(endDateGroup, task.date, task.endTime);
-        // Mirror event times to task side
         fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
 
-        // Set these as enabled in the task data
         task.startDateEnabled = true;
 
     } else {
@@ -2732,21 +2775,19 @@
         document.querySelector('.task-settings-event').classList.add('inactive');
         document.querySelector('.task-settings-task').classList.remove('inactive');
 
-        // Fill task due date/time
         fillDateTimeInputs(dueDateGroup, task.date, task.endTime);
-        
-        // Mirror task times to both start and end times in event side
-        fillDateTimeInputs(startDateGroup, task.date, task.endTime, false); // Copy due time to start time
+        fillDateTimeInputs(startDateGroup, task.date, task.endTime, false);
         fillDateTimeInputs(endDateGroup, task.date, task.endTime, false);
         
-        // Handle start time toggle - should be disabled in task mode
-        const startTimeToggle = startDateGroup.querySelector('[data-setting="startTime"]');
+        // Handle start time visibility
         startTimeToggle.classList.remove('active');
-        const startTimeRow = startTimeToggle.closest('.date-time-row');
-        const startTimeInputs = startTimeRow.querySelector('.time-inputs');
-        startTimeInputs.style.opacity = '0.5';
-        startTimeInputs.style.pointerEvents = 'none';
-        startTimeToggle.style.pointerEvents = 'none';
+        disableTimeInputs(startTimeInputs);
+
+        // Handle end time visibility
+        const endTimeToggle = endDateGroup.querySelector('[data-setting="endTime"]');
+        const endTimeContainer = endTimeToggle.closest('.date-time-row').querySelector('.time-inputs');
+        endTimeToggle.classList.remove('active');
+        disableTimeInputs(endTimeContainer);
     }
 
     showModal('editTask');
