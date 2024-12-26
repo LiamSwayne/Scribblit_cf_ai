@@ -765,255 +765,256 @@
         }
 
         .task-modal {
-    display: grid;
-    grid-template-areas:
-        "header header"
-        "type type"
-        "event task"
-        "footer footer";
-    grid-template-columns: 1fr 1fr;
-    grid-gap: 20px;
-    padding: 10px;
-    min-width: 400px;
-    max-width: 400px;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.95);
-    background: var(--grey-6);
-    border: 1px solid var(--grey-4);
-    border-radius: 8px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    z-index: 9999;
-}
+            display: grid;
+            grid-template-areas:
+                "header header"
+                "type type"
+                "event task"
+                "footer footer";
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 20px;
+            padding: 10px;
+            min-width: 400px;
+            max-width: 400px;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            background: var(--grey-6);
+            border: 1px solid var(--grey-4);
+            border-radius: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 9999;
+        }
 
-.task-modal-center-line {
-    position: absolute;
-    top: 104px; /* Position it below the type selector */
-    bottom: 50px; /* Leave space for footer */
-    left: 50%;
-    width: 2px;
-    background-color: var(--grey-4);
-    transform: translateX(-50%);
-}
+        .task-modal-center-line {
+            position: absolute;
+            top: 104px; /* Position it below the type selector */
+            bottom: 50px; /* Leave space for footer */
+            left: 50%;
+            width: 2px;
+            background-color: var(--grey-4);
+            transform: translateX(-50%);
+        }
 
-.task-modal.visible {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translate(-50%, -50%) scale(1);
-}
+        .task-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+        }
 
-/* Header Section */
-.task-modal-header {
-    grid-area: header;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 10px;
-    align-items: start;
-}
+        /* Header Section */
+        .task-modal-header {
+            grid-area: header;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: start;
+        }
 
-.task-modal-close {
-    cursor: pointer;
-    color: var(--grey-2);
-    transition: color 0.3s ease;
-    right: 10px;
-    top: 10px;
-    position: absolute;
-}
+        .task-modal-close {
+            cursor: pointer;
+            color: var(--grey-2);
+            transition: color 0.3s ease;
+            right: 10px;
+            top: 10px;
+            position: absolute;
+        }
 
-.task-modal-close:hover {
-    color: var(--grey-1);
-}
+        .task-modal-close:hover {
+            color: var(--grey-1);
+        }
 
-.task-edit-input {
-    padding: 8px;
-    background: var(--grey-5);
-    border: 1px solid var(--grey-4);
-    border-radius: 4px;
-    color: var(--grey-1);
-    font-family: 'Lexend', sans-serif;
-    font-size: 14px;
-    left: 10px;
-    right: 34px;
-    top: 10px;
-    position: absolute;
-}
+        .task-edit-input {
+            padding: 8px;
+            background: var(--grey-5);
+            border: 1px solid var(--grey-4);
+            border-radius: 4px;
+            color: var(--grey-1);
+            font-family: 'Lexend', sans-serif;
+            font-size: 14px;
+            left: 10px;
+            right: 34px;
+            top: 10px;
+            position: absolute;
+        }
 
-.task-edit-input:focus {
-    outline: none;
-}
+        .task-edit-input:focus {
+            outline: none;
+        }
 
-.task-type-selector {
-    grid-area: type;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    background: var(--grey-5);
-    border-radius: 4px;
-    padding: 4px;
-    position: relative;
-    height: 32px;
-    width: calc(100% - 8px);
-    margin-top: 24px;
-    margin-bottom: -14px;
-}
+        .task-type-selector {
+            grid-area: type;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--grey-5);
+            border-radius: 4px;
+            padding: 4px;
+            position: relative;
+            height: 32px;
+            width: calc(100% - 8px);
+            margin-top: 24px;
+            margin-bottom: -14px;
+        }
 
-.task-type-highlight {
-    position: absolute;
-    top: 4px;
-    height: calc(100% - 8px);
-    width: calc(50% - 4px);
-    background-color: #83cb9a;
-    opacity: 0.2;
-    border-radius: 3px;
-    transition: transform 0.3s ease;
-}
+        .task-type-highlight {
+            position: absolute;
+            top: 4px;
+            height: calc(100% - 8px);
+            width: calc(50% - 4px);
+            background-color: #83cb9a;
+            opacity: 0.2;
+            border-radius: 3px;
+            transition: transform 0.3s ease;
+        }
 
-.task-type-option {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    cursor: pointer;
-    color: var(--grey-2);
-    transition: color 0.3s ease;
-    z-index: 1;
-    user-select: none;
-}
+        .task-type-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            cursor: pointer;
+            color: var(--grey-2);
+            transition: color 0.3s ease;
+            z-index: 1;
+            user-select: none;
+        }
 
-.task-type-option.active {
-    color: var(--grey-1);
-}
+        .task-type-option.active {
+            color: var(--grey-1);
+        }
 
-.task-settings-event,
-.task-settings-task {
-    display: grid;
-    gap: 15px;
-    align-content: start;
-    transition: opacity 0.3s ease;
-}
+        .task-settings-event,
+        .task-settings-task {
+            display: grid;
+            gap: 15px;
+            align-content: start;
+            transition: opacity 0.3s ease;
+        }
 
-.task-settings-event {
-    grid-area: event;
-}
+        .task-settings-event {
+            grid-area: event;
+        }
 
-.task-settings-task {
-    grid-area: task;
-}
+        .task-settings-task {
+            grid-area: task;
+        }
 
-.task-settings-event.inactive,
-.task-settings-task.inactive {
-    opacity: 0.5;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
+        .task-settings-event.inactive,
+        .task-settings-task.inactive {
+            opacity: 0.5;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
 
-.date-time-group {
-    display: grid;
-    gap: 10px;
-    align-content: start;
-}
+        .date-time-group {
+            display: grid;
+            gap: 10px;
+            align-content: start;
+        }
 
-.setting-label {
-    color: var(--grey-1);
-    font-size: 14px;
-    margin-bottom: -5px;
-}
+        .setting-label {
+            color: var(--grey-1);
+            font-size: 14px;
+            margin-bottom: -5px;
+        }
 
-.date-time-row {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 10px;
-    align-items: center;
-}
+        .date-time-row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            align-items: center;
+        }
 
-.date-time-inputs,
-.time-inputs {
-    display: flex;
-    gap: 2px;
-    align-items: center;
-    justify-content: flex-end;
-    transition: opacity 0.3s ease;
-}
+        .date-time-inputs,
+        .time-inputs {
+            display: flex;
+            gap: 2px;
+            align-items: center;
+            justify-content: flex-end;
+            transition: opacity 0.3s ease;
+        }
 
-.task-toggle-track {
-    width: 40px;
-    height: 24px;
-    background-color: var(--grey-4);
-    border-radius: 12px;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s ease;
-}
+        .task-toggle-track {
+            width: 40px;
+            height: 24px;
+            background-color: var(--grey-4);
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
 
-.task-toggle-track.active {
-    background-color: #4CAF50;
-}
+        .task-toggle-track.active {
+            background-color: #4CAF50;
+        }
 
-.task-toggle-handle {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 20px;
-    height: 20px;
-    background-color: var(--grey-1);
-    border-radius: 50%;
-    transition: transform 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+        .task-toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: var(--grey-1);
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-.task-toggle-track.active .task-toggle-handle {
-    transform: translateX(16px);
-}
+        .task-toggle-track.active .task-toggle-handle {
+            transform: translateX(16px);
+        }
 
-.date-time-inputs input,
-.time-inputs input {
-    width: 20px;
-    padding: 0px 0px;
-    font-family: 'JetBrains Mono', monospace;
-    background-color: var(--grey-5);
-    border: 1px solid var(--grey-4);
-    border-radius: 4px;
-    color: var(--grey-1);
-    text-align: center;
-    outline: none;
-}
+        .date-time-inputs input,
+        .time-inputs input {
+            width: 20px;
+            padding: 0px 0px;
+            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--grey-5);
+            border: 1px solid var(--grey-4);
+            border-radius: 4px;
+            color: var(--grey-1);
+            text-align: center;
+            outline: none;
+        }
 
-.date-time-inputs input:focus,
-.time-inputs input:focus {
-    outline: none;
-}
+        .date-time-inputs input:focus,
+        .time-inputs input:focus {
+            outline: none;
+        }
 
-.date-time-inputs input[placeholder="YYYY"] {
-    width: 40px;
-}
+        .date-time-inputs input[placeholder="YYYY"] {
+            width: 40px;
+        }
 
-.date-time-separator {
-    color: var(--grey-2);
-    font-family: 'JetBrains Mono', monospace;
-}
+        .date-time-separator {
+            color: var(--grey-2);
+            font-family: 'JetBrains Mono', monospace;
+        }
 
-.task-modal-footer {
-    grid-area: footer;
-    display: grid;
-    justify-items: end;
-    padding-top: 10px;
-}
+        .task-modal-footer {
+            grid-area: footer;
+            display: grid;
+            justify-items: end;
+            padding-top: 10px;
+        }
 
-.task-delete-btn {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.3s ease;
-}
+        .task-delete-btn {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            filter: brightness(1);
+            transition: filter 0.3s ease;
+        }
 
-.task-delete-btn:hover {
-    opacity: 1;
-}
+        /* a weird hack to make it white on hover */
+        .task-delete-btn:hover {
+            filter: brightness(2);
+        }
     </style>
 </head>
 <body>
@@ -2637,219 +2638,219 @@
         }
 
         function constructTaskEditorModal(taskId) {
-    const modal = document.getElementById('editTaskModal');
-    const task = taskEventArray.find(t => t.id === taskId);
-    if (!task) return;
-    
-    // First, remove any existing event listeners by cloning and replacing elements
-    const switches = ['dueDate', 'dueTime', 'startDate', 'startTime', 'endDate', 'endTime'];
-    switches.forEach(switchType => {
-        const switchEl = document.getElementById(`${switchType}Switch`);
-        const newSwitch = switchEl.cloneNode(true);
-        switchEl.parentNode.replaceChild(newSwitch, switchEl);
-    });
-
-    const eventBtn = document.getElementById('eventTypeBtn');
-    const taskBtn = document.getElementById('taskTypeBtn');
-    const newEventBtn = eventBtn.cloneNode(true);
-    const newTaskBtn = taskBtn.cloneNode(true);
-    eventBtn.parentNode.replaceChild(newEventBtn, eventBtn);
-    taskBtn.parentNode.replaceChild(newTaskBtn, taskBtn);
-
-    const closeBtn = document.getElementById('editTaskClose');
-    const newCloseBtn = closeBtn.cloneNode(true);
-    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-
-    const deleteBtn = document.getElementById('deleteTaskBtn');
-    const newDeleteBtn = deleteBtn.cloneNode(true);
-    deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
-
-    // Now continue with the rest of the function using the new elements
-    modal.dataset.taskId = taskId;
-    document.getElementById('editTaskName').value = task.name;
-
-    // Set up task type switching
-    const highlight = modal.querySelector('.task-type-highlight');
-    const eventSettings = modal.querySelector('.task-settings-event');
-    const taskSettings = modal.querySelector('.task-settings-task');
-
-    // First set initial classes without triggering clicks
-    if (task.kind === 'event') {
-        newEventBtn.classList.add('active');
-        newTaskBtn.classList.remove('active');
-        highlight.style.transform = 'translateX(4px)';
-        eventSettings.classList.remove('inactive');
-        taskSettings.classList.add('inactive');
-    } else {
-        newTaskBtn.classList.add('active');
-        newEventBtn.classList.remove('active');
-        highlight.style.transform = 'translateX(calc(100% + 4px))';
-        eventSettings.classList.add('inactive');
-        taskSettings.classList.remove('inactive');
-    }
-
-    // Then set up click handlers
-    newEventBtn.addEventListener('click', () => {
-        newEventBtn.classList.add('active');
-        newTaskBtn.classList.remove('active');
-        highlight.style.transform = 'translateX(4px)';
-        eventSettings.classList.remove('inactive');
-        taskSettings.classList.add('inactive');
-        task.kind = 'event';
-    });
-
-    newTaskBtn.addEventListener('click', () => {
-        newTaskBtn.classList.add('active');
-        newEventBtn.classList.remove('active');
-        highlight.style.transform = 'translateX(calc(100% + 4px))';
-        eventSettings.classList.add('inactive');
-        taskSettings.classList.remove('inactive');
-        task.kind = 'task';
-    });
-
-    // Lock the start date toggle for events
-    const startDateToggle = document.getElementById('startDateSwitch');
-    const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
-    startDateToggle.classList.add('active');
-    startDateToggle.style.pointerEvents = 'none';
-    
-    // Add lock icon
-    if (!startDateHandle.querySelector('.lock-icon')) {
-        const lockIcon = document.createElement('img');
-        lockIcon.src = './lock_icon.svg';
-        lockIcon.className = 'lock-icon';
-        lockIcon.style.width = '10px';
-        lockIcon.style.height = '10px';
-        lockIcon.style.opacity = '0.7';
-        startDateHandle.appendChild(lockIcon);
-    }
-    document.getElementById('startDateInputs').style.opacity = '1';
-
-    // Set up event listeners for date/time switches
-    switches.forEach(switchType => {
-        const switchEl = document.getElementById(`${switchType}Switch`);
-        const inputsEl = document.getElementById(`${switchType}Inputs`);
-        
-        switchEl.addEventListener('click', () => {
-            if (switchType === 'startDate') return; // Prevent toggling start date
+            const modal = document.getElementById('editTaskModal');
+            const task = taskEventArray.find(t => t.id === taskId);
+            if (!task) return;
             
-            const isActive = switchEl.classList.toggle('active');
-            inputsEl.style.opacity = isActive ? '1' : '0.5';
-            
-            const inputs = inputsEl.querySelectorAll('input');
-            if (isActive) {
-                inputs.forEach(input => input.removeAttribute('readonly'));
+            // First, remove any existing event listeners by cloning and replacing elements
+            const switches = ['dueDate', 'dueTime', 'startDate', 'startTime', 'endDate', 'endTime'];
+            switches.forEach(switchType => {
+                const switchEl = document.getElementById(`${switchType}Switch`);
+                const newSwitch = switchEl.cloneNode(true);
+                switchEl.parentNode.replaceChild(newSwitch, switchEl);
+            });
+
+            const eventBtn = document.getElementById('eventTypeBtn');
+            const taskBtn = document.getElementById('taskTypeBtn');
+            const newEventBtn = eventBtn.cloneNode(true);
+            const newTaskBtn = taskBtn.cloneNode(true);
+            eventBtn.parentNode.replaceChild(newEventBtn, eventBtn);
+            taskBtn.parentNode.replaceChild(newTaskBtn, taskBtn);
+
+            const closeBtn = document.getElementById('editTaskClose');
+            const newCloseBtn = closeBtn.cloneNode(true);
+            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
+            const deleteBtn = document.getElementById('deleteTaskBtn');
+            const newDeleteBtn = deleteBtn.cloneNode(true);
+            deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+
+            // Now continue with the rest of the function using the new elements
+            modal.dataset.taskId = taskId;
+            document.getElementById('editTaskName').value = task.name;
+
+            // Set up task type switching
+            const highlight = modal.querySelector('.task-type-highlight');
+            const eventSettings = modal.querySelector('.task-settings-event');
+            const taskSettings = modal.querySelector('.task-settings-task');
+
+            // First set initial classes without triggering clicks
+            if (task.kind === 'event') {
+                newEventBtn.classList.add('active');
+                newTaskBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(4px)';
+                eventSettings.classList.remove('inactive');
+                taskSettings.classList.add('inactive');
             } else {
-                inputs.forEach(input => input.setAttribute('readonly', 'true'));
-                // If turning off a date switch, also turn off corresponding time switch
-                if (switchType.endsWith('Date')) {
-                    const timeSwitch = document.getElementById(`${switchType.replace('Date', 'Time')}Switch`);
-                    const timeInputs = document.getElementById(`${switchType.replace('Date', 'Time')}Inputs`);
+                newTaskBtn.classList.add('active');
+                newEventBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(calc(100% + 4px))';
+                eventSettings.classList.add('inactive');
+                taskSettings.classList.remove('inactive');
+            }
+
+            // Then set up click handlers
+            newEventBtn.addEventListener('click', () => {
+                newEventBtn.classList.add('active');
+                newTaskBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(4px)';
+                eventSettings.classList.remove('inactive');
+                taskSettings.classList.add('inactive');
+                task.kind = 'event';
+            });
+
+            newTaskBtn.addEventListener('click', () => {
+                newTaskBtn.classList.add('active');
+                newEventBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(calc(100% + 4px))';
+                eventSettings.classList.add('inactive');
+                taskSettings.classList.remove('inactive');
+                task.kind = 'task';
+            });
+
+            // Lock the start date toggle for events
+            const startDateToggle = document.getElementById('startDateSwitch');
+            const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
+            startDateToggle.classList.add('active');
+            startDateToggle.style.pointerEvents = 'none';
+            
+            // Add lock icon
+            if (!startDateHandle.querySelector('.lock-icon')) {
+                const lockIcon = document.createElement('img');
+                lockIcon.src = './lock_icon.svg';
+                lockIcon.className = 'lock-icon';
+                lockIcon.style.width = '10px';
+                lockIcon.style.height = '10px';
+                lockIcon.style.opacity = '0.7';
+                startDateHandle.appendChild(lockIcon);
+            }
+            document.getElementById('startDateInputs').style.opacity = '1';
+
+            // Set up event listeners for date/time switches
+            switches.forEach(switchType => {
+                const switchEl = document.getElementById(`${switchType}Switch`);
+                const inputsEl = document.getElementById(`${switchType}Inputs`);
+                
+                switchEl.addEventListener('click', () => {
+                    if (switchType === 'startDate') return; // Prevent toggling start date
+                    
+                    const isActive = switchEl.classList.toggle('active');
+                    inputsEl.style.opacity = isActive ? '1' : '0.5';
+                    
+                    const inputs = inputsEl.querySelectorAll('input');
+                    if (isActive) {
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                    } else {
+                        inputs.forEach(input => input.setAttribute('readonly', 'true'));
+                        // If turning off a date switch, also turn off corresponding time switch
+                        if (switchType.endsWith('Date')) {
+                            const timeSwitch = document.getElementById(`${switchType.replace('Date', 'Time')}Switch`);
+                            const timeInputs = document.getElementById(`${switchType.replace('Date', 'Time')}Inputs`);
+                            timeSwitch.classList.remove('active');
+                            timeInputs.style.opacity = '0.5';
+                            timeInputs.querySelectorAll('input').forEach(input => input.setAttribute('readonly', 'true'));
+                        }
+                    }
+                    
+                    // If turning on a time switch, ensure date switch is on
+                    if (switchType.endsWith('Time') && isActive) {
+                        const dateSwitch = document.getElementById(`${switchType.replace('Time', 'Date')}Switch`);
+                        const dateInputs = document.getElementById(`${switchType.replace('Time', 'Date')}Inputs`);
+                        dateSwitch.classList.add('active');
+                        dateInputs.style.opacity = '1';
+                        dateInputs.querySelectorAll('input').forEach(input => input.removeAttribute('readonly'));
+                    }
+                });
+            });
+
+            // Fill in existing values if task has them
+            if (task.date) {
+                const [year, month, day] = task.date.split('-');
+                ['due', 'start', 'end'].forEach(prefix => {
+                    const dateInputs = document.getElementById(`${prefix}DateInputs`).querySelectorAll('input');
+                    dateInputs[0].value = month;
+                    dateInputs[1].value = day;
+                    dateInputs[2].value = year;
+                    
+                    document.getElementById(`${prefix}DateSwitch`).classList.add('active');
+                    document.getElementById(`${prefix}DateInputs`).style.opacity = '1';
+                    dateInputs.forEach(input => input.removeAttribute('readonly'));
+                });
+            }
+
+            // Only fill time inputs and activate time switches if there's a time
+            if (task.endTime) {
+                const [hours, minutes] = task.endTime.split(':');
+                
+                // For tasks, fill the due time
+                if (task.kind === 'task') {
+                    const timeSwitch = document.getElementById('dueTimeSwitch');
+                    const timeInputs = document.getElementById('dueTimeInputs');
+                    const inputs = timeInputs.querySelectorAll('input');
+                    
+                    inputs[0].value = hours;
+                    inputs[1].value = minutes;
+                    timeSwitch.classList.add('active');
+                    timeInputs.style.opacity = '1';
+                    inputs.forEach(input => input.removeAttribute('readonly'));
+
+                    // Only copy to start time (not end time) when switching to event
+                    const startTimeSwitch = document.getElementById('startTimeSwitch');
+                    const startTimeInputs = document.getElementById('startTimeInputs');
+                    const startInputs = startTimeInputs.querySelectorAll('input');
+                    
+                    startInputs[0].value = hours;
+                    startInputs[1].value = minutes;
+                    startTimeSwitch.classList.add('active');
+                    startTimeInputs.style.opacity = '1';
+                    startInputs.forEach(input => input.removeAttribute('readonly'));
+
+                    // Leave end time empty and switched off
+                    const endTimeSwitch = document.getElementById('endTimeSwitch');
+                    const endTimeInputs = document.getElementById('endTimeInputs');
+                    const endInputs = endTimeInputs.querySelectorAll('input');
+                    
+                    endInputs.forEach(input => {
+                        input.value = '';
+                        input.setAttribute('readonly', 'true');
+                    });
+                    endTimeSwitch.classList.remove('active');
+                    endTimeInputs.style.opacity = '0.5';
+                }
+            } else {
+                // If no time, ensure time switches are off and inputs are empty
+                ['due', 'start', 'end'].forEach(prefix => {
+                    const timeSwitch = document.getElementById(`${prefix}TimeSwitch`);
+                    const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                    const inputs = timeInputs.querySelectorAll('input');
+                    
+                    // Clear and deactivate
+                    inputs.forEach(input => {
+                        input.value = '';
+                        input.setAttribute('readonly', 'true');
+                    });
                     timeSwitch.classList.remove('active');
                     timeInputs.style.opacity = '0.5';
-                    timeInputs.querySelectorAll('input').forEach(input => input.setAttribute('readonly', 'true'));
+                });
+            }
+
+            // Close button event listener
+            newCloseBtn.addEventListener('click', () => hideModal('editTask'));
+            
+            // Delete button event listener
+            newDeleteBtn.addEventListener('click', () => {
+                const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
+                if (taskIndex !== -1) {
+                    taskEventArray.splice(taskIndex, 1);
+                    saveUserData();
+                    renderTasks();
+                    renderCalendar();
+                    hideModal('editTask');
                 }
-            }
-            
-            // If turning on a time switch, ensure date switch is on
-            if (switchType.endsWith('Time') && isActive) {
-                const dateSwitch = document.getElementById(`${switchType.replace('Time', 'Date')}Switch`);
-                const dateInputs = document.getElementById(`${switchType.replace('Time', 'Date')}Inputs`);
-                dateSwitch.classList.add('active');
-                dateInputs.style.opacity = '1';
-                dateInputs.querySelectorAll('input').forEach(input => input.removeAttribute('readonly'));
-            }
-        });
-    });
-
-    // Fill in existing values if task has them
-    if (task.date) {
-        const [year, month, day] = task.date.split('-');
-        ['due', 'start', 'end'].forEach(prefix => {
-            const dateInputs = document.getElementById(`${prefix}DateInputs`).querySelectorAll('input');
-            dateInputs[0].value = month;
-            dateInputs[1].value = day;
-            dateInputs[2].value = year;
-            
-            document.getElementById(`${prefix}DateSwitch`).classList.add('active');
-            document.getElementById(`${prefix}DateInputs`).style.opacity = '1';
-            dateInputs.forEach(input => input.removeAttribute('readonly'));
-        });
-    }
-
-    // Only fill time inputs and activate time switches if there's a time
-    if (task.endTime) {
-        const [hours, minutes] = task.endTime.split(':');
-        
-        // For tasks, fill the due time
-        if (task.kind === 'task') {
-            const timeSwitch = document.getElementById('dueTimeSwitch');
-            const timeInputs = document.getElementById('dueTimeInputs');
-            const inputs = timeInputs.querySelectorAll('input');
-            
-            inputs[0].value = hours;
-            inputs[1].value = minutes;
-            timeSwitch.classList.add('active');
-            timeInputs.style.opacity = '1';
-            inputs.forEach(input => input.removeAttribute('readonly'));
-
-            // Only copy to start time (not end time) when switching to event
-            const startTimeSwitch = document.getElementById('startTimeSwitch');
-            const startTimeInputs = document.getElementById('startTimeInputs');
-            const startInputs = startTimeInputs.querySelectorAll('input');
-            
-            startInputs[0].value = hours;
-            startInputs[1].value = minutes;
-            startTimeSwitch.classList.add('active');
-            startTimeInputs.style.opacity = '1';
-            startInputs.forEach(input => input.removeAttribute('readonly'));
-
-            // Leave end time empty and switched off
-            const endTimeSwitch = document.getElementById('endTimeSwitch');
-            const endTimeInputs = document.getElementById('endTimeInputs');
-            const endInputs = endTimeInputs.querySelectorAll('input');
-            
-            endInputs.forEach(input => {
-                input.value = '';
-                input.setAttribute('readonly', 'true');
             });
-            endTimeSwitch.classList.remove('active');
-            endTimeInputs.style.opacity = '0.5';
-        }
-    } else {
-        // If no time, ensure time switches are off and inputs are empty
-        ['due', 'start', 'end'].forEach(prefix => {
-            const timeSwitch = document.getElementById(`${prefix}TimeSwitch`);
-            const timeInputs = document.getElementById(`${prefix}TimeInputs`);
-            const inputs = timeInputs.querySelectorAll('input');
-            
-            // Clear and deactivate
-            inputs.forEach(input => {
-                input.value = '';
-                input.setAttribute('readonly', 'true');
-            });
-            timeSwitch.classList.remove('active');
-            timeInputs.style.opacity = '0.5';
-        });
-    }
 
-    // Close button event listener
-    newCloseBtn.addEventListener('click', () => hideModal('editTask'));
-    
-    // Delete button event listener
-    newDeleteBtn.addEventListener('click', () => {
-        const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
-        if (taskIndex !== -1) {
-            taskEventArray.splice(taskIndex, 1);
-            saveUserData();
-            renderTasks();
-            renderCalendar();
-            hideModal('editTask');
+            showModal('editTask');
         }
-    });
-
-    showModal('editTask');
-}
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUserSettings();
