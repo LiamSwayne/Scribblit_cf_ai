@@ -2665,7 +2665,96 @@
             const newDeleteBtn = deleteBtn.cloneNode(true);
             deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
 
-            // Now continue with the rest of the function using the new elements
+            // Add input handling for all date and time inputs
+            ['due', 'start', 'end'].forEach(prefix => {
+                const dateInputs = document.getElementById(`${prefix}DateInputs`).querySelectorAll('input');
+                const timeInputs = document.getElementById(`${prefix}TimeInputs`).querySelectorAll('input');
+
+                // Apply base styles to hide cursor
+                [...dateInputs, ...timeInputs].forEach(input => {
+                    input.style.caretColor = 'transparent';
+                });
+
+                // Helper function to handle input focus
+                const handleFocus = (input) => {
+                    input.style.transition = 'background-color 0.15s ease';
+                    input.style.backgroundColor = '#294d73';
+                    if (input.value) {
+                        input.style.transition = 'color 0.15s ease';
+                        input.style.color = 'var(--grey-2)';
+                        input.dataset.previousValue = input.value;
+                    }
+                };
+
+                // Helper function to handle input blur
+                const handleBlur = (input) => {
+                    input.style.backgroundColor = 'var(--grey-5)';
+                    if (input.dataset.previousValue && !input.value) {
+                        input.value = input.dataset.previousValue;
+                    }
+                    input.style.color = 'var(--grey-1)';
+                    delete input.dataset.previousValue;
+                };
+
+                // Helper function to handle keydown
+                const handleKeydown = (input, inputs, event) => {
+                    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                        event.preventDefault();
+                        const currentIndex = Array.from(inputs).indexOf(input);
+                        let nextIndex;
+                        
+                        if (event.key === 'ArrowRight') {
+                            nextIndex = (currentIndex + 1) % inputs.length;
+                        } else {
+                            nextIndex = (currentIndex - 1 + inputs.length) % inputs.length;
+                        }
+                        
+                        inputs[nextIndex].focus();
+                    }
+                };
+
+                // Helper function to handle input
+                const handleInput = (input) => {
+                    if (input.dataset.previousValue !== undefined) {
+                        input.value = '';
+                        input.style.color = 'var(--grey-1)';
+                        delete input.dataset.previousValue;
+                    }
+                };
+
+                // Set up date inputs
+                dateInputs.forEach(input => {
+                    input.addEventListener('focus', () => handleFocus(input));
+                    input.addEventListener('blur', () => handleBlur(input));
+                    input.addEventListener('keydown', (e) => handleKeydown(input, dateInputs, e));
+                    input.addEventListener('input', () => handleInput(input));
+                    
+                    // Prevent text selection and cursor movement
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                            e.preventDefault();
+                        }
+                    });
+                    input.addEventListener('select', (e) => e.preventDefault());
+                });
+
+                // Set up time inputs
+                timeInputs.forEach(input => {
+                    input.addEventListener('focus', () => handleFocus(input));
+                    input.addEventListener('blur', () => handleBlur(input));
+                    input.addEventListener('keydown', (e) => handleKeydown(input, timeInputs, e));
+                    input.addEventListener('input', () => handleInput(input));
+                    
+                    // Prevent text selection and cursor movement
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                            e.preventDefault();
+                        }
+                    });
+                    input.addEventListener('select', (e) => e.preventDefault());
+                });
+            });
+
             modal.dataset.taskId = taskId;
             document.getElementById('editTaskName').value = task.name;
 
@@ -2732,7 +2821,7 @@
                 const inputsEl = document.getElementById(`${switchType}Inputs`);
                 
                 switchEl.addEventListener('click', () => {
-                    if (switchType === 'startDate') return; // Prevent toggling start date
+                    if (switchType === 'startDate') return;
                     
                     const isActive = switchEl.classList.toggle('active');
                     inputsEl.style.opacity = isActive ? '1' : '0.5';
@@ -2742,7 +2831,6 @@
                         inputs.forEach(input => input.removeAttribute('readonly'));
                     } else {
                         inputs.forEach(input => input.setAttribute('readonly', 'true'));
-                        // If turning off a date switch, also turn off corresponding time switch
                         if (switchType.endsWith('Date')) {
                             const timeSwitch = document.getElementById(`${switchType.replace('Date', 'Time')}Switch`);
                             const timeInputs = document.getElementById(`${switchType.replace('Date', 'Time')}Inputs`);
@@ -2752,7 +2840,6 @@
                         }
                     }
                     
-                    // If turning on a time switch, ensure date switch is on
                     if (switchType.endsWith('Time') && isActive) {
                         const dateSwitch = document.getElementById(`${switchType.replace('Time', 'Date')}Switch`);
                         const dateInputs = document.getElementById(`${switchType.replace('Time', 'Date')}Inputs`);
@@ -2778,11 +2865,9 @@
                 });
             }
 
-            // Only fill time inputs and activate time switches if there's a time
             if (task.endTime) {
                 const [hours, minutes] = task.endTime.split(':');
                 
-                // For tasks, fill the due time
                 if (task.kind === 'task') {
                     const timeSwitch = document.getElementById('dueTimeSwitch');
                     const timeInputs = document.getElementById('dueTimeInputs');
@@ -2794,7 +2879,6 @@
                     timeInputs.style.opacity = '1';
                     inputs.forEach(input => input.removeAttribute('readonly'));
 
-                    // Only copy to start time (not end time) when switching to event
                     const startTimeSwitch = document.getElementById('startTimeSwitch');
                     const startTimeInputs = document.getElementById('startTimeInputs');
                     const startInputs = startTimeInputs.querySelectorAll('input');
@@ -2805,7 +2889,6 @@
                     startTimeInputs.style.opacity = '1';
                     startInputs.forEach(input => input.removeAttribute('readonly'));
 
-                    // Leave end time empty and switched off
                     const endTimeSwitch = document.getElementById('endTimeSwitch');
                     const endTimeInputs = document.getElementById('endTimeInputs');
                     const endInputs = endTimeInputs.querySelectorAll('input');
@@ -2818,13 +2901,11 @@
                     endTimeInputs.style.opacity = '0.5';
                 }
             } else {
-                // If no time, ensure time switches are off and inputs are empty
                 ['due', 'start', 'end'].forEach(prefix => {
                     const timeSwitch = document.getElementById(`${prefix}TimeSwitch`);
                     const timeInputs = document.getElementById(`${prefix}TimeInputs`);
                     const inputs = timeInputs.querySelectorAll('input');
                     
-                    // Clear and deactivate
                     inputs.forEach(input => {
                         input.value = '';
                         input.setAttribute('readonly', 'true');
@@ -2834,10 +2915,8 @@
                 });
             }
 
-            // Close button event listener
             newCloseBtn.addEventListener('click', () => hideModal('editTask'));
             
-            // Delete button event listener
             newDeleteBtn.addEventListener('click', () => {
                 const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
                 if (taskIndex !== -1) {
