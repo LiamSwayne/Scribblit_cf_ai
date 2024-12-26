@@ -2702,7 +2702,8 @@
     // Always force start date toggle to be active and locked
     startDateToggle.classList.add('active');
     startDateToggle.style.pointerEvents = 'none';
-    startDateToggle.style.opacity = '0.8';
+    const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
+    startDateHandle.classList.add('locked');
     startDateRow.querySelector('.date-time-inputs').style.opacity = '1';
     startDateRow.querySelector('.date-time-inputs').style.pointerEvents = 'auto';
     
@@ -2738,10 +2739,14 @@
         fillDateTimeInputs(startDateGroup, task.date, task.endTime, false); // Copy due time to start time
         fillDateTimeInputs(endDateGroup, task.date, task.endTime, false);
         
-        // Handle start time toggle - should be normal toggle in task mode
+        // Handle start time toggle - should be disabled in task mode
         const startTimeToggle = startDateGroup.querySelector('[data-setting="startTime"]');
-        startTimeToggle.style.pointerEvents = 'auto';
-        startTimeToggle.style.opacity = '1';
+        startTimeToggle.classList.remove('active');
+        const startTimeRow = startTimeToggle.closest('.date-time-row');
+        const startTimeInputs = startTimeRow.querySelector('.time-inputs');
+        startTimeInputs.style.opacity = '0.5';
+        startTimeInputs.style.pointerEvents = 'none';
+        startTimeToggle.style.pointerEvents = 'none';
     }
 
     showModal('editTask');
