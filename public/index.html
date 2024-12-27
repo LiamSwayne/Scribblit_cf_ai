@@ -2814,13 +2814,22 @@
                 const [year, month, day] = task.date.split('-');
                 ['due', 'start', 'end'].forEach(prefix => {
                     const dateInputs = document.getElementById(`${prefix}DateInputs`).querySelectorAll('input');
-                    dateInputs[0].value = month;
-                    dateInputs[1].value = day;
+                    dateInputs[0].value = parseInt(month).toString();
+                    dateInputs[1].value = parseInt(day).toString();
                     dateInputs[2].value = year;
                     
                     document.getElementById(`${prefix}DateSwitch`).classList.add('active');
                     document.getElementById(`${prefix}DateInputs`).style.opacity = '1';
-                    dateInputs.forEach(input => input.removeAttribute('readonly'));
+                    dateInputs.forEach(input => {
+                        input.removeAttribute('readonly');
+                        input.addEventListener('focus', function() {
+                            const length = this.value.length;
+                            this.setSelectionRange(length, length);
+                            setTimeout(() => {
+                                this.setSelectionRange(length, length);
+                            }, 0);
+                        });
+                    });
                 });
             }
 
@@ -2834,22 +2843,40 @@
                     const timeInputs = document.getElementById('dueTimeInputs');
                     const inputs = timeInputs.querySelectorAll('input');
                     
-                    inputs[0].value = hours;
-                    inputs[1].value = minutes;
+                    inputs[0].value = parseInt(hours).toString();
+                    inputs[1].value = parseInt(minutes).toString();
                     timeSwitch.classList.add('active');
                     timeInputs.style.opacity = '1';
-                    inputs.forEach(input => input.removeAttribute('readonly'));
+                    inputs.forEach(input => {
+                        input.removeAttribute('readonly');
+                        input.addEventListener('focus', function() {
+                            const length = this.value.length;
+                            this.setSelectionRange(length, length);
+                            setTimeout(() => {
+                                this.setSelectionRange(length, length);
+                            }, 0);
+                        });
+                    });
 
                     // Only copy to start time (not end time) when switching to event
                     const startTimeSwitch = document.getElementById('startTimeSwitch');
                     const startTimeInputs = document.getElementById('startTimeInputs');
                     const startInputs = startTimeInputs.querySelectorAll('input');
                     
-                    startInputs[0].value = hours;
-                    startInputs[1].value = minutes;
+                    startInputs[0].value = parseInt(hours).toString();
+                    startInputs[1].value = parseInt(minutes).toString();
                     startTimeSwitch.classList.add('active');
                     startTimeInputs.style.opacity = '1';
-                    startInputs.forEach(input => input.removeAttribute('readonly'));
+                    startInputs.forEach(input => {
+                        input.removeAttribute('readonly');
+                        input.addEventListener('focus', function() {
+                            const length = this.value.length;
+                            this.setSelectionRange(length, length);
+                            setTimeout(() => {
+                                this.setSelectionRange(length, length);
+                            }, 0);
+                        });
+                    });
 
                     // Leave end time empty and switched off
                     const endTimeSwitch = document.getElementById('endTimeSwitch');
