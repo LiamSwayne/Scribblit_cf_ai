@@ -787,12 +787,13 @@
             pointer-events: none;
             transition: opacity 0.3s ease, transform 0.3s ease;
             z-index: 9999;
+            user-select: none;
         }
 
         .task-modal-center-line {
             position: absolute;
-            top: 104px; /* Position it below the type selector */
-            bottom: 50px; /* Leave space for footer */
+            top: 104px;
+            bottom: 50px;
             left: 50%;
             width: 2px;
             background-color: var(--grey-4);
@@ -805,7 +806,6 @@
             transform: translate(-50%, -50%) scale(1);
         }
 
-        /* Header Section */
         .task-modal-header {
             grid-area: header;
             display: grid;
@@ -839,6 +839,7 @@
             right: 34px;
             top: 10px;
             position: absolute;
+            user-select: none;
         }
 
         .task-edit-input:focus {
@@ -919,6 +920,7 @@
             color: var(--grey-1);
             font-size: 14px;
             margin-bottom: -5px;
+            user-select: none;
         }
 
         .date-time-row {
@@ -945,6 +947,7 @@
             cursor: pointer;
             position: relative;
             transition: background-color 0.3s ease;
+            user-select: none;
         }
 
         .task-toggle-track.active {
@@ -980,11 +983,14 @@
             color: var(--grey-1);
             text-align: center;
             outline: none;
+            user-select: none;
+            transition: background-color 0.15s ease;
         }
 
         .date-time-inputs input:focus,
         .time-inputs input:focus {
             outline: none;
+            background-color: rgba(97, 163, 255, 0.1);
         }
 
         .date-time-inputs input[placeholder="YYYY"] {
@@ -994,6 +1000,7 @@
         .date-time-separator {
             color: var(--grey-2);
             font-family: 'JetBrains Mono', monospace;
+            user-select: none;
         }
 
         .task-modal-footer {
@@ -2430,6 +2437,26 @@
                                 }
                             }
                         });
+
+                        // non-recurring task should stay completed even if the date changes
+                        if (object.kind === 'task' && !object.recurPattern && Object.keys(object.done).length > 0) {
+                            // assert that the length of the dictionary is 1
+                            const keys = Object.keys(object.done);
+                            if (keys.length === 1) {
+                                const key = keys[0];
+                                if (key !== object.date) {
+                                    object.done = {
+                                        // completed now
+                                        [object.date]: {
+                                            completed: true,
+                                            completedAt: String(DateTime.now().setZone(userTimezone))
+                                        }
+                                    }
+                                }
+                            } else {
+                                console.error('Task has multiple completion dates');
+                            }
+                        }
 
                         console.log(object);
 
