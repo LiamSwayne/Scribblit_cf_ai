@@ -112,14 +112,16 @@
             opacity: 0.5;
         }
 
-        .empty-section .section-title {
-            color: var(--grey-2);
-        }
-
         .section-title {
             font-size: 20px;
             font-weight: 700;
             margin-bottom: 4px;
+            user-select: none;
+            cursor: default;
+        }
+
+        .empty-section .section-title {
+            color: var(--grey-2);
         }
 
         .task-list {
@@ -168,6 +170,8 @@
             text-align: right;
             margin-top: 2px;
             text-align: center;
+            /* animations for switching between AM/PM and 24h */
+            transition: font-size 0.3s ease, letter-spacing 0.3s ease;
         }
 
         .task-date-time {
@@ -189,6 +193,18 @@
         .task-date-time .task-time {
             font-size: 9.5px;
             margin-top: -2px;
+        }
+
+        .time-format-ampm .task-time {
+            /* shrink font to make space for AM/PM */
+            font-size: 10.5px;
+            /* decrease space between letters */
+            letter-spacing: -0.5px;
+        }
+
+        .time-colon {
+            margin-left: -1.5px;
+            margin-right: -1.5px;
         }
 
         .navigation {
@@ -231,7 +247,27 @@
             border-radius: 8px;
             font-size: 12px;
             box-sizing: border-box;
-            transition: opacity 0.3s ease;
+            user-select: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        /* white border around event */
+        .calendar-event::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 8px;
+            pointer-events: none;
+            transition: border 0.15s ease;
+            border: 0px solid white;
+        }
+
+        .calendar-event:hover::after {
+            border: 2px solid white;
         }
 
         /* overrides existing event opacity */
@@ -380,6 +416,13 @@
             color: var(--grey-2);
             font-size: 13px;
             margin-top: -2px;
+        }
+
+        /* text shouldn't be selectable */
+        /* pointer because it's clickable */
+        #currentDate, #dayOfWeek {
+            user-select: none;
+            cursor: pointer;
         }
 
         #prevDay {
@@ -865,7 +908,7 @@
             top: 4px;
             height: calc(100% - 8px);
             width: calc(50% - 4px);
-            background-color: #83cb9a;
+            background-color: rgba(97, 163, 255, 0.8);
             opacity: 0.2;
             border-radius: 3px;
             transition: transform 0.3s ease;
@@ -1807,14 +1850,14 @@
                         if (task.endTime) {
                             const timeSpan = document.createElement('span');
                             timeSpan.className = 'task-time';
-                            timeSpan.textContent = task.endTime;
+                            timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
                             dateTimeSpan.appendChild(timeSpan);
                         }
                     } else {
                         // Show just time or asterisk for today's tasks
                         if (task.endTime) {
                             dateTimeSpan.className = 'task-time';
-                            dateTimeSpan.textContent = task.endTime;
+                            dateTimeSpan.innerHTML = formatTimeForDisplay(task.endTime);
                         } else {
                             dateTimeSpan.className = 'task-asterisk';
                             dateTimeSpan.textContent = '*';
@@ -1843,7 +1886,7 @@
                     const timeSpan = document.createElement('span');
                     if (task.endTime) {
                         timeSpan.className = 'task-time';
-                        timeSpan.textContent = task.endTime;
+                        timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
                     } else {
                         timeSpan.className = 'task-asterisk';
                         timeSpan.textContent = '*';
@@ -1876,7 +1919,7 @@
                     if (task.endTime) {
                         const timeSpan = document.createElement('span');
                         timeSpan.className = 'task-time';
-                        timeSpan.textContent = task.endTime;
+                        timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
                         dateTimeSpan.appendChild(timeSpan);
                     }
 
@@ -2684,11 +2727,91 @@
 
             // If this is the time format setting, trigger the animation
             if (setting === 'timeFormat') {
-                animateTimeFormatChange(value === '24h');
+                // apply .time-format-ampm
+                if (value === 'AM/PM') {
+                    document.body.classList.add('time-format-ampm');
+                } else {
+                    document.body.classList.remove('time-format-ampm');
+                }
+
+                animateHourLabelFormatChange(value === '24h');
+                animateTaskTimeFormatChange(value === '24h');
             }
         }
 
-        function animateTimeFormatChange(to24Hour) {
+        function animateTaskTimeFormatChange(to24Hour) {
+            const taskTimes = document.querySelectorAll('.task-time');
+            const intervalBetweenStarts = 600 / taskTimes.length;
+            
+            // For converting the times, we need to look up the actual tasks
+            taskTimes.forEach((timeElement, index) => {
+                setTimeout(() => {
+                    // Get parent task item and its task
+                    const taskItem = timeElement.closest('.task-item');
+                    if (!taskItem) return;
+                    const taskId = taskItem.dataset.taskId;
+                    const task = taskEventArray.find(t => t.id === taskId);
+                    if (!task || !task.endTime) return;
+
+                    // Get current display text (excluding HTML)
+                    let currentText = timeElement.textContent;
+                    
+                    // Prepare the new text based on conversion
+                    const [hours24, minutes] = task.endTime.split(':').map(Number);
+                    let newText;
+                    if (to24Hour) {
+                        newText = `${hours24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    } else {
+                        const period = hours24 >= 12 ? 'PM' : 'AM';
+                        const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+                        newText = `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}${period}`;
+                    }
+
+                    // Delete characters one by one
+                    let currentDisplayText = currentText;
+                    const deleteInterval = setInterval(() => {
+                        if (currentDisplayText.length > 0) {
+                            if (currentDisplayText.endsWith('AM') || currentDisplayText.endsWith('PM')) {
+                                // Remove AM/PM as one unit
+                                currentDisplayText = currentDisplayText.slice(0, -2);
+                            } else if (currentDisplayText.includes(':')) {
+                                // Handle colon as one unit with its HTML
+                                if (currentDisplayText.endsWith(':')) {
+                                    currentDisplayText = currentDisplayText.slice(0, -1);
+                                    timeElement.innerHTML = `${currentDisplayText}<span class="time-colon">:</span>`;
+                                } else {
+                                    currentDisplayText = currentDisplayText.slice(0, -1);
+                                }
+                            } else {
+                                currentDisplayText = currentDisplayText.slice(0, -1);
+                            }
+                            timeElement.innerHTML = currentDisplayText;
+                        } else {
+                            clearInterval(deleteInterval);
+                            
+                            // Add new characters one by one
+                            let currentIndex = 0;
+                            const addInterval = setInterval(() => {
+                                if (currentIndex <= newText.length) {
+                                    let displayText = newText.slice(0, currentIndex);
+                                    if (displayText.includes(':')) {
+                                        // Properly handle colon with HTML
+                                        const parts = displayText.split(':');
+                                        displayText = `${parts[0]}<span class="time-colon">:</span>${parts[1] || ''}`;
+                                    }
+                                    timeElement.innerHTML = displayText;
+                                    currentIndex++;
+                                } else {
+                                    clearInterval(addInterval);
+                                }
+                            }, 400 / newText.length);
+                        }
+                    }, 400 / currentText.length);
+                }, index * intervalBetweenStarts);
+            });
+        }
+
+        function animateHourLabelFormatChange(to24Hour) {
             const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
             const totalLabels = hourLabels.length;
             const intervalBetweenStarts = 600 / totalLabels;
@@ -2794,6 +2917,7 @@
             }, 400 / oldText.length);
         }
 
+        // format time for calendar hour labels
         function formatTime(hour, to24Hour) {
             if (to24Hour) {
                 return `${hour.toString().padStart(2, '0')}:00`;
@@ -2803,6 +2927,18 @@
                 return `${hour12.toString().padStart(2, '0')} ${period}`;
             }
         }
+
+        // format time for task list
+        function formatTimeForDisplay(time24) {
+    if (!time24) return '';
+    const [hours24, minutes] = time24.split(':').map(Number);
+    if (userSettings.timeFormat === '24h') {
+        return `${hours24.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}`;
+    }
+    const period = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+    return `${hours12.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}${period}`;
+}
 
         function constructTaskEditorModal(taskId) {
             const modal = document.getElementById('editTaskModal');
