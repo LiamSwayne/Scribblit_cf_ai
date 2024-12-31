@@ -250,6 +250,7 @@
             user-select: none;
             cursor: pointer;
             position: relative;
+            transition: opacity 0.3s ease, background-color 0.3s ease;
         }
 
         /* white border around event */
@@ -348,7 +349,7 @@
         .hour-label {
             position: absolute;
             left: 0;
-            width: 50px;
+            width: 38px;
             text-align: right;
             padding-right: 5px;
             font-family: 'JetBrains Mono', monospace;
@@ -1108,6 +1109,19 @@
             background-color: var(--grey-4);
             border-radius: 2px;
             transition: transform 0.3s ease;
+        }
+
+        .date-time-inputs input[readonly]:focus,
+        .time-inputs input[readonly]:focus {
+            background-color: var(--grey-5) !important;  /* Keep default background */
+            outline: none;  /* Remove outline */
+            caret-color: transparent;  /* Hide text cursor */
+        }
+
+        .date-time-inputs input[readonly],
+        .time-inputs input[readonly] {
+            cursor: default;  /* Change cursor to indicate non-interactive */
+            user-select: none;  /* Prevent text selection */
         }
     </style>
 </head>
