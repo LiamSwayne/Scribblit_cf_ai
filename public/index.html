@@ -195,11 +195,16 @@
             margin-top: -2px;
         }
 
+        /* AM/PM format styles - needs to match or exceed overdue specificity */
         .time-format-ampm .task-time {
-            /* shrink font to make space for AM/PM */
-            font-size: 10.5px;
-            /* decrease space between letters */
-            letter-spacing: -0.5px;
+            font-size: 10.5px !important; /* Force override */
+            letter-spacing: -0.5px !important; /* Force override */
+        }
+
+        /* Overdue task time in AM/PM format - matching the highest specificity */
+        .time-format-ampm .overdue-task .task-time {
+            font-size: 10.5px !important; /* Force override */
+            letter-spacing: -0.5px !important; /* Force override */
         }
 
         .time-colon {
@@ -541,7 +546,7 @@
         .overdue-task .task-date,
         .overdue-task .task-time {
             color: #ff4444;
-            transition: color 0.3s ease;
+            transition: color 0.3s ease, font-size 0.3s ease, letter-spacing 0.3s ease;
         }
 
         .overdue-task-done .task-date,
@@ -2005,23 +2010,24 @@
             }
 
             // Render time markers
-            for (let i = 0; i < 24; i++) {
-                const hourMarker = document.createElement('div');
-                hourMarker.className = 'hour-marker';
-                hourMarker.style.top = `${i / 24 * 100}%`;
+    for (let i = 0; i < 24; i++) {
+        const hourMarker = document.createElement('div');
+        hourMarker.className = 'hour-marker';
+        hourMarker.style.top = `${i / 24 * 100}%`;
 
-                const hourLabel = document.createElement('div');
-                hourLabel.className = 'hour-label';
-                const timeText = formatTime(i, userSettings.timeFormat === '24h');
-                hourLabel.textContent = timeText;
-                hourLabel.dataset.value = timeText;
-                // Assign random unique ID
-                hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
-                hourLabel.style.top = `${i / 24 * 100}%`;
+        const hourLabel = document.createElement('div');
+        hourLabel.className = 'hour-label';
+        const timeText = formatTime(i, userSettings.timeFormat === '24h');
+        // Start with empty text content but store the target value
+        hourLabel.textContent = '';
+        hourLabel.dataset.value = timeText;
+        // Assign random unique ID
+        hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
+        hourLabel.style.top = `${i / 24 * 100}%`;
 
-                calendar.appendChild(hourMarker);
-                calendar.appendChild(hourLabel);
-            }
+        calendar.appendChild(hourMarker);
+        calendar.appendChild(hourLabel);
+    }
 
             const now = DateTime.now().setZone(userTimezone);
             const currentMinutes = now.hour * 60 + now.minute;
@@ -2740,11 +2746,19 @@
 
             // If this is the time format setting, trigger the animation
             if (setting === 'timeFormat') {
-                // apply .time-format-ampm
                 if (value === 'AM/PM') {
                     document.body.classList.add('time-format-ampm');
                 } else {
-                    document.body.classList.remove('time-format-ampm');
+                    // When switching to 24h, calculate total animation duration
+                    const taskTimes = document.querySelectorAll('.task-time');
+                    const hourLabels = document.querySelectorAll('.hour-label');
+                    const totalElements = taskTimes.length + hourLabels.length;
+                    const totalDuration = 600;
+
+                    // Remove class after animations complete
+                    setTimeout(() => {
+                        document.body.classList.remove('time-format-ampm');
+                    }, totalDuration);
                 }
 
                 animateHourLabelFormatChange(value === '24h');
@@ -2753,10 +2767,14 @@
         }
 
         function animateTaskTimeFormatChange(to24Hour) {
-            const taskTimes = document.querySelectorAll('.task-time');
+            // Skip animation if time format matches current display format
+            const isCurrently24Hour = !document.body.classList.contains('time-format-ampm');
+            if (to24Hour === isCurrently24Hour) return;
+
+            // Select both regular task times and overdue task times
+            const taskTimes = document.querySelectorAll('.task-time, .overdue-task .task-time');
             const intervalBetweenStarts = 600 / taskTimes.length;
             
-            // For converting the times, we need to look up the actual tasks
             taskTimes.forEach((timeElement, index) => {
                 setTimeout(() => {
                     // Get parent task item and its task
@@ -2943,21 +2961,30 @@
 
         // format time for task list
         function formatTimeForDisplay(time24) {
-    if (!time24) return '';
-    const [hours24, minutes] = time24.split(':').map(Number);
-    if (userSettings.timeFormat === '24h') {
-        return `${hours24.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}`;
-    }
-    const period = hours24 >= 12 ? 'PM' : 'AM';
-    const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
-    return `${hours12.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}${period}`;
-}
+            if (!time24) return '';
+            const [hours24, minutes] = time24.split(':').map(Number);
+            if (userSettings.timeFormat === '24h') {
+                return `${hours24.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}`;
+            }
+            const period = hours24 >= 12 ? 'PM' : 'AM';
+            const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+            return `${hours12.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}${period}`;
+        }
 
         function constructTaskEditorModal(taskId) {
             const modal = document.getElementById('editTaskModal');
             const task = taskEventArray.find(t => t.id === taskId);
             if (!task) return;
-            
+
+            // Handle task name input
+            const taskNameInput = document.getElementById('editTaskName');
+            taskNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    taskNameInput.blur();
+                }
+            });
+
             // First, remove any existing event listeners by cloning and replacing elements
             const switches = ['dueDate', 'dueTime', 'startDate', 'startTime', 'endDate', 'endTime'];
             switches.forEach(switchType => {
@@ -2982,7 +3009,18 @@
             deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
 
             modal.dataset.taskId = taskId;
-            document.getElementById('editTaskName').value = task.name;
+            taskNameInput.value = task.name;
+
+            // Add focus handler to all date and time inputs
+            document.querySelectorAll('.date-time-inputs input, .time-inputs input').forEach(input => {
+                input.addEventListener('focus', function() {
+                    const length = this.value.length;
+                    this.setSelectionRange(length, length);
+                    setTimeout(() => {
+                        this.setSelectionRange(length, length);
+                    }, 0);
+                });
+            });
 
             // Set up task type switching
             const highlight = modal.querySelector('.task-type-highlight');
@@ -3008,6 +3046,16 @@
             document.querySelectorAll('.time-period-selector').forEach(selector => {
                 if (userSettings.timeFormat === 'AM/PM') {
                     selector.style.display = 'flex';
+                    // Get the parent time inputs container
+                    const timeInputs = selector.closest('.time-inputs');
+                    if (timeInputs) {
+                        // Check if the corresponding time switch is inactive
+                        const switchId = timeInputs.id.replace('Inputs', 'Switch');
+                        const timeSwitch = document.getElementById(switchId);
+                        if (!timeSwitch.classList.contains('active')) {
+                            selector.style.pointerEvents = 'none';
+                        }
+                    }
                 } else {
                     selector.style.display = 'none';
                 }
@@ -3136,13 +3184,6 @@
                     document.getElementById(`${prefix}DateInputs`).style.opacity = '1';
                     dateInputs.forEach(input => {
                         input.removeAttribute('readonly');
-                        input.addEventListener('focus', function() {
-                            const length = this.value.length;
-                            this.setSelectionRange(length, length);
-                            setTimeout(() => {
-                                this.setSelectionRange(length, length);
-                            }, 0);
-                        });
                     });
                 });
             }
@@ -3183,13 +3224,6 @@
                         timeInputs.style.opacity = '1';
                         inputs.forEach(input => {
                             input.removeAttribute('readonly');
-                            input.addEventListener('focus', function() {
-                                const length = this.value.length;
-                                this.setSelectionRange(length, length);
-                                setTimeout(() => {
-                                    this.setSelectionRange(length, length);
-                                }, 0);
-                            });
                         });
 
                         // Only copy to start time (not end time) when switching to event
@@ -3222,13 +3256,6 @@
                         startTimeInputs.style.opacity = '1';
                         startInputs.forEach(input => {
                             input.removeAttribute('readonly');
-                            input.addEventListener('focus', function() {
-                                const length = this.value.length;
-                                this.setSelectionRange(length, length);
-                                setTimeout(() => {
-                                    this.setSelectionRange(length, length);
-                                }, 0);
-                            });
                         });
                     }
                 } else {
@@ -3246,13 +3273,6 @@
                         timeInputs.style.opacity = '1';
                         inputs.forEach(input => {
                             input.removeAttribute('readonly');
-                            input.addEventListener('focus', function() {
-                                const length = this.value.length;
-                                this.setSelectionRange(length, length);
-                                setTimeout(() => {
-                                    this.setSelectionRange(length, length);
-                                }, 0);
-                            });
                         });
 
                         // Only copy to start time (not end time) when switching to event
@@ -3266,13 +3286,6 @@
                         startTimeInputs.style.opacity = '1';
                         startInputs.forEach(input => {
                             input.removeAttribute('readonly');
-                            input.addEventListener('focus', function() {
-                                const length = this.value.length;
-                                this.setSelectionRange(length, length);
-                                setTimeout(() => {
-                                    this.setSelectionRange(length, length);
-                                }, 0);
-                            });
                         });
                     }
                 }
@@ -3321,12 +3334,22 @@
                 }
             });
 
+            // Focus on task name input and move cursor to end after modal is shown
+            setTimeout(() => {
+                taskNameInput.focus();
+                taskNameInput.setSelectionRange(taskNameInput.value.length, taskNameInput.value.length);
+            }, 0);
+
             showModal('editTask');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             loadUserSettings();
             loadUserData();
+
+            // Start with both date and day of week hidden
+            document.getElementById('currentDate').style.opacity = '0';
+            document.getElementById('dayOfWeek').style.opacity = '0';
 
             document.getElementById('allDayEvents').style.opacity = '0';
             updateDateDisplay();
@@ -3335,9 +3358,30 @@
             // wait for the animations to finish
             setTimeout(() => {
                 changeDate(100000);
-                // fade in current date
+
+                const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
+                const intervalBetweenStarts = 600 / hourLabels.length;
+                
+                // Shuffle the labels for random order animation
+                const shuffledLabels = hourLabels
+                    .map(value => ({ value, sort: Math.random() }))
+                    .sort((a, b) => a.sort - b.sort)
+                    .map(({ value }) => value);
+
+                shuffledLabels.forEach((label, index) => {
+                    setTimeout(() => {
+                        if (!hourLabelsCurrentlyAnimating[label.id]) {
+                            hourLabelsCurrentlyAnimating[label.id] = true;
+                            animateHourLabel(label);
+                        }
+                    }, index * intervalBetweenStarts);
+                });
+
+                // fade in current date and day of week
                 document.getElementById('currentDate').style.transition = 'opacity 0.3s ease';
+                document.getElementById('dayOfWeek').style.transition = 'opacity 0.3s ease';
                 document.getElementById('currentDate').style.opacity = '1';
+                document.getElementById('dayOfWeek').style.opacity = '1';
             }, 350);
 
             updateButtonStyles();
