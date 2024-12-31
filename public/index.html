@@ -1023,6 +1023,49 @@
         .task-delete-btn:hover {
             filter: brightness(2);
         }
+
+        .time-period-selector {
+            display: flex;
+            margin-right: 8px;
+        }
+
+        .time-period-container {
+            display: flex;
+            background-color: var(--grey-5);
+            border-radius: 4px;
+            padding: 2px;
+            position: relative;
+            height: 20px;
+            width: 50px;
+        }
+
+        .time-period-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0px 3px;
+            cursor: pointer;
+            color: var(--grey-2);
+            z-index: 1;
+            transition: color 0.3s ease;
+            user-select: none;
+            font-size: 11px;
+            width: 50%;
+        }
+
+        .time-period-option.active {
+            color: var(--grey-1);
+        }
+
+        .time-period-highlight {
+            position: absolute;
+            top: 2px;
+            height: calc(100% - 4px);
+            width: calc(50% - 2px);
+            background-color: var(--grey-4);
+            border-radius: 2px;
+            transition: transform 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -1135,6 +1178,13 @@
                         <div class="task-toggle-handle"></div>
                     </div>
                     <div id="startTimeInputs" class="time-inputs">
+                        <div class="time-period-selector" style="display: none">
+                            <div class="time-period-container">
+                                <div class="time-period-highlight"></div>
+                                <div class="time-period-option active" data-period="AM">AM</div>
+                                <div class="time-period-option" data-period="PM">PM</div>
+                            </div>
+                        </div>
                         <input type="text" maxlength="2" placeholder="HH">
                         <span class="date-time-separator">:</span>
                         <input type="text" maxlength="2" placeholder="MM">
@@ -1161,6 +1211,13 @@
                         <div class="task-toggle-handle"></div>
                     </div>
                     <div id="endTimeInputs" class="time-inputs">
+                        <div class="time-period-selector" style="display: none">
+                            <div class="time-period-container">
+                                <div class="time-period-highlight"></div>
+                                <div class="time-period-option active" data-period="AM">AM</div>
+                                <div class="time-period-option" data-period="PM">PM</div>
+                            </div>
+                        </div>
                         <input type="text" maxlength="2" placeholder="HH">
                         <span class="date-time-separator">:</span>
                         <input type="text" maxlength="2" placeholder="MM">
@@ -1189,6 +1246,13 @@
                         <div class="task-toggle-handle"></div>
                     </div>
                     <div id="dueTimeInputs" class="time-inputs">
+                        <div class="time-period-selector" style="display: none">
+                            <div class="time-period-container">
+                                <div class="time-period-highlight"></div>
+                                <div class="time-period-option active" data-period="AM">AM</div>
+                                <div class="time-period-option" data-period="PM">PM</div>
+                            </div>
+                        </div>
                         <input type="text" maxlength="2" placeholder="HH">
                         <span class="date-time-separator">:</span>
                         <input type="text" maxlength="2" placeholder="MM">
@@ -2165,6 +2229,29 @@
             });
         }
 
+        function convertTo24Hour(hours, minutes, period) {
+            hours = parseInt(hours);
+            if (period === 'PM' && hours !== 12) {
+                hours += 12;
+            } else if (period === 'AM' && hours === 12) {
+                hours = 0;
+            }
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+
+        function convertTo12Hour(time24) {
+            if (!time24) return { hours: '', minutes: '', period: 'AM' };
+            const [hours24, minutes] = time24.split(':').map(Number);
+            let period = hours24 >= 12 ? 'PM' : 'AM';
+            let hours12 = hours24 % 12;
+            if (hours12 === 0) hours12 = 12;
+            return {
+                hours: hours12.toString(),
+                minutes: minutes.toString().padStart(2, '0'),
+                period
+            };
+        }
+
         // helper function to generate recurring dates from the string returned by the AI
         function generateRecurringDates(task, startDate, endDate) {
             const start = DateTime.fromISO(startDate);
@@ -2403,8 +2490,42 @@
                         } else {
                             object.kind = 'event';
                         }
-                        
-                        // 
+
+                        if (userSettings.timeFormat === 'AM/PM') {
+                            ['due', 'start', 'end'].forEach(prefix => {
+                                const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                                if (timeInputs && timeInputs.style.opacity !== '0.5') {
+                                    const inputs = timeInputs.querySelectorAll('input');
+                                    const periodOption = timeInputs.querySelector('.time-period-option.active');
+                                    if (periodOption && inputs[0].value && inputs[1].value) {
+                                        const period = periodOption.dataset.period;
+                                        const time24 = convertTo24Hour(inputs[0].value, inputs[1].value, period);
+                                        if (prefix === 'due' || prefix === 'end') {
+                                            object.endTime = time24;
+                                        } else if (prefix === 'start') {
+                                            object.startTime = time24;
+                                        }
+                                    }
+                                }
+                            });
+                        } else {
+                            ['due', 'start', 'end'].forEach(prefix => {
+                                const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                                if (timeInputs && timeInputs.style.opacity !== '0.5') {
+                                    const inputs = timeInputs.querySelectorAll('input');
+                                    if (inputs[0].value && inputs[1].value) {
+                                        const time24 = `${inputs[0].value.padStart(2, '0')}:${inputs[1].value.padStart(2, '0')}`;
+                                        if (prefix === 'due' || prefix === 'end') {
+                                            object.endTime = time24;
+                                        } else if (prefix === 'start') {
+                                            object.startTime = time24;
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        // Handle dates
                         let dateSettings;
                         if (object.kind === 'task') {
                             dateSettings = ['due'];
@@ -2430,7 +2551,6 @@
                                 const [hours, minutes] = [...timeInputs].map(input => input.value);
                                 if (hours && minutes) {
                                     if (prefix === 'due' || prefix === 'end') {
-                                        console.log('end time');
                                         object.endTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
                                     } else if (prefix === 'start') {
                                         object.startTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
@@ -2735,6 +2855,32 @@
                 taskSettings.classList.remove('inactive');
             }
 
+            // Show/hide period selectors based on time format
+            document.querySelectorAll('.time-period-selector').forEach(selector => {
+                if (userSettings.timeFormat === 'AM/PM') {
+                    selector.style.display = 'flex';
+                } else {
+                    selector.style.display = 'none';
+                }
+            });
+
+            // Add period selector click handlers
+            document.querySelectorAll('.time-period-container').forEach(container => {
+                const highlight = container.querySelector('.time-period-highlight');
+                container.querySelectorAll('.time-period-option').forEach(option => {
+                    option.addEventListener('click', () => {
+                        container.querySelectorAll('.time-period-option').forEach(opt => 
+                            opt.classList.remove('active'));
+                        option.classList.add('active');
+                        if (option.dataset.period === 'AM') {
+                            highlight.style.transform = 'translateX(0)';
+                        } else {
+                            highlight.style.transform = 'translateX(100%)';
+                        }
+                    });
+                });
+            });
+
             // Then set up click handlers
             newEventBtn.addEventListener('click', () => {
                 newEventBtn.classList.add('active');
@@ -2835,61 +2981,146 @@
 
             // Only fill time inputs and activate time switches if there's a time
             if (task.endTime) {
-                const [hours, minutes] = task.endTime.split(':');
-                
-                // For tasks, fill the due time
-                if (task.kind === 'task') {
-                    const timeSwitch = document.getElementById('dueTimeSwitch');
-                    const timeInputs = document.getElementById('dueTimeInputs');
-                    const inputs = timeInputs.querySelectorAll('input');
+                if (userSettings.timeFormat === 'AM/PM') {
+                    const time12 = convertTo12Hour(task.endTime);
                     
-                    inputs[0].value = parseInt(hours).toString();
-                    inputs[1].value = parseInt(minutes).toString();
-                    timeSwitch.classList.add('active');
-                    timeInputs.style.opacity = '1';
-                    inputs.forEach(input => {
-                        input.removeAttribute('readonly');
-                        input.addEventListener('focus', function() {
-                            const length = this.value.length;
-                            this.setSelectionRange(length, length);
-                            setTimeout(() => {
-                                this.setSelectionRange(length, length);
-                            }, 0);
-                        });
-                    });
+                    // For tasks, fill the due time
+                    if (task.kind === 'task') {
+                        const timeSwitch = document.getElementById('dueTimeSwitch');
+                        const timeInputs = document.getElementById('dueTimeInputs');
+                        const inputs = timeInputs.querySelectorAll('input');
+                        const periodContainer = timeInputs.querySelector('.time-period-container');
+                        
+                        inputs[0].value = time12.hours;
+                        inputs[1].value = time12.minutes;
 
-                    // Only copy to start time (not end time) when switching to event
-                    const startTimeSwitch = document.getElementById('startTimeSwitch');
-                    const startTimeInputs = document.getElementById('startTimeInputs');
-                    const startInputs = startTimeInputs.querySelectorAll('input');
-                    
-                    startInputs[0].value = parseInt(hours).toString();
-                    startInputs[1].value = parseInt(minutes).toString();
-                    startTimeSwitch.classList.add('active');
-                    startTimeInputs.style.opacity = '1';
-                    startInputs.forEach(input => {
-                        input.removeAttribute('readonly');
-                        input.addEventListener('focus', function() {
-                            const length = this.value.length;
-                            this.setSelectionRange(length, length);
-                            setTimeout(() => {
-                                this.setSelectionRange(length, length);
-                            }, 0);
-                        });
-                    });
+                        if (periodContainer) {
+                            const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                            periodOptions.forEach(option => {
+                                if (option.dataset.period === time12.period) {
+                                    option.classList.add('active');
+                                    const highlight = periodContainer.querySelector('.time-period-highlight');
+                                    if (time12.period === 'AM') {
+                                        highlight.style.transform = 'translateX(0)';
+                                    } else {
+                                        highlight.style.transform = 'translateX(100%)';
+                                    }
+                                } else {
+                                    option.classList.remove('active');
+                                }
+                            });
+                        }
 
-                    // Leave end time empty and switched off
-                    const endTimeSwitch = document.getElementById('endTimeSwitch');
-                    const endTimeInputs = document.getElementById('endTimeInputs');
-                    const endInputs = endTimeInputs.querySelectorAll('input');
+                        timeSwitch.classList.add('active');
+                        timeInputs.style.opacity = '1';
+                        inputs.forEach(input => {
+                            input.removeAttribute('readonly');
+                            input.addEventListener('focus', function() {
+                                const length = this.value.length;
+                                this.setSelectionRange(length, length);
+                                setTimeout(() => {
+                                    this.setSelectionRange(length, length);
+                                }, 0);
+                            });
+                        });
+
+                        // Only copy to start time (not end time) when switching to event
+                        const startTimeSwitch = document.getElementById('startTimeSwitch');
+                        const startTimeInputs = document.getElementById('startTimeInputs');
+                        const startInputs = startTimeInputs.querySelectorAll('input');
+                        const startPeriodContainer = startTimeInputs.querySelector('.time-period-container');
+                        
+                        startInputs[0].value = time12.hours;
+                        startInputs[1].value = time12.minutes;
+
+                        if (startPeriodContainer) {
+                            const periodOptions = startPeriodContainer.querySelectorAll('.time-period-option');
+                            periodOptions.forEach(option => {
+                                if (option.dataset.period === time12.period) {
+                                    option.classList.add('active');
+                                    const highlight = startPeriodContainer.querySelector('.time-period-highlight');
+                                    if (time12.period === 'AM') {
+                                        highlight.style.transform = 'translateX(0)';
+                                    } else {
+                                        highlight.style.transform = 'translateX(100%)';
+                                    }
+                                } else {
+                                    option.classList.remove('active');
+                                }
+                            });
+                        }
+
+                        startTimeSwitch.classList.add('active');
+                        startTimeInputs.style.opacity = '1';
+                        startInputs.forEach(input => {
+                            input.removeAttribute('readonly');
+                            input.addEventListener('focus', function() {
+                                const length = this.value.length;
+                                this.setSelectionRange(length, length);
+                                setTimeout(() => {
+                                    this.setSelectionRange(length, length);
+                                }, 0);
+                            });
+                        });
+                    }
+                } else {
+                    const [hours, minutes] = task.endTime.split(':');
                     
-                    endInputs.forEach(input => {
-                        input.value = '';
-                        input.setAttribute('readonly', 'true');
-                    });
-                    endTimeSwitch.classList.remove('active');
-                    endTimeInputs.style.opacity = '0.5';
+                    // For tasks, fill the due time
+                    if (task.kind === 'task') {
+                        const timeSwitch = document.getElementById('dueTimeSwitch');
+                        const timeInputs = document.getElementById('dueTimeInputs');
+                        const inputs = timeInputs.querySelectorAll('input');
+                        
+                        inputs[0].value = parseInt(hours).toString();
+                        inputs[1].value = parseInt(minutes).toString();
+                        timeSwitch.classList.add('active');
+                        timeInputs.style.opacity = '1';
+                        inputs.forEach(input => {
+                            input.removeAttribute('readonly');
+                            input.addEventListener('focus', function() {
+                                const length = this.value.length;
+                                this.setSelectionRange(length, length);
+                                setTimeout(() => {
+                                    this.setSelectionRange(length, length);
+                                }, 0);
+                            });
+                        });
+
+                        // Only copy to start time (not end time) when switching to event
+                        const startTimeSwitch = document.getElementById('startTimeSwitch');
+                        const startTimeInputs = document.getElementById('startTimeInputs');
+                        const startInputs = startTimeInputs.querySelectorAll('input');
+                        
+                        startInputs[0].value = parseInt(hours).toString();
+                        startInputs[1].value = parseInt(minutes).toString();
+                        startTimeSwitch.classList.add('active');
+                        startTimeInputs.style.opacity = '1';
+                        startInputs.forEach(input => {
+                            input.removeAttribute('readonly');
+                            input.addEventListener('focus', function() {
+                                const length = this.value.length;
+                                this.setSelectionRange(length, length);
+                                setTimeout(() => {
+                                    this.setSelectionRange(length, length);
+                                }, 0);
+                            });
+                        });
+                    }
                 }
+
+                // Leave end time empty and switched off
+                const endTimeSwitch = document.getElementById('endTimeSwitch');
+                const endTimeInputs = document.getElementById('endTimeInputs');
+                const endInputs = endTimeInputs.querySelectorAll('input');
+                
+                endInputs.forEach(input => {
+                    input.value = '';
+                    input.setAttribute('readonly', 'true');
+                });
+                endTimeSwitch.classList.remove('active');
+                endTimeInputs.style.opacity = '0.5';
+
             } else {
                 // If no time, ensure time switches are off and inputs are empty
                 ['due', 'start', 'end'].forEach(prefix => {
