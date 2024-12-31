@@ -2932,8 +2932,22 @@
                     const inputs = inputsEl.querySelectorAll('input');
                     if (isActive) {
                         inputs.forEach(input => input.removeAttribute('readonly'));
+                        // Also enable AM/PM selector if it exists and we're in AM/PM mode
+                        if (switchType.endsWith('Time') && userSettings.timeFormat === 'AM/PM') {
+                            const periodSelector = inputsEl.querySelector('.time-period-selector');
+                            if (periodSelector) {
+                                periodSelector.style.pointerEvents = 'auto';
+                            }
+                        }
                     } else {
                         inputs.forEach(input => input.setAttribute('readonly', 'true'));
+                        // Also disable AM/PM selector if it exists
+                        if (switchType.endsWith('Time')) {
+                            const periodSelector = inputsEl.querySelector('.time-period-selector');
+                            if (periodSelector) {
+                                periodSelector.style.pointerEvents = 'none';
+                            }
+                        }
                         // If turning off a date switch, also turn off corresponding time switch
                         if (switchType.endsWith('Date')) {
                             const timeSwitch = document.getElementById(`${switchType.replace('Date', 'Time')}Switch`);
@@ -2941,6 +2955,11 @@
                             timeSwitch.classList.remove('active');
                             timeInputs.style.opacity = '0.5';
                             timeInputs.querySelectorAll('input').forEach(input => input.setAttribute('readonly', 'true'));
+                            // Disable the AM/PM selector in the time inputs
+                            const periodSelector = timeInputs.querySelector('.time-period-selector');
+                            if (periodSelector) {
+                                periodSelector.style.pointerEvents = 'none';
+                            }
                         }
                     }
                     
