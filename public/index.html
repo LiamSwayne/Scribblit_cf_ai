@@ -2217,7 +2217,7 @@
                     const now = DateTime.now().setZone(userTimezone);
                     const currentMinutes = now.hour * 60 + now.minute;
                     if (item.endTime && timeToMinutes(item.endTime) < currentMinutes) {
-                        // I have no ******* clue why this needs a setTimeout to work
+                        // I have no ******* clue why this needs a setTimeout to work, but it does
                         setTimeout(() => {
                             eventEl.style.opacity = '0.5';
                         }, 50);
