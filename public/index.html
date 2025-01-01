@@ -1503,6 +1503,7 @@
             dayOfWeekEl.textContent = currentDate.toFormat('cccc');
         }
 
+        // triggered by user submitting content in the entry box
         async function processInput() {
             const input = taskInput.value;
             const animationOverlay = document.getElementById('animationOverlay');
@@ -1623,7 +1624,6 @@
             }
 
             // Reset the input area and animation
-            taskInput.value = '';
             taskInput.style.transition = 'height 0.3s ease';
             taskInput.style.height = originalHeight;
 
