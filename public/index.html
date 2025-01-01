@@ -1374,7 +1374,7 @@
         const originalHeight = '100px'; // Store the original height
         let isAnimating = false;
         let animationCooldown = false;
-        let isFirstRender = true;
+        let calendarRenderCount = 0;
 
         const todayTaskList = document.getElementById('todayTaskList');
         const tomorrowTaskList = document.getElementById('tomorrowTaskList');
@@ -2029,11 +2029,12 @@
             allDayEventsContainer.innerHTML = '';
 
             // Remove transition for first render
-            if (isFirstRender) {
+            if (calendarRenderCount === 0) {
                 calendar.classList.add('calendar-no-transition');
             }
 
             // Render time markers
+            console.log('Rendering calendar...');
             for (let i = 0; i < 24; i++) {
                 const hourMarker = document.createElement('div');
                 hourMarker.className = 'hour-marker';
@@ -2043,7 +2044,11 @@
                 hourLabel.className = 'hour-label';
                 const timeText = formatTime(i, userSettings.timeFormat === '24h');
                 // Start with empty text content but store the target value
-                hourLabel.textContent = '';
+                if (calendarRenderCount < 2) {
+                    hourLabel.textContent = '';
+                } else {
+                    hourLabel.textContent = timeText;
+                }
                 hourLabel.dataset.value = timeText;
                 // Assign random unique ID
                 hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
@@ -2109,7 +2114,7 @@
                 calendarToTopDistanceNoAllDay;
 
             // Set position without transition on first render
-            if (isFirstRender) {
+            if (calendarRenderCount === 0) {
                 calendar.style.top = `${newCalendarTop}px`;
                 allDayEventsContainer.style.opacity = allDayEvents.length > 0 ? '1' : '0';
             } else {
@@ -2220,7 +2225,7 @@
                         // I have no ******* clue why this needs a setTimeout to work, but it does
                         setTimeout(() => {
                             eventEl.style.opacity = '0.5';
-                        }, 50);
+                        }, 5);
                     }
 
                     eventEl.textContent = item.name;
@@ -2260,15 +2265,16 @@
                 });
             });
 
-            if (isFirstRender) {
+            if (calendarRenderCount === 0) {
                 requestAnimationFrame(() => {
                     calendar.classList.remove('calendar-no-transition');
-                    isFirstRender = false;
                 });
             }
 
             // we want time to pass in-between the time marker code at the top of this function and now
             updateTimeMarker();
+
+            calendarRenderCount += 1;
         }
 
         function timeToMinutes(time) {
