@@ -2033,7 +2033,6 @@
             }
 
             // Render time markers
-            console.log('Rendering calendar...');
             for (let i = 0; i < 24; i++) {
                 const hourMarker = document.createElement('div');
                 hourMarker.className = 'hour-marker';
@@ -2656,7 +2655,6 @@
 
                             if (dateSwitch.classList.contains('active')) {
                                 const [month, day, year] = [...dateInputs].map(input => input.value);
-                                console.log(month, day, year);
                                 if (month && day && year) {
                                     object.date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
                                 }
