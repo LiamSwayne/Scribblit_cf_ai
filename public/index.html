@@ -2038,24 +2038,24 @@
             }
 
             // Render time markers
-    for (let i = 0; i < 24; i++) {
-        const hourMarker = document.createElement('div');
-        hourMarker.className = 'hour-marker';
-        hourMarker.style.top = `${i / 24 * 100}%`;
+            for (let i = 0; i < 24; i++) {
+                const hourMarker = document.createElement('div');
+                hourMarker.className = 'hour-marker';
+                hourMarker.style.top = `${i / 24 * 100}%`;
 
-        const hourLabel = document.createElement('div');
-        hourLabel.className = 'hour-label';
-        const timeText = formatTime(i, userSettings.timeFormat === '24h');
-        // Start with empty text content but store the target value
-        hourLabel.textContent = '';
-        hourLabel.dataset.value = timeText;
-        // Assign random unique ID
-        hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
-        hourLabel.style.top = `${i / 24 * 100}%`;
+                const hourLabel = document.createElement('div');
+                hourLabel.className = 'hour-label';
+                const timeText = formatTime(i, userSettings.timeFormat === '24h');
+                // Start with empty text content but store the target value
+                hourLabel.textContent = '';
+                hourLabel.dataset.value = timeText;
+                // Assign random unique ID
+                hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
+                hourLabel.style.top = `${i / 24 * 100}%`;
 
-        calendar.appendChild(hourMarker);
-        calendar.appendChild(hourLabel);
-    }
+                calendar.appendChild(hourMarker);
+                calendar.appendChild(hourLabel);
+            }
 
             const now = DateTime.now().setZone(userTimezone);
             const currentMinutes = now.hour * 60 + now.minute;
@@ -2079,6 +2079,7 @@
             });
 
             // Process events
+            // TODO: Add support for recurring events
             let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
 
             if (shouldUpdateLocalStorage) {
