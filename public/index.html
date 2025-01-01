@@ -303,16 +303,6 @@
             );
         }
 
-        /* overrides existing event opacity */
-        .past-event {
-            opacity: 0.5 !important;
-            transition: opacity 0.3s ease, filter 0.3s ease;
-        }
-
-        .past-event:hover {
-            opacity: 1 !important;
-        }
-
         .navigation button {
             background-color: transparent;
             border: none;
@@ -610,9 +600,9 @@
             transform: translateX(-14px);
         }
 
-        .past-event {
-            opacity: 0.5;
-            transition: opacity 0.3s ease;
+        /* Add hover behavior for calendar events */
+        .calendar-event:hover {
+            opacity: 1 !important; /* Use !important to override the inline style */
         }
 
         #gear-background {
@@ -1486,6 +1476,12 @@
                 taskInput.style.height = 'auto';
                 taskInput.style.height = `${taskInput.scrollHeight}px`;
             }
+        }
+
+        function isEventInPast(eventTime) {
+            const now = DateTime.now().setZone(userTimezone);
+            const currentMinutes = now.hour * 60 + now.minute;
+            return timeToMinutes(eventTime) < currentMinutes;
         }
 
         taskInput.addEventListener('input', adjustTextareaHeight);
@@ -2471,13 +2467,26 @@
             if (shouldShowMarker) {
                 const calendarEvents = document.querySelectorAll('.calendar-event');
                 calendarEvents.forEach(eventEl => {
-                    // Only handle events with end times
                     if (eventEl.dataset.endTime) {
                         const endTimeMinutes = timeToMinutes(eventEl.dataset.endTime);
                         if (endTimeMinutes < currentMinutes) {
-                            eventEl.classList.add('past-event');
+                            // First ensure any existing transition is complete
+                            eventEl.style.transition = 'none';
+                            eventEl.offsetHeight; // Force reflow
+                            
+                            // Now start our new transition
+                            setTimeout(() => {
+                                eventEl.style.transition = 'opacity 300ms ease';
+                                eventEl.style.opacity = '0.5';
+                            }, 0);
                         } else {
-                            eventEl.classList.remove('past-event');
+                            eventEl.style.transition = 'none';
+                            eventEl.offsetHeight; // Force reflow
+                            
+                            setTimeout(() => {
+                                eventEl.style.transition = 'opacity 300ms ease';
+                                eventEl.style.opacity = '1';
+                            }, 0);
                         }
                     }
                 });
