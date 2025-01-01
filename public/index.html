@@ -242,12 +242,12 @@
 
         .calendar-event {
             position: absolute;
-            left: 60px;
+            left: 50px;
             padding-top: 2px;
             padding-left: 5px;
             padding-right: 5px;
             padding-bottom: 3px;
-            margin: 3.5px;
+            margin: 0px;
             color: var(--grey-1);
             border-radius: 8px;
             font-size: 12px;
@@ -2236,10 +2236,10 @@
                     const color = colors[laneIndex % colors.length];
 
                     if (item.endTime) {
-                        eventEl.style.height = `calc(${(itemEndMinutes - itemStartMinutes) / 1440 * 100}% - 7px)`;
+                        eventEl.style.height = `${(itemEndMinutes - itemStartMinutes) / 1440 * 100}%`;
                         eventEl.style.backgroundColor = color;
                     } else {
-                        eventEl.style.height = `calc(${(100) / 1440 * 100}% - 7px)`;
+                        eventEl.style.height = `${(100) / 1440 * 100}%`;
                         eventEl.style.background = `linear-gradient(
                             to bottom,
                             ${color} 0%,
