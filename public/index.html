@@ -242,7 +242,6 @@
 
         .calendar-event {
             position: absolute;
-            left: 50px;
             padding-top: 2px;
             padding-left: 5px;
             padding-right: 5px;
@@ -2142,8 +2141,8 @@
             const colors = ['#3a506b', '#5b7553', '#6b4f4f', '#4f4f6b', '#6b5b4f'];
             const lanes = [];
             const calendarWidth = calendar.offsetWidth;
-            const generalCalOffset = 54;
-            const laneWidth = 8;
+            const generalCalOffset = 42; // space from left for time markers
+            const laneWidth = 8; // the horizontal space between the leftmost edge of the layer nth and the leftmost edge of the n+1th layer
             const spaceBetweenEvents = 4;
 
             // Group events by start time
@@ -2206,7 +2205,7 @@
                     laneIndex++;
                 }
 
-                const availableWidth = calendarWidth - (laneIndex * laneWidth) - generalCalOffset - 7;
+                const availableWidth = calendarWidth - (laneIndex * laneWidth) - generalCalOffset;
                 const eventWidth = (availableWidth - (spaceBetweenEvents * (group.length - 1))) / group.length;
 
                 group.forEach((item, index) => {
