@@ -2213,6 +2213,16 @@
                     eventEl.dataset.startTime = item.startTime || '00:00';
                     eventEl.dataset.endTime = item.endTime || '';
 
+                    // make past events 0.5 opacity
+                    const now = DateTime.now().setZone(userTimezone);
+                    const currentMinutes = now.hour * 60 + now.minute;
+                    if (item.endTime && timeToMinutes(item.endTime) < currentMinutes) {
+                        // I have no ******* clue why this needs a setTimeout to work
+                        setTimeout(() => {
+                            eventEl.style.opacity = '0.5';
+                        }, 50);
+                    }
+
                     eventEl.textContent = item.name;
                     eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + (index * (eventWidth + spaceBetweenEvents))}px`;
                     eventEl.style.width = `${eventWidth}px`;
