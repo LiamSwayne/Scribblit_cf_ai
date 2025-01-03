@@ -2253,7 +2253,11 @@
                         // I have no ******* clue why this needs a setTimeout to work, but it does
                         setTimeout(() => {
                             eventEl.style.opacity = '0.5';
-                        }, 5);
+                        }, 50);
+                        // repeat the opacity setting to ensure it sticks
+                        setTimeout(() => {
+                            eventEl.style.opacity = '0.5';
+                        }, 100);
                     }
 
                     eventEl.textContent = item.name;
