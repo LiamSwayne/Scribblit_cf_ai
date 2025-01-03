@@ -3309,17 +3309,21 @@
                             startInputs[2].value = dueInputs[2].value;
                         } else {
                             // if due date is off, then due time must also be off
-                            const dateSwitch = document.getElementById('dueDateSwitch');
-                            const dateInputs = document.getElementById('dueDateInputs');
-                            dateSwitch.classList.remove('active');
-                            dateInputs.style.opacity = '0.5';
-                            dateInputs.querySelectorAll('input').forEach(input => input.setAttribute('readonly', 'true'));
-                            // Disable the AM/PM selector in the time inputs
-                            const periodSelector = dateInputs.querySelector('.time-period-selector');
+                            const timeSwitch = document.getElementById('dueTimeSwitch');
+                            if (timeSwitch.classList.contains('active')) {
+                                timeSwitch.click();
+                            }
+                            const timeInputs = document.getElementById('dueTimeInputs').querySelectorAll('input');
+                            timeInputs.forEach(input => {
+                                input.value = '';
+                                input.setAttribute('readonly', 'true');
+                            });
+                            // turn off AM/PM selector
+                            const periodSelector = document.getElementById('dueTimeInputs').querySelector('.time-period-selector');
                             if (periodSelector) {
                                 periodSelector.style.pointerEvents = 'none';
                             } else {
-                                console.error('No period selector found for due time');
+                                console.error('No period selector found for time');
                             }
                         }
                     }
@@ -3328,6 +3332,25 @@
 
             // Fill in existing values
             if (task.kind == 'task') {
+                // disable end date
+                const endDateSwitch = document.getElementById('endDateSwitch');
+                if (endDateSwitch.classList.contains('active')) {
+                    endDateSwitch.click();
+                }
+                const endDateInputs = document.getElementById('endDateInputs');
+                endDateInputs.style.opacity = '0.5';
+                endDateInputs.querySelectorAll('input').forEach(input => input.setAttribute('readonly', 'true'));
+
+                // turn off end time inputs
+                const endTimeDiv = document.getElementById('endTimeInputs');
+                endTimeDiv.style.opacity = '0.5';
+                const endTimeInputs = endTimeDiv.querySelectorAll('input');
+                endTimeInputs.forEach(input => {
+                    input.value = '';
+                    input.setAttribute('readonly', 'true');
+                });
+
+
                 // Fill in the due date
                 if (task.date) {
                     const dateSwitch = document.getElementById('dueDateSwitch');
@@ -3410,6 +3433,9 @@
                     // copy task end time to event start time
                     const startTimeInputs = document.getElementById('startTimeInputs');
                     const startTimeSwitch = document.getElementById('startTimeSwitch');
+                    if (!startTimeSwitch.classList.contains('active')) {
+                        startTimeSwitch.click();
+                    }
                     const startInputs = startTimeInputs.querySelectorAll('input');
                     startInputs[0].value = dueInputs[0].value;
                     startInputs[1].value = dueInputs[1].value;
@@ -3445,26 +3471,6 @@
                         input.setAttribute('readonly', 'true');
                     });
                 }
-
-                // turn off the event stuff
-                const endDateSwitch = document.getElementById('endDateSwitch');
-                if (endDateSwitch.classList.contains('active')) {
-                    endDateSwitch.click();
-                }
-                const endTimeSwitch = document.getElementById('endTimeSwitch');
-                if (endTimeSwitch.classList.contains('active')) {
-                    endTimeSwitch.click();
-                }
-                const endDateInputs = document.getElementById('endDateInputs').querySelectorAll('input');
-                endDateInputs.forEach(input => {
-                    input.value = '';
-                    input.setAttribute('readonly', 'true');
-                });
-                const endTimeInputs = document.getElementById('endTimeInputs').querySelectorAll('input');
-                endTimeInputs.forEach(input => {
-                    input.value = '';
-                    input.setAttribute('readonly', 'true');
-                });
             } else if (task.kind == 'event') {
                 ASSERT(task.date != null); // events must have a date
 
