@@ -833,6 +833,7 @@
             display: grid;
             grid-template-areas:
                 "header header"
+                "description description"
                 "type type"
                 "event task"
                 "footer footer";
@@ -855,9 +856,29 @@
             user-select: none;
         }
 
+        .task-description {
+            grid-area: description;
+            width: calc(100% - 18px);
+            height: 60px;
+            background: var(--grey-5);
+            border: 1px solid var(--grey-4);
+            border-radius: 4px;
+            color: var(--grey-1);
+            font-family: 'Lexend', sans-serif;
+            font-size: 12px;
+            padding: 8px;
+            margin-top: 24px;
+            margin-bottom: 10px;
+            resize: none;
+        }
+
+        .task-description:focus {
+            outline: none;
+        }
+
         .task-modal-center-line {
             position: absolute;
-            top: 104px;
+            top: 190px;
             bottom: 50px;
             left: 50%;
             width: 2px;
@@ -921,7 +942,7 @@
             position: relative;
             height: 32px;
             width: calc(100% - 8px);
-            margin-top: 24px;
+            margin-top: -20px;
             margin-bottom: -14px;
         }
 
@@ -1227,6 +1248,8 @@
                 <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
         </div>
+
+        <textarea id="taskDescription" class="task-description" placeholder="Add a description..."></textarea>
     
         <div class="task-type-selector">
             <div class="task-type-highlight"></div>
@@ -1643,6 +1666,7 @@
                     ...item,
                     date: convertToISODate(item.date),
                     done: {},
+                    description: '',
                     id: 'task_' + Math.random().toString(36).substr(2, 9)
                 };
                 taskEventArray.push(sanitizedItem);
@@ -2594,6 +2618,9 @@
                         // Save name
                         object.name = document.getElementById('editTaskName').value;
 
+                        // Save description
+                        object.description = document.getElementById('taskDescription').value;
+
                         // clear start and end times
                         object.startTime = null;
                         object.endTime = null;
@@ -3035,6 +3062,9 @@
                     taskNameInput.blur();
                 }
             });
+
+            const taskDescriptionInput = document.getElementById('taskDescription');
+            taskDescriptionInput.value = task.description || '';
 
             // First, remove any existing event listeners by cloning and replacing elements
             const switches = ['dueDate', 'dueTime', 'startDate', 'startTime', 'endDate', 'endTime'];
