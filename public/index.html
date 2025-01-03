@@ -3407,7 +3407,7 @@
                     
                     // Set common values and styles
                     dueInputs[0].value = parseInt(hours).toString();
-                    dueInputs[1].value = parseInt(minutes).toString();
+                    dueInputs[1].value = minutes.padStart(2, '0');
                     dueTimeSwitch.classList.add('active');
                     dueTimeInputs.style.opacity = '1';
                     dueInputs.forEach(input => input.removeAttribute('readonly'));
@@ -3503,7 +3503,7 @@
                     
                     // Set common values and styles
                     inputs[0].value = parseInt(hours).toString();
-                    inputs[1].value = parseInt(minutes).toString();
+                    inputs[1].value = minutes.padStart(2, '0');
                     timeSwitch.classList.add('active');
                     timeInputs.style.opacity = '1';
                     inputs.forEach(input => input.removeAttribute('readonly'));
@@ -3547,7 +3547,7 @@
                     
                     // Set common values and styles
                     inputs[0].value = parseInt(hours).toString();
-                    inputs[1].value = parseInt(minutes).toString();
+                    inputs[1].value = minutes.padStart(2, '0');
                     endTimeSwitch.classList.add('active');
                     endTimeInputs.style.opacity = '1';
                     inputs.forEach(input => input.removeAttribute('readonly'));
