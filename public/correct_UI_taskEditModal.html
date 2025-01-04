@@ -1431,6 +1431,7 @@
         let isAnimating = false;
         let animationCooldown = false;
         let calendarRenderCount = 0;
+        let taskListRenderCount = 0;
 
         const todayTaskList = document.getElementById('todayTaskList');
         const tomorrowTaskList = document.getElementById('tomorrowTaskList');
@@ -1949,14 +1950,22 @@
                         if (task.endTime) {
                             const timeSpan = document.createElement('span');
                             timeSpan.className = 'task-time';
-                            timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                            if (taskListRenderCount === 0) {
+                                timeSpan.textContent = '';
+                            } else {
+                                timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                            }
                             dateTimeSpan.appendChild(timeSpan);
                         }
                     } else {
                         // Show just time or asterisk for today's tasks
                         if (task.endTime) {
                             dateTimeSpan.className = 'task-time';
-                            dateTimeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                            if (taskListRenderCount === 0) {
+                                dateTimeSpan.textContent = '';
+                            } else {
+                                dateTimeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                            }
                         } else {
                             dateTimeSpan.className = 'task-asterisk';
                             dateTimeSpan.textContent = '*';
@@ -1985,7 +1994,11 @@
                     const timeSpan = document.createElement('span');
                     if (task.endTime) {
                         timeSpan.className = 'task-time';
-                        timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                        if (taskListRenderCount === 0) {
+                            timeSpan.textContent = '';
+                        } else {
+                            timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                        }
                     } else {
                         timeSpan.className = 'task-asterisk';
                         timeSpan.textContent = '*';
@@ -2018,7 +2031,11 @@
                     if (task.endTime) {
                         const timeSpan = document.createElement('span');
                         timeSpan.className = 'task-time';
-                        timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                        if (taskListRenderCount === 0) {
+                            timeSpan.textContent = '';
+                        } else {
+                            timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                        }
                         dateTimeSpan.appendChild(timeSpan);
                     }
 
@@ -2042,6 +2059,8 @@
             updateSectionTitleStyle('today', todayTaskCount, todayCompletedCount);
             updateSectionTitleStyle('tomorrow', tomorrowTaskCount, tomorrowCompletedCount);
             updateSectionTitleStyle('week', weekTaskCount, weekCompletedCount);
+
+            taskListRenderCount += 1;
         }
 
         function renderCalendar(showEvents = true) {
