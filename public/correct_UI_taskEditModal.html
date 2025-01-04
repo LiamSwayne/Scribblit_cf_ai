@@ -2848,6 +2848,108 @@
             saveUserSettings();
         }
 
+        // Track active animation intervals
+        let activeAnimations = {
+            timeFormat: {
+                intervals: new Set(),
+                timeouts: new Set()
+            }
+        };
+
+        function clearTimeFormatAnimations() {
+            // Clear all intervals
+            activeAnimations.timeFormat.intervals.forEach(interval => {
+                clearInterval(interval);
+            });
+            activeAnimations.timeFormat.intervals.clear();
+
+            // Clear all timeouts
+            activeAnimations.timeFormat.timeouts.forEach(timeout => {
+                clearTimeout(timeout);
+            });
+            activeAnimations.timeFormat.timeouts.clear();
+        }
+
+        function animateTaskTimeFormatChange(to24Hour) {
+            // Clear any existing animations first
+            clearTimeFormatAnimations();
+            
+            const taskTimes = document.querySelectorAll('.task-time, .overdue-task .task-time');
+            const intervalBetweenStarts = 600 / taskTimes.length;
+            
+            taskTimes.forEach((timeElement, index) => {
+                const timeout = setTimeout(() => {
+                    const taskItem = timeElement.closest('.task-item');
+                    if (!taskItem) return;
+                    const taskId = taskItem.dataset.taskId;
+                    const task = taskEventArray.find(t => t.id === taskId);
+                    if (!task || !task.endTime) return;
+
+                    // Store original classes
+                    const originalClassList = timeElement.className;
+                    
+                    // Prepare new text
+                    const [hours24, minutes] = task.endTime.split(':').map(Number);
+                    let newText;
+                    if (to24Hour) {
+                        newText = `${hours24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    } else {
+                        const period = hours24 >= 12 ? 'PM' : 'AM';
+                        const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+                        newText = `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}${period}`;
+                    }
+
+                    let currentText = timeElement.textContent;
+                    let currentDisplayText = currentText;
+                    
+                    // Delete phase
+                    const deleteInterval = setInterval(() => {
+                        if (currentDisplayText.length > 0) {
+                            if (currentDisplayText.endsWith('AM') || currentDisplayText.endsWith('PM')) {
+                                currentDisplayText = currentDisplayText.slice(0, -2);
+                            } else if (currentDisplayText.includes(':')) {
+                                if (currentDisplayText.endsWith(':')) {
+                                    currentDisplayText = currentDisplayText.slice(0, -1);
+                                    timeElement.innerHTML = `${currentDisplayText}<span class="time-colon">:</span>`;
+                                } else {
+                                    currentDisplayText = currentDisplayText.slice(0, -1);
+                                }
+                            } else {
+                                currentDisplayText = currentDisplayText.slice(0, -1);
+                            }
+                            timeElement.innerHTML = currentDisplayText;
+                            timeElement.className = originalClassList;
+                        } else {
+                            clearInterval(deleteInterval);
+                            activeAnimations.timeFormat.intervals.delete(deleteInterval);
+                            
+                            // Add phase
+                            let currentIndex = 0;
+                            const addInterval = setInterval(() => {
+                                if (currentIndex <= newText.length) {
+                                    let displayText = newText.slice(0, currentIndex);
+                                    if (displayText.includes(':')) {
+                                        const parts = displayText.split(':');
+                                        displayText = `${parts[0]}<span class="time-colon">:</span>${parts[1] || ''}`;
+                                    }
+                                    timeElement.innerHTML = displayText;
+                                    timeElement.className = originalClassList;
+                                    currentIndex++;
+                                } else {
+                                    clearInterval(addInterval);
+                                    activeAnimations.timeFormat.intervals.delete(addInterval);
+                                }
+                            }, 400 / newText.length);
+                            activeAnimations.timeFormat.intervals.add(addInterval);
+                        }
+                    }, 400 / currentText.length);
+                    activeAnimations.timeFormat.intervals.add(deleteInterval);
+                }, index * intervalBetweenStarts);
+                
+                activeAnimations.timeFormat.timeouts.add(timeout);
+            });
+        }
+
         function updateSelector(optionElement, value) {
             const container = optionElement.parentElement;
             const setting = container.dataset.setting;
@@ -2869,98 +2971,26 @@
             userSettings[setting] = value;
             saveUserSettings();
 
-            // If this is the time format setting, trigger the animation
+            // If this is the time format setting, handle the change
             if (setting === 'timeFormat') {
+                // Clear any pending class changes
+                clearTimeout(activeAnimations.timeFormat.classTimeout);
+                
                 if (value === 'AM/PM') {
                     document.body.classList.add('time-format-ampm');
+                    animateHourLabelFormatChange(false);
+                    animateTaskTimeFormatChange(false);
                 } else {
-                    // When switching to 24h, calculate total animation duration
-                    const taskTimes = document.querySelectorAll('.task-time');
-                    const hourLabels = document.querySelectorAll('.hour-label');
-                    const totalElements = taskTimes.length + hourLabels.length;
-                    const totalDuration = 600;
-
-                    // Remove class after animations complete
-                    setTimeout(() => {
-                        document.body.classList.remove('time-format-ampm');
-                    }, totalDuration);
-                }
-
-                animateHourLabelFormatChange(value === '24h');
-                animateTaskTimeFormatChange(value === '24h');
-            }
-        }
-
-        function animateTaskTimeFormatChange(to24Hour) {
-            // Select both regular task times and overdue task times
-            const taskTimes = document.querySelectorAll('.task-time, .overdue-task .task-time');
-            const intervalBetweenStarts = 600 / taskTimes.length;
-            
-            taskTimes.forEach((timeElement, index) => {
-                setTimeout(() => {
-                    // Get parent task item and its task
-                    const taskItem = timeElement.closest('.task-item');
-                    if (!taskItem) return;
-                    const taskId = taskItem.dataset.taskId;
-                    const task = taskEventArray.find(t => t.id === taskId);
-                    if (!task || !task.endTime) return;
-
-                    // Get current display text (excluding HTML)
-                    let currentText = timeElement.textContent;
+                    animateHourLabelFormatChange(true);
+                    animateTaskTimeFormatChange(true);
                     
-                    // Prepare the new text based on conversion
-                    const [hours24, minutes] = task.endTime.split(':').map(Number);
-                    let newText;
-                    if (to24Hour) {
-                        newText = `${hours24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-                    } else {
-                        const period = hours24 >= 12 ? 'PM' : 'AM';
-                        const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
-                        newText = `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}${period}`;
-                    }
-
-                    // Delete characters one by one
-                    let currentDisplayText = currentText;
-                    const deleteInterval = setInterval(() => {
-                        if (currentDisplayText.length > 0) {
-                            if (currentDisplayText.endsWith('AM') || currentDisplayText.endsWith('PM')) {
-                                // Remove AM/PM as one unit
-                                currentDisplayText = currentDisplayText.slice(0, -2);
-                            } else if (currentDisplayText.includes(':')) {
-                                // Handle colon as one unit with its HTML
-                                if (currentDisplayText.endsWith(':')) {
-                                    currentDisplayText = currentDisplayText.slice(0, -1);
-                                    timeElement.innerHTML = `${currentDisplayText}<span class="time-colon">:</span>`;
-                                } else {
-                                    currentDisplayText = currentDisplayText.slice(0, -1);
-                                }
-                            } else {
-                                currentDisplayText = currentDisplayText.slice(0, -1);
-                            }
-                            timeElement.innerHTML = currentDisplayText;
-                        } else {
-                            clearInterval(deleteInterval);
-                            
-                            // Add new characters one by one
-                            let currentIndex = 0;
-                            const addInterval = setInterval(() => {
-                                if (currentIndex <= newText.length) {
-                                    let displayText = newText.slice(0, currentIndex);
-                                    if (displayText.includes(':')) {
-                                        // Properly handle colon with HTML
-                                        const parts = displayText.split(':');
-                                        displayText = `${parts[0]}<span class="time-colon">:</span>${parts[1] || ''}`;
-                                    }
-                                    timeElement.innerHTML = displayText;
-                                    currentIndex++;
-                                } else {
-                                    clearInterval(addInterval);
-                                }
-                            }, 400 / newText.length);
-                        }
-                    }, 400 / currentText.length);
-                }, index * intervalBetweenStarts);
-            });
+                    // Schedule class removal after animation
+                    const classTimeout = setTimeout(() => {
+                        document.body.classList.remove('time-format-ampm');
+                    }, 600);
+                    activeAnimations.timeFormat.classTimeout = classTimeout;
+                }
+            }
         }
 
         function animateHourLabelFormatChange(to24Hour) {
