@@ -2754,7 +2754,10 @@
                     }
                 }
                 modal.classList.remove('visible');
+
+                document.getElementById('settingsModal').classList.remove('visible');
             } else if (modalType === 'settings') {
+                console.log('Settings saved');
                 document.getElementById('settingsModal').classList.remove('visible');
             }
         }
