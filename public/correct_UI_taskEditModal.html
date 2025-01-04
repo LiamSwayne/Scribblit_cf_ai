@@ -2278,10 +2278,31 @@
                     const now = DateTime.now().setZone(userTimezone);
                     const currentMinutes = now.hour * 60 + now.minute;
                     if (item.endTime && timeToMinutes(item.endTime) < currentMinutes) {
-                        // I have no ******* clue why this needs a setTimeout to work, but it does
-                        setTimeout(() => {
-                            eventEl.style.opacity = '0.5';
-                        }, 5);
+                        // Calculate delay based on event index
+                        const allEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                        const eventIndex = allEvents.indexOf(eventEl);
+                        const waterfallDelay = (eventIndex) * 50 + 1200; // Add 100ms buffer after waterfall
+
+                        async function setOpacityUntilSuccess() {
+                            // First wait for waterfall animation
+                            await new Promise(resolve => setTimeout(resolve, waterfallDelay));
+                            
+                            let attempts = 0;
+                            while (attempts < 100) {
+                                try {
+                                    eventEl.style.opacity = '0.5';
+                                    if (getComputedStyle(eventEl).opacity === '0.5') {
+                                        break;
+                                    }
+                                    await new Promise(resolve => setTimeout(resolve, 50));
+                                    attempts++;
+                                } catch (error) {
+                                    console.error('Failed to set opacity:', error);
+                                    break;
+                                }
+                            }
+                        }
+                        setOpacityUntilSuccess();
                     }
 
                     eventEl.textContent = item.name;
@@ -2871,10 +2892,6 @@
         }
 
         function animateTaskTimeFormatChange(to24Hour) {
-            // Skip animation if time format matches current display format
-            const isCurrently24Hour = !document.body.classList.contains('time-format-ampm');
-            if (to24Hour === isCurrently24Hour) return;
-
             // Select both regular task times and overdue task times
             const taskTimes = document.querySelectorAll('.task-time, .overdue-task .task-time');
             const intervalBetweenStarts = 600 / taskTimes.length;
