@@ -840,8 +840,7 @@
             grid-template-columns: 1fr 1fr;
             grid-gap: 20px;
             padding: 10px;
-            min-width: 400px;
-            max-width: 400px;
+            width: 500px;
             position: fixed;
             top: 50%;
             left: 50%;
@@ -1070,8 +1069,10 @@
             text-align: center;
             outline: none;
             user-select: none;
-            transition: background-color 0.15s ease;
+            transition: background-color 0.15s ease, width 0.3s ease, height 0.3s ease;
             caret-color: transparent;
+            height: 18px;
+            font-size: 14px;
         }
 
         .date-time-inputs input:focus,
@@ -1110,33 +1111,41 @@
             filter: brightness(2);
         }
 
-        .time-period-selector {
-            display: flex;
-            margin-right: 8px;
-        }
-
+        /* AM PM switcher */
         .time-period-container {
             display: flex;
+            flex-direction: column;
             background-color: var(--grey-5);
             border-radius: 4px;
             padding: 2px;
             position: relative;
-            height: 20px;
-            width: 50px;
+            height: 24px;
+            width: 20px;
+            margin-right: 0;
+            margin-left: 4px;
+        }
+
+        .time-period-highlight {
+            position: absolute;
+            width: calc(100% - 4px);
+            height: calc(50% - 2px);
+            background-color: var(--grey-4);
+            border-radius: 2px;
+            transition: transform 0.3s ease;
         }
 
         .time-period-option {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0px 3px;
+            height: 12px;
+            padding: 0px;
             cursor: pointer;
             color: var(--grey-2);
             z-index: 1;
             transition: color 0.3s ease;
             user-select: none;
-            font-size: 11px;
-            width: 50%;
+            font-size: 10px;
         }
 
         .time-period-option.active {
@@ -1145,9 +1154,8 @@
 
         .time-period-highlight {
             position: absolute;
-            top: 2px;
-            height: calc(100% - 4px);
-            width: calc(50% - 2px);
+            width: calc(100% - 4px);
+            height: 12px; /* Match option height */
             background-color: var(--grey-4);
             border-radius: 2px;
             transition: transform 0.3s ease;
@@ -1301,25 +1309,28 @@
                 </div>
         
                 <!-- Combined time row -->
-                <div class="date-time-row">
+                <div class="date-time-row combined-time-row">
                     <div id="startTimeSwitch" class="task-toggle-track">
                         <div class="task-toggle-handle"></div>
                     </div>
                     <div class="combined-time-inputs">
                         <div id="startTimeInputs" class="time-inputs">
-                            <div class="time-period-selector" style="display: none">
+                            <input type="text" maxlength="2" placeholder="HH">
+                            <span class="date-time-separator">:</span>
+                            <input type="text" maxlength="2" placeholder="MM">
+                            <div class="time-period-selector" style="display: flex; pointer-events: none;">
                                 <div class="time-period-container">
                                     <div class="time-period-highlight"></div>
                                     <div class="time-period-option active" data-period="AM">AM</div>
                                     <div class="time-period-option" data-period="PM">PM</div>
                                 </div>
                             </div>
-                            <input type="text" maxlength="2" placeholder="HH">
-                            <span class="date-time-separator">:</span>
-                            <input type="text" maxlength="2" placeholder="MM">
                         </div>
                         <span class="time-label">to</span>
                         <div id="endTimeInputs" class="time-inputs">
+                            <input type="text" maxlength="2" placeholder="HH">
+                            <span class="date-time-separator">:</span>
+                            <input type="text" maxlength="2" placeholder="MM">
                             <div class="time-period-selector" style="display: none">
                                 <div class="time-period-container">
                                     <div class="time-period-highlight"></div>
@@ -1327,9 +1338,6 @@
                                     <div class="time-period-option" data-period="PM">PM</div>
                                 </div>
                             </div>
-                            <input type="text" maxlength="2" placeholder="HH">
-                            <span class="date-time-separator">:</span>
-                            <input type="text" maxlength="2" placeholder="MM">
                         </div>
                     </div>
                 </div>
@@ -3167,7 +3175,7 @@
                         container.querySelectorAll('.time-period-option').forEach(opt => 
                             opt.classList.remove('active'));
                         option.classList.add('active');
-                        highlight.style.transform = option.dataset.period === 'AM' ? 'translateX(0)' : 'translateX(100%)';
+                        highlight.style.transform = option.dataset.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
                     });
                 });
             });
