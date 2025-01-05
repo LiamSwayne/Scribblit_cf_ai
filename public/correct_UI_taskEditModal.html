@@ -3207,9 +3207,8 @@
             const endDateSwitch = document.getElementById('endDateSwitch');
             const endDateInputs = document.getElementById('endDateInputs');
 
-            // Default state - turn off end date switch unless event has endDate
-            if (task.endDate != null) {
-                console.log('Task has end date');
+            // Turn off end date switch unless event has endDate
+            if (task.endDate) {
                 endDateSwitch.classList.add('active');
                 endDateInputs.style.opacity = '1';
                 const [endYear, endMonth, endDay] = task.endDate.split('-');
