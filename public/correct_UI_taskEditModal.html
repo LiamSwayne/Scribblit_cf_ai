@@ -2164,17 +2164,27 @@
             if (allDayEvents.length > 0) {
                 allDayEventsContainer.innerHTML = '<div class="section-title">All-day</div>';
                 allDayEvents.forEach(event => {
-                    const eventEl = document.createElement('div');
-                    eventEl.className = 'all-day-event';
-                    const asterisk = document.createElement('span');
-                    asterisk.className = 'task-asterisk';
-                    asterisk.textContent = '*';
-                    const eventContent = document.createElement('span');
-                    eventContent.textContent = event.name;
-                    eventEl.appendChild(asterisk);
-                    eventEl.appendChild(eventContent);
-                    allDayEventsContainer.appendChild(eventEl);
+                const eventEl = document.createElement('div');
+                eventEl.className = 'all-day-event';
+                eventEl.dataset.taskId = event.id;
+                
+                const asterisk = document.createElement('span');
+                asterisk.className = 'task-asterisk';
+                asterisk.textContent = '*';
+                
+                const eventContent = document.createElement('span');
+                eventContent.textContent = event.name;
+                
+                eventEl.appendChild(asterisk);
+                eventEl.appendChild(eventContent);
+                
+                // Add click handler for all-day events
+                eventEl.addEventListener('click', (e) => {
+                    constructTaskEditorModal(e.currentTarget.dataset.taskId);
                 });
+                
+                allDayEventsContainer.appendChild(eventEl);
+            });
             }
 
             // Calculate new calendar position immediately
@@ -2286,6 +2296,7 @@
                     eventEl.className = 'calendar-event';
                     eventEl.dataset.startTime = item.startTime || '00:00';
                     eventEl.dataset.endTime = item.endTime || '';
+                    eventEl.dataset.taskId = item.id;
 
                     // make past events 0.5 opacity
                     const now = DateTime.now().setZone(userTimezone);
@@ -2351,6 +2362,10 @@
                     if (!showEvents) {
                         eventEl.style.opacity = '0';
                     }
+
+                    eventEl.addEventListener('click', (e) => {
+                        constructTaskEditorModal(e.currentTarget.dataset.taskId);
+                    });
 
                     calendar.appendChild(eventEl);
                 });
