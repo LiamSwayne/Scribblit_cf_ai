@@ -1192,6 +1192,14 @@
         #startTimeSwitch:not(.active) ~ .combined-time-inputs .time-inputs input {
             cursor: default;
         }
+
+        .time-period-selector {
+            display: none;
+        }
+
+        body.time-format-ampm .time-period-selector {
+            display: flex;
+        }
     </style>
 </head>
 <body>
@@ -1312,7 +1320,7 @@
                             <input type="text" maxlength="2" placeholder="HH">
                             <span class="date-time-separator">:</span>
                             <input type="text" maxlength="2" placeholder="MM">
-                            <div class="time-period-selector" style="display: flex; pointer-events: none;">
+                            <div class="time-period-selector">
                                 <div class="time-period-container">
                                     <div class="time-period-highlight"></div>
                                     <div class="time-period-option active" data-period="AM">AM</div>
@@ -1325,7 +1333,7 @@
                             <input type="text" maxlength="2" placeholder="HH">
                             <span class="date-time-separator">:</span>
                             <input type="text" maxlength="2" placeholder="MM">
-                            <div class="time-period-selector" style="display: none">
+                            <div class="time-period-selector">
                                 <div class="time-period-container">
                                     <div class="time-period-highlight"></div>
                                     <div class="time-period-option active" data-period="AM">AM</div>
@@ -1378,7 +1386,7 @@
                         <input type="text" maxlength="2" placeholder="HH">
                         <span class="date-time-separator">:</span>
                         <input type="text" maxlength="2" placeholder="MM">
-                        <div class="time-period-selector" style="display: none">
+                        <div class="time-period-selector">
                             <div class="time-period-container">
                                 <div class="time-period-highlight"></div>
                                 <div class="time-period-option active" data-period="AM">AM</div>
@@ -3192,18 +3200,6 @@
                 container.style.opacity = '0.5';
             });
 
-            // Reset period selectors
-            document.querySelectorAll('.time-period-option').forEach(option => {
-                option.classList.remove('active');
-                if (option.dataset.period === 'AM') {
-                    option.classList.add('active');
-                }
-            });
-
-            document.querySelectorAll('.time-period-highlight').forEach(highlight => {
-                highlight.style.transform = 'translateY(0)'; // Ensures AM is selected by default
-            });
-
             const endDateSwitch = document.getElementById('endDateSwitch');
             const endDateInputs = document.getElementById('endDateInputs');
 
@@ -3281,30 +3277,10 @@
                                 const time12 = convertTo12Hour(timeValue);
                                 inputs[0].value = time12.hours;
                                 inputs[1].value = time12.minutes.padStart(2, '0');  // Add leading zero
-
-                                const periodContainer = timeInputs.querySelector('.time-period-container');
-                                if (periodContainer) {
-                                    periodContainer.style.pointerEvents = 'auto';
-                                    const periodOptions = periodContainer.querySelectorAll('.time-period-option');
-                                    const highlight = periodContainer.querySelector('.time-period-highlight');
-                                    periodOptions.forEach(option => {
-                                        option.classList.toggle('active', option.dataset.period === time12.period);
-                                    });
-                                    highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
-                                }
                             } else {
                                 const [hours, minutes] = timeValue.split(':');
                                 inputs[0].value = parseInt(hours).toString();
                                 inputs[1].value = minutes.padStart(2, '0');  // Add leading zero
-                            }
-                        }
-
-                        // Always enable period selector if in AM/PM mode
-                        if (userSettings.timeFormat === 'AM/PM') {
-                            const periodSelector = timeInputs.querySelector('.time-period-selector');
-                            if (periodSelector) {
-                                periodSelector.style.display = 'flex';
-                                periodSelector.style.pointerEvents = 'auto';
                             }
                         }
                     });
@@ -3340,16 +3316,6 @@
                         inputs[0].value = time12.hours;
                         inputs[1].value = time12.minutes;
                         inputs.forEach(input => input.removeAttribute('readonly'));
-
-                        const periodContainer = dueTimeInputs.querySelector('.time-period-container');
-                        if (periodContainer) {
-                            const periodOptions = periodContainer.querySelectorAll('.time-period-option');
-                            const highlight = periodContainer.querySelector('.time-period-highlight');
-                            periodOptions.forEach(option => {
-                                option.classList.toggle('active', option.dataset.period === time12.period);
-                            });
-                            highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
-                        }
                     } else {
                         const [hours, minutes] = task.endTime.split(':');
                         const inputs = dueTimeInputs.querySelectorAll('input');
@@ -3409,36 +3375,6 @@
                 taskSettings.classList.remove('inactive');
             }
 
-            // Show/hide period selectors based on time format
-            document.querySelectorAll('.time-period-selector').forEach(selector => {
-                if (userSettings.timeFormat === 'AM/PM') {
-                    selector.style.display = 'flex';
-                    const timeInputs = selector.closest('.time-inputs');
-                    if (timeInputs) {
-                        const switchId = timeInputs.id.replace('Inputs', 'Switch');
-                        const timeSwitch = document.getElementById(switchId);
-                        if (!timeSwitch || !timeSwitch.classList.contains('active')) {
-                            selector.style.pointerEvents = 'none';
-                        }
-                    }
-                } else {
-                    selector.style.display = 'none';
-                }
-            });
-
-            // Add period selector click handlers
-            document.querySelectorAll('.time-period-container').forEach(container => {
-                const highlight = container.querySelector('.time-period-highlight');
-                container.querySelectorAll('.time-period-option').forEach(option => {
-                    option.addEventListener('click', () => {
-                        container.querySelectorAll('.time-period-option').forEach(opt =>
-                            opt.classList.remove('active'));
-                        option.classList.add('active');
-                        highlight.style.transform = option.dataset.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
-                    });
-                });
-            });
-
             // Then set up click handlers for type switching
             newEventBtn.addEventListener('click', () => {
                 newEventBtn.classList.add('active');
@@ -3482,28 +3418,6 @@
                     input.removeAttribute('readonly');
                 });
 
-                // Handle AM/PM selectors
-                if (userSettings.timeFormat === 'AM/PM') {
-                    // Copy period for start time
-                    const duePeriod = dueTimeInputs.querySelector('.time-period-option.active').dataset.period;
-                    [startTimeInputs, endTimeInputs].forEach(container => {
-                        const periodSelector = container.querySelector('.time-period-selector');
-                        if (periodSelector) {
-                            periodSelector.style.pointerEvents = 'auto';
-                            if (container === startTimeInputs) {
-                                // Only copy period selection for start time
-                                container.querySelectorAll('.time-period-option').forEach(option => {
-                                    option.classList.toggle('active', option.dataset.period === duePeriod);
-                                });
-                                const highlight = container.querySelector('.time-period-highlight');
-                                if (highlight) {
-                                    highlight.style.transform = duePeriod === 'AM' ? 'translateY(0)' : 'translateY(12px)';
-                                }
-                            }
-                        }
-                    });
-                }
-
                 // Enable both input containers
                 startTimeInputs.style.opacity = '1';
                 endTimeInputs.style.opacity = '1';
@@ -3525,17 +3439,6 @@
                         inputs[0].value = time12.hours;
                         inputs[1].value = time12.minutes;
                         inputs.forEach(input => input.removeAttribute('readonly'));
-
-                        // Set the AM/PM period
-                        const periodContainer = dueTimeInputs.querySelector('.time-period-container');
-                        if (periodContainer) {
-                            const periodOptions = periodContainer.querySelectorAll('.time-period-option');
-                            const highlight = periodContainer.querySelector('.time-period-highlight');
-                            periodOptions.forEach(option => {
-                                option.classList.toggle('active', option.dataset.period === time12.period);
-                            });
-                            highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
-                        }
                     } else {
                         // Handle 24h format
                         const [hours, minutes] = task.startTime.split(':');
@@ -3543,14 +3446,6 @@
                         inputs[0].value = parseInt(hours).toString();
                         inputs[1].value = parseInt(minutes).toString();
                         inputs.forEach(input => input.removeAttribute('readonly'));
-                    }
-
-                    // Enable the period selector if in AM/PM mode
-                    if (userSettings.timeFormat === 'AM/PM') {
-                        const periodSelector = dueTimeInputs.querySelector('.time-period-selector');
-                        if (periodSelector) {
-                            periodSelector.style.pointerEvents = 'auto';
-                        }
                     }
                 }
             }
@@ -3602,27 +3497,11 @@
                         const allInputs = [...startTimeInputs.querySelectorAll('input'), ...endTimeInputs.querySelectorAll('input')];
                         if (isActive) {
                             allInputs.forEach(input => input.removeAttribute('readonly'));
-                            if (userSettings.timeFormat === 'AM/PM') {
-                                [startTimeInputs, endTimeInputs].forEach(container => {
-                                    const periodSelector = container.querySelector('.time-period-selector');
-                                    if (periodSelector) {
-                                        periodSelector.style.pointerEvents = 'auto';
-                                    }
-                                });
-                            }
                         } else {
                             allInputs.forEach(input => {
                                 input.value = '';
                                 input.setAttribute('readonly', 'true');
                             });
-                            if (userSettings.timeFormat === 'AM/PM') {
-                                [startTimeInputs, endTimeInputs].forEach(container => {
-                                    const periodSelector = container.querySelector('.time-period-selector');
-                                    if (periodSelector) {
-                                        periodSelector.style.pointerEvents = 'none';
-                                    }
-                                });
-                            }
                         }
                     } else {
                         const isActive = newSwitch.classList.toggle('active');
@@ -3631,13 +3510,6 @@
                         const inputs = inputsEl.querySelectorAll('input');
                         if (isActive) {
                             inputs.forEach(input => input.removeAttribute('readonly'));
-                            // Enable AM/PM selector if it exists and we're in AM/PM mode
-                            if (switchType.endsWith('Time') && userSettings.timeFormat === 'AM/PM') {
-                                const periodSelector = inputsEl.querySelector('.time-period-selector');
-                                if (periodSelector) {
-                                    periodSelector.style.pointerEvents = 'auto';
-                                }
-                            }
 
                             // If turning on due time, ensure due date is on
                             if (switchType === 'dueTime') {
@@ -3649,13 +3521,6 @@
                             }
                         } else {
                             inputs.forEach(input => input.setAttribute('readonly', 'true'));
-                            // Disable AM/PM selector if it exists
-                            if (switchType.endsWith('Time')) {
-                                const periodSelector = inputsEl.querySelector('.time-period-selector');
-                                if (periodSelector) {
-                                    periodSelector.style.pointerEvents = 'none';
-                                }
-                            }
 
                             // If turning off due date, also turn off due time
                             if (switchType === 'dueDate') {
@@ -3667,11 +3532,6 @@
                                     input.value = '';
                                     input.setAttribute('readonly', 'true');
                                 });
-                                // Disable the AM/PM selector in the time inputs
-                                const periodSelector = dueTimeInputs.querySelector('.time-period-selector');
-                                if (periodSelector) {
-                                    periodSelector.style.pointerEvents = 'none';
-                                }
                             }
                         }
                     }
@@ -3720,15 +3580,6 @@
                             const inputs = timeInputs.querySelectorAll('input');
                             inputs[0].value = time12.hours;
                             inputs[1].value = time12.minutes;
-
-                            const periodContainer = timeInputs.querySelector('.time-period-container');
-                            if (periodContainer) {
-                                const periodOptions = periodContainer.querySelectorAll('.time-period-option');
-                                const highlight = periodContainer.querySelector('.time-period-highlight');
-                                periodOptions.forEach(option => {
-                                    option.classList.toggle('active', option.dataset.period === time12.period);
-                                });
-                            }
                         });
                     } else {
                         ['start', 'end'].forEach((prefix, index) => {
@@ -3761,15 +3612,6 @@
                         const inputs = timeInputs.querySelectorAll('input');
                         inputs[0].value = time12.hours;
                         inputs[1].value = time12.minutes;
-
-                        const periodContainer = timeInputs.querySelector('.time-period-container');
-                        if (periodContainer) {
-                            const periodOptions = periodContainer.querySelectorAll('.time-period-option');
-                            const highlight = periodContainer.querySelector('.time-period-highlight');
-                            periodOptions.forEach(option => {
-                                option.classList.toggle('active', option.dataset.period === time12.period);
-                            });
-                        }
                     } else {
                         const [hours, minutes] = task.endTime.split(':');
                         const inputs = timeInputs.querySelectorAll('input');
@@ -3873,6 +3715,63 @@
             window.addEventListener('resize', () => {
                 renderCalendar();
             });
+
+            // Run AM/PM state & click handler check every 10ms
+    setInterval(() => {
+        const eventBtn = document.getElementById('eventTypeBtn');
+        const taskBtn = document.getElementById('taskTypeBtn');
+        const startTimeSwitch = document.getElementById('startTimeSwitch');
+        const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+
+        // If modal isn't open, elements won't exist, so skip
+        if (!eventBtn || !taskBtn || !startTimeSwitch || !dueTimeSwitch) return;
+
+        const isEventMode = eventBtn.classList.contains('active');
+        const startTimeSwitchOn = startTimeSwitch.classList.contains('active');
+        const dueTimeSwitchOn = dueTimeSwitch.classList.contains('active');
+
+        // Get all period containers
+        document.querySelectorAll('.time-period-container').forEach(container => {
+            // First ensure click handlers exist
+            const options = container.querySelectorAll('.time-period-option');
+            const highlight = container.querySelector('.time-period-highlight');
+            
+            options.forEach(option => {
+                // Remove any existing click handler
+                option.removeEventListener('click', option.clickHandler);
+                
+                // Add new click handler
+                option.clickHandler = () => {
+                    options.forEach(opt => opt.classList.remove('active'));
+                    option.classList.add('active');
+                    highlight.style.transform = option.dataset.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
+                };
+                option.addEventListener('click', option.clickHandler);
+            });
+
+            // Then control overall selector state
+            const timeInputs = container.closest('.time-inputs');
+            if (timeInputs) {
+                const isStartTime = timeInputs.id === 'startTimeInputs';
+                const isEndTime = timeInputs.id === 'endTimeInputs';
+                const isDueTime = timeInputs.id === 'dueTimeInputs';
+
+                if (isEventMode) {
+                    if (isStartTime || isEndTime) {
+                        container.style.pointerEvents = startTimeSwitchOn ? 'auto' : 'none';
+                    } else if (isDueTime) {
+                        container.style.pointerEvents = 'none';
+                    }
+                } else {
+                    if (isStartTime || isEndTime) {
+                        container.style.pointerEvents = 'none';
+                    } else if (isDueTime) {
+                        container.style.pointerEvents = dueTimeSwitchOn ? 'auto' : 'none';
+                    }
+                }
+            }
+        });
+    }, 10);
         });
     </script>
 </body>
