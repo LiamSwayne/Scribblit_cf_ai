@@ -1122,16 +1122,7 @@
             height: 24px;
             width: 20px;
             margin-right: 0;
-            margin-left: 4px;
-        }
-
-        .time-period-highlight {
-            position: absolute;
-            width: calc(100% - 4px);
-            height: calc(50% - 2px);
-            background-color: var(--grey-4);
-            border-radius: 2px;
-            transition: transform 0.3s ease;
+            margin-left: 2px;
         }
 
         .time-period-option {
@@ -1159,7 +1150,12 @@
             background-color: var(--grey-4);
             border-radius: 2px;
             transition: transform 0.3s ease;
+            left: 2px;
         }
+
+        .time-period-option.active[data-period="PM"] ~ .time-period-highlight {
+    transform: translateY(12px);
+}
 
         .date-time-inputs input[readonly]:focus,
         .time-inputs input[readonly]:focus {
@@ -1381,6 +1377,9 @@
                         <div class="task-toggle-handle"></div>
                     </div>
                     <div id="dueTimeInputs" class="time-inputs">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="date-time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
                         <div class="time-period-selector" style="display: none">
                             <div class="time-period-container">
                                 <div class="time-period-highlight"></div>
@@ -1388,10 +1387,7 @@
                                 <div class="time-period-option" data-period="PM">PM</div>
                             </div>
                         </div>
-                        <input type="text" maxlength="2" placeholder="HH">
-                        <span class="date-time-separator">:</span>
-                        <input type="text" maxlength="2" placeholder="MM">
-                    </div>
+                    </div>             
                 </div>
             </div>
         </div>
@@ -2296,7 +2292,8 @@
                     // make past events 0.5 opacity
                     const now = DateTime.now().setZone(userTimezone);
                     const currentMinutes = now.hour * 60 + now.minute;
-                    if (item.endTime && timeToMinutes(item.endTime) < currentMinutes) {
+                    // event must be in the past and today
+                    if (item.endTime && timeToMinutes(item.endTime) < currentMinutes && DateTime.fromISO(item.date).hasSame(now, 'day')) {
                         // Calculate delay based on event index
                         const allEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
                         const eventIndex = allEvents.indexOf(eventEl);
@@ -3167,6 +3164,181 @@
                 switchEl.parentNode.replaceChild(newSwitch, switchEl);
             });
 
+            document.querySelectorAll('.date-time-inputs input, .time-inputs input').forEach(input => {
+                input.value = '';
+                input.setAttribute('readonly', 'true');
+            });
+
+            document.querySelectorAll('.task-toggle-track').forEach(track => {
+                if (!track.id.includes('startDate')) { // Don't reset startDate switch
+                    track.classList.remove('active');
+                }
+            });
+
+            document.querySelectorAll('.date-time-inputs, .time-inputs').forEach(container => {
+                container.style.opacity = '0.5';
+            });
+
+            // Reset period selectors
+            document.querySelectorAll('.time-period-option').forEach(option => {
+                option.classList.remove('active');
+                if (option.dataset.period === 'AM') {
+                    option.classList.add('active');
+                }
+            });
+
+            document.querySelectorAll('.time-period-highlight').forEach(highlight => {
+                highlight.style.transform = 'translateY(0)'; // Ensures AM is selected by default
+            });
+
+            const endDateSwitch = document.getElementById('endDateSwitch');
+            const endDateInputs = document.getElementById('endDateInputs');
+
+            // Default state - turn off end date switch unless event has endDate
+            if (task.endDate != null) {
+                console.log('Task has end date');
+                endDateSwitch.classList.add('active');
+                endDateInputs.style.opacity = '1';
+                const [endYear, endMonth, endDay] = task.endDate.split('-');
+                const inputs = endDateInputs.querySelectorAll('input');
+                inputs[0].value = parseInt(endMonth).toString();
+                inputs[1].value = parseInt(endDay).toString();
+                inputs[2].value = endYear;
+                inputs.forEach(input => input.removeAttribute('readonly'));
+            } else {
+                endDateSwitch.classList.remove('active');
+                endDateInputs.style.opacity = '0.5';
+                endDateInputs.querySelectorAll('input').forEach(input => {
+                    input.value = '';
+                    input.setAttribute('readonly', 'true');
+                });
+            }
+
+            endDateSwitch.addEventListener('click', () => {
+                const isActive = endDateSwitch.classList.toggle('active');
+                endDateInputs.style.opacity = isActive ? '1' : '0.5';
+                
+                const inputs = endDateInputs.querySelectorAll('input');
+                if (isActive) {
+                    inputs.forEach(input => input.removeAttribute('readonly'));
+                    // Only set the date if it's not already set
+                    if (!inputs[0].value && !inputs[1].value && !inputs[2].value) {
+                        // Set the end date inputs to match the start date by default
+                        const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
+                        inputs[0].value = startDateInputs[0].value;
+                        inputs[1].value = startDateInputs[1].value;
+                        inputs[2].value = startDateInputs[2].value;
+                    }
+                } else {
+                    inputs.forEach(input => {
+                        input.value = '';
+                        input.setAttribute('readonly', 'true');
+                    });
+                }
+            });
+
+            // Then fill in task data
+            if (task.kind === 'event') {
+                // Handle event dates and times
+                if (task.date) {
+                    const [year, month, day] = task.date.split('-');
+                    
+                    // Fill start date (always active for events)
+                    const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
+                    startDateInputs[0].value = parseInt(month).toString();
+                    startDateInputs[1].value = parseInt(day).toString();
+                    startDateInputs[2].value = year;
+                    startDateInputs.forEach(input => input.removeAttribute('readonly'));
+                }
+
+                // Handle times
+                if (task.startTime || task.endTime) {
+                    const timeSwitch = document.getElementById('startTimeSwitch');
+                    timeSwitch.classList.add('active');
+                    
+                    ['start', 'end'].forEach(prefix => {
+                        const timeValue = task[`${prefix}Time`];
+                        if (timeValue) {
+                            const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                            timeInputs.style.opacity = '1';
+                            
+                            if (userSettings.timeFormat === 'AM/PM') {
+                                const time12 = convertTo12Hour(timeValue);
+                                const inputs = timeInputs.querySelectorAll('input');
+                                inputs[0].value = time12.hours;
+                                inputs[1].value = time12.minutes;
+                                inputs.forEach(input => input.removeAttribute('readonly'));
+                                
+                                const periodContainer = timeInputs.querySelector('.time-period-container');
+                                if (periodContainer) {
+                                    const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                                    const highlight = periodContainer.querySelector('.time-period-highlight');
+                                    periodOptions.forEach(option => {
+                                        option.classList.toggle('active', option.dataset.period === time12.period);
+                                    });
+                                    highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
+                                }
+                            } else {
+                                const [hours, minutes] = timeValue.split(':');
+                                const inputs = timeInputs.querySelectorAll('input');
+                                inputs[0].value = parseInt(hours).toString();
+                                inputs[1].value = parseInt(minutes).toString();
+                                inputs.forEach(input => input.removeAttribute('readonly'));
+                            }
+                        }
+                    });
+                }
+            } else {
+                // Handle task date and time
+                if (task.date) {
+                    const [year, month, day] = task.date.split('-');
+                    const dueDateSwitch = document.getElementById('dueDateSwitch');
+                    const dueDateInputs = document.getElementById('dueDateInputs');
+                    
+                    dueDateSwitch.classList.add('active');
+                    dueDateInputs.style.opacity = '1';
+                    
+                    const inputs = dueDateInputs.querySelectorAll('input');
+                    inputs[0].value = parseInt(month).toString();
+                    inputs[1].value = parseInt(day).toString();
+                    inputs[2].value = year;
+                    inputs.forEach(input => input.removeAttribute('readonly'));
+                }
+                
+                // Handle task time
+                if (task.endTime) {
+                    const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+                    const dueTimeInputs = document.getElementById('dueTimeInputs');
+                    
+                    dueTimeSwitch.classList.add('active');
+                    dueTimeInputs.style.opacity = '1';
+                    
+                    if (userSettings.timeFormat === 'AM/PM') {
+                        const time12 = convertTo12Hour(task.endTime);
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = time12.hours;
+                        inputs[1].value = time12.minutes;
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                        
+                        const periodContainer = dueTimeInputs.querySelector('.time-period-container');
+                        if (periodContainer) {
+                            const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                            const highlight = periodContainer.querySelector('.time-period-highlight');
+                            periodOptions.forEach(option => {
+                                option.classList.toggle('active', option.dataset.period === time12.period);
+                            });
+                            highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                        }
+                    } else {
+                        const [hours, minutes] = task.endTime.split(':');
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = parseInt(hours).toString();
+                        inputs[1].value = parseInt(minutes).toString();
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                    }
+                }
+            }
+
             const eventBtn = document.getElementById('eventTypeBtn');
             const taskBtn = document.getElementById('taskTypeBtn');
             const newEventBtn = eventBtn.cloneNode(true);
@@ -3265,6 +3437,43 @@
                 task.kind = 'task';
             });
 
+            // Copy time data from task's due time to event's start time
+            const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+            const startTimeSwitch = document.getElementById('startTimeSwitch');
+            if (dueTimeSwitch.classList.contains('active')) {
+                startTimeSwitch.classList.add('active');
+                const dueTimeInputs = document.getElementById('dueTimeInputs');
+                const startTimeInputs = document.getElementById('startTimeInputs');
+                const endTimeInputs = document.getElementById('endTimeInputs');
+
+                // Copy input values
+                const dueInputs = dueTimeInputs.querySelectorAll('input');
+                const startInputs = startTimeInputs.querySelectorAll('input');
+                const endInputs = endTimeInputs.querySelectorAll('input');
+                
+                // Copy hours and minutes
+                startInputs[0].value = dueInputs[0].value;
+                startInputs[1].value = dueInputs[1].value;
+                startInputs.forEach(input => input.removeAttribute('readonly'));
+                
+                // If using AM/PM, copy period selection
+                if (userSettings.timeFormat === 'AM/PM') {
+                    const duePeriod = dueTimeInputs.querySelector('.time-period-option.active').dataset.period;
+                    startTimeInputs.querySelectorAll('.time-period-option').forEach(option => {
+                        option.classList.toggle('active', option.dataset.period === duePeriod);
+                    });
+                    const startHighlight = startTimeInputs.querySelector('.time-period-highlight');
+                    if (startHighlight) {
+                        startHighlight.style.transform = duePeriod === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                    }
+                }
+
+                // Enable inputs and adjust opacity
+                startTimeInputs.style.opacity = '1';
+                endTimeInputs.style.opacity = '1';
+                endInputs.forEach(input => input.removeAttribute('readonly'));
+            }
+
             // Lock the start date toggle for events
             const startDateToggle = document.getElementById('startDateSwitch');
             if (startDateToggle) {
@@ -3354,9 +3563,10 @@
             });
 
             // Fill in existing values if task has them
+            // Event end date is handled elsewhere
             if (task.date) {
                 const [year, month, day] = task.date.split('-');
-                ['due', 'start', 'end'].forEach(prefix => {
+                ['due', 'start'].forEach(prefix => {   // Remove 'end' from this array
                     const dateInputsEl = document.getElementById(`${prefix}DateInputs`);
                     if (!dateInputsEl) return;
 
@@ -3402,9 +3612,6 @@
                                 periodOptions.forEach(option => {
                                     option.classList.toggle('active', option.dataset.period === time12.period);
                                 });
-                                if (highlight) {
-                                    highlight.style.transform = time12.period === 'AM' ? 'translateX(0)' : 'translateX(100%)';
-                                }
                             }
                         });
                     } else {
@@ -3446,9 +3653,6 @@
                             periodOptions.forEach(option => {
                                 option.classList.toggle('active', option.dataset.period === time12.period);
                             });
-                            if (highlight) {
-                                highlight.style.transform = time12.period === 'AM' ? 'translateX(0)' : 'translateX(100%)';
-                            }
                         }
                     } else {
                         const [hours, minutes] = task.endTime.split(':');
