@@ -1158,14 +1158,14 @@
         .date-time-inputs input[readonly]:focus,
         .time-inputs input[readonly]:focus {
             background-color: var(--grey-5) !important;
-            outline: none; 
+            outline: none;
             caret-color: transparent;
         }
 
         .date-time-inputs input[readonly],
         .time-inputs input[readonly] {
-            cursor: default; 
-            user-select: none; 
+            cursor: default;
+            user-select: none;
         }
 
         .combined-time-inputs {
@@ -1277,15 +1277,15 @@
         </div>
 
         <textarea id="taskDescription" class="task-description" placeholder="Add a description..."></textarea>
-    
+
         <div class="task-type-selector">
             <div class="task-type-highlight"></div>
             <div id="eventTypeBtn" class="task-type-option" data-type="event">Event</div>
             <div id="taskTypeBtn" class="task-type-option" data-type="task">Task</div>
         </div>
-    
+
         <div class="task-modal-center-line"></div>
-    
+
         <div class="task-settings-event">
             <!-- Start date (unchanged) -->
             <div class="date-time-group">
@@ -1301,7 +1301,7 @@
                         <input type="text" maxlength="4" placeholder="YYYY">
                     </div>
                 </div>
-        
+
                 <!-- Combined time row -->
                 <div class="date-time-row combined-time-row">
                     <div id="startTimeSwitch" class="task-toggle-track">
@@ -1336,7 +1336,7 @@
                     </div>
                 </div>
             </div>
-        
+
             <!-- Different end date section -->
             <div class="date-time-group">
                 <div class="setting-label">Different end date</div>
@@ -1354,7 +1354,7 @@
                 </div>
             </div>
         </div>
-    
+
         <div class="task-settings-task">
             <div class="date-time-group">
                 <div class="setting-label">Due</div>
@@ -1385,11 +1385,11 @@
                                 <div class="time-period-option" data-period="PM">PM</div>
                             </div>
                         </div>
-                    </div>             
+                    </div>
                 </div>
             </div>
         </div>
-    
+
         <div class="task-modal-footer">
             <img id="deleteTaskBtn" src="./trash_icon.svg" class="task-delete-btn">
         </div>
@@ -1600,13 +1600,13 @@
                 // Set initial state
                 line.style.opacity = '1';
                 line.style.transform = 'translateY(0)';
-                
+
                 // Force a reflow
                 line.offsetHeight;
-                
+
                 // Now set the transition
                 line.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                
+
                 setTimeout(() => {
                     line.style.opacity = '0';
                     line.style.transform = 'translateY(-10px)';
@@ -2167,22 +2167,22 @@
                 const eventEl = document.createElement('div');
                 eventEl.className = 'all-day-event';
                 eventEl.dataset.taskId = event.id;
-                
+
                 const asterisk = document.createElement('span');
                 asterisk.className = 'task-asterisk';
                 asterisk.textContent = '*';
-                
+
                 const eventContent = document.createElement('span');
                 eventContent.textContent = event.name;
-                
+
                 eventEl.appendChild(asterisk);
                 eventEl.appendChild(eventContent);
-                
+
                 // Add click handler for all-day events
                 eventEl.addEventListener('click', (e) => {
                     constructTaskEditorModal(e.currentTarget.dataset.taskId);
                 });
-                
+
                 allDayEventsContainer.appendChild(eventEl);
             });
             }
@@ -2311,7 +2311,7 @@
                         async function setOpacityUntilSuccess() {
                             // First wait for waterfall animation
                             await new Promise(resolve => setTimeout(resolve, waterfallDelay));
-                            
+
                             let attempts = 0;
                             while (attempts < 100) {
                                 try {
@@ -2595,7 +2595,7 @@
                             // First ensure any existing transition is complete
                             eventEl.style.transition = 'none';
                             eventEl.offsetHeight; // Force reflow
-                            
+
                             // Now start our new transition
                             setTimeout(() => {
                                 eventEl.style.transition = 'opacity 300ms ease';
@@ -2604,7 +2604,7 @@
                         } else {
                             eventEl.style.transition = 'none';
                             eventEl.offsetHeight; // Force reflow
-                            
+
                             setTimeout(() => {
                                 eventEl.style.transition = 'opacity 300ms ease';
                                 eventEl.style.opacity = '1';
@@ -2819,7 +2819,7 @@
                 document.getElementById('settingsModal').classList.remove('visible');
             }
         }
-    
+
         function saveUserSettings() {
             localStorage.setItem('userSettings', JSON.stringify(userSettings));
         }
@@ -2902,10 +2902,10 @@
         function animateTaskTimeFormatChange(to24Hour) {
             // Clear any existing animations first
             clearTimeFormatAnimations();
-            
+
             const taskTimes = document.querySelectorAll('.task-time, .overdue-task .task-time');
             const intervalBetweenStarts = 600 / taskTimes.length;
-            
+
             taskTimes.forEach((timeElement, index) => {
                 const timeout = setTimeout(() => {
                     const taskItem = timeElement.closest('.task-item');
@@ -2916,7 +2916,7 @@
 
                     // Store original classes
                     const originalClassList = timeElement.className;
-                    
+
                     // Prepare new text
                     const [hours24, minutes] = task.endTime.split(':').map(Number);
                     let newText;
@@ -2930,7 +2930,7 @@
 
                     let currentText = timeElement.textContent;
                     let currentDisplayText = currentText;
-                    
+
                     // Delete phase
                     const deleteInterval = setInterval(() => {
                         if (currentDisplayText.length > 0) {
@@ -2951,7 +2951,7 @@
                         } else {
                             clearInterval(deleteInterval);
                             activeAnimations.timeFormat.intervals.delete(deleteInterval);
-                            
+
                             // Add phase
                             let currentIndex = 0;
                             const addInterval = setInterval(() => {
@@ -2974,7 +2974,7 @@
                     }, 400 / currentText.length);
                     activeAnimations.timeFormat.intervals.add(deleteInterval);
                 }, index * intervalBetweenStarts);
-                
+
                 activeAnimations.timeFormat.timeouts.add(timeout);
             });
         }
@@ -3004,7 +3004,7 @@
             if (setting === 'timeFormat') {
                 // Clear any pending class changes
                 clearTimeout(activeAnimations.timeFormat.classTimeout);
-                
+
                 if (value === 'AM/PM') {
                     document.body.classList.add('time-format-ampm');
                     animateHourLabelFormatChange(false);
@@ -3012,7 +3012,7 @@
                 } else {
                     animateHourLabelFormatChange(true);
                     animateTaskTimeFormatChange(true);
-                    
+
                     // Schedule class removal after animation
                     const classTimeout = setTimeout(() => {
                         document.body.classList.remove('time-format-ampm');
@@ -3026,7 +3026,7 @@
             const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
             const totalLabels = hourLabels.length;
             const intervalBetweenStarts = 600 / totalLabels;
-            
+
             // Update data-value immediately for all labels
             hourLabels.forEach(label => {
                 const currentDataValue = label.dataset.value;
@@ -3041,12 +3041,12 @@
                 }
                 label.dataset.value = formatTime(hour, to24Hour);
             });
-            
+
             const shuffledLabels = hourLabels
                 .map(value => ({ value, sort: Math.random() }))
                 .sort((a, b) => a.sort - b.sort)
                 .map(({ value }) => value);
-            
+
             shuffledLabels.forEach((label, index) => {
                 setTimeout(() => {
                     if (label.textContent !== label.dataset.value && !hourLabelsCurrentlyAnimating[label.id]) {
@@ -3077,10 +3077,10 @@
             } else {
                 hour = parseInt(currentText);
             }
-            
+
             let oldText = label.textContent;
             let newText = label.dataset.value;
-            
+
             // First, delete characters one by one
             let currentDisplayText = oldText;
             const deleteInterval = setInterval(() => {
@@ -3098,7 +3098,7 @@
                     label.textContent = currentDisplayText;
                 } else {
                     clearInterval(deleteInterval);
-                    
+
                     // Add new characters one by one
                     let currentIndex = 0;
                     const addInterval = setInterval(() => {
@@ -3229,7 +3229,7 @@
             endDateSwitch.addEventListener('click', () => {
                 const isActive = endDateSwitch.classList.toggle('active');
                 endDateInputs.style.opacity = isActive ? '1' : '0.5';
-                
+
                 const inputs = endDateInputs.querySelectorAll('input');
                 if (isActive) {
                     inputs.forEach(input => input.removeAttribute('readonly'));
@@ -3254,7 +3254,7 @@
                 // Handle event dates and times
                 if (task.date) {
                     const [year, month, day] = task.date.split('-');
-                    
+
                     // Fill start date (always active for events)
                     const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
                     startDateInputs[0].value = parseInt(month).toString();
@@ -3267,13 +3267,13 @@
                 if (task.startTime || task.endTime) {
                     const timeSwitch = document.getElementById('startTimeSwitch');
                     timeSwitch.classList.add('active');
-                    
+
                     ['start', 'end'].forEach(prefix => {
                         const timeInputs = document.getElementById(`${prefix}TimeInputs`);
                         timeInputs.style.opacity = '1';  // Always set opacity since switch is on
                         const inputs = timeInputs.querySelectorAll('input');
-                        inputs.forEach(input => input.removeAttribute('readonly'));  
-                            
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+
                         // Only fill in values if this specific time exists
                         const timeValue = task[`${prefix}Time`];
                         if (timeValue) {
@@ -3281,7 +3281,7 @@
                                 const time12 = convertTo12Hour(timeValue);
                                 inputs[0].value = time12.hours;
                                 inputs[1].value = time12.minutes.padStart(2, '0');  // Add leading zero
-                                
+
                                 const periodContainer = timeInputs.querySelector('.time-period-container');
                                 if (periodContainer) {
                                     periodContainer.style.pointerEvents = 'auto';
@@ -3315,32 +3315,32 @@
                     const [year, month, day] = task.date.split('-');
                     const dueDateSwitch = document.getElementById('dueDateSwitch');
                     const dueDateInputs = document.getElementById('dueDateInputs');
-                    
+
                     dueDateSwitch.classList.add('active');
                     dueDateInputs.style.opacity = '1';
-                    
+
                     const inputs = dueDateInputs.querySelectorAll('input');
                     inputs[0].value = parseInt(month).toString();
                     inputs[1].value = parseInt(day).toString();
                     inputs[2].value = year;
                     inputs.forEach(input => input.removeAttribute('readonly'));
                 }
-                
+
                 // Handle task time
                 if (task.endTime) {
                     const dueTimeSwitch = document.getElementById('dueTimeSwitch');
                     const dueTimeInputs = document.getElementById('dueTimeInputs');
-                    
+
                     dueTimeSwitch.classList.add('active');
                     dueTimeInputs.style.opacity = '1';
-                    
+
                     if (userSettings.timeFormat === 'AM/PM') {
                         const time12 = convertTo12Hour(task.endTime);
                         const inputs = dueTimeInputs.querySelectorAll('input');
                         inputs[0].value = time12.hours;
                         inputs[1].value = time12.minutes;
                         inputs.forEach(input => input.removeAttribute('readonly'));
-                        
+
                         const periodContainer = dueTimeInputs.querySelector('.time-period-container');
                         if (periodContainer) {
                             const periodOptions = periodContainer.querySelectorAll('.time-period-option');
@@ -3431,7 +3431,7 @@
                 const highlight = container.querySelector('.time-period-highlight');
                 container.querySelectorAll('.time-period-option').forEach(option => {
                     option.addEventListener('click', () => {
-                        container.querySelectorAll('.time-period-option').forEach(opt => 
+                        container.querySelectorAll('.time-period-option').forEach(opt =>
                             opt.classList.remove('active'));
                         option.classList.add('active');
                         highlight.style.transform = option.dataset.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
@@ -3466,22 +3466,22 @@
                 const dueTimeInputs = document.getElementById('dueTimeInputs');
                 const startTimeInputs = document.getElementById('startTimeInputs');
                 const endTimeInputs = document.getElementById('endTimeInputs');
-                
+
                 // Copy input values to start time only
                 const dueInputs = dueTimeInputs.querySelectorAll('input');
                 const startInputs = startTimeInputs.querySelectorAll('input');
-                
+
                 // Copy hours and minutes
                 startInputs[0].value = dueInputs[0].value;
                 startInputs[1].value = dueInputs[1].value.padStart(2, '0');  // Add leading zero
                 startInputs.forEach(input => input.removeAttribute('readonly'));
-                
+
                 // Enable end time inputs but don't copy values
                 endTimeInputs.querySelectorAll('input').forEach(input => {
                     input.value = '';
                     input.removeAttribute('readonly');
                 });
-                
+
                 // Handle AM/PM selectors
                 if (userSettings.timeFormat === 'AM/PM') {
                     // Copy period for start time
@@ -3510,22 +3510,22 @@
             }
 
             // Check if this is an event and copy time fields to due time fields
-            if (task.kind === 'event') {                
+            if (task.kind === 'event') {
                 if (task.startTime) {
                     const dueTimeSwitch = document.getElementById('dueTimeSwitch');
                     const dueTimeInputs = document.getElementById('dueTimeInputs');
-                    
+
                     // Activate the due time switch
                     dueTimeSwitch.classList.add('active');
                     dueTimeInputs.style.opacity = '1';
-                    
+
                     if (userSettings.timeFormat === 'AM/PM') {
                         const time12 = convertTo12Hour(task.startTime);
                         const inputs = dueTimeInputs.querySelectorAll('input');
                         inputs[0].value = time12.hours;
                         inputs[1].value = time12.minutes;
                         inputs.forEach(input => input.removeAttribute('readonly'));
-                        
+
                         // Set the AM/PM period
                         const periodContainer = dueTimeInputs.querySelector('.time-period-container');
                         if (periodContainer) {
@@ -3544,7 +3544,7 @@
                         inputs[1].value = parseInt(minutes).toString();
                         inputs.forEach(input => input.removeAttribute('readonly'));
                     }
-                    
+
                     // Enable the period selector if in AM/PM mode
                     if (userSettings.timeFormat === 'AM/PM') {
                         const periodSelector = dueTimeInputs.querySelector('.time-period-selector');
@@ -3561,7 +3561,7 @@
                 const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
                 startDateToggle.classList.add('active');
                 startDateToggle.style.pointerEvents = 'none';
-                
+
                 if (startDateHandle && !startDateHandle.querySelector('.lock-icon')) {
                     const lockIcon = document.createElement('img');
                     lockIcon.src = './lock_icon.svg';
@@ -3581,24 +3581,24 @@
             switches.forEach(switchType => {
                 const switchEl = document.getElementById(`${switchType}Switch`);
                 if (!switchEl) return;
-                
+
                 const inputsEl = document.getElementById(`${switchType}Inputs`);
                 if (!inputsEl) return;
-                
+
                 const newSwitch = switchEl.cloneNode(true);
                 switchEl.parentNode.replaceChild(newSwitch, switchEl);
-                
+
                 newSwitch.addEventListener('click', () => {
                     if (switchType === 'startDate') return; // Prevent toggling start date
-                                
+
                     if (switchType === 'startTime') {
                         const isActive = newSwitch.classList.toggle('active');
                         const startTimeInputs = document.getElementById('startTimeInputs');
                         const endTimeInputs = document.getElementById('endTimeInputs');
-                        
+
                         startTimeInputs.style.opacity = isActive ? '1' : '0.5';
                         endTimeInputs.style.opacity = isActive ? '1' : '0.5';
-                        
+
                         const allInputs = [...startTimeInputs.querySelectorAll('input'), ...endTimeInputs.querySelectorAll('input')];
                         if (isActive) {
                             allInputs.forEach(input => input.removeAttribute('readonly'));
@@ -3627,7 +3627,7 @@
                     } else {
                         const isActive = newSwitch.classList.toggle('active');
                         inputsEl.style.opacity = isActive ? '1' : '0.5';
-                        
+
                         const inputs = inputsEl.querySelectorAll('input');
                         if (isActive) {
                             inputs.forEach(input => input.removeAttribute('readonly'));
@@ -3690,7 +3690,7 @@
                     dateInputs[0].value = parseInt(month).toString();
                     dateInputs[1].value = parseInt(day).toString();
                     dateInputs[2].value = year;
-                    
+
                     const dateSwitch = document.getElementById(`${prefix}DateSwitch`);
                     if (dateSwitch) {
                         dateSwitch.classList.add('active');
@@ -3711,7 +3711,7 @@
                     if (userSettings.timeFormat === 'AM/PM') {
                         const startTime12 = convertTo12Hour(task.startTime);
                         const endTime12 = convertTo12Hour(task.endTime);
-                        
+
                         ['start', 'end'].forEach((prefix, index) => {
                             const time12 = index === 0 ? startTime12 : endTime12;
                             const timeInputs = document.getElementById(`${prefix}TimeInputs`);
@@ -3720,7 +3720,7 @@
                             const inputs = timeInputs.querySelectorAll('input');
                             inputs[0].value = time12.hours;
                             inputs[1].value = time12.minutes;
-                            
+
                             const periodContainer = timeInputs.querySelector('.time-period-container');
                             if (periodContainer) {
                                 const periodOptions = periodContainer.querySelectorAll('.time-period-option');
@@ -3787,7 +3787,7 @@
             if (newCloseBtn) {
                 newCloseBtn.addEventListener('click', () => hideModal('editTask'));
             }
-            
+
             // Delete button event listener
             if (newDeleteBtn) {
                 newDeleteBtn.addEventListener('click', () => {
@@ -3831,7 +3831,7 @@
 
                 const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
                 const intervalBetweenStarts = 600 / hourLabels.length;
-                
+
                 // Shuffle the labels for random order animation
                 const shuffledLabels = hourLabels
                     .map(value => ({ value, sort: Math.random() }))
@@ -3861,7 +3861,7 @@
             // Calculate delay until start of next minute
             const now = new Date();
             const delay = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-            
+
             // First timeout to sync with minute start
             setTimeout(() => {
                 updateTimeMarker();
