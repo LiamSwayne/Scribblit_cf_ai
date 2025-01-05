@@ -3269,20 +3269,22 @@
                     timeSwitch.classList.add('active');
                     
                     ['start', 'end'].forEach(prefix => {
+                        const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                        timeInputs.style.opacity = '1';  // Always set opacity since switch is on
+                        const inputs = timeInputs.querySelectorAll('input');
+                        inputs.forEach(input => input.removeAttribute('readonly'));  // Always enable inputs
+                            
+                        // Only fill in values if this specific time exists
                         const timeValue = task[`${prefix}Time`];
                         if (timeValue) {
-                            const timeInputs = document.getElementById(`${prefix}TimeInputs`);
-                            timeInputs.style.opacity = '1';
-                            
                             if (userSettings.timeFormat === 'AM/PM') {
                                 const time12 = convertTo12Hour(timeValue);
-                                const inputs = timeInputs.querySelectorAll('input');
                                 inputs[0].value = time12.hours;
                                 inputs[1].value = time12.minutes;
-                                inputs.forEach(input => input.removeAttribute('readonly'));
                                 
                                 const periodContainer = timeInputs.querySelector('.time-period-container');
                                 if (periodContainer) {
+                                    periodContainer.style.pointerEvents = 'auto';
                                     const periodOptions = periodContainer.querySelectorAll('.time-period-option');
                                     const highlight = periodContainer.querySelector('.time-period-highlight');
                                     periodOptions.forEach(option => {
@@ -3292,10 +3294,17 @@
                                 }
                             } else {
                                 const [hours, minutes] = timeValue.split(':');
-                                const inputs = timeInputs.querySelectorAll('input');
                                 inputs[0].value = parseInt(hours).toString();
                                 inputs[1].value = parseInt(minutes).toString();
-                                inputs.forEach(input => input.removeAttribute('readonly'));
+                            }
+                        }
+
+                        // Always enable period selector if in AM/PM mode
+                        if (userSettings.timeFormat === 'AM/PM') {
+                            const periodSelector = timeInputs.querySelector('.time-period-selector');
+                            if (periodSelector) {
+                                periodSelector.style.display = 'flex';
+                                periodSelector.style.pointerEvents = 'auto';
                             }
                         }
                     });
@@ -3449,7 +3458,7 @@
                 task.kind = 'task';
             });
 
-            // Copy time data from task's due time to event's start time
+            // Copy time data from task's due time to event's start time ONLY
             const dueTimeSwitch = document.getElementById('dueTimeSwitch');
             const startTimeSwitch = document.getElementById('startTimeSwitch');
             if (dueTimeSwitch.classList.contains('active')) {
@@ -3457,33 +3466,47 @@
                 const dueTimeInputs = document.getElementById('dueTimeInputs');
                 const startTimeInputs = document.getElementById('startTimeInputs');
                 const endTimeInputs = document.getElementById('endTimeInputs');
-
-                // Copy input values
+                
+                // Copy input values to start time only
                 const dueInputs = dueTimeInputs.querySelectorAll('input');
                 const startInputs = startTimeInputs.querySelectorAll('input');
-                const endInputs = endTimeInputs.querySelectorAll('input');
                 
                 // Copy hours and minutes
                 startInputs[0].value = dueInputs[0].value;
                 startInputs[1].value = dueInputs[1].value;
                 startInputs.forEach(input => input.removeAttribute('readonly'));
                 
-                // If using AM/PM, copy period selection
+                // Enable end time inputs but don't copy values
+                endTimeInputs.querySelectorAll('input').forEach(input => {
+                    input.value = '';
+                    input.removeAttribute('readonly');
+                });
+                
+                // Handle AM/PM selectors
                 if (userSettings.timeFormat === 'AM/PM') {
+                    // Copy period for start time
                     const duePeriod = dueTimeInputs.querySelector('.time-period-option.active').dataset.period;
-                    startTimeInputs.querySelectorAll('.time-period-option').forEach(option => {
-                        option.classList.toggle('active', option.dataset.period === duePeriod);
+                    [startTimeInputs, endTimeInputs].forEach(container => {
+                        const periodSelector = container.querySelector('.time-period-selector');
+                        if (periodSelector) {
+                            periodSelector.style.pointerEvents = 'auto';
+                            if (container === startTimeInputs) {
+                                // Only copy period selection for start time
+                                container.querySelectorAll('.time-period-option').forEach(option => {
+                                    option.classList.toggle('active', option.dataset.period === duePeriod);
+                                });
+                                const highlight = container.querySelector('.time-period-highlight');
+                                if (highlight) {
+                                    highlight.style.transform = duePeriod === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                                }
+                            }
+                        }
                     });
-                    const startHighlight = startTimeInputs.querySelector('.time-period-highlight');
-                    if (startHighlight) {
-                        startHighlight.style.transform = duePeriod === 'AM' ? 'translateY(0)' : 'translateY(12px)';
-                    }
                 }
 
-                // Enable inputs and adjust opacity
+                // Enable both input containers
                 startTimeInputs.style.opacity = '1';
                 endTimeInputs.style.opacity = '1';
-                endInputs.forEach(input => input.removeAttribute('readonly'));
             }
 
             // Check if this is an event and copy time fields to due time fields
@@ -3567,53 +3590,88 @@
                 
                 newSwitch.addEventListener('click', () => {
                     if (switchType === 'startDate') return; // Prevent toggling start date
-                    
-                    const isActive = newSwitch.classList.toggle('active');
-                    inputsEl.style.opacity = isActive ? '1' : '0.5';
-                    
-                    const inputs = inputsEl.querySelectorAll('input');
-                    if (isActive) {
-                        inputs.forEach(input => input.removeAttribute('readonly'));
-                        // Enable AM/PM selector if it exists and we're in AM/PM mode
-                        if (switchType.endsWith('Time') && userSettings.timeFormat === 'AM/PM') {
-                            const periodSelector = inputsEl.querySelector('.time-period-selector');
-                            if (periodSelector) {
-                                periodSelector.style.pointerEvents = 'auto';
+                                
+                    if (switchType === 'startTime') {
+                        const isActive = newSwitch.classList.toggle('active');
+                        const startTimeInputs = document.getElementById('startTimeInputs');
+                        const endTimeInputs = document.getElementById('endTimeInputs');
+                        
+                        startTimeInputs.style.opacity = isActive ? '1' : '0.5';
+                        endTimeInputs.style.opacity = isActive ? '1' : '0.5';
+                        
+                        const allInputs = [...startTimeInputs.querySelectorAll('input'), ...endTimeInputs.querySelectorAll('input')];
+                        if (isActive) {
+                            allInputs.forEach(input => input.removeAttribute('readonly'));
+                            if (userSettings.timeFormat === 'AM/PM') {
+                                [startTimeInputs, endTimeInputs].forEach(container => {
+                                    const periodSelector = container.querySelector('.time-period-selector');
+                                    if (periodSelector) {
+                                        periodSelector.style.pointerEvents = 'auto';
+                                    }
+                                });
                             }
-                        }
-
-                        // If turning on due time, ensure due date is on
-                        if (switchType === 'dueTime') {
-                            const dueDateSwitch = document.getElementById('dueDateSwitch');
-                            const dueDateInputs = document.getElementById('dueDateInputs');
-                            dueDateSwitch.classList.add('active');
-                            dueDateInputs.style.opacity = '1';
-                            dueDateInputs.querySelectorAll('input').forEach(input => input.removeAttribute('readonly'));
-                        }
-                    } else {
-                        inputs.forEach(input => input.setAttribute('readonly', 'true'));
-                        // Disable AM/PM selector if it exists
-                        if (switchType.endsWith('Time')) {
-                            const periodSelector = inputsEl.querySelector('.time-period-selector');
-                            if (periodSelector) {
-                                periodSelector.style.pointerEvents = 'none';
-                            }
-                        }
-
-                        // If turning off due date, also turn off due time
-                        if (switchType === 'dueDate') {
-                            const dueTimeSwitch = document.getElementById('dueTimeSwitch');
-                            const dueTimeInputs = document.getElementById('dueTimeInputs');
-                            dueTimeSwitch.classList.remove('active');
-                            dueTimeInputs.style.opacity = '0.5';
-                            dueTimeInputs.querySelectorAll('input').forEach(input => {
+                        } else {
+                            allInputs.forEach(input => {
                                 input.value = '';
                                 input.setAttribute('readonly', 'true');
                             });
-                            // Disable the AM/PM selector in the time inputs
-                            const periodSelector = dueTimeInputs.querySelector('.time-period-selector');
-                            if (periodSelector) {
-                                periodSelector.style.pointerEvents = 'none';
+                            if (userSettings.timeFormat === 'AM/PM') {
+                                [startTimeInputs, endTimeInputs].forEach(container => {
+                                    const periodSelector = container.querySelector('.time-period-selector');
+                                    if (periodSelector) {
+                                        periodSelector.style.pointerEvents = 'none';
+                                    }
+                                });
+                            }
+                        }
+                    } else {
+                        const isActive = newSwitch.classList.toggle('active');
+                        inputsEl.style.opacity = isActive ? '1' : '0.5';
+                        
+                        const inputs = inputsEl.querySelectorAll('input');
+                        if (isActive) {
+                            inputs.forEach(input => input.removeAttribute('readonly'));
+                            // Enable AM/PM selector if it exists and we're in AM/PM mode
+                            if (switchType.endsWith('Time') && userSettings.timeFormat === 'AM/PM') {
+                                const periodSelector = inputsEl.querySelector('.time-period-selector');
+                                if (periodSelector) {
+                                    periodSelector.style.pointerEvents = 'auto';
+                                }
+                            }
+
+                            // If turning on due time, ensure due date is on
+                            if (switchType === 'dueTime') {
+                                const dueDateSwitch = document.getElementById('dueDateSwitch');
+                                const dueDateInputs = document.getElementById('dueDateInputs');
+                                dueDateSwitch.classList.add('active');
+                                dueDateInputs.style.opacity = '1';
+                                dueDateInputs.querySelectorAll('input').forEach(input => input.removeAttribute('readonly'));
+                            }
+                        } else {
+                            inputs.forEach(input => input.setAttribute('readonly', 'true'));
+                            // Disable AM/PM selector if it exists
+                            if (switchType.endsWith('Time')) {
+                                const periodSelector = inputsEl.querySelector('.time-period-selector');
+                                if (periodSelector) {
+                                    periodSelector.style.pointerEvents = 'none';
+                                }
+                            }
+
+                            // If turning off due date, also turn off due time
+                            if (switchType === 'dueDate') {
+                                const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+                                const dueTimeInputs = document.getElementById('dueTimeInputs');
+                                dueTimeSwitch.classList.remove('active');
+                                dueTimeInputs.style.opacity = '0.5';
+                                dueTimeInputs.querySelectorAll('input').forEach(input => {
+                                    input.value = '';
+                                    input.setAttribute('readonly', 'true');
+                                });
+                                // Disable the AM/PM selector in the time inputs
+                                const periodSelector = dueTimeInputs.querySelector('.time-period-selector');
+                                if (periodSelector) {
+                                    periodSelector.style.pointerEvents = 'none';
+                                }
                             }
                         }
                     }
