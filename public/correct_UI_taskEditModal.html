@@ -3487,6 +3487,52 @@
                 endInputs.forEach(input => input.removeAttribute('readonly'));
             }
 
+            // Check if this is an event and copy time fields to due time fields
+            if (task.kind === 'event') {                
+                if (task.startTime) {
+                    const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+                    const dueTimeInputs = document.getElementById('dueTimeInputs');
+                    
+                    // Activate the due time switch
+                    dueTimeSwitch.classList.add('active');
+                    dueTimeInputs.style.opacity = '1';
+                    
+                    if (userSettings.timeFormat === 'AM/PM') {
+                        const time12 = convertTo12Hour(task.startTime);
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = time12.hours;
+                        inputs[1].value = time12.minutes;
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                        
+                        // Set the AM/PM period
+                        const periodContainer = dueTimeInputs.querySelector('.time-period-container');
+                        if (periodContainer) {
+                            const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                            const highlight = periodContainer.querySelector('.time-period-highlight');
+                            periodOptions.forEach(option => {
+                                option.classList.toggle('active', option.dataset.period === time12.period);
+                            });
+                            highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                        }
+                    } else {
+                        // Handle 24h format
+                        const [hours, minutes] = task.startTime.split(':');
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = parseInt(hours).toString();
+                        inputs[1].value = parseInt(minutes).toString();
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                    }
+                    
+                    // Enable the period selector if in AM/PM mode
+                    if (userSettings.timeFormat === 'AM/PM') {
+                        const periodSelector = dueTimeInputs.querySelector('.time-period-selector');
+                        if (periodSelector) {
+                            periodSelector.style.pointerEvents = 'auto';
+                        }
+                    }
+                }
+            }
+
             // Lock the start date toggle for events
             const startDateToggle = document.getElementById('startDateSwitch');
             if (startDateToggle) {
