@@ -191,20 +191,18 @@
         }
 
         .task-date-time .task-time {
-            font-size: 9.5px;
+            font-size: 10.5px;
             margin-top: -2px;
         }
 
-        /* AM/PM format styles - needs to match or exceed overdue specificity */
         .time-format-ampm .task-time {
-            font-size: 10.5px !important; /* Force override */
-            letter-spacing: -0.5px !important; /* Force override */
+            font-size: 9.5px !important;
+            letter-spacing: -0.5px !important;
         }
 
-        /* Overdue task time in AM/PM format - matching the highest specificity */
         .time-format-ampm .overdue-task .task-time {
-            font-size: 10.5px !important; /* Force override */
-            letter-spacing: -0.5px !important; /* Force override */
+            font-size: 9.5px !important;
+            letter-spacing: -0.5px !important;
         }
 
         .time-colon {
@@ -1949,7 +1947,7 @@
                             if (taskListRenderCount === 0) {
                                 timeSpan.textContent = '';
                             } else {
-                                timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                                timeSpan.innerHTML = formatTimeTaskList(task.endTime);
                             }
                             dateTimeSpan.appendChild(timeSpan);
                         }
@@ -1960,7 +1958,7 @@
                             if (taskListRenderCount === 0) {
                                 dateTimeSpan.textContent = '';
                             } else {
-                                dateTimeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                                dateTimeSpan.innerHTML = formatTimeTaskList(task.endTime);
                             }
                         } else {
                             dateTimeSpan.className = 'task-asterisk';
@@ -1993,7 +1991,7 @@
                         if (taskListRenderCount === 0) {
                             timeSpan.textContent = '';
                         } else {
-                            timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                            timeSpan.innerHTML = formatTimeTaskList(task.endTime);
                         }
                     } else {
                         timeSpan.className = 'task-asterisk';
@@ -2030,7 +2028,7 @@
                         if (taskListRenderCount === 0) {
                             timeSpan.textContent = '';
                         } else {
-                            timeSpan.innerHTML = formatTimeForDisplay(task.endTime);
+                            timeSpan.innerHTML = formatTimeTaskList(task.endTime);
                         }
                         dateTimeSpan.appendChild(timeSpan);
                     }
@@ -2908,11 +2906,11 @@
                     const [hours24, minutes] = task.endTime.split(':').map(Number);
                     let newText;
                     if (to24Hour) {
-                        newText = `${hours24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                        newText = `${hours24}:${minutes.toString().padStart(2, '0')}`;  // Remove padStart from hours
                     } else {
                         const period = hours24 >= 12 ? 'PM' : 'AM';
                         const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
-                        newText = `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}${period}`;
+                        newText = `${hours12}:${minutes.toString().padStart(2, '0')}${period}`;  // Remove padStart from hours
                     }
 
                     let currentText = timeElement.textContent;
@@ -3118,11 +3116,11 @@
         // format time for calendar hour labels
         function formatTime(hour, to24Hour) {
             if (to24Hour) {
-                return `${hour.toString().padStart(2, '0')}:00`;
+                return `${hour}:00`;
             } else {
                 const period = hour >= 12 ? 'PM' : 'AM';
                 const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                return `${hour12.toString().padStart(2, '0')} ${period}`;
+                return `${hour12} ${period}`;
             }
         }
 
@@ -3131,11 +3129,11 @@
             if (!time24) return '';
             const [hours24, minutes] = time24.split(':').map(Number);
             if (userSettings.timeFormat === '24h') {
-                return `${hours24.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}`;
+                return `${hours24}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}`;
             }
             const period = hours24 >= 12 ? 'PM' : 'AM';
             const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
-            return `${hours12.toString().padStart(2, '0')}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}${period}`;
+            return `${hours12}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}${period}`;
         }
 
         function constructTaskEditorModal(taskId) {
