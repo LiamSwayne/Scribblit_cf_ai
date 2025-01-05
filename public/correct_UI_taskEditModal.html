@@ -3272,7 +3272,7 @@
                         const timeInputs = document.getElementById(`${prefix}TimeInputs`);
                         timeInputs.style.opacity = '1';  // Always set opacity since switch is on
                         const inputs = timeInputs.querySelectorAll('input');
-                        inputs.forEach(input => input.removeAttribute('readonly'));  // Always enable inputs
+                        inputs.forEach(input => input.removeAttribute('readonly'));  
                             
                         // Only fill in values if this specific time exists
                         const timeValue = task[`${prefix}Time`];
@@ -3280,7 +3280,7 @@
                             if (userSettings.timeFormat === 'AM/PM') {
                                 const time12 = convertTo12Hour(timeValue);
                                 inputs[0].value = time12.hours;
-                                inputs[1].value = time12.minutes;
+                                inputs[1].value = time12.minutes.padStart(2, '0');  // Add leading zero
                                 
                                 const periodContainer = timeInputs.querySelector('.time-period-container');
                                 if (periodContainer) {
@@ -3295,7 +3295,7 @@
                             } else {
                                 const [hours, minutes] = timeValue.split(':');
                                 inputs[0].value = parseInt(hours).toString();
-                                inputs[1].value = parseInt(minutes).toString();
+                                inputs[1].value = minutes.padStart(2, '0');  // Add leading zero
                             }
                         }
 
@@ -3473,7 +3473,7 @@
                 
                 // Copy hours and minutes
                 startInputs[0].value = dueInputs[0].value;
-                startInputs[1].value = dueInputs[1].value;
+                startInputs[1].value = dueInputs[1].value.padStart(2, '0');  // Add leading zero
                 startInputs.forEach(input => input.removeAttribute('readonly'));
                 
                 // Enable end time inputs but don't copy values
