@@ -3125,7 +3125,7 @@
         }
 
         // format time for task list
-        function formatTimeForDisplay(time24) {
+        function formatTimeTaskList(time24) {
             if (!time24) return '';
             const [hours24, minutes] = time24.split(':').map(Number);
             if (userSettings.timeFormat === '24h') {
