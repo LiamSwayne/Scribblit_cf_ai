@@ -254,6 +254,16 @@
             transition: opacity 0.3s ease, background-color 0.3s ease;
         }
 
+        .calendar-event.extends-down {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .calendar-event.extends-up {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
         /* white border */
         .calendar-event::after {
             content: '';
@@ -298,6 +308,17 @@
                 rgba(0, 0, 0, 0.1) 90%,
                 transparent 100%
             );
+        }
+
+        /* override for multi-day events */
+        .calendar-event.extends-down::after {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .calendar-event.extends-up::after {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
         }
 
         .navigation button {
@@ -2199,13 +2220,15 @@
                         // On start date, treat as timed event from start time to end of day
                         timedEvents.push({
                             ...event,
-                            endTime: '24:00'
+                            endTime: '24:00',
+                            extendsDown: true
                         });
                     } else if (isEndDate && event.endTime) {
                         // On end date, treat as timed event from start of day to end time
                         timedEvents.push({
                             ...event,
-                            startTime: '00:00'
+                            startTime: '00:00',
+                            extendsUp: true
                         });
                     } else {
                         // For days in between or when no specific times, treat as all-day
@@ -2355,6 +2378,12 @@
 
                     const eventEl = document.createElement('div');
                     eventEl.className = 'calendar-event';
+                    if (item.extendsDown) {
+                        eventEl.classList.add('extends-down');
+                    }
+                    if (item.extendsUp) {
+                        eventEl.classList.add('extends-up');
+                    }
                     eventEl.dataset.startTime = item.startTime || '00:00';
                     eventEl.dataset.endTime = item.endTime || '';
                     eventEl.dataset.taskId = item.id;
