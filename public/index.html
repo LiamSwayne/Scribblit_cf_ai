@@ -2390,34 +2390,55 @@
 
                     // make past events 0.5 opacity
                     const now = DateTime.now().setZone(userTimezone);
-                    const currentMinutes = now.hour * 60 + now.minute;
-                    // event must be in the past and today
-                    if (item.endTime && timeToMinutes(item.endTime) < currentMinutes && DateTime.fromISO(item.date).hasSame(now, 'day')) {
-                        // Calculate delay based on event index
-                        const allEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-                        const eventIndex = allEvents.indexOf(eventEl);
-                        const waterfallDelay = (eventIndex) * 50 + 1200; // Add 100ms buffer after waterfall
 
-                        async function setOpacityUntilSuccess() {
-                            // First wait for waterfall animation
-                            await new Promise(resolve => setTimeout(resolve, waterfallDelay));
+                    // Only apply past event styling if we're viewing today
+                    if (currentDate.hasSame(now, 'day')) {
+                        // Convert event time to Unix timestamp
+                        let eventEndTime;
+                        if (item.endDate) {
+                            // If it has an end date, use that with end time (or 23:59:59 if no end time)
+                            eventEndTime = DateTime.fromISO(item.endDate)
+                                .set({
+                                    hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
+                                    minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
+                                    second: 59
+                                });
+                        } else {
+                            // Single day event - use item.date with end time (or 23:59:59 if no end time)
+                            eventEndTime = DateTime.fromISO(item.date)
+                                .set({
+                                    hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
+                                    minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
+                                    second: 59
+                                });
+                        }
 
-                            let attempts = 0;
-                            while (attempts < 100) {
-                                try {
-                                    eventEl.style.opacity = '0.5';
-                                    if (getComputedStyle(eventEl).opacity === '0.5') {
+                        if (eventEndTime < now) {
+                            // Calculate delay based on event index
+                            const allEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                            const eventIndex = allEvents.indexOf(eventEl);
+                            const waterfallDelay = (eventIndex) * 50 + 1200;
+
+                            async function setOpacityUntilSuccess() {
+                                await new Promise(resolve => setTimeout(resolve, waterfallDelay));
+
+                                let attempts = 0;
+                                while (attempts < 100) {
+                                    try {
+                                        eventEl.style.opacity = '0.5';
+                                        if (getComputedStyle(eventEl).opacity === '0.5') {
+                                            break;
+                                        }
+                                        await new Promise(resolve => setTimeout(resolve, 50));
+                                        attempts++;
+                                    } catch (error) {
+                                        console.error('Failed to set opacity:', error);
                                         break;
                                     }
-                                    await new Promise(resolve => setTimeout(resolve, 50));
-                                    attempts++;
-                                } catch (error) {
-                                    console.error('Failed to set opacity:', error);
-                                    break;
                                 }
                             }
+                            setOpacityUntilSuccess();
                         }
-                        setOpacityUntilSuccess();
                     }
 
                     eventEl.textContent = item.name;
