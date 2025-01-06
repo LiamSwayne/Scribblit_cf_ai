@@ -2065,6 +2065,19 @@
             taskListRenderCount += 1;
         }
 
+        function isMultiDayEvent(event) {
+            return event.kind === "event" && event.endDate && event.endDate !== event.date;
+        }
+
+        // Helper to check if a date falls within an event's date range
+        function isDateInEventRange(date, event) {
+            const eventStart = DateTime.fromISO(event.date);
+            const eventEnd = DateTime.fromISO(event.endDate || event.date);
+            const checkDate = DateTime.fromISO(date);
+            
+            return checkDate >= eventStart && checkDate <= eventEnd;
+        }
+
         function renderCalendar(showEvents = true) {
             // Preserve time marker elements if they exist
             const existingMarker = document.querySelector('.current-time-marker');
@@ -2158,15 +2171,55 @@
 
             // Process events
             // TODO: Add support for recurring events
-            let events = taskEventArray.filter(item => item.kind === "event" && DateTime.fromISO(item.date).hasSame(currentDate, 'day'));
+            let events = taskEventArray.filter(item => {
+                if (item.kind !== "event") return false;
+                
+                if (isMultiDayEvent(item)) {
+                    return isDateInEventRange(currentDate.toISODate(), item);
+                } else {
+                    return DateTime.fromISO(item.date).hasSame(currentDate, 'day');
+                }
+            });
 
             if (shouldUpdateLocalStorage) {
                 saveUserData();
             }
 
             // Separate all-day events and events without calculable start times
-            let allDayEvents = events.filter(event => !event.startTime || !isValidTime(event.startTime));
-            let timedEvents = events.filter(event => event.startTime && isValidTime(event.startTime));
+            // multi-day events are converted into these
+            let allDayEvents = [];
+            let timedEvents = [];
+
+            events.forEach(event => {
+                if (isMultiDayEvent(event)) {
+                    const isStartDate = currentDate.toISODate() === event.date;
+                    const isEndDate = currentDate.toISODate() === event.endDate;
+
+                    if (isStartDate && event.startTime) {
+                        // On start date, treat as timed event from start time to end of day
+                        timedEvents.push({
+                            ...event,
+                            endTime: '24:00'
+                        });
+                    } else if (isEndDate && event.endTime) {
+                        // On end date, treat as timed event from start of day to end time
+                        timedEvents.push({
+                            ...event,
+                            startTime: '00:00'
+                        });
+                    } else {
+                        // For days in between or when no specific times, treat as all-day
+                        allDayEvents.push(event);
+                    }
+                } else {
+                    // Handle regular single-day events as before
+                    if (!event.startTime || !isValidTime(event.startTime)) {
+                        allDayEvents.push(event);
+                    } else {
+                        timedEvents.push(event);
+                    }
+                }
+            });
 
             // Handle all-day events
             if (allDayEvents.length > 0) {
