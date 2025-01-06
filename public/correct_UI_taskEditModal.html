@@ -3500,7 +3500,7 @@
                             allInputs.forEach(input => input.removeAttribute('readonly'));
                         } else {
                             allInputs.forEach(input => {
-                                input.value = '';
+                                // Keep the value but make it readonly
                                 input.setAttribute('readonly', 'true');
                             });
                         }
