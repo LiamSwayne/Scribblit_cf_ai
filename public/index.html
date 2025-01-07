@@ -1477,6 +1477,15 @@
         nextDayBtn.addEventListener('click', () => changeDate(1));
 
         function changeDate(delta) {
+            // If this is the first render (moved from 100000 days ago), render immediately
+            // This is a weird hack because it makes the 
+            if (Math.abs(delta) === 100000) {
+                currentDate = currentDate.plus({ days: delta });
+                updateDateDisplay();
+                renderCalendar(false);
+                return;
+            }
+
             const allDayEventsContainer = document.getElementById('allDayEvents');
             const oldAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
             const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
@@ -1714,10 +1723,11 @@
             newItems.forEach(item => {
                 const sanitizedItem = {
                     ...item,
-                    date: convertToISODate(item.date),
+                    date: convertToISODate(item.date), 
                     done: {},
                     description: '',
-                    id: 'task_' + Math.random().toString(36).substr(2, 9)
+                    id: 'task_' + Math.random().toString(36).substr(2, 9),
+                    isNew: true  // Add this flag for new items
                 };
                 taskEventArray.push(sanitizedItem);
             });
@@ -2385,53 +2395,42 @@
 
                     // Only apply past event styling if we're viewing today
                     if (currentDate.hasSame(now, 'day')) {
-                        // Convert event time to Unix timestamp
-                        let eventEndTime;
-                        if (item.endDate) {
-                            // If it has an end date, use that with end time (or 23:59:59 if no end time)
-                            eventEndTime = DateTime.fromISO(item.endDate)
-                                .set({
-                                    hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
-                                    minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
-                                    second: 59
-                                });
+                    let eventEndTime;
+                    if (item.endDate) {
+                        eventEndTime = DateTime.fromISO(item.endDate)
+                            .set({
+                                hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
+                                minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
+                                second: 59
+                            });
+                    } else {
+                        eventEndTime = DateTime.fromISO(item.date)
+                            .set({
+                                hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
+                                minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
+                                second: 59
+                            });
+                    }
+
+                    if (eventEndTime < now) {
+                        if (item.isNew) {
+                            // New past events start at 0, fade in to 1, then fade to 0.5
+                            eventEl.style.opacity = '0';
+                            eventEl.offsetHeight;
+                            setTimeout(() => {
+                                eventEl.style.transition = 'opacity 0.3s ease';
+                                eventEl.style.opacity = '1';
+                                setTimeout(() => {
+                                    eventEl.style.opacity = '0.5';
+                                    item.isNew = false;  // Clear the flag after all animations complete
+                                }, 300);
+                            }, 50);
                         } else {
-                            // Single day event - use item.date with end time (or 23:59:59 if no end time)
-                            eventEndTime = DateTime.fromISO(item.date)
-                                .set({
-                                    hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
-                                    minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
-                                    second: 59
-                                });
-                        }
-
-                        if (eventEndTime < now) {
-                            // Calculate delay based on event index
-                            const allEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-                            const eventIndex = allEvents.indexOf(eventEl);
-                            const waterfallDelay = (eventIndex) * 50 + 1200;
-
-                            async function setOpacityUntilSuccess() {
-                                await new Promise(resolve => setTimeout(resolve, waterfallDelay));
-
-                                let attempts = 0;
-                                while (attempts < 100) {
-                                    try {
-                                        eventEl.style.opacity = '0.5';
-                                        if (getComputedStyle(eventEl).opacity === '0.5') {
-                                            break;
-                                        }
-                                        await new Promise(resolve => setTimeout(resolve, 50));
-                                        attempts++;
-                                    } catch (error) {
-                                        console.error('Failed to set opacity:', error);
-                                        break;
-                                    }
-                                }
-                            }
-                            setOpacityUntilSuccess();
+                            // Existing past events start at 0.5 immediately
+                            eventEl.style.opacity = '0.5';
                         }
                     }
+                }
 
                     eventEl.textContent = item.name;
                     eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + (index * (eventWidth + spaceBetweenEvents))}px`;
@@ -2471,6 +2470,17 @@
                     });
 
                     calendar.appendChild(eventEl);
+
+                    // If this is a new event, animate it
+                    if (item.isNew) {
+                        eventEl.style.opacity = '0';
+                        eventEl.offsetHeight; // Force reflow
+                        setTimeout(() => {
+                            eventEl.style.transition = 'opacity 0.3s ease';
+                            eventEl.style.opacity = '1';
+                            item.isNew = false;  // Clear the flag after animation
+                        }, 50);
+                    }
                 });
             });
 
@@ -2499,6 +2509,10 @@
             const data = localStorage.getItem('taskEventArray');
             if (data) {
                 taskEventArray = JSON.parse(data);
+                // Clear any isNew flags on load
+                taskEventArray.forEach(item => {
+                    item.isNew = false;
+                });
             }
         }
 
