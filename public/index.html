@@ -3812,61 +3812,61 @@
             });
 
             // Run AM/PM state & click handler check every 10ms
-    setInterval(() => {
-        const eventBtn = document.getElementById('eventTypeBtn');
-        const taskBtn = document.getElementById('taskTypeBtn');
-        const startTimeSwitch = document.getElementById('startTimeSwitch');
-        const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+            setInterval(() => {
+                const eventBtn = document.getElementById('eventTypeBtn');
+                const taskBtn = document.getElementById('taskTypeBtn');
+                const startTimeSwitch = document.getElementById('startTimeSwitch');
+                const dueTimeSwitch = document.getElementById('dueTimeSwitch');
 
-        // If modal isn't open, elements won't exist, so skip
-        if (!eventBtn || !taskBtn || !startTimeSwitch || !dueTimeSwitch) return;
+                // If modal isn't open, elements won't exist, so skip
+                if (!eventBtn || !taskBtn || !startTimeSwitch || !dueTimeSwitch) return;
 
-        const isEventMode = eventBtn.classList.contains('active');
-        const startTimeSwitchOn = startTimeSwitch.classList.contains('active');
-        const dueTimeSwitchOn = dueTimeSwitch.classList.contains('active');
+                const isEventMode = eventBtn.classList.contains('active');
+                const startTimeSwitchOn = startTimeSwitch.classList.contains('active');
+                const dueTimeSwitchOn = dueTimeSwitch.classList.contains('active');
 
-        // Get all period containers
-        document.querySelectorAll('.time-period-container').forEach(container => {
-            // First ensure click handlers exist
-            const options = container.querySelectorAll('.time-period-option');
-            const highlight = container.querySelector('.time-period-highlight');
-            
-            options.forEach(option => {
-                // Remove any existing click handler
-                option.removeEventListener('click', option.clickHandler);
-                
-                // Add new click handler
-                option.clickHandler = () => {
-                    options.forEach(opt => opt.classList.remove('active'));
-                    option.classList.add('active');
-                    highlight.style.transform = option.dataset.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
-                };
-                option.addEventListener('click', option.clickHandler);
-            });
+                // Get all period containers
+                document.querySelectorAll('.time-period-container').forEach(container => {
+                    // First ensure click handlers exist
+                    const options = container.querySelectorAll('.time-period-option');
+                    const highlight = container.querySelector('.time-period-highlight');
+                    
+                    options.forEach(option => {
+                        // Remove any existing click handler
+                        option.removeEventListener('click', option.clickHandler);
+                        
+                        // Add new click handler
+                        option.clickHandler = () => {
+                            options.forEach(opt => opt.classList.remove('active'));
+                            option.classList.add('active');
+                            highlight.style.transform = option.dataset.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
+                        };
+                        option.addEventListener('click', option.clickHandler);
+                    });
 
-            // Then control overall selector state
-            const timeInputs = container.closest('.time-inputs');
-            if (timeInputs) {
-                const isStartTime = timeInputs.id === 'startTimeInputs';
-                const isEndTime = timeInputs.id === 'endTimeInputs';
-                const isDueTime = timeInputs.id === 'dueTimeInputs';
+                    // Then control overall selector state
+                    const timeInputs = container.closest('.time-inputs');
+                    if (timeInputs) {
+                        const isStartTime = timeInputs.id === 'startTimeInputs';
+                        const isEndTime = timeInputs.id === 'endTimeInputs';
+                        const isDueTime = timeInputs.id === 'dueTimeInputs';
 
-                if (isEventMode) {
-                    if (isStartTime || isEndTime) {
-                        container.style.pointerEvents = startTimeSwitchOn ? 'auto' : 'none';
-                    } else if (isDueTime) {
-                        container.style.pointerEvents = 'none';
+                        if (isEventMode) {
+                            if (isStartTime || isEndTime) {
+                                container.style.pointerEvents = startTimeSwitchOn ? 'auto' : 'none';
+                            } else if (isDueTime) {
+                                container.style.pointerEvents = 'none';
+                            }
+                        } else {
+                            if (isStartTime || isEndTime) {
+                                container.style.pointerEvents = 'none';
+                            } else if (isDueTime) {
+                                container.style.pointerEvents = dueTimeSwitchOn ? 'auto' : 'none';
+                            }
+                        }
                     }
-                } else {
-                    if (isStartTime || isEndTime) {
-                        container.style.pointerEvents = 'none';
-                    } else if (isDueTime) {
-                        container.style.pointerEvents = dueTimeSwitchOn ? 'auto' : 'none';
-                    }
-                }
-            }
-        });
-    }, 10);
+                });
+            }, 10);
         });
     </script>
 </body>
