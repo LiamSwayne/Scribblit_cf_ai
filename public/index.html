@@ -2169,12 +2169,8 @@
                 const hourLabel = document.createElement('div');
                 hourLabel.className = 'hour-label';
                 const timeText = formatTime(i, userSettings.timeFormat === '24h');
-                // Start with empty text content but store the target value
-                if (calendarRenderCount < 2) {
-                    hourLabel.textContent = '';
-                } else {
-                    hourLabel.textContent = timeText;
-                }
+                // Start with empty text but store the target value
+                hourLabel.textContent = '';
                 hourLabel.dataset.value = timeText;
                 // Assign random unique ID
                 hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
@@ -2182,6 +2178,26 @@
 
                 calendar.appendChild(hourMarker);
                 calendar.appendChild(hourLabel);
+            }
+
+            // Only animate on the second render (index 1)
+            if (calendarRenderCount === 1) {
+                const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
+                const intervalBetweenStarts = 600 / hourLabels.length;
+
+                const shuffledLabels = hourLabels
+                    .map(value => ({ value, sort: Math.random() }))
+                    .sort((a, b) => a.sort - b.sort)
+                    .map(({ value }) => value);
+
+                shuffledLabels.forEach((label, index) => {
+                    setTimeout(() => {
+                        if (!hourLabelsCurrentlyAnimating[label.id]) {
+                            hourLabelsCurrentlyAnimating[label.id] = true;
+                            animateHourLabel(label);
+                        }
+                    }, index * intervalBetweenStarts);
+                });
             }
 
             const now = DateTime.now().setZone(userTimezone);
