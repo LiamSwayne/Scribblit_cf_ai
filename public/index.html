@@ -2808,10 +2808,10 @@
         }
 
         function hideModal(modalType) {
+            // If edit task modal is visible, treat this as an edit task close
             if (modalType === 'all') {
                 const editTaskModal = document.getElementById('editTaskModal');
                 if (editTaskModal.classList.contains('visible')) {
-                    // If edit task modal is visible, treat this as an edit task close
                     modalType = 'editTask';
                 }
             }
@@ -2827,93 +2827,119 @@
                     }
 
                     const taskId = modal.dataset.taskId;
-                    const object = taskEventArray.find(t => t.id === taskId);
-                    if (object) {
-                        // Save name and description
-                        object.name = document.getElementById('editTaskName').value;
-                        object.description = document.getElementById('taskDescription').value;
+                const object = taskEventArray.find(t => t.id === taskId);
+                if (object) {
+                    // Save name and description
+                    object.name = document.getElementById('editTaskName').value;
+                    object.description = document.getElementById('taskDescription').value;
 
-                        // Set kind based on active tab
-                        object.kind = document.getElementById('taskTypeBtn').classList.contains('active') ? 'task' : 'event';
+                    // Set kind based on active tab
+                    object.kind = document.getElementById('taskTypeBtn').classList.contains('active') ? 'task' : 'event';
 
-                        // Clear start/end times by default
-                        object.startTime = null;
-                        object.endTime = null;
-                        object.endDate = null;
+                    // Clear start/end times by default
+                    object.startTime = null;
+                    object.endTime = null;
+                    object.endDate = null;
 
-                        if (object.kind === 'task') {
-                            // Handle task date/time
-                            const dueDateSwitch = document.getElementById('dueDateSwitch');
-                            const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+                    if (object.kind === 'task') {
+                        // Handle task date/time
+                        const dueDateSwitch = document.getElementById('dueDateSwitch');
+                        const dueTimeSwitch = document.getElementById('dueTimeSwitch');
 
-                            if (dueDateSwitch.classList.contains('active')) {
-                                const dateInputs = document.getElementById('dueDateInputs').querySelectorAll('input');
-                                const [month, day, year] = [...dateInputs].map(input => input.value);
-                                if (month && day && year) {
-                                    object.date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                        if (dueDateSwitch.classList.contains('active')) {
+                            const dateInputs = document.getElementById('dueDateInputs').querySelectorAll('input');
+                            const [month, day, year] = [...dateInputs].map(input => input.value);
+                            if (month && day && year) {
+                                object.date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                            }
+
+                            if (dueTimeSwitch.classList.contains('active')) {
+                                const timeInputs = document.getElementById('dueTimeInputs');
+                                const inputs = timeInputs.querySelectorAll('input');
+                                const hours = inputs[0].value;
+                                let minutes = inputs[1].value;
+                                
+                                // If hours are provided but minutes are blank, use '00'
+                                if (hours && !minutes) {
+                                    minutes = '00';
                                 }
 
-                                if (dueTimeSwitch.classList.contains('active')) {
-                                    const timeInputs = document.getElementById('dueTimeInputs');
+                                if (hours) {  // Only need to check hours since we default minutes
                                     if (userSettings.timeFormat === 'AM/PM') {
-                                        const inputs = timeInputs.querySelectorAll('input');
                                         const periodOption = timeInputs.querySelector('.time-period-option.active');
-                                        if (periodOption && inputs[0].value && inputs[1].value) {
-                                            const period = periodOption.dataset.period;
-                                            object.endTime = convertTo24Hour(inputs[0].value, inputs[1].value, period);
-                                        }
+                                        const period = periodOption.dataset.period;
+                                        object.endTime = convertTo24Hour(hours, minutes, period);
                                     } else {
-                                        const inputs = timeInputs.querySelectorAll('input');
-                                        if (inputs[0].value && inputs[1].value) {
-                                            object.endTime = `${inputs[0].value.padStart(2, '0')}:${inputs[1].value.padStart(2, '0')}`;
-                                        }
+                                        object.endTime = `${hours.padStart(2, '0')}:${minutes}`;
                                     }
                                 }
                             }
-                        } else {
-                            // Handle event dates/times
-                            const startDateSwitch = document.getElementById('startDateSwitch');
-                            const startTimeSwitch = document.getElementById('startTimeSwitch');
-                            const endDateSwitch = document.getElementById('endDateSwitch');
+                        }
+                    } else {
+                        // Similar fix for event times...
+                        const startDateSwitch = document.getElementById('startDateSwitch');
+                        const startTimeSwitch = document.getElementById('startTimeSwitch');
+                        const endDateSwitch = document.getElementById('endDateSwitch');
 
-                            // Handle start date (always active for events)
+                        if (startDateSwitch.classList.contains('active')) {
                             const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
                             const [startMonth, startDay, startYear] = [...startDateInputs].map(input => input.value);
                             if (startMonth && startDay && startYear) {
                                 object.date = `${startYear}-${startMonth.padStart(2, '0')}-${startDay.padStart(2, '0')}`;
                             }
 
-                            // Handle start/end times if time switch is active
                             if (startTimeSwitch.classList.contains('active')) {
                                 if (userSettings.timeFormat === 'AM/PM') {
                                     // Handle start time
                                     const startInputs = document.getElementById('startTimeInputs').querySelectorAll('input');
-                                    const startPeriod = document.getElementById('startTimeInputs').querySelector('.time-period-option.active');
-                                    if (startPeriod && startInputs[0].value && startInputs[1].value) {
-                                        object.startTime = convertTo24Hour(startInputs[0].value, startInputs[1].value, startPeriod.dataset.period);
+                                    const startHours = startInputs[0].value;
+                                    let startMinutes = startInputs[1].value;
+                                    if (startHours && !startMinutes) {
+                                        startMinutes = '00';
+                                    }
+                                    if (startHours) {
+                                        const startPeriod = document.getElementById('startTimeInputs').querySelector('.time-period-option.active');
+                                        object.startTime = convertTo24Hour(startHours, startMinutes, startPeriod.dataset.period);
                                     }
 
                                     // Handle end time
                                     const endInputs = document.getElementById('endTimeInputs').querySelectorAll('input');
-                                    const endPeriod = document.getElementById('endTimeInputs').querySelector('.time-period-option.active');
-                                    if (endPeriod && endInputs[0].value && endInputs[1].value) {
-                                        object.endTime = convertTo24Hour(endInputs[0].value, endInputs[1].value, endPeriod.dataset.period);
+                                    const endHours = endInputs[0].value;
+                                    let endMinutes = endInputs[1].value;
+                                    if (endHours && !endMinutes) {
+                                        endMinutes = '00';
+                                    }
+                                    if (endHours) {
+                                        const endPeriod = document.getElementById('endTimeInputs').querySelector('.time-period-option.active');
+                                        object.endTime = convertTo24Hour(endHours, endMinutes, endPeriod.dataset.period);
                                     }
                                 } else {
                                     // Handle 24h format
                                     const startInputs = document.getElementById('startTimeInputs').querySelectorAll('input');
                                     const endInputs = document.getElementById('endTimeInputs').querySelectorAll('input');
-                                    if (startInputs[0].value && startInputs[1].value) {
-                                        object.startTime = `${startInputs[0].value.padStart(2, '0')}:${startInputs[1].value.padStart(2, '0')}`;
+                                    
+                                    const startHours = startInputs[0].value;
+                                    let startMinutes = startInputs[1].value;
+                                    if (startHours && !startMinutes) {
+                                        startMinutes = '00';
                                     }
-                                    if (endInputs[0].value && endInputs[1].value) {
-                                        object.endTime = `${endInputs[0].value.padStart(2, '0')}:${endInputs[1].value.padStart(2, '0')}`;
+                                    if (startHours) {
+                                        object.startTime = `${startHours.padStart(2, '0')}:${startMinutes}`;
+                                    }
+
+                                    const endHours = endInputs[0].value;
+                                    let endMinutes = endInputs[1].value;
+                                    if (endHours && !endMinutes) {
+                                        endMinutes = '00';
+                                    }
+                                    if (endHours) {
+                                        object.endTime = `${endHours.padStart(2, '0')}:${endMinutes}`;
                                     }
                                 }
                             }
+                        }
 
-                            // Handle end date if switch is active
-                            if (endDateSwitch.classList.contains('active')) {
+                        if (endDateSwitch.classList.contains('active')) {
                                 const endDateInputs = document.getElementById('endDateInputs').querySelectorAll('input');
                                 const [endMonth, endDay, endYear] = [...endDateInputs].map(input => input.value);
                                 if (endMonth && endDay && endYear) {
@@ -2942,21 +2968,18 @@
                         renderTasks();
                         renderCalendar();
                     }
+
+                    hideVignette();
+                    modal.classList.remove('visible');
                 }
-
-                hideVignette();
-                modal.classList.remove('visible');
-                return;
-            }
-
-            // For non-edit-task modals or if edit task modal isn't visible
-            hideVignette();
-            if (modalType === 'settings') {
+            } else if (modalType === 'settings') {
                 document.getElementById('settingsModal').classList.remove('visible');
+                hideVignette();
             } else if (modalType === 'all') {
                 document.querySelectorAll('.modal').forEach(modal => {
                     modal.classList.remove('visible');
                 });
+                hideVignette();
             }
         }
 
@@ -3865,25 +3888,21 @@
                 }
 
                 if (timeActive) {
+                    // Auto-fill minutes if only hour provided
+                    if (dateTimeValues.startTime.hours && !dateTimeValues.startTime.minutes) {
+                        dateTimeValues.startTime.minutes = '00';
+                    }
+                    if (dateTimeValues.endTime.hours && !dateTimeValues.endTime.minutes) {
+                        dateTimeValues.endTime.minutes = '00';
+                    }
+
                     // Start time required if time switch is on
                     if (!dateTimeValues.startTime.hours) {
                         errors.push("Start time is required when time is enabled");
                     }
 
-                    // End time validation
-                    if (!dateTimeValues.endTime.hours) {
-                        if (dateTimeValues.startTime.hours) {
-                            // Auto-fill end time to start time + 1 hour
-                            dateTimeValues.endTime = {
-                                hours: (parseInt(dateTimeValues.startTime.hours) + 1) % 24,
-                                minutes: dateTimeValues.startTime.minutes,
-                                period: dateTimeValues.startTime.period
-                            };
-                        }
-                    }
-
-                    // Compare times if on same day
-                    if (!endDateActive && dateTimeValues.startTime.hours && dateTimeValues.endTime.hours) {
+                    // End time is optional, but if provided must be after start time
+                    if (dateTimeValues.endTime.hours && !endDateActive) {
                         const startDateTime = convertToMinutes(dateTimeValues.startTime);
                         const endDateTime = convertToMinutes(dateTimeValues.endTime);
                         
@@ -3911,8 +3930,12 @@
                     errors.push("Due date is required when date is enabled");
                 }
 
-                if (dueTimeActive && !dateTimeValues.dueTime.hours) {
-                    errors.push("Due time is required when time is enabled");
+                if (dueTimeActive) {
+                    if (!dateTimeValues.dueTime.hours) {
+                        errors.push("Due time is required when time is enabled");
+                    } else if (!dateTimeValues.dueTime.minutes) {
+                        dateTimeValues.dueTime.minutes = '00';
+                    }
                 }
             }
 
