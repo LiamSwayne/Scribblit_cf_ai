@@ -2999,13 +2999,44 @@
             const savedSettings = localStorage.getItem('userSettings');
             if (savedSettings) {
                 userSettings = JSON.parse(savedSettings);
-                
+
                 // Immediately apply time format class if needed
                 if (userSettings.timeFormat === 'AM/PM') {
                     document.body.classList.add('time-format-ampm');
                 }
 
-                // Rest of existing code...
+                // Apply saved settings to toggle switches
+                document.querySelectorAll('.toggle-track').forEach(track => {
+                    const setting = track.dataset.setting;
+                    if (userSettings[setting]) {
+                        track.classList.add('active');
+                    }
+                });
+
+                // Apply saved settings to selectors
+                document.querySelectorAll('.selector-container').forEach(container => {
+                    const setting = container.dataset.setting;
+                    const savedValue = userSettings[setting];
+
+                    // Use setTimeout to ensure elements are rendered
+                    setTimeout(() => {
+                        const option = savedValue ?
+                            container.querySelector(`[data-value="${savedValue}"]`) :
+                            container.querySelector('.selector-option');
+
+                        if (option) {
+                            updateSelector(option, option.dataset.value);
+
+                            // Save default value if none was saved
+                            if (!savedValue) {
+                                userSettings[setting] = option.dataset.value;
+                                saveUserSettings();
+                            }
+                        } else {
+                            console.error(`Invalid saved value for setting: ${setting}`);
+                        }
+                    }, 300);
+                });
             } else {
                 // Default settings
                 userSettings = defaultSettings;
