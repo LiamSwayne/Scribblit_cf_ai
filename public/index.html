@@ -2808,10 +2808,24 @@
         }
 
         function hideModal(modalType) {
-            hideVignette();
-            if (modalType === 'all' || modalType === 'editTask') {
+            if (modalType === 'all') {
+                const editTaskModal = document.getElementById('editTaskModal');
+                if (editTaskModal.classList.contains('visible')) {
+                    // If edit task modal is visible, treat this as an edit task close
+                    modalType = 'editTask';
+                }
+            }
+
+            if (modalType === 'editTask') {
                 const modal = document.getElementById('editTaskModal');
                 if (modal.classList.contains('visible')) {
+                    // verify the data
+                    // if it's not valid, don't close the modal
+                    const verification = verifyTaskModalData();
+                    if (!verification.valid) {
+                        return; // Don't hide anything if validation fails
+                    }
+
                     const taskId = modal.dataset.taskId;
                     const object = taskEventArray.find(t => t.id === taskId);
                     if (object) {
@@ -2929,12 +2943,20 @@
                         renderCalendar();
                     }
                 }
-                modal.classList.remove('visible');
 
+                hideVignette();
+                modal.classList.remove('visible');
+                return;
+            }
+
+            // For non-edit-task modals or if edit task modal isn't visible
+            hideVignette();
+            if (modalType === 'settings') {
                 document.getElementById('settingsModal').classList.remove('visible');
-            } else if (modalType === 'settings') {
-                console.log('Settings saved');
-                document.getElementById('settingsModal').classList.remove('visible');
+            } else if (modalType === 'all') {
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.classList.remove('visible');
+                });
             }
         }
 
@@ -3709,29 +3731,73 @@
                         input.removeAttribute('readonly');
                     });
                 }
-            } else if (task.endTime) {
-                // Handle task due time
-                const timeSwitch = document.getElementById('dueTimeSwitch');
-                const timeInputs = document.getElementById('dueTimeInputs');
-                if (timeSwitch && timeInputs) {
-                    timeSwitch.classList.add('active');
-                    timeInputs.style.opacity = '1';
 
-                    if (userSettings.timeFormat === 'AM/PM') {
-                        const time12 = convertTo12Hour(task.endTime);
-                        const inputs = timeInputs.querySelectorAll('input');
-                        inputs[0].value = time12.hours;
-                        inputs[1].value = time12.minutes;
-                    } else {
-                        const [hours, minutes] = task.endTime.split(':');
-                        const inputs = timeInputs.querySelectorAll('input');
-                        inputs[0].value = parseInt(hours).toString();
-                        inputs[1].value = parseInt(minutes).toString();
+                // set the existing AM/PM values for the selector
+                if (userSettings.timeFormat === 'AM/PM') {
+                    if (task.startTime || task.endTime) {
+                        ['start', 'end'].forEach((prefix, index) => {
+                            const timeValue = index === 0 ? task.startTime : task.endTime;
+                            if (timeValue) {
+                                const time12 = convertTo12Hour(timeValue);
+                                const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                                if (!timeInputs) return;
+
+                                // Find and set correct AM/PM period
+                                const periodContainer = timeInputs.querySelector('.time-period-container');
+                                if (periodContainer) {
+                                    const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                                    periodOptions.forEach(option => {
+                                        option.classList.toggle('active', option.dataset.period === time12.period);
+                                    });
+                                    // Move highlight to correct position
+                                    const highlight = periodContainer.querySelector('.time-period-highlight');
+                                    if (highlight) {
+                                        highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                                    }
+                                }
+                            }
+                        });
                     }
+                }
+            } else {
+                if (task.endTime) {
+                    // Handle task due time
+                    const timeSwitch = document.getElementById('dueTimeSwitch');
+                    const timeInputs = document.getElementById('dueTimeInputs');
+                    if (timeSwitch && timeInputs) {
+                        timeSwitch.classList.add('active');
+                        timeInputs.style.opacity = '1';
 
-                    timeInputs.querySelectorAll('input').forEach(input => {
-                        input.removeAttribute('readonly');
-                    });
+                        if (userSettings.timeFormat === 'AM/PM') {
+                            const time12 = convertTo12Hour(task.endTime);
+                            const inputs = timeInputs.querySelectorAll('input');
+                            inputs[0].value = time12.hours;
+                            inputs[1].value = time12.minutes;
+
+                            // Set correct AM/PM period
+                            const periodContainer = timeInputs.querySelector('.time-period-container');
+                            if (periodContainer) {
+                                const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                                periodOptions.forEach(option => {
+                                    option.classList.toggle('active', option.dataset.period === time12.period);
+                                });
+                                // Move highlight to correct position
+                                const highlight = periodContainer.querySelector('.time-period-highlight');
+                                if (highlight) {
+                                    highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                                }
+                            }
+                        } else {
+                            const [hours, minutes] = task.endTime.split(':');
+                            const inputs = timeInputs.querySelectorAll('input');
+                            inputs[0].value = parseInt(hours).toString();
+                            inputs[1].value = parseInt(minutes).toString();
+                        }
+
+                        timeInputs.querySelectorAll('input').forEach(input => {
+                            input.removeAttribute('readonly');
+                        });
+                    }
                 }
             }
 
@@ -3763,6 +3829,186 @@
             }, 0);
 
             showModal('editTask');
+        }
+
+        function verifyTaskModalData() {
+            const task = taskEventArray.find(t => t.id === document.getElementById('editTaskModal').dataset.taskId);
+            if (!task) return { valid: false, error: "Task not found" };
+
+            const isEvent = document.getElementById('eventTypeBtn').classList.contains('active');
+            const errors = [];
+
+            // Extract all date and time values
+            const dateTimeValues = {
+                startDate: extractDateInputs('startDateInputs'),
+                endDate: extractDateInputs('endDateInputs'),
+                dueDate: extractDateInputs('dueDateInputs'),
+                startTime: extractTimeInputs('startTimeInputs'),
+                endTime: extractTimeInputs('endTimeInputs'),
+                dueTime: extractTimeInputs('dueTimeInputs')
+            };
+
+            // Check task name
+            const taskName = document.getElementById('editTaskName').value.trim();
+            if (!taskName) {
+                errors.push("Task name is required");
+            }
+
+            if (isEvent) {
+                // Event-specific validations
+                const startDateActive = document.getElementById('startDateSwitch').classList.contains('active');
+                const endDateActive = document.getElementById('endDateSwitch').classList.contains('active');
+                const timeActive = document.getElementById('startTimeSwitch').classList.contains('active');
+
+                if (!startDateActive || !dateTimeValues.startDate) {
+                    errors.push("Start date is required for events");
+                }
+
+                if (timeActive) {
+                    // Start time required if time switch is on
+                    if (!dateTimeValues.startTime.hours) {
+                        errors.push("Start time is required when time is enabled");
+                    }
+
+                    // End time validation
+                    if (!dateTimeValues.endTime.hours) {
+                        if (dateTimeValues.startTime.hours) {
+                            // Auto-fill end time to start time + 1 hour
+                            dateTimeValues.endTime = {
+                                hours: (parseInt(dateTimeValues.startTime.hours) + 1) % 24,
+                                minutes: dateTimeValues.startTime.minutes,
+                                period: dateTimeValues.startTime.period
+                            };
+                        }
+                    }
+
+                    // Compare times if on same day
+                    if (!endDateActive && dateTimeValues.startTime.hours && dateTimeValues.endTime.hours) {
+                        const startDateTime = convertToMinutes(dateTimeValues.startTime);
+                        const endDateTime = convertToMinutes(dateTimeValues.endTime);
+                        
+                        if (endDateTime <= startDateTime) {
+                            errors.push("End time must be after start time");
+                        }
+                    }
+                }
+
+                // Validate end date if active
+                if (endDateActive && dateTimeValues.endDate) {
+                    const startDate = convertToDateTime(dateTimeValues.startDate);
+                    const endDate = convertToDateTime(dateTimeValues.endDate);
+                    
+                    if (endDate < startDate) {
+                        errors.push("End date must be after start date");
+                    }
+                }
+            } else {
+                // Task-specific validations
+                const dueDateActive = document.getElementById('dueDateSwitch').classList.contains('active');
+                const dueTimeActive = document.getElementById('dueTimeSwitch').classList.contains('active');
+
+                if (dueDateActive && !dateTimeValues.dueDate) {
+                    errors.push("Due date is required when date is enabled");
+                }
+
+                if (dueTimeActive && !dateTimeValues.dueTime.hours) {
+                    errors.push("Due time is required when time is enabled");
+                }
+            }
+
+            // Show error popup if any errors exist
+            if (errors.length > 0) {
+                showErrorPopup(errors[0]);
+                return { valid: false, error: errors[0] };
+            }
+
+            return { valid: true, dateTimeValues };
+        }
+
+        function extractDateInputs(containerId) {
+            const inputs = document.getElementById(containerId)?.querySelectorAll('input');
+            if (!inputs) return null;
+
+            const [month, day, year] = [...inputs].map(input => input.value);
+            if (!month || !day || !year) return null;
+
+            return { month, day, year };
+        }
+
+        function extractTimeInputs(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return { hours: null, minutes: null, period: null };
+
+            const inputs = container.querySelectorAll('input');
+            const [hours, minutes] = [...inputs].map(input => input.value);
+            const period = userSettings.timeFormat === 'AM/PM' ? 
+                container.querySelector('.time-period-option.active')?.dataset.period : null;
+
+            return {
+                hours: hours || null,
+                minutes: minutes || '00',
+                period
+            };
+        }
+
+        function showErrorPopup(message) {
+            const existingPopup = document.querySelector('.error-popup');
+            if (existingPopup) existingPopup.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'error-popup';
+            popup.textContent = message;
+
+            // Position popup relative to modal
+            const modal = document.getElementById('editTaskModal');
+            modal.appendChild(popup);
+
+            // Add styles
+            const style = document.createElement('style');
+            style.textContent = `
+                .error-popup {
+                    position: absolute;
+                    top: 0;
+                    left: 50%;
+                    transform: translate(-50%, -120%);
+                    background-color: #ff4444;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    opacity: 0;
+                    transition: transform 0.3s ease, opacity 0.3s ease;
+                    z-index: 10000;
+                    white-space: nowrap;
+                }
+                .error-popup.visible {
+                    transform: translate(-50%, -110%);
+                    opacity: 1;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Animate in
+            requestAnimationFrame(() => popup.classList.add('visible'));
+
+            // Remove after delay
+            setTimeout(() => {
+                popup.classList.remove('visible');
+                setTimeout(() => popup.remove(), 300);
+            }, 3000);
+        }
+
+        function convertToDateTime(dateObj) {
+            return new Date(`${dateObj.year}-${dateObj.month.padStart(2, '0')}-${dateObj.day.padStart(2, '0')}`);
+        }
+
+        function convertToMinutes(timeObj) {
+            let hours = parseInt(timeObj.hours);
+            if (timeObj.period) {
+                if (timeObj.period === 'PM' && hours !== 12) hours += 12;
+                if (timeObj.period === 'AM' && hours === 12) hours = 0;
+            }
+            return hours * 60 + parseInt(timeObj.minutes || 0);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
