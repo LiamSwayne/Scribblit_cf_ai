@@ -872,7 +872,7 @@
             transition: opacity 0.3s ease, transform 0.3s ease;
             z-index: 9999;
             user-select: none;
-            transform: translate(-50%, -50%) scale(1.5);
+            transform: translate(-50%, -50%) scale(1.2);
         }
 
         .task-description {
@@ -913,6 +913,10 @@
 
         /* Scale to 0.8 between 430px and 549px */
         @media screen and (max-width: 549px) {
+            .task-modal {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
             .task-modal.visible {
                 transform: translate(-50%, -50%) scale(0.8);
             }
@@ -920,6 +924,10 @@
 
         /* Scale to 0.6 below 430px */
         @media screen and (max-width: 429px) {
+            .task-modal {
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+
             .task-modal.visible {
                 transform: translate(-50%, -50%) scale(0.6);
             }
