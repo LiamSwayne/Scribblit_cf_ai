@@ -2169,8 +2169,8 @@
                 const hourLabel = document.createElement('div');
                 hourLabel.className = 'hour-label';
                 const timeText = formatTime(i, userSettings.timeFormat === '24h');
-                // Start with empty text but store the target value
-                hourLabel.textContent = '';
+                // Empty text first 2 times, then show the time directly
+                hourLabel.textContent = calendarRenderCount < 2 ? '' : timeText;
                 hourLabel.dataset.value = timeText;
                 // Assign random unique ID
                 hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
