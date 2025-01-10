@@ -2289,7 +2289,7 @@
 
             // Handle all-day events
             if (allDayEvents.length > 0) {
-                allDayEventsContainer.innerHTML = '<div class="section-title">All-day</div>';
+                allDayEventsContainer.innerHTML = '';
                 allDayEvents.forEach(event => {
                     const eventEl = document.createElement('div');
                     eventEl.className = 'all-day-event';
