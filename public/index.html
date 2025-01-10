@@ -226,6 +226,7 @@
             right: 4px;
             padding-top: 2px;
             padding-bottom: 4px;
+            padding-right: 4px;
             margin-top: 6px;
         }
 
@@ -437,10 +438,32 @@
             display: flex;
             align-items: flex-start;
             margin-bottom: 5px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* background for all-day events, basically the same as task background */
+        .all-day-event::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20px;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .all-day-event:hover::after {
+            opacity: 1;
         }
 
         .all-day-event .task-asterisk {
             margin-right: 10px;
+            margin-left: -10px;
         }
 
         #currentDate {
