@@ -2291,27 +2291,27 @@
             if (allDayEvents.length > 0) {
                 allDayEventsContainer.innerHTML = '<div class="section-title">All-day</div>';
                 allDayEvents.forEach(event => {
-                const eventEl = document.createElement('div');
-                eventEl.className = 'all-day-event';
-                eventEl.dataset.taskId = event.id;
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'all-day-event';
+                    eventEl.dataset.taskId = event.id;
 
-                const asterisk = document.createElement('span');
-                asterisk.className = 'task-asterisk';
-                asterisk.textContent = '*';
+                    const asterisk = document.createElement('span');
+                    asterisk.className = 'task-asterisk';
+                    asterisk.textContent = '*';
 
-                const eventContent = document.createElement('span');
-                eventContent.textContent = event.name;
+                    const eventContent = document.createElement('span');
+                    eventContent.textContent = event.name;
 
-                eventEl.appendChild(asterisk);
-                eventEl.appendChild(eventContent);
+                    eventEl.appendChild(asterisk);
+                    eventEl.appendChild(eventContent);
 
-                // Add click handler for all-day events
-                eventEl.addEventListener('click', (e) => {
-                    constructTaskEditorModal(e.currentTarget.dataset.taskId);
+                    // Add click handler for all-day events
+                    eventEl.addEventListener('click', (e) => {
+                        constructTaskEditorModal(e.currentTarget.dataset.taskId);
+                    });
+
+                    allDayEventsContainer.appendChild(eventEl);
                 });
-
-                allDayEventsContainer.appendChild(eventEl);
-            });
             }
 
             // Calculate new calendar position immediately
