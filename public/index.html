@@ -224,6 +224,7 @@
             top: 23px;
             left: calc(50% + 14px);
             right: 4px;
+            padding-top: 2px;
             padding-bottom: 4px;
             margin-top: 6px;
         }
@@ -2289,7 +2290,6 @@
 
             // Handle all-day events
             if (allDayEvents.length > 0) {
-                allDayEventsContainer.innerHTML = '';
                 allDayEvents.forEach(event => {
                     const eventEl = document.createElement('div');
                     eventEl.className = 'all-day-event';
