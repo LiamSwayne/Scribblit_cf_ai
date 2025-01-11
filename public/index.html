@@ -1645,37 +1645,37 @@
         }
 
         function adjustTextareaHeight() {
-    if (!isAnimating && !animationCooldown) {
-        const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
-        const handle = document.getElementById('taskInputScrollbarHandle');
-        
-        taskInput.style.height = 'auto';
-        const scrollHeight = taskInput.scrollHeight;
-        
-        if (shouldShowScrollbar(taskInput)) {
-            taskInput.style.height = '300px';
-            if (scrollbarWrapper && handle) {
-                scrollbarWrapper.style.opacity = '1';
-                const handleHeight = Math.max(30, (300 / scrollHeight) * scrollbarWrapper.clientHeight);
-                handle.style.height = `${handleHeight}px`;
+            if (!isAnimating && !animationCooldown) {
+                const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
+                const handle = document.getElementById('taskInputScrollbarHandle');
                 
-                // Check if cursor is at the end
-                if (taskInput.selectionStart === taskInput.value.length) {
-                    // Scroll to bottom
-                    taskInput.scrollTop = scrollHeight;
+                taskInput.style.height = 'auto';
+                const scrollHeight = taskInput.scrollHeight;
+                
+                if (shouldShowScrollbar(taskInput)) {
+                    taskInput.style.height = '300px';
+                    if (scrollbarWrapper && handle) {
+                        scrollbarWrapper.style.opacity = '1';
+                        const handleHeight = Math.max(30, (300 / scrollHeight) * scrollbarWrapper.clientHeight);
+                        handle.style.height = `${handleHeight}px`;
+                        
+                        // Check if cursor is at the end
+                        if (taskInput.selectionStart === taskInput.value.length) {
+                            // Scroll to bottom
+                            taskInput.scrollTop = scrollHeight;
+                        }
+                        
+                        const scrollPercentage = taskInput.scrollTop / (scrollHeight - 300);
+                        handle.style.top = `${scrollPercentage * (scrollbarWrapper.clientHeight - handleHeight)}px`;
+                    }
+                } else {
+                    taskInput.style.height = `${scrollHeight}px`;
+                    if (scrollbarWrapper) {
+                        scrollbarWrapper.style.opacity = '0';
+                    }
                 }
-                
-                const scrollPercentage = taskInput.scrollTop / (scrollHeight - 300);
-                handle.style.top = `${scrollPercentage * (scrollbarWrapper.clientHeight - handleHeight)}px`;
-            }
-        } else {
-            taskInput.style.height = `${scrollHeight}px`;
-            if (scrollbarWrapper) {
-                scrollbarWrapper.style.opacity = '0';
             }
         }
-    }
-}
 
         function isEventInPast(eventTime) {
             const now = DateTime.now().setZone(userTimezone);
