@@ -56,66 +56,57 @@
         }
 
         #taskInput {
-            width: calc(100% - 1px);
-            min-height: 100px;
-            margin-bottom: 30px;
-            background-color: var(--grey-5);
-            color: var(--grey-1);
-            border: 1px solid var(--grey-4);
-            padding: 2px 4px;
-            resize: none;
-            position: relative;
-            top: 30px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            white-space: pre-wrap;
-            overflow-y: auto;
-            box-sizing: border-box;
-            transition: min-height 0.3s ease, height 0.3s ease;
-            max-height: 300px;
-            /* Hide default scrollbar for Firefox */
-            scrollbar-width: none;
-            /* Hide default scrollbar for Chrome/Safari */
-            &::-webkit-scrollbar {
-                display: none;
-            }
-        }
+    width: calc(100% - 1px);
+    min-height: 100px;
+    margin-bottom: 30px;
+    background-color: var(--grey-5);
+    color: var(--grey-1);
+    border: 1px solid var(--grey-4);
+    padding: 10px;
+    resize: none;
+    position: relative;
+    top: 30px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-y: scroll;
+    box-sizing: border-box;
+    transition: min-height 0.3s ease, height 0.3s ease;
+    max-height: calc(80vh - 40px);
+}
 
-        /* wrapper for the custom scrollbar */
-        #taskInputScrollbarWrapper {
-            position: absolute;
-            width: 5px;
-            right: -6.5px;
-            top: 30px;
-            bottom: 4px;
-            overflow: hidden;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
+.drag-handle-container {
+    position: absolute;
+    right: -6.5px;
+    top: 30px;
+    width: 5px;
+    height: calc(100% - 30px);
+    cursor: pointer;
+    z-index: 1;
+    opacity: 0; /* Hide by default */
+    pointer-events: none; /* Disable interaction by default */
+}
 
-        /* Custom scrollbar track */
-        #taskInputScrollbar {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background-color: var(--grey-5);
-            border-radius: 2.5px;
-        }
+.drag-handle {
+    position: absolute;
+    width: 100%;
+    background-color: var(--grey-4);
+    border-radius: 2.5px;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
 
-        /* Custom scrollbar handle */
-        #taskInputScrollbarHandle {
-            position: absolute;
-            width: 100%;
-            min-height: 30px;
-            background-color: var(--grey-4);
-            border-radius: 2.5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
+.drag-handle-container.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
 
-        #taskInputScrollbarHandle:hover {
-            background-color: var(--grey-3);
-        }
+.drag-handle-container:hover .drag-handle,
+.drag-handle.dragging {
+    opacity: 1;
+    background-color: var(--grey-3);
+}
 
         @keyframes cursorPulse {
             0% {
@@ -1645,31 +1636,24 @@
         }
 
         function adjustTextareaHeight() {
-            if (!isAnimating && !animationCooldown) {
-                const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
-                const handle = document.getElementById('taskInputScrollbarHandle');
-                
-                taskInput.style.height = 'auto';
-                const scrollHeight = taskInput.scrollHeight;
-                
-                if (shouldShowScrollbar(taskInput)) {
-                    taskInput.style.height = '300px';
-                    if (scrollbarWrapper && handle) {
-                        scrollbarWrapper.style.opacity = '1';
-                        const handleHeight = Math.max(30, (300 / scrollHeight) * scrollbarWrapper.clientHeight);
-                        handle.style.height = `${handleHeight}px`;
-                        
-                        const scrollPercentage = taskInput.scrollTop / (scrollHeight - 300);
-                        handle.style.top = `${scrollPercentage * (scrollbarWrapper.clientHeight - handleHeight)}px`;
-                    }
-                } else {
-                    taskInput.style.height = `${scrollHeight}px`;
-                    if (scrollbarWrapper) {
-                        scrollbarWrapper.style.opacity = '0';
-                    }
-                }
-            }
+    if (!isAnimating && !animationCooldown) {
+        // Reset height to properly calculate scrollHeight
+        taskInput.style.height = '100px';
+        
+        // Calculate new height
+        const maxHeight = parseFloat(getComputedStyle(taskInput).maxHeight);
+        const scrollHeight = taskInput.scrollHeight;
+        
+        // Set the height and manage scrolling
+        if (scrollHeight <= maxHeight) {
+            taskInput.style.height = scrollHeight + 'px';
+            taskInput.style.overflowY = 'hidden';
+        } else {
+            taskInput.style.height = maxHeight + 'px';
+            taskInput.style.overflowY = 'scroll';
         }
+    }
+}
 
         function isEventInPast(eventTime) {
             const now = DateTime.now().setZone(userTimezone);
@@ -1696,140 +1680,239 @@
             dayOfWeekEl.textContent = currentDate.toFormat('cccc');
         }
 
+        async function animateScrollbarClear() {
+    const borderElement = document.createElement('div');
+    borderElement.className = 'clear-border';
+    taskInput.parentElement.appendChild(borderElement);
+
+    requestAnimationFrame(() => borderElement.classList.add('animating'));
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    taskInput.value = '';
+    adjustTextareaHeight();
+    
+    borderElement.classList.remove('animating');
+    await new Promise(resolve => setTimeout(() => {
+        borderElement.remove();
+        resolve();
+    }, 300));
+}
+
+async function animateTextOverlay(input) {
+    const animationOverlay = document.getElementById('animationOverlay');
+    const currentHeight = taskInput.style.height;
+    isAnimating = true;
+
+    const inputRect = taskInput.getBoundingClientRect();
+    const overlayRect = animationOverlay.getBoundingClientRect();
+
+    const animatedTextContainer = document.createElement('div');
+    animatedTextContainer.className = 'animated-text-container';
+    animatedTextContainer.style.position = 'absolute';
+    animatedTextContainer.style.top = `${inputRect.top - overlayRect.top}px`;
+    animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
+    animatedTextContainer.style.width = `${inputRect.width}px`;
+    animatedTextContainer.style.height = `${inputRect.height}px`;
+
+    input.split('\n').forEach(line => {
+        const animatedLine = document.createElement('div');
+        animatedLine.className = 'animated-text';
+        animatedLine.textContent = line;
+        animatedTextContainer.appendChild(animatedLine);
+    });
+
+    animationOverlay.appendChild(animatedTextContainer);
+    taskInput.value = '';
+    taskInput.style.height = currentHeight;
+
+    const lines = Array.from(animatedTextContainer.children);
+    lines.forEach((line, index) => {
+        line.style.opacity = '1';
+        line.style.transform = 'translateY(0)';
+        line.offsetHeight;
+        line.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+
+        setTimeout(() => {
+            line.style.opacity = '0';
+            line.style.transform = 'translateY(-10px)';
+        }, index * 50);
+    });
+
+    await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
+    animationOverlay.innerHTML = '';
+
+    taskInput.style.transition = 'height 0.3s ease';
+    taskInput.style.height = originalHeight;
+
+    await new Promise(resolve => setTimeout(() => {
+        taskInput.style.transition = '';
+        isAnimating = false;
+        animationCooldown = true;
+        setTimeout(() => {
+            animationCooldown = false;
+            adjustTextareaHeight();
+        }, 500);
+        resolve();
+    }, 300));
+}
+
         // triggered by user submitting content in the entry box
         async function processInput() {
-            const input = taskInput.value;
-            const animationOverlay = document.getElementById('animationOverlay');
+    const input = taskInput.value;
+    if (!input.trim()) return;
 
-            const currentHeight = taskInput.style.height;
-            isAnimating = true;
+    const now = DateTime.now().setZone(userTimezone);
+    const currentDate = now.toISODate();
+    const currentTime = now.toFormat('HH:mm');
+    const dayOfWeek = now.weekdayLong.toLowerCase();
 
-            // Get current date and time in user's timezone
-            const now = DateTime.now().setZone(userTimezone);
-            const currentDate = now.toISODate();
-            const currentTime = now.toFormat('HH:mm');
-            const dayOfWeek = now.weekdayLong.toLowerCase(); // Get the day of the week
+    // Start animation
+    const hasScrollbar = taskInput.scrollHeight > taskInput.clientHeight;
+    if (hasScrollbar) {
+        await animateScrollbarClear();
+    } else {
+        await animateTextOverlay(input);
+    }
 
-            const inputRect = taskInput.getBoundingClientRect();
-            const overlayRect = animationOverlay.getBoundingClientRect();
+    // Send request after animation completes
+    try {
+        const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
+            method: 'POST',
+            body: `${currentDate},${currentTime},${dayOfWeek},${input}`
+        });
 
-            // Create a single container for all lines
-            const animatedTextContainer = document.createElement('div');
-            animatedTextContainer.className = 'animated-text-container';
-            animatedTextContainer.style.position = 'absolute';
-            animatedTextContainer.style.top = `${inputRect.top - overlayRect.top}px`;
-            animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
-            animatedTextContainer.style.width = `${inputRect.width}px`;
-            animatedTextContainer.style.height = `${inputRect.height}px`;
-
-            // Split input into lines and create animated lines
-            input.split('\n').forEach((line, index) => {
-                const animatedLine = document.createElement('div');
-                animatedLine.className = 'animated-text';
-                animatedLine.textContent = line;
-                animatedTextContainer.appendChild(animatedLine);
-            });
-
-            animationOverlay.appendChild(animatedTextContainer);
-
-            // Clear input but maintain height
-            taskInput.value = '';
-            taskInput.style.height = currentHeight;
-
-            // Start animations with proper setup
-            const lines = Array.from(animatedTextContainer.children);
-            lines.forEach((line, index) => {
-                // Set initial state
-                line.style.opacity = '1';
-                line.style.transform = 'translateY(0)';
-
-                // Force a reflow
-                line.offsetHeight;
-
-                // Now set the transition
-                line.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-
-                setTimeout(() => {
-                    line.style.opacity = '0';
-                    line.style.transform = 'translateY(-10px)';
-                }, index * 50);
-            });
-
-            // Wait for all animations to complete
-            await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
-
-            // Clear animation overlay
-            animationOverlay.innerHTML = '';
-
-            // Animate text area back to original height
-            taskInput.style.transition = 'height 0.3s ease';
-            taskInput.style.height = originalHeight;
-
-            // Reset transition and set cooldown after animation
-            setTimeout(() => {
-                taskInput.style.transition = '';
-                isAnimating = false;
-                animationCooldown = true;
-                setTimeout(() => {
-                    animationCooldown = false;
-                    adjustTextareaHeight();
-                }, 500);
-            }, 300);
-
-            try {
-                const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
-                    method: 'POST',
-                    body: `${currentDate},${currentTime},${dayOfWeek},${input}`
-                });
-
-                if (!response.ok) {
-                    console.log('response (error):', response);
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const responseText = await response.text();
-
-                let parsedResponse;
-                try {
-                    parsedResponse = JSON5.parse(responseText);
-                } catch (parseError) {
-                    console.log('Error parsing response:', parseError);
-                    throw new Error('Invalid response format');
-                }
-
-                // If the start time exists but end time is 0, then you know it's actually supposed to end at the end of the day
-                for (let i = 0; i < parsedResponse.length; i++) {
-                    if (parsedResponse[i].kind === "event" && parsedResponse[i].startTime && parsedResponse[i].endTime === "00:00") {
-                        parsedResponse[i].endTime = "24:00";
-                    }
-                }
-
-                console.log('Parsed response:', parsedResponse);
-
-                updateTaskEventArray(parsedResponse);
-                saveUserData();
-                renderTasks();
-                renderCalendar();
-            } catch (error) {
-                console.log('Error processing input:', error.message);
-                console.log('Stack:', error.stack);
-                alert('Sorry, there was an error processing your input. Please try again later.');
-            }
-
-            // Reset the input area and animation
-            taskInput.style.transition = 'height 0.3s ease';
-            taskInput.style.height = originalHeight;
-
-            setTimeout(() => {
-                taskInput.style.transition = '';
-                isAnimating = false;
-                animationCooldown = true;
-                setTimeout(() => {
-                    animationCooldown = false;
-                    adjustTextareaHeight();
-                }, 500);
-            }, 300);
+        if (!response.ok) {
+            console.log('response (error):', response);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+
+        const responseText = await response.text();
+
+        let parsedResponse;
+        try {
+            parsedResponse = JSON5.parse(responseText);
+        } catch (parseError) {
+            console.log('Error parsing response:', parseError);
+            throw new Error('Invalid response format');
+        }
+
+        for (let i = 0; i < parsedResponse.length; i++) {
+            if (parsedResponse[i].kind === "event" && parsedResponse[i].startTime && parsedResponse[i].endTime === "00:00") {
+                parsedResponse[i].endTime = "24:00";
+            }
+        }
+
+        console.log('Parsed response:', parsedResponse);
+
+        updateTaskEventArray(parsedResponse);
+        saveUserData();
+        renderTasks();
+        renderCalendar();
+    } catch (error) {
+        console.log('Error processing input:', error);
+        console.log('Stack:', error.stack);
+        alert('Sorry, there was an error processing your input. Please try again later.');
+    }
+
+    // Reset the input area and animation (this was missing)
+    taskInput.style.transition = 'height 0.3s ease';
+    taskInput.style.height = originalHeight;
+
+    setTimeout(() => {
+        taskInput.style.transition = '';
+        isAnimating = false;
+        animationCooldown = true;
+        setTimeout(() => {
+            animationCooldown = false;
+            adjustTextareaHeight();
+        }, 500);
+    }, 300);
+}
+
+function initDragHandle() {
+    const taskInput = document.getElementById('taskInput');
+    const container = document.createElement('div');
+    container.className = 'drag-handle-container';
+    const handle = document.createElement('div');
+    handle.className = 'drag-handle';
+    container.appendChild(handle);
+    taskInput.parentElement.appendChild(container);
+
+    let isDragging = false;
+    let startY = 0;
+    let startScrollTop = 0;
+    
+    // Calculate and update handle height/position
+    function updateHandle() {
+        const containerHeight = taskInput.clientHeight;
+        const scrollHeight = taskInput.scrollHeight;
+        const scrollRatio = containerHeight / scrollHeight;
+        const handleHeight = Math.max(30, containerHeight * scrollRatio);
+        
+        handle.style.height = `${handleHeight}px`;
+        
+        // Calculate handle position based on scroll position
+        const scrollableDistance = scrollHeight - containerHeight;
+        const scrollProgress = taskInput.scrollTop / scrollableDistance;
+        const handleTravel = containerHeight - handleHeight;
+        handle.style.top = `${handleTravel * scrollProgress}px`;
+    }
+
+    // Initial handle setup
+    taskInput.addEventListener('input', updateHandle);
+    updateHandle();
+
+    // Handle mouse events for dragging
+    container.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        handle.classList.add('dragging');
+        startY = e.clientY;
+        startScrollTop = taskInput.scrollTop;
+        e.preventDefault(); // Prevent text selection
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const deltaY = e.clientY - startY;
+        const scrollRatio = taskInput.scrollHeight / taskInput.clientHeight;
+        taskInput.scrollTop = startScrollTop + (deltaY * scrollRatio);
+        updateHandle();
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+        handle.classList.remove('dragging');
+    });
+
+    // Handle scroll events from mousewheel
+    taskInput.addEventListener('scroll', () => {
+        if (!isDragging) {
+            updateHandle();
+        }
+    });
+
+    // Show/hide handle based on content height and max-height
+    const observer = new ResizeObserver(() => {
+        const maxHeight = parseFloat(getComputedStyle(taskInput).maxHeight);
+        const shouldShow = taskInput.scrollHeight > maxHeight;
+        container.classList.toggle('visible', shouldShow);
+        
+        if (shouldShow) {
+            // Set fixed height when content exceeds max-height
+            taskInput.style.height = maxHeight + 'px';
+            updateHandle();
+        } else {
+            // Let height adjust naturally when below max-height
+            taskInput.style.height = 'auto';
+        }
+    });
+    
+    observer.observe(taskInput);
+}
+
+// Call this after taskInput is created
+initDragHandle();
 
         function updateTaskEventArray(newItems) {
             newItems.forEach(item => {
@@ -1863,68 +1946,6 @@
                     sectionContainer.style.display = 'block';
                 }
             }
-        }
-
-        function shouldShowScrollbar(textarea) {
-            return textarea.scrollHeight > 300; // Single source of truth
-        }
-
-        function setupCustomScrollbar() {
-            const taskInput = document.getElementById('taskInput');
-            const wrapper = document.createElement('div');
-            wrapper.id = 'taskInputScrollbarWrapper';
-            
-            const scrollbar = document.createElement('div');
-            scrollbar.id = 'taskInputScrollbar';
-            
-            const handle = document.createElement('div');
-            handle.id = 'taskInputScrollbarHandle';
-            
-            scrollbar.appendChild(handle);
-            wrapper.appendChild(scrollbar);
-            taskInput.parentNode.appendChild(wrapper);
-
-            // Update handle position when textarea scrolls
-            taskInput.addEventListener('scroll', () => {
-                if (!shouldShowScrollbar(taskInput)) {
-                    wrapper.style.opacity = '0';
-                    return;
-                }
-                
-                const scrollPercentage = taskInput.scrollTop / (taskInput.scrollHeight - taskInput.clientHeight);
-                const availableSpace = wrapper.clientHeight - handle.clientHeight;
-                const handlePosition = scrollPercentage * availableSpace;
-                
-                const handleHeight = Math.max(30, (300 / taskInput.scrollHeight) * wrapper.clientHeight);
-                handle.style.height = `${handleHeight}px`;
-                handle.style.top = `${handlePosition}px`;
-                wrapper.style.opacity = '1';
-            });
-
-            // Handle drag functionality (unchanged)
-            let isDragging = false;
-            let startY = 0;
-            let startScroll = 0;
-
-            handle.addEventListener('mousedown', (e) => {
-                if (!shouldShowScrollbar(taskInput)) return;
-                isDragging = true;
-                startY = e.clientY;
-                startScroll = taskInput.scrollTop;
-                document.body.style.userSelect = 'none';
-            });
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                
-                const delta = e.clientY - startY;
-                const scrollRatio = (taskInput.scrollHeight - taskInput.clientHeight) / (wrapper.clientHeight - handle.clientHeight);
-                taskInput.scrollTop = startScroll + (delta * scrollRatio);
-            });
-
-            document.addEventListener('mouseup', () => {
-                isDragging = false;
-                document.body.style.userSelect = '';
-            });
         }
 
         function convertToISODate(dateString) {
@@ -4225,8 +4246,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadUserSettings();
             loadUserData();
-
-            setupCustomScrollbar();
 
             // Start with both date and day of week hidden
             document.getElementById('currentDate').style.opacity = '0';
