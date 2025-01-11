@@ -29,6 +29,7 @@
             font-family: 'Lexend', sans-serif;
             background-color: var(--grey-6);
             color: var(--grey-1);
+            overflow: hidden;
         }
 
         .container {
@@ -79,6 +80,7 @@
             &::-webkit-scrollbar {
                 display: none;
             }
+            border-radius: 4px;
         }
 
         /* wrapper for the custom scrollbar */
@@ -296,6 +298,7 @@
             user-select: none;
             cursor: pointer;
             transition: opacity 0.3s ease, background-color 0.3s ease;
+            overflow: hidden;
         }
 
         .calendar-event.extends-down {
@@ -606,6 +609,7 @@
         .task-content {
             flex: 1;
             transition: color 0.3s, text-decoration 0.3s;
+            overflow: hidden;
         }
 
         .overdue-task {
@@ -1750,7 +1754,7 @@
                 slidingRect.className = 'sliding-rect';
                 slidingRect.style.top = `${rect.top}px`;
                 slidingRect.style.height = `${rect.height}px`;
-                slidingRect.style.animation = `${keyframesName} 1s cubic-bezier(0.6, 0, 0.4, 1) forwards`;
+                slidingRect.style.animation = `${keyframesName} 0.8s cubic-bezier(0.6, 0, 0.4, 1) forwards`;
 
                 document.body.appendChild(slidingRect);
 
@@ -1758,10 +1762,10 @@
                 setTimeout(() => {
                     taskInput.value = '';
                     taskInput.style.height = currentHeight;
-                }, 450);
+                }, 360);
 
                 // Wait for 1s instead of 2s
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 800));
                 slidingRect.remove();
                 style.remove();
                 taskInput.style.height = originalHeight;
