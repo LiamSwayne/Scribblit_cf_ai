@@ -1731,6 +1731,9 @@
                 const currentHeight = taskInput.style.height;
                 isAnimating = true;
                 
+                // Disable input
+                taskInput.disabled = true;
+                
                 const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
                 const rect = scrollbarWrapper.getBoundingClientRect();
                 const taskInputWidth = taskInput.offsetWidth;
@@ -1754,21 +1757,25 @@
                 slidingRect.className = 'sliding-rect';
                 slidingRect.style.top = `${rect.top}px`;
                 slidingRect.style.height = `${rect.height}px`;
-                slidingRect.style.animation = `${keyframesName} 0.8s cubic-bezier(0.6, 0, 0.4, 1) forwards`;
-
+                slidingRect.style.animation = `${keyframesName} 0.8s cubic-bezier(0.85, 0, 0.15, 1) forwards`;
+                
                 document.body.appendChild(slidingRect);
 
-                // Adjust timeout proportionally (was 900ms for 2s animation, now 450ms for 1s)
                 setTimeout(() => {
                     taskInput.value = '';
                     taskInput.style.height = currentHeight;
                 }, 360);
 
-                // Wait for 1s instead of 2s
                 await new Promise(resolve => setTimeout(resolve, 800));
                 slidingRect.remove();
                 style.remove();
                 taskInput.style.height = originalHeight;
+                
+                // Re-enable input
+                taskInput.disabled = false;
+
+                // Focus back on the input
+                taskInput.focus();
             } else {
                 const inputRect = taskInput.getBoundingClientRect();
                 const overlayRect = animationOverlay.getBoundingClientRect();
