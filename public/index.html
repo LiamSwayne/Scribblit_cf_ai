@@ -73,7 +73,7 @@
             overflow-y: auto;
             box-sizing: border-box;
             transition: min-height 0.3s ease, height 0.3s ease;
-            max-height: 300px;
+            max-height: calc(80vh - 100px);
             /* Hide default scrollbar for Firefox */
             scrollbar-width: none;
             /* Hide default scrollbar for Chrome/Safari */
@@ -1659,25 +1659,39 @@
             if (!isAnimating && !animationCooldown) {
                 const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
                 const handle = document.getElementById('taskInputScrollbarHandle');
+                const maxHeight = window.innerHeight * 0.8 - 100;
                 
                 taskInput.style.height = 'auto';
                 const scrollHeight = taskInput.scrollHeight;
                 
                 if (shouldShowScrollbar(taskInput)) {
-                    taskInput.style.height = '300px';
+                    taskInput.style.height = `${maxHeight}px`;
+                    
                     if (scrollbarWrapper && handle) {
                         scrollbarWrapper.style.opacity = '1';
-                        const handleHeight = Math.max(30, (300 / scrollHeight) * scrollbarWrapper.clientHeight);
+                        
+                        // Adjust handle height to represent visible portion of content
+                        const visibleRatio = maxHeight / scrollHeight;
+                        const handleHeight = Math.max(30, visibleRatio * scrollbarWrapper.clientHeight);
                         handle.style.height = `${handleHeight}px`;
+                        
+                        // Calculate available space for scrollbar movement
+                        const availableScrollSpace = scrollHeight - maxHeight;
+                        const availableHandleSpace = scrollbarWrapper.clientHeight - handleHeight;
+                        
+                        // Calculate handle position
+                        if (availableScrollSpace > 0) {
+                            const scrollPercentage = taskInput.scrollTop / availableScrollSpace;
+                            const handlePosition = scrollPercentage * availableHandleSpace;
+                            handle.style.top = `${handlePosition}px`;
+                        } else {
+                            handle.style.top = '0px';
+                        }
                         
                         // Check if cursor is at the end
                         if (taskInput.selectionStart === taskInput.value.length) {
-                            // Scroll to bottom
                             taskInput.scrollTop = scrollHeight;
                         }
-                        
-                        const scrollPercentage = taskInput.scrollTop / (scrollHeight - 300);
-                        handle.style.top = `${scrollPercentage * (scrollbarWrapper.clientHeight - handleHeight)}px`;
                     }
                 } else {
                     taskInput.style.height = `${scrollHeight}px`;
@@ -1912,7 +1926,7 @@
         }
 
         function shouldShowScrollbar(textarea) {
-            return textarea.scrollHeight > 300; // Single source of truth
+            return textarea.scrollHeight > ((window.innerHeight * 0.8) - 100);
         }
 
         function setupCustomScrollbar() {
@@ -1937,13 +1951,23 @@
                     return;
                 }
                 
-                const scrollPercentage = taskInput.scrollTop / (taskInput.scrollHeight - taskInput.clientHeight);
-                const availableSpace = wrapper.clientHeight - handle.clientHeight;
-                const handlePosition = scrollPercentage * availableSpace;
-                
-                const handleHeight = Math.max(30, (300 / taskInput.scrollHeight) * wrapper.clientHeight);
+                const maxHeight = window.innerHeight * 0.8 - 100;
+                const scrollHeight = taskInput.scrollHeight;
+                const visibleRatio = maxHeight / scrollHeight;
+                const handleHeight = Math.max(30, visibleRatio * wrapper.clientHeight);
                 handle.style.height = `${handleHeight}px`;
-                handle.style.top = `${handlePosition}px`;
+                
+                const availableScrollSpace = scrollHeight - maxHeight;
+                const availableHandleSpace = wrapper.clientHeight - handleHeight;
+                
+                if (availableScrollSpace > 0) {
+                    const scrollPercentage = taskInput.scrollTop / availableScrollSpace;
+                    const handlePosition = scrollPercentage * availableHandleSpace;
+                    handle.style.top = `${handlePosition}px`;
+                } else {
+                    handle.style.top = '0px';
+                }
+                
                 wrapper.style.opacity = '1';
             });
 
