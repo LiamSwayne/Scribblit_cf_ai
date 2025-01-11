@@ -1803,7 +1803,7 @@
                 taskInput.value = '';
                 taskInput.style.height = currentHeight;
 
-                // Start animations with proper setup
+                // Start animations
                 const lines = Array.from(animatedTextContainer.children);
                 lines.forEach((line, index) => {
                     line.style.opacity = '1';
@@ -1817,8 +1817,14 @@
                     }, index * 50);
                 });
 
+                // Wait for animation to complete
                 await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
+                
+                // Clear animation overlay
                 animationOverlay.innerHTML = '';
+                
+                // Now reset height with animation
+                taskInput.style.height = originalHeight;
             }
 
             // Reset animation states
