@@ -1323,6 +1323,39 @@
         body.time-format-ampm .time-period-selector {
             display: flex;
         }
+
+        @keyframes slideInThenOut {
+            0% {
+                width: 5px;
+                transform: translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            40% {
+                width: calc(100% + 6.5px);
+                transform: translateX(-100%);
+            }
+            60% {
+                width: calc(100% + 6.5px);
+                transform: translateX(-100%);
+            }
+            100% {
+                width: 5px;
+                transform: translateX(-100%);
+            }
+        }
+
+        .sliding-rect {
+            position: absolute;
+            width: 5px;
+            right: -6.5px;
+            background: linear-gradient(45deg, #61a3ff, #d477ff);
+            border-radius: 2.5px;
+            transform-origin: right;
+            animation: slideInThenOut 0.8s ease-in-out forwards;
+        }
     </style>
 </head>
 <body>
@@ -1716,56 +1749,65 @@
             const currentTime = now.toFormat('HH:mm');
             const dayOfWeek = now.weekdayLong.toLowerCase(); // Get the day of the week
 
-            const inputRect = taskInput.getBoundingClientRect();
-            const overlayRect = animationOverlay.getBoundingClientRect();
+            if (shouldShowScrollbar(taskInput)) {
+                // Create sliding rectangle animation
+                const slidingRect = document.createElement('div');
+                slidingRect.className = 'sliding-rect';
+                slidingRect.style.top = '30px';
+                slidingRect.style.height = '300px'; // Same as max height
+                
+                animationOverlay.appendChild(slidingRect);
 
-            // Create a single container for all lines
-            const animatedTextContainer = document.createElement('div');
-            animatedTextContainer.className = 'animated-text-container';
-            animatedTextContainer.style.position = 'absolute';
-            animatedTextContainer.style.top = `${inputRect.top - overlayRect.top}px`;
-            animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
-            animatedTextContainer.style.width = `${inputRect.width}px`;
-            animatedTextContainer.style.height = `${inputRect.height}px`;
+                // Wait for animation to complete
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                // Clear input and maintain height
+                taskInput.value = '';
+                taskInput.style.height = currentHeight;
+                animationOverlay.innerHTML = '';
+            } else {
+                // Original letter-by-letter animation
+                const animatedTextContainer = document.createElement('div');
+                animatedTextContainer.className = 'animated-text-container';
+                animatedTextContainer.style.position = 'absolute';
+                const inputRect = taskInput.getBoundingClientRect();
+                const overlayRect = animationOverlay.getBoundingClientRect();
+                animatedTextContainer.style.top = `${inputRect.top - overlayRect.top}px`;
+                animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
+                animatedTextContainer.style.width = `${inputRect.width}px`;
+                animatedTextContainer.style.height = `${inputRect.height}px`;
 
-            // Split input into lines and create animated lines
-            input.split('\n').forEach((line, index) => {
-                const animatedLine = document.createElement('div');
-                animatedLine.className = 'animated-text';
-                animatedLine.textContent = line;
-                animatedTextContainer.appendChild(animatedLine);
-            });
+                input.split('\n').forEach((line, index) => {
+                    const animatedLine = document.createElement('div');
+                    animatedLine.className = 'animated-text';
+                    animatedLine.textContent = line;
+                    animatedTextContainer.appendChild(animatedLine);
+                });
 
-            animationOverlay.appendChild(animatedTextContainer);
+                animationOverlay.appendChild(animatedTextContainer);
 
-            // Clear input but maintain height
-            taskInput.value = '';
-            taskInput.style.height = currentHeight;
+                // Clear input but maintain height
+                taskInput.value = '';
+                taskInput.style.height = currentHeight;
 
-            // Start animations with proper setup
-            const lines = Array.from(animatedTextContainer.children);
-            lines.forEach((line, index) => {
-                // Set initial state
-                line.style.opacity = '1';
-                line.style.transform = 'translateY(0)';
+                // Start animations
+                const lines = Array.from(animatedTextContainer.children);
+                lines.forEach((line, index) => {
+                    line.style.opacity = '1';
+                    line.style.transform = 'translateY(0)';
+                    line.offsetHeight;
+                    line.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
 
-                // Force a reflow
-                line.offsetHeight;
+                    setTimeout(() => {
+                        line.style.opacity = '0';
+                        line.style.transform = 'translateY(-10px)';
+                    }, index * 50);
+                });
 
-                // Now set the transition
-                line.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-
-                setTimeout(() => {
-                    line.style.opacity = '0';
-                    line.style.transform = 'translateY(-10px)';
-                }, index * 50);
-            });
-
-            // Wait for all animations to complete
-            await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
-
-            // Clear animation overlay
-            animationOverlay.innerHTML = '';
+                await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
+                animationOverlay.innerHTML = '';
+            }
+    
 
             // Animate text area back to original height
             taskInput.style.transition = 'height 0.3s ease';
