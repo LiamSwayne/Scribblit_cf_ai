@@ -1823,7 +1823,6 @@
 
             // Reset animation states
             setTimeout(() => {
-                taskInput.style.transition = '';
                 isAnimating = false;
                 animationCooldown = true;
                 setTimeout(() => {
@@ -1871,10 +1870,6 @@
                 console.log('Stack:', error.stack);
                 alert('Sorry, there was an error processing your input. Please try again later.');
             }
-
-            // Reset the input area and animation
-            taskInput.style.transition = 'height 0.3s ease';
-            taskInput.style.height = originalHeight;
         }
 
         function updateTaskEventArray(newItems) {
