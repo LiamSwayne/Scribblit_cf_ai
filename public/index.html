@@ -43,7 +43,7 @@
             padding-right: 10px;
             display: flex;
             flex-direction: column;
-            overflow-y: auto;
+            overflow-y: none;
         }
 
         #centerLine {
@@ -1324,38 +1324,13 @@
             display: flex;
         }
 
-        @keyframes slideInThenOut {
-            0% {
-                width: 5px;
-                transform: translateX(0);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            40% {
-                width: calc(100% + 6.5px);
-                transform: translateX(-100%);
-            }
-            60% {
-                width: calc(100% + 6.5px);
-                transform: translateX(-100%);
-            }
-            100% {
-                width: 5px;
-                transform: translateX(-100%);
-            }
-        }
 
         .sliding-rect {
-            position: absolute;
-            width: 5px;
-            right: -6.5px;
-            background: linear-gradient(45deg, #61a3ff, #d477ff);
-            border-radius: 2.5px;
-            transform-origin: right;
-            animation: slideInThenOut 0.8s ease-in-out forwards;
-        }
+    position: fixed;
+    background: linear-gradient(45deg, #61a3ff, #d477ff);
+    border-radius: 2.5px;
+    z-index: 9999;
+}
     </style>
 </head>
 <body>
@@ -1739,44 +1714,71 @@
         async function processInput() {
             const input = taskInput.value;
             const animationOverlay = document.getElementById('animationOverlay');
-
             const currentHeight = taskInput.style.height;
             isAnimating = true;
 
-            // Get current date and time in user's timezone
             const now = DateTime.now().setZone(userTimezone);
             const currentDate = now.toISODate();
             const currentTime = now.toFormat('HH:mm');
-            const dayOfWeek = now.weekdayLong.toLowerCase(); // Get the day of the week
+            const dayOfWeek = now.weekdayLong.toLowerCase();
 
             if (shouldShowScrollbar(taskInput)) {
-                // Create sliding rectangle animation
+                const input = taskInput.value;
+                const currentHeight = taskInput.style.height;
+                isAnimating = true;
+                
+                const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
+                const rect = scrollbarWrapper.getBoundingClientRect();
+                const taskInputWidth = taskInput.offsetWidth;
+                
+                const keyframesName = `slideInThenOut${Date.now()}`;
+                const keyframes = `
+                    @keyframes ${keyframesName} {
+                        0% { left: ${rect.left}px; width: 5px; opacity: 0; }
+                        10% { left: ${rect.left}px; width: 5px; opacity: 1; }
+                        45% { left: ${rect.left - taskInputWidth - 4}px; width: ${taskInputWidth + 9}px; }
+                        55% { left: ${rect.left - taskInputWidth - 4}px; width: ${taskInputWidth + 9}px; }
+                        100% { left: ${rect.left - taskInputWidth - 4}px; width: 0; }
+                    }
+                `;
+                
+                const style = document.createElement('style');
+                style.innerHTML = keyframes;
+                document.head.appendChild(style);
+                
                 const slidingRect = document.createElement('div');
                 slidingRect.className = 'sliding-rect';
-                slidingRect.style.top = '30px';
-                slidingRect.style.height = '300px'; // Same as max height
-                
-                animationOverlay.appendChild(slidingRect);
+                slidingRect.style.top = `${rect.top}px`;
+                slidingRect.style.height = `${rect.height}px`;
+                slidingRect.style.animation = `${keyframesName} 1s cubic-bezier(0.6, 0, 0.4, 1) forwards`;
 
-                // Wait for animation to complete
-                await new Promise(resolve => setTimeout(resolve, 800));
-                
-                // Clear input and maintain height
-                taskInput.value = '';
-                taskInput.style.height = currentHeight;
-                animationOverlay.innerHTML = '';
+                document.body.appendChild(slidingRect);
+
+                // Adjust timeout proportionally (was 900ms for 2s animation, now 450ms for 1s)
+                setTimeout(() => {
+                    taskInput.value = '';
+                    taskInput.style.height = currentHeight;
+                }, 450);
+
+                // Wait for 1s instead of 2s
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                slidingRect.remove();
+                style.remove();
+                taskInput.style.height = originalHeight;
             } else {
-                // Original letter-by-letter animation
+                const inputRect = taskInput.getBoundingClientRect();
+                const overlayRect = animationOverlay.getBoundingClientRect();
+
+                // Create container for animated text
                 const animatedTextContainer = document.createElement('div');
                 animatedTextContainer.className = 'animated-text-container';
                 animatedTextContainer.style.position = 'absolute';
-                const inputRect = taskInput.getBoundingClientRect();
-                const overlayRect = animationOverlay.getBoundingClientRect();
                 animatedTextContainer.style.top = `${inputRect.top - overlayRect.top}px`;
                 animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
                 animatedTextContainer.style.width = `${inputRect.width}px`;
                 animatedTextContainer.style.height = `${inputRect.height}px`;
 
+                // Split input into lines and create animated lines
                 input.split('\n').forEach((line, index) => {
                     const animatedLine = document.createElement('div');
                     animatedLine.className = 'animated-text';
@@ -1790,7 +1792,7 @@
                 taskInput.value = '';
                 taskInput.style.height = currentHeight;
 
-                // Start animations
+                // Start animations with proper setup
                 const lines = Array.from(animatedTextContainer.children);
                 lines.forEach((line, index) => {
                     line.style.opacity = '1';
@@ -1807,13 +1809,8 @@
                 await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
                 animationOverlay.innerHTML = '';
             }
-    
 
-            // Animate text area back to original height
-            taskInput.style.transition = 'height 0.3s ease';
-            taskInput.style.height = originalHeight;
-
-            // Reset transition and set cooldown after animation
+            // Reset animation states
             setTimeout(() => {
                 taskInput.style.transition = '';
                 isAnimating = false;
@@ -1845,7 +1842,7 @@
                     throw new Error('Invalid response format');
                 }
 
-                // If the start time exists but end time is 0, then you know it's actually supposed to end at the end of the day
+                // Handle endTime for events
                 for (let i = 0; i < parsedResponse.length; i++) {
                     if (parsedResponse[i].kind === "event" && parsedResponse[i].startTime && parsedResponse[i].endTime === "00:00") {
                         parsedResponse[i].endTime = "24:00";
@@ -1867,16 +1864,6 @@
             // Reset the input area and animation
             taskInput.style.transition = 'height 0.3s ease';
             taskInput.style.height = originalHeight;
-
-            setTimeout(() => {
-                taskInput.style.transition = '';
-                isAnimating = false;
-                animationCooldown = true;
-                setTimeout(() => {
-                    animationCooldown = false;
-                    adjustTextareaHeight();
-                }, 500);
-            }, 300);
         }
 
         function updateTaskEventArray(newItems) {
