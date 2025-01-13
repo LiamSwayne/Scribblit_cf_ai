@@ -52,10 +52,39 @@ export default {
 Respond with a JSON array. Each item should have these properties:
 - kind: "task" or "event". a task is anything that must be completed by a date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
 - name: The input you are given is written very hastily, so expand shorthand like "HW" to the full term like "Homework". Don't expand acronyms. Remove words from the name that provide no value, like "due". The name you produce shouldn't remove any details from the input. Format the name to use sentence case, not title case.
-- date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today" If no date is specified, assume it's today. If a day of the week is found like "this monday" return that day as a string like "monday". If a day phrase relative to the span of a week like "next monday" is given, return "monday+1". This extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2". The date may contain typos. If a task is overdue you should put the overdue date, not the current date.
-- startTime: In HH:mm format (24-hour). Only for events. If a time is stated but doesn't state AM or PM use reasoning to infer AM or PM. If the start time cannot be figured out omit this field rather than making a guess. Never assign a "default" start time like the current time or 0:00, just omit the field instead.
-- endTime: In HH:mm format (24-hour). The end of an event or the due date of a task. If an end time cannot be inferred omit this field. Never use 23:59 as a default endTime for a task.
-- recurPattern: If a task or event is recurring like "every monday" or "every 2 weeks" make this field's value "daily" or "weekly" or "biweekly" or "monthly" or "yearly". If the task is not recurring or the recurrence pattern is unclear omit this field. For specific days of the week like "every monday and tuesday" return the days like "monday,tuesday". If it's a weekend day like "every weekend" return "saturday,sunday". If the recurrence pattern has a different time for specific recurrences like "every monday at 3pm and every tuesday at 4pm" return the days and times like "monday@15:00,tuesday@16:00". For every n'th week return "weekly+n" like "weekly+7" for every 7 weeks. For the first day, monday, etc of the month return "monthly_first_day" or "monthly_first_monday" etc. You can have multiple recurrence patterns in the same string like "weekly+7,monthly_first_monday".
+- date: Each event has one or more dates. Tasks have 0 or more. You list each date in a separate block and indent it's properties. You can also list an endTime for tasks (time it is due). Use "RECUR=" for recurring startDate for events and endDate for tasks. If they say every 7 mondays use RECUR=monday*7. endDate for event is only included if it runs 24/7 from startDate,startTime to endDate,endTime each time it occurs. For events, only startDate is mandatory, but if endTime is included, startDate must be included. Tasks have endDate and endTime, both optional. For tasks, startDate and startTime are when they become visible. Never include startDate or startTime for tasks unless the user asks to hide the task until a certain date. You can recur 5 times with recurCount:5. You can bound recurring with recurStart and recurEnd dates. You can recur every # of days with RECUR=day*#. Weekly is just RECUR=day*7. Annually is RECUR=day*365. You can recur on the 3rd of the month with RECUR=day3.
+
+. If not specified, recurStart is today and recurEnd is indefinite.
+Examples with all fields but date omitted:
+Event example: Class every Monday at 3pm to 5pm and this Thursday at 4pm. Today is Friday, August 12th. Semester ends December 18th.
+date:
+    startDate:RECUR=monday
+    startTime:15:00
+    endTime:17:00
+    recurStart:2024-8-12
+    recurEnd:2024-12-18
+date:
+    startDate:thursday
+    startTime:16:00
+
+Event example: Theme park open from every 2nd friday at 9pm to sunday at 6pm. Today is Friday, August 12th.
+date:
+    startDate:RECUR=friday*2
+    startTime:21:00
+    endDate:sunday
+    endTime:18:00
+
+Task example: HW due every Monday at 5pm. Today is Friday, August 12th.
+date:
+    endDate:RECUR=monday
+    endTime:17:00
+
+Task example: Fill out daily progress by 9pm. I only want to see this task 3 hrs before. Today is Friday, August 12th.
+date:
+    startDate:2024-8-12
+    startTime:18:00
+    endDate:2024-8-12
+    endTime:21:00
 
 Give me a JSON response and nothing else.`;
 
