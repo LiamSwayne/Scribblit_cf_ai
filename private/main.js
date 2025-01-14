@@ -56,34 +56,41 @@ Respond with a JSON array. Each item should have these properties:
 
 Examples with all fields but date omitted:
 Event example: Class every Monday at 3pm to 5pm and this Thursday at 4pm. Today is Friday, August 12th. Semester ends December 18th.
-date:
-    startDate:RECUR=monday
-    startTime:15:00
-    endTime:17:00
-    recurStart:2024-8-12
-    recurEnd:2024-12-18
-date:
-    startDate:thursday
-    startTime:16:00
+"date": [
+    {
+        "startDate": "RECUR=monday",
+        "startTime": "15:00",
+        "endTime": "17:00",
+        "recurStart": "2024-8-12",
+        "recurEnd": "2024-12-18"
+    },
+    {
+        "startDate": "thursday",
+        "startTime": "16:00"
+    }
 
 Event example: Theme park open from every 2nd friday at 9pm to sunday at 6pm. Today is Friday, August 12th.
-date:
-    startDate:RECUR=friday*2
-    startTime:21:00
-    endDate:sunday
-    endTime:18:00
+
+"date": {
+    "startDate": "RECUR=friday*2",
+    "startTime": "21:00",
+    "endDate": "sunday",
+    "endTime": "18:00"
+}
 
 Task example: HW due every Monday at 5pm. Today is Friday, August 12th.
-date:
-    endDate:RECUR=monday
-    endTime:17:00
+"date": {
+    "endDate": "RECUR=monday",
+    "endTime": "17:00"
+}
 
 Task example: Fill out daily progress by 9pm. I only want to see this task 3 hrs before. Today is Friday, August 12th.
-date:
-    startDate:2024-8-12
-    startTime:18:00
-    endDate:2024-8-12
-    endTime:21:00
+"date": {
+    "startDate": "2024-8-12",
+    "startTime": "18:00",
+    "endDate": "2024-8-12",
+    "endTime": "21:00"
+}
 
 Give me a JSON response and nothing else.`;
 
