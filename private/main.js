@@ -70,7 +70,6 @@ Event example: Class every Monday at 3pm to 5pm and this Thursday at 4pm. Today 
     }
 
 Event example: Theme park open from every 2nd friday at 9pm to sunday at 6pm. Today is Friday, August 12th.
-
 "date": {
     "startDate": "RECUR=friday*2",
     "startTime": "21:00",
