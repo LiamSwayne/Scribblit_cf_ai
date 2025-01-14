@@ -68,6 +68,7 @@ Event example: Class every Monday at 3pm to 5pm and this Thursday at 4pm. Today 
         "startDate": "thursday",
         "startTime": "16:00"
     }
+]
 
 Event example: Theme park open from every 2nd friday at 9pm to sunday at 6pm. Today is Friday, August 12th.
 "date": {
