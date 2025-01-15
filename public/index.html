@@ -297,7 +297,9 @@
             user-select: none;
             cursor: pointer;
             transition: opacity 0.3s ease, background-color 0.3s ease;
-            overflow: hidden;
+            white-space: normal;
+            max-width: 100%;
+            clip-path: inset(0 0 -100vh 0);
         }
 
         .calendar-event.extends-down {
@@ -1862,8 +1864,8 @@
                 }
 
                 const responseText = await response.text();
-
                 let parsedResponse;
+                
                 try {
                     parsedResponse = JSON5.parse(responseText);
                 } catch (parseError) {
@@ -1871,22 +1873,55 @@
                     throw new Error('Invalid response format');
                 }
 
-                // Handle endTime for events
-                for (let i = 0; i < parsedResponse.length; i++) {
-                    if (parsedResponse[i].kind === "event" && parsedResponse[i].startTime && parsedResponse[i].endTime === "00:00") {
-                        parsedResponse[i].endTime = "24:00";
+                // Transform the response to handle new date format
+                const transformedResponse = parsedResponse.map(item => {
+                    const transformedItem = {
+                        ...item,
+                        done: {},
+                        description: '',
+                        id: 'task_' + Math.random().toString(36).substr(2, 9)
+                    };
+
+                    // Handle array of dates
+                    if (Array.isArray(item.date)) {
+                        // Extract first date object for backwards compatibility 
+                        const firstDate = item.date[0];
+                        if (firstDate) {
+                            transformedItem.date = firstDate.startDate || firstDate.endDate;
+                            transformedItem.startTime = firstDate.startTime;
+                            transformedItem.endTime = firstDate.endTime;
+                            transformedItem.endDate = firstDate.endDate;
+                        }
+                        // Store the full date array for future use
+                        transformedItem.dateArray = item.date;
+                    } else if (typeof item.date === 'object') {
+                        // Single date object
+                        transformedItem.date = item.date.startDate || item.date.endDate;
+                        transformedItem.startTime = item.date.startTime;
+                        transformedItem.endTime = item.date.endTime;
+                        transformedItem.endDate = item.date.endDate;
+                        transformedItem.dateArray = [item.date];
+                    } else {
+                        // Legacy string format
+                        transformedItem.date = item.date;
+                        transformedItem.dateArray = [{
+                            startDate: item.date,
+                            startTime: item.startTime,
+                            endTime: item.endTime,
+                            endDate: item.endDate
+                        }];
                     }
-                }
 
-                console.log('Parsed response:', parsedResponse);
+                    return transformedItem;
+                });
 
-                updateTaskEventArray(parsedResponse);
+                console.log('Transformed response:', transformedResponse);
+                updateTaskEventArray(transformedResponse);
                 saveUserData();
                 renderTasks();
                 renderCalendar();
             } catch (error) {
-                console.log('Error processing input:', error.message);
-                console.log('Stack:', error.stack);
+                console.log('Error processing input:', error);
                 alert('Sorry, there was an error processing your input. Please try again later.');
             }
         }
@@ -2095,17 +2130,34 @@
             // Generate all dates for recurring tasks within the week range
             const expandedTasks = [];
             tasks.forEach(task => {
-                if (task.recurPattern) {
-                    const dates = generateRecurringDates(task, today.toISODate(), weekEnd.toISODate());
-                    dates.forEach(date => {
-                        expandedTasks.push({
+                if (task.dateArray) {
+                    task.dateArray.forEach(dateObj => {
+                        // Create an expanded task for each date
+                        const expandedTask = {
                             ...task,
-                            date: date,
-                            originalDate: task.date,
-                            isRecurring: true
-                        });
+                            date: dateObj.startDate || dateObj.endDate,
+                            startTime: dateObj.startTime,
+                            endTime: dateObj.endTime,
+                            endDate: dateObj.endDate,
+                            isRecurring: !!dateObj.recurStart || !!dateObj.recurEnd
+                        };
+                        expandedTasks.push(expandedTask);
+
+                        // Handle recurring dates if present
+                        if (dateObj.recurStart || dateObj.recurEnd) {
+                            const dates = generateRecurringDates(expandedTask, dateObj.recurStart || today.toISODate(), dateObj.recurEnd || weekEnd.toISODate());
+                            dates.forEach(date => {
+                                expandedTasks.push({
+                                    ...expandedTask,
+                                    date,
+                                    originalDate: expandedTask.date,
+                                    isRecurring: true
+                                });
+                            });
+                        }
                     });
                 } else {
+                    // Fallback for legacy format
                     expandedTasks.push({ ...task, isRecurring: false });
                 }
             });
@@ -2451,16 +2503,24 @@
                 }
             });
 
-            // Process events
-            // TODO: Add support for recurring events
+            // Process events (including recurring events)
             let events = taskEventArray.filter(item => {
                 if (item.kind !== "event") return false;
-                
-                if (isMultiDayEvent(item)) {
-                    return isDateInEventRange(currentDate.toISODate(), item);
-                } else {
-                    return DateTime.fromISO(item.date).hasSame(currentDate, 'day');
+
+                if (item.dateArray) {
+                    return item.dateArray.some(dateObj => {
+                        const eventDate = dateObj.startDate || dateObj.endDate;
+                        if (dateObj.endDate) {
+                            return isDateInEventRange(currentDate.toISODate(), {
+                                date: eventDate,
+                                endDate: dateObj.endDate
+                            });
+                        }
+                        return DateTime.fromISO(eventDate).hasSame(currentDate, 'day');
+                    });
                 }
+
+                return DateTime.fromISO(item.date).hasSame(currentDate, 'day');
             });
 
             if (shouldUpdateLocalStorage) {
