@@ -4111,6 +4111,9 @@
                 }
             }, 0);
 
+            // Set up time input validation
+            setupTimeInputValidation();
+
             showModal('editTask');
         }
 
@@ -4137,6 +4140,30 @@
                 errors.push("Task name is required");
             }
 
+            // Additional time validation
+            const validateTimeValues = (timeValues, label) => {
+                if (!timeValues || !timeValues.hours) return true;
+                
+                const hours = parseInt(timeValues.hours);
+                const minutes = parseInt(timeValues.minutes || '0');
+                const timeFormat = userSettings.timeFormat;
+                
+                const hoursValid = validateTimeInput({ value: hours.toString() }, 'hours', timeFormat);
+                const minutesValid = validateTimeInput({ value: minutes.toString() }, 'minutes', timeFormat);
+                
+                if (!hoursValid.valid) {
+                    errors.push(`Invalid ${label} hours: ${hoursValid.error}`);
+                    return false;
+                }
+                
+                if (!minutesValid.valid) {
+                    errors.push(`Invalid ${label} minutes: ${minutesValid.error}`);
+                    return false;
+                }
+                
+                return true;
+            };
+
             if (isEvent) {
                 // Event-specific validations
                 const startDateActive = document.getElementById('startDateSwitch').classList.contains('active');
@@ -4159,15 +4186,23 @@
                     // Start time required if time switch is on
                     if (!dateTimeValues.startTime.hours) {
                         errors.push("Start time is required when time is enabled");
+                    } else {
+                        // Validate start time format
+                        validateTimeValues(dateTimeValues.startTime, 'start');
                     }
 
                     // End time is optional, but if provided must be after start time
-                    if (dateTimeValues.endTime.hours && !endDateActive) {
-                        const startDateTime = convertToMinutes(dateTimeValues.startTime);
-                        const endDateTime = convertToMinutes(dateTimeValues.endTime);
-                        
-                        if (endDateTime <= startDateTime) {
-                            errors.push("End time must be after start time");
+                    if (dateTimeValues.endTime.hours) {
+                        // Validate end time format
+                        validateTimeValues(dateTimeValues.endTime, 'end');
+
+                        if (!endDateActive) {
+                            const startDateTime = convertToMinutes(dateTimeValues.startTime);
+                            const endDateTime = convertToMinutes(dateTimeValues.endTime);
+                            
+                            if (endDateTime <= startDateTime) {
+                                errors.push("End time must be after start time");
+                            }
                         }
                     }
                 }
@@ -4193,8 +4228,13 @@
                 if (dueTimeActive) {
                     if (!dateTimeValues.dueTime.hours) {
                         errors.push("Due time is required when time is enabled");
-                    } else if (!dateTimeValues.dueTime.minutes) {
-                        dateTimeValues.dueTime.minutes = '00';
+                    } else {
+                        // First default the minutes if needed
+                        if (!dateTimeValues.dueTime.minutes) {
+                            dateTimeValues.dueTime.minutes = '00';
+                        }
+                        // Then validate with complete time
+                        validateTimeValues(dateTimeValues.dueTime, 'due');
                     }
                 }
             }
@@ -4292,6 +4332,86 @@
                 if (timeObj.period === 'AM' && hours === 12) hours = 0;
             }
             return hours * 60 + parseInt(timeObj.minutes || 0);
+        }
+
+        function validateTimeInput(input, type, timeFormat) {
+            const value = input.value.trim();
+            
+            // Check if value contains only digits
+            if (!/^\d*$/.test(value)) {
+                return {
+                    valid: false,
+                    error: "Only numbers allowed"
+                };
+            }
+
+            const num = parseInt(value);
+            
+            if (type === 'hours') {
+                if (timeFormat === 'AM/PM') {
+                    // For 12-hour format: 1-12
+                    if (num < 1 || num > 12) {
+                        return {
+                            valid: false,
+                            error: "Hours must be 1-12"
+                        };
+                    }
+                } else {
+                    // For 24-hour format: 0-23
+                    if (num < 0 || num > 23) {
+                        return {
+                            valid: false,
+                            error: "Hours must be 0-23"
+                        };
+                    }
+                }
+            } else if (type === 'minutes') {
+                // Minutes: 0-59
+                if (num < 0 || num > 59) {
+                    return {
+                        valid: false,
+                        error: "Minutes must be 0-59"
+                    };
+                }
+            }
+
+            return { valid: true };
+        }
+
+        function setupTimeInputValidation() {
+            // Get all hour and minute inputs
+            const timeInputs = document.querySelectorAll('.time-inputs input');
+            
+            timeInputs.forEach(input => {
+                const isHours = input.parentElement.querySelector('input').indexOf(input) === 0;
+                
+                input.addEventListener('input', (e) => {
+                    const timeFormat = userSettings.timeFormat;
+                    const result = validateTimeInput(input, isHours ? 'hours' : 'minutes', timeFormat);
+                    
+                    if (!result.valid) {
+                        // Store the previous valid value if not already stored
+                        if (!input.dataset.lastValidValue) {
+                            input.dataset.lastValidValue = '';
+                        }
+                        
+                        showErrorPopup(result.error);
+                        
+                        // Revert to last valid value or empty
+                        input.value = input.dataset.lastValidValue;
+                    } else {
+                        // Store new valid value
+                        input.dataset.lastValidValue = input.value;
+                    }
+                });
+                
+                input.addEventListener('blur', () => {
+                    // Pad with leading zero if needed
+                    if (input.value && !isHours) {
+                        input.value = input.value.padStart(2, '0');
+                    }
+                });
+            });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
