@@ -4111,8 +4111,8 @@
                 }
             }, 0);
 
-            // Set up time input validation
-            setupTimeInputValidation();
+                // Set up time input validation
+                setupTimeInputValidation();
 
             showModal('editTask');
         }
@@ -4383,7 +4383,8 @@
             const timeInputs = document.querySelectorAll('.time-inputs input');
             
             timeInputs.forEach(input => {
-                const isHours = input.parentElement.querySelector('input').indexOf(input) === 0;
+                const allInputsInParent = Array.from(input.parentElement.querySelectorAll('input'));
+                const isHours = allInputsInParent.indexOf(input) === 0;
                 
                 input.addEventListener('input', (e) => {
                     const timeFormat = userSettings.timeFormat;
