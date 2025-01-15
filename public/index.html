@@ -3776,16 +3776,29 @@
             const taskSettings = modal.querySelector('.task-settings-task');
 
             // First set initial classes without triggering clicks
+            // bypass sliding left/right animation when opening
             if (task.kind === 'event') {
                 newEventBtn.classList.add('active');
                 newTaskBtn.classList.remove('active');
+                // Disable transition temporarily
+                highlight.style.transition = 'none';
                 highlight.style.transform = 'translateX(4px)';
+                // Force a reflow
+                highlight.offsetHeight;
+                // Re-enable transition
+                highlight.style.transition = '';
                 eventSettings.classList.remove('inactive');
                 taskSettings.classList.add('inactive');
             } else {
                 newTaskBtn.classList.add('active');
                 newEventBtn.classList.remove('active');
+                // Disable transition temporarily
+                highlight.style.transition = 'none';
                 highlight.style.transform = 'translateX(calc(100% + 4px))';
+                // Force a reflow
+                highlight.offsetHeight;
+                // Re-enable transition
+                highlight.style.transition = '';
                 eventSettings.classList.add('inactive');
                 taskSettings.classList.remove('inactive');
             }
