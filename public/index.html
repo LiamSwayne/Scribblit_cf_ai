@@ -1590,6 +1590,12 @@
         prevDayBtn.addEventListener('click', () => changeDate(-1));
         nextDayBtn.addEventListener('click', () => changeDate(1));
 
+        function ASSERT(condition, message) {
+            if (!condition) {
+                console.error('ASSERTION FAILED: ' + message);
+            }
+        }
+
         function changeDate(delta) {
             const allDayEventsContainer = document.getElementById('allDayEvents');
             const oldAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
