@@ -1916,6 +1916,7 @@
                 let parsedResponse;
                 try {
                     parsedResponse = JSON5.parse(responseText);
+                    console.log('Raw response:', parsedResponse);
                 } catch (parseError) {
                     console.log('Error parsing response:', parseError);
                     throw new Error('Invalid response format');
@@ -1930,17 +1931,38 @@
                         item.date = item.date ? [item.date] : [];
                     }
 
+                    if (item.date.length === 0 || (item.date.length === 1 && JSON.stringify(item.date[0]) === JSON.stringify({})) || (item.date.length === 1 && item.date[0] === '')) {
+                        console.log('AAAAAAAAAAA ', item);
+                        if (item.kind == 'task') {
+                            item.date = [{ endDate: currentDate }];
+                        } else if (item.kind == 'event') {
+                            item.date = [{ startDate: currentDate }];
+                        } else {
+                            ASSERT(false, 'Invalid item kind');
+                        }
+                    }
+
+                    console.log('Item:', item.name, item.date);
+
                     // Validate each date block
                     item.date = item.date.filter(dateBlock => {
+                        if (dateBlock.startDate && dateBlock.endDate && dateBlock.startDate.startsWith('RECUR=') && !dateBlock.endDate.startsWith('RECUR=')) {
+                            // If recurring event has a recurring start date but a non-recurring end date, convert end date to recurring
+                            dateBlock.endDate = 'RECUR=' + dateBlock.endDate;
+                        }
+
                         const validation = validateDateObject(dateBlock);
                         if (!validation.valid) {
-                            console.warn(`Invalid date block:`, validation.error, dateBlock);
+                            // Convert endTime of 00:00 to 24:00 for events
+                            // But also tasks since they can have startDate and time too, meaning hide until that time
+                            // But the time it's due must be after the time a task becomes visible
+                            if (dateBlock.startTime && dateBlock.endTime === "00:00") {
+                                dateBlock.endTime = "24:00";
+                            }
+
+                            console.warn(`Invalid date block for item "${item.name}":`, validation.error, dateBlock);
                             return false;
                         }
-                        
-                        // Convert endTime of 00:00 to 24:00 for events
-                        // But also tasks since they can have startDate and time too, meaning hide until that time
-                        // But the time it's due must be after the time a task becomes visible
                         if (dateBlock.startTime && dateBlock.endTime === "00:00") {
                             dateBlock.endTime = "24:00";
                         }
@@ -4418,21 +4440,29 @@
                 return { valid: false, error: 'Either startDate or endDate is required' };
             }
 
+            console.log("CCCCCCCCCC", dateBlock.endDate);
+
             // Validate recurrence pattern if present
             if (dateBlock.startDate?.startsWith('RECUR=') || dateBlock.endDate?.startsWith('RECUR=')) {
                 const pattern = parseRecurPattern(dateBlock.startDate || dateBlock.endDate);
                 if (!pattern) {
                     return { valid: false, error: 'Invalid recurrence pattern' };
                 }
+
+                // If start date is recurring, allow end date to also be recurring
+                if (dateBlock.startDate?.startsWith('RECUR=') && dateBlock.endDate?.startsWith('RECUR=')) {
+                    return { valid: true };
+                }
             }
 
-            // Validate ISO dates
+            // Validate ISO dates (only if not a RECUR pattern)
             if (dateBlock.startDate && !dateBlock.startDate.startsWith('RECUR=')) {
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(dateBlock.startDate)) {
                     return { valid: false, error: 'Invalid startDate format' };
                 }
             }
             if (dateBlock.endDate && !dateBlock.endDate.startsWith('RECUR=')) {
+                console.log("BBBBBBBBBBBBBB", dateBlock.endDate);
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(dateBlock.endDate)) {
                     return { valid: false, error: 'Invalid endDate format' };
                 }
@@ -4447,6 +4477,43 @@
             }
 
             return { valid: true };
+        }
+
+        function parseRecurPattern(recurString) {
+            if (!recurString?.startsWith('RECUR=')) return null;
+            
+            const pattern = recurString.slice(6); // Remove 'RECUR='
+            
+            // Handle day*N pattern (every N days)
+            const dayMatch = pattern.match(/^day\*(\d+)$/);
+            if (dayMatch) {
+                return {
+                    type: 'day',
+                    interval: parseInt(dayMatch[1])
+                };
+            }
+
+            // Handle dayN pattern (Nth day of month)
+            const monthDayMatch = pattern.match(/^day(\d+)$/);
+            if (monthDayMatch) {
+                return {
+                    type: 'monthday',
+                    day: parseInt(monthDayMatch[1])
+                };
+            }
+
+            // Handle weekday patterns
+            const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            const weekdayMatch = pattern.match(new RegExp(`^(${weekdays.join('|')})(?:\\*(\\d+))?$`));
+            if (weekdayMatch) {
+                return {
+                    type: 'weekday',
+                    day: weekdayMatch[1],
+                    interval: weekdayMatch[2] ? parseInt(weekdayMatch[2]) : 1
+                };
+            }
+
+            return null;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
