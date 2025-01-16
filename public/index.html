@@ -3865,14 +3865,14 @@
                         const time12 = convertTo12Hour(task.startTime);
                         const inputs = dueTimeInputs.querySelectorAll('input');
                         inputs[0].value = time12.hours;
-                        inputs[1].value = time12.minutes;
+                        inputs[1].value = time12.minutes === '0' ? '00' : time12.minutes;
                         inputs.forEach(input => input.removeAttribute('readonly'));
                     } else {
                         // Handle 24h format
                         const [hours, minutes] = task.startTime.split(':');
                         const inputs = dueTimeInputs.querySelectorAll('input');
                         inputs[0].value = parseInt(hours).toString();
-                        inputs[1].value = parseInt(minutes).toString();
+                        inputs[1].value = minutes === '0' ? '00' : minutes;
                         inputs.forEach(input => input.removeAttribute('readonly'));
                     }
                 }
@@ -4007,7 +4007,7 @@
 
                             const inputs = timeInputs.querySelectorAll('input');
                             inputs[0].value = time12.hours;
-                            inputs[1].value = time12.minutes;
+                            inputs[1].value = time12.minutes === '0' ? '00' : time12.minutes;
                         });
                     } else {
                         ['start', 'end'].forEach((prefix, index) => {
@@ -4018,7 +4018,7 @@
 
                             const inputs = timeInputs.querySelectorAll('input');
                             inputs[0].value = parseInt(hours).toString();
-                            inputs[1].value = parseInt(minutes).toString();
+                            inputs[1].value = minutes === '0' ? '00' : minutes;
                         });
                     }
 
