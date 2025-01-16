@@ -4107,11 +4107,16 @@
                 newDeleteBtn.addEventListener('click', () => {
                     const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
                     if (taskIndex !== -1) {
+                        // First hide the modal and vignette
+                        const modal = document.getElementById('editTaskModal');
+                        modal.classList.remove('visible');
+                        document.getElementById('vignette').classList.remove('visible');
+                        
+                        // Then update the data and re-render
                         taskEventArray.splice(taskIndex, 1);
                         saveUserData();
                         renderTasks();
                         renderCalendar();
-                        hideModal('editTask');
                     }
                 });
             }
