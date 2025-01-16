@@ -200,7 +200,7 @@
             color: var(--grey-2);
             margin-right: 7px;
             min-width: 38px;
-            text-align: right;
+            text-align: center;
             margin-top: 2px;
         }
 
@@ -2214,7 +2214,7 @@
                         dateTimeSpan.className = task.endTime ? 'task-date-time' : 'task-date-no-time';
                         const dateSpan = document.createElement('span');
                         dateSpan.className = 'task-date';
-                        dateSpan.textContent = taskDate.toFormat('MM/dd');
+                        dateSpan.textContent = taskDate.toFormat('M/d');
                         dateTimeSpan.appendChild(dateSpan);
 
                         if (task.endTime) {
@@ -2295,7 +2295,7 @@
                     }
                     const dateSpan = document.createElement('span');
                     dateSpan.className = 'task-date';
-                    dateSpan.textContent = taskDate.toFormat('MM/dd');
+                    dateSpan.textContent = taskDate.toFormat('M/d');
                     dateTimeSpan.appendChild(dateSpan);
 
                     if (task.endTime) {
