@@ -2382,7 +2382,7 @@
             });
         }
 
-        function renderCalendar(showEvents = true) {
+        async function renderCalendar(showEvents = true) {
             // Preserve time marker elements
             const existingMarker = document.querySelector('.current-time-marker');
             const existingTriangle = document.querySelector('.time-triangle');
@@ -2487,8 +2487,13 @@
             const timedEvents = events.filter(event => event.startTime);
 
             // Handle all-day events
-            if (allDayEvents.length > 0) {
+            // don't show on first render because it causes a flicker
+            if (allDayEvents.length > 0 && calendarRenderCount > 0) {
+                console.log("Processing all-day events:", allDayEvents);
+                
                 allDayEvents.forEach(event => {
+                    console.log("Creating all-day element for:", event.name);
+                    
                     const eventEl = document.createElement('div');
                     eventEl.className = 'all-day-event';
                     eventEl.dataset.taskId = event.id;
@@ -2508,7 +2513,7 @@
                 });
             }
 
-            // Update calendar position
+            // Update calendar position based on all-day events
             const newCalendarTop = allDayEvents.length > 0 ?
                 allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay :
                 calendarToTopDistanceNoAllDay;
@@ -2620,66 +2625,63 @@
 
         // Helper function to render individual events
         function renderEvent(event, laneIndex, groupIndex, eventWidth, color, layout) {
-            const {laneWidth, generalCalOffset, spaceBetweenEvents, showEvents} = layout;
-            const eventEl = document.createElement('div');
-            eventEl.className = 'calendar-event';
-            eventEl.dataset.startTime = event.startTime;
-            eventEl.dataset.endTime = event.endTime || '';
-            eventEl.dataset.taskId = event.id;
+    if (event.isAllDay) {
+        console.log("Got an all-day event:", event);
+        const allDayEventsContainer = document.getElementById('allDayEvents');
+        
+        const eventEl = document.createElement('div');
+        eventEl.className = 'all-day-event';
+        eventEl.dataset.taskId = event.id;
 
-            const startMinutes = timeToMinutes(event.startTime);
-            const endMinutes = event.endTime ? 
-                timeToMinutes(event.endTime) : 
-                Math.min(startMinutes + 100, 1440);
+        const asterisk = document.createElement('span');
+        asterisk.className = 'task-asterisk';
+        asterisk.textContent = '*';
 
-            eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + 
-                                (groupIndex * (eventWidth + spaceBetweenEvents))}px`;
-            eventEl.style.width = `${eventWidth}px`;
-            eventEl.style.top = `${startMinutes / 1440 * 100}%`;
-            eventEl.textContent = event.name;
+        const eventContent = document.createElement('span');
+        eventContent.textContent = event.name;
 
-            if (event.endTime) {
-                eventEl.style.height = `${(endMinutes - startMinutes) / 1440 * 100}%`;
-                eventEl.style.backgroundColor = color;
-            } else {
-                eventEl.style.height = `${100 / 1440 * 100}%`;
-                eventEl.style.background = `linear-gradient(
-                    to bottom,
-                    ${color} 20%,
-                    ${color}aa 60%,
-                    ${color}66 70%,
-                    ${color}33 85%,
-                    ${color}1a 90%,
-                    ${color}00 100%
-                )`;
-                eventEl.style.borderBottomLeftRadius = '0';
-                eventEl.style.borderBottomRightRadius = '0';
-            }
+        eventEl.appendChild(asterisk);
+        eventEl.appendChild(eventContent);
+        eventEl.addEventListener('click', () => constructTaskEditorModal(event.id));
 
-            if (!showEvents) {
-                eventEl.style.opacity = '0';
-            }
+        allDayEventsContainer.appendChild(eventEl);
+        return;
+    }
+    
+    const {laneWidth, generalCalOffset, spaceBetweenEvents, showEvents} = layout;
+    const eventEl = document.createElement('div');
+    eventEl.className = 'calendar-event';
+    eventEl.dataset.startTime = event.startTime || '';
+    eventEl.dataset.endTime = event.endTime || '';
+    eventEl.dataset.taskId = event.id;
 
-            eventEl.addEventListener('click', () => constructTaskEditorModal(event.id));
-            calendar.appendChild(eventEl);
+    // Base styles
+    eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + 
+                        (groupIndex * (eventWidth + spaceBetweenEvents))}px`;
+    eventEl.style.width = `${eventWidth}px`;
+    eventEl.textContent = event.name;
+    eventEl.style.backgroundColor = color;
 
-            // Handle past events opacity
-            if (currentDate.hasSame(DateTime.now(), 'day') && event.endTime) {
-                const now = DateTime.now().setZone(userTimezone);
-                const currentMinutes = now.hour * 60 + now.minute;
-                
-                if (timeToMinutes(event.endTime) < currentMinutes) {
-                    const allEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
-                    const eventIndex = allEvents.indexOf(eventEl);
-                    const waterfallDelay = eventIndex * 50 + 1200;
+    const startMinutes = timeToMinutes(event.startTime || '00:00');
+    const endMinutes = timeToMinutes(event.endTime || '23:59');
+    
+    if (endMinutes === 1440) { // Extends to end of day
+        eventEl.classList.add('extends-down');
+    }
+    if (startMinutes === 0) { // Starts at beginning of day
+        eventEl.classList.add('extends-up');
+    }
+    
+    eventEl.style.top = `${startMinutes / 1440 * 100}%`;
+    eventEl.style.height = `${(endMinutes - startMinutes) / 1440 * 100}%`;
 
-                    setTimeout(() => {
-                        eventEl.style.transition = 'opacity 0.3s ease';
-                        eventEl.style.opacity = '0.5';
-                    }, waterfallDelay);
-                }
-            }
-        }
+    if (!showEvents) {
+        eventEl.style.opacity = '0';
+    }
+
+    eventEl.addEventListener('click', () => constructTaskEditorModal(event.id));
+    calendar.appendChild(eventEl);
+}
 
         function timeToMinutes(time) {
             const [hours, minutes] = time.split(':').map(Number);
@@ -4322,102 +4324,81 @@
 
         // Takes a date range and returns instances of a recurring event/task within that range
         function getRecurringInstancesInRange(item, startDate, endDate) {
-            const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-            const instances = [];
-            if (!item.date || !item.date.length) return instances;
+    const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const instances = [];
+    
+    const dates = Array.isArray(item.date) ? item.date : [item.date];
+    const currentDayIndex = currentDate.weekday - 1;
+    
+    dates.forEach(dateBlock => {
+        if (!dateBlock.startDate?.startsWith('RECUR=')) return;
 
-            item.date.forEach(dateBlock => {
-                if (!dateBlock.startDate?.startsWith('RECUR=')) {
-                    // Handle non-recurring date block
-                    const blockDate = DateTime.fromISO(dateBlock.startDate || dateBlock.endDate);
-                    if (blockDate >= startDate && blockDate <= endDate) {
-                        instances.push({
-                            ...dateBlock,
-                            instanceDate: blockDate.toISODate()
-                        });
-                    }
-                    return;
-                }
-
-                // Handle recurring pattern
-                const startPattern = parseRecurPattern(dateBlock.startDate);
-                if (!startPattern) return;
-
-                // If there's an end date pattern, parse it too
-                const endPattern = dateBlock.endDate?.startsWith('RECUR=') ? 
-                    parseRecurPattern(dateBlock.endDate) : null;
-
-                const recurStart = dateBlock.recurStart ? 
-                    DateTime.fromISO(dateBlock.recurStart) : 
-                    DateTime.now().startOf('day');
-                const recurEnd = dateBlock.recurEnd ? 
-                    DateTime.fromISO(dateBlock.recurEnd) : 
-                    endDate.plus({ years: 100 });
-
-                let current = recurStart;
-                while (current <= recurEnd && current <= endDate) {
-                    // For each starting date, calculate the corresponding end date
-                    if (current >= startDate) {
-                        let instanceEndDate;
-                        if (endPattern) {
-                            // Find the next occurrence of the end pattern after this start date
-                            let nextEnd = current;
-                            while (
-                                nextEnd.weekday !== weekdays.indexOf(endPattern.day) + 1 || 
-                                nextEnd <= current
-                            ) {
-                                nextEnd = nextEnd.plus({ days: 1 });
-                            }
-                            instanceEndDate = nextEnd.toISODate();
-                        }
-
-                        instances.push({
-                            ...dateBlock,
-                            instanceDate: current.toISODate(),
-                            endDate: instanceEndDate
-                        });
-                    }
-
-                    // Calculate next start occurrence
-                    if (startPattern.type === 'weekday') {
-                        current = current.plus({ weeks: startPattern.interval || 1 });
-                    } else if (startPattern.type === 'day') {
-                        current = current.plus({ days: startPattern.interval });
-                    } else if (startPattern.type === 'monthday') {
-                        current = current.plus({ months: 1 }).set({ day: startPattern.day });
-                    }
-                }
-            });
-
-            return instances;
+        const startPattern = parseRecurPattern(dateBlock.startDate);
+        const endPattern = parseRecurPattern(dateBlock.endDate);
+        
+        if (!startPattern?.day || !endPattern?.day) return;
+        
+        const startDayIndex = weekdays.indexOf(startPattern.day);  // friday = 4
+        const endDayIndex = weekdays.indexOf(endPattern.day);      // monday = 0
+        
+        let isInRange = false;
+        if (endDayIndex < startDayIndex) {
+            isInRange = (currentDayIndex >= startDayIndex) || (currentDayIndex <= endDayIndex);
+        } else {
+            isInRange = (currentDayIndex >= startDayIndex) && (currentDayIndex <= endDayIndex);
         }
+
+        console.log(`Day ${weekdays[currentDayIndex]}: isInRange=${isInRange}`);
+
+        if (!isInRange) return;
+
+        if (currentDayIndex === startDayIndex) {
+            // Friday: 21:00 -> 24:00
+            instances.push({
+                ...dateBlock,
+                instanceDate: currentDate.toISODate(),
+                isMultiDay: true,
+                startTime: dateBlock.startTime,
+                endTime: '24:00',
+                dayType: 'start'
+            });
+        } else if (currentDayIndex === endDayIndex) {
+            // Monday: 00:00 -> 06:00
+            instances.push({
+                ...dateBlock,
+                instanceDate: currentDate.toISODate(),
+                isMultiDay: true,
+                startTime: '00:00',
+                endTime: dateBlock.endTime,
+                dayType: 'end'
+            });
+        } else if (currentDayIndex === 5 || currentDayIndex === 6) {
+            // Weekend days: make sure we preserve essential properties
+            instances.push({
+                instanceDate: currentDate.toISODate(),
+                isMultiDay: true,
+                isAllDay: true,
+                dayType: 'middle',
+                id: item.id,
+                name: item.name,
+                kind: item.kind,
+                date: item.date // Preserve the date array
+            });
+        }
+    });
+
+    console.log("Generated instances:", instances);
+    return instances;
+}
 
         // Parse RECUR= patterns into structured format
         function parseRecurPattern(recurString) {
             if (!recurString?.startsWith('RECUR=')) return null;
             
             const pattern = recurString.slice(6); // Remove 'RECUR='
-            
-            // Handle day*N pattern (every N days)
-            const dayMatch = pattern.match(/^day\*(\d+)$/);
-            if (dayMatch) {
-                return {
-                    type: 'day',
-                    interval: parseInt(dayMatch[1])
-                };
-            }
-
-            // Handle dayN pattern (Nth day of month)
-            const monthDayMatch = pattern.match(/^day(\d+)$/);
-            if (monthDayMatch) {
-                return {
-                    type: 'monthday',
-                    day: parseInt(monthDayMatch[1])
-                };
-            }
-
-            // Handle weekday patterns
             const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            
+            // Handle weekday patterns
             const weekdayMatch = pattern.match(new RegExp(`^(${weekdays.join('|')})(?:\\*(\\d+))?$`));
             if (weekdayMatch) {
                 return {
@@ -4426,7 +4407,7 @@
                     interval: weekdayMatch[2] ? parseInt(weekdayMatch[2]) : 1
                 };
             }
-
+            
             return null;
         }
 
