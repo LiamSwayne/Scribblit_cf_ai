@@ -2334,28 +2334,7 @@
 
         // Check if an event spans multiple days
         function isMultiDayEvent(event) {
-            if (!event.date || !event.date.length) return false;
-            
-            return event.date.some(dateBlock => {
-                // Recurring events that span multiple days
-                if (dateBlock.startDate?.startsWith('RECUR=')) {
-                    // If it has both startDate and endDate with RECUR, it's multi-day
-                    return Boolean(dateBlock.endDate);
-                }
-                
-                // Non-recurring events
-                const startDate = dateBlock.startDate ? 
-                    DateTime.fromISO(dateBlock.startDate) : 
-                    null;
-                const endDate = dateBlock.endDate ? 
-                    DateTime.fromISO(dateBlock.endDate) : 
-                    startDate;
-                    
-                if (!startDate || !endDate) return false;
-                
-                // Check if dates are different
-                return !startDate.hasSame(endDate, 'day');
-            });
+            return event.kind === "event" && event.endDate && event.endDate !== event.date;
         }
 
         // Check if a date falls within an event's date range
@@ -4343,7 +4322,7 @@
 
         // Takes a date range and returns instances of a recurring event/task within that range
         function getRecurringInstancesInRange(item, startDate, endDate) {
-            // startDate and endDate are DateTime objects
+            const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
             const instances = [];
             if (!item.date || !item.date.length) return instances;
 
@@ -4361,33 +4340,51 @@
                 }
 
                 // Handle recurring pattern
-                const pattern = parseRecurPattern(dateBlock.startDate || dateBlock.endDate);
-                if (!pattern) return;
+                const startPattern = parseRecurPattern(dateBlock.startDate);
+                if (!startPattern) return;
 
-                // Get recurStart (default to today) and recurEnd
+                // If there's an end date pattern, parse it too
+                const endPattern = dateBlock.endDate?.startsWith('RECUR=') ? 
+                    parseRecurPattern(dateBlock.endDate) : null;
+
                 const recurStart = dateBlock.recurStart ? 
                     DateTime.fromISO(dateBlock.recurStart) : 
                     DateTime.now().startOf('day');
                 const recurEnd = dateBlock.recurEnd ? 
                     DateTime.fromISO(dateBlock.recurEnd) : 
-                    endDate.plus({ years: 100 }); // Arbitrary far future date
+                    endDate.plus({ years: 100 });
 
                 let current = recurStart;
                 while (current <= recurEnd && current <= endDate) {
+                    // For each starting date, calculate the corresponding end date
                     if (current >= startDate) {
+                        let instanceEndDate;
+                        if (endPattern) {
+                            // Find the next occurrence of the end pattern after this start date
+                            let nextEnd = current;
+                            while (
+                                nextEnd.weekday !== weekdays.indexOf(endPattern.day) + 1 || 
+                                nextEnd <= current
+                            ) {
+                                nextEnd = nextEnd.plus({ days: 1 });
+                            }
+                            instanceEndDate = nextEnd.toISODate();
+                        }
+
                         instances.push({
                             ...dateBlock,
-                            instanceDate: current.toISODate()
+                            instanceDate: current.toISODate(),
+                            endDate: instanceEndDate
                         });
                     }
 
-                    // Calculate next occurrence based on pattern
-                    if (pattern.type === 'day') {
-                        current = current.plus({ days: pattern.interval });
-                    } else if (pattern.type === 'weekday') {
-                        current = current.plus({ weeks: pattern.interval || 1 });
-                    } else if (pattern.type === 'monthday') {
-                        current = current.plus({ months: 1 }).set({ day: pattern.day });
+                    // Calculate next start occurrence
+                    if (startPattern.type === 'weekday') {
+                        current = current.plus({ weeks: startPattern.interval || 1 });
+                    } else if (startPattern.type === 'day') {
+                        current = current.plus({ days: startPattern.interval });
+                    } else if (startPattern.type === 'monthday') {
+                        current = current.plus({ months: 1 }).set({ day: startPattern.day });
                     }
                 }
             });
