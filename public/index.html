@@ -3054,17 +3054,188 @@
         }
 
         function hideModal(modalType) {
-            if (modalType === 'all' || modalType === 'settings') {
+            // If edit task modal is visible, treat this as an edit task close
+            if (modalType === 'all') {
+                const editTaskModal = document.getElementById('editTaskModal');
+                if (editTaskModal.classList.contains('visible')) {
+                    modalType = 'editTask';
+                }
+            }
+
+            if (modalType === 'editTask') {
+                const modal = document.getElementById('editTaskModal');
+                if (modal.classList.contains('visible')) {
+                    // verify the data
+                    // if it's not valid, don't close the modal
+                    const verification = verifyTaskModalData();
+                    if (!verification.valid) {
+                        return; // Don't hide anything if validation fails
+                    }
+
+                    const taskId = modal.dataset.taskId;
+                const object = taskEventArray.find(t => t.id === taskId);
+                if (object) {
+                    // Save name and description
+                    object.name = document.getElementById('editTaskName').value;
+                    object.description = document.getElementById('taskDescription').value;
+
+                    // Set kind based on active tab
+                    object.kind = document.getElementById('taskTypeBtn').classList.contains('active') ? 'task' : 'event';
+
+                    // Clear start/end times by default
+                    object.startTime = null;
+                    object.endTime = null;
+                    object.endDate = null;
+
+                    if (object.kind === 'task') {
+                        // Handle task date/time
+                        const dueDateSwitch = document.getElementById('dueDateSwitch');
+                        const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+
+                        if (dueDateSwitch.classList.contains('active')) {
+                            const dateInputs = document.getElementById('dueDateInputs').querySelectorAll('input');
+                            const [month, day, year] = [...dateInputs].map(input => input.value);
+                            if (month && day && year) {
+                                const dateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                                
+                                // Create or update date object in dates array
+                                if (!object.dates) object.dates = [];
+                                if (!object.dates.find(d => d.date === dateString)) {
+                                    object.dates.push({
+                                        date: dateString,
+                                        completed: false,
+                                        completedAt: null
+                                    });
+                                }
+                            }
+
+                            if (dueTimeSwitch.classList.contains('active')) {
+                                const timeInputs = document.getElementById('dueTimeInputs');
+                                const inputs = timeInputs.querySelectorAll('input');
+                                const hours = inputs[0].value;
+                                let minutes = inputs[1].value;
+                                
+                                // If hours are provided but minutes are blank, use '00'
+                                if (hours && !minutes) {
+                                    minutes = '00';
+                                }
+
+                                if (hours) {  // Only need to check hours since we default minutes
+                                    if (userSettings.timeFormat === 'AM/PM') {
+                                        const periodOption = timeInputs.querySelector('.time-period-option.active');
+                                        const period = periodOption.dataset.period;
+                                        object.endTime = convertTo24Hour(hours, minutes, period);
+                                    } else {
+                                        object.endTime = `${hours.padStart(2, '0')}:${minutes}`;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Similar fix for event times...
+                        const startDateSwitch = document.getElementById('startDateSwitch');
+                        const startTimeSwitch = document.getElementById('startTimeSwitch');
+                        const endDateSwitch = document.getElementById('endDateSwitch');
+
+                        if (startDateSwitch.classList.contains('active')) {
+                            const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
+                            const [startMonth, startDay, startYear] = [...startDateInputs].map(input => input.value);
+                            if (startMonth && startDay && startYear) {
+                                object.date = `${startYear}-${startMonth.padStart(2, '0')}-${startDay.padStart(2, '0')}`;
+                            }
+
+                            if (startTimeSwitch.classList.contains('active')) {
+                                if (userSettings.timeFormat === 'AM/PM') {
+                                    // Handle start time
+                                    const startInputs = document.getElementById('startTimeInputs').querySelectorAll('input');
+                                    const startHours = startInputs[0].value;
+                                    let startMinutes = startInputs[1].value;
+                                    if (startHours && !startMinutes) {
+                                        startMinutes = '00';
+                                    }
+                                    if (startHours) {
+                                        const startPeriod = document.getElementById('startTimeInputs').querySelector('.time-period-option.active');
+                                        object.startTime = convertTo24Hour(startHours, startMinutes, startPeriod.dataset.period);
+                                    }
+
+                                    // Handle end time
+                                    const endInputs = document.getElementById('endTimeInputs').querySelectorAll('input');
+                                    const endHours = endInputs[0].value;
+                                    let endMinutes = endInputs[1].value;
+                                    if (endHours && !endMinutes) {
+                                        endMinutes = '00';
+                                    }
+                                    if (endHours) {
+                                        const endPeriod = document.getElementById('endTimeInputs').querySelector('.time-period-option.active');
+                                        object.endTime = convertTo24Hour(endHours, endMinutes, endPeriod.dataset.period);
+                                    }
+                                } else {
+                                    // Handle 24h format
+                                    const startInputs = document.getElementById('startTimeInputs').querySelectorAll('input');
+                                    const endInputs = document.getElementById('endTimeInputs').querySelectorAll('input');
+                                    
+                                    const startHours = startInputs[0].value;
+                                    let startMinutes = startInputs[1].value;
+                                    if (startHours && !startMinutes) {
+                                        startMinutes = '00';
+                                    }
+                                    if (startHours) {
+                                        object.startTime = `${startHours.padStart(2, '0')}:${startMinutes}`;
+                                    }
+
+                                    const endHours = endInputs[0].value;
+                                    let endMinutes = endInputs[1].value;
+                                    if (endHours && !endMinutes) {
+                                        endMinutes = '00';
+                                    }
+                                    if (endHours) {
+                                        object.endTime = `${endHours.padStart(2, '0')}:${endMinutes}`;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (endDateSwitch.classList.contains('active')) {
+                                const endDateInputs = document.getElementById('endDateInputs').querySelectorAll('input');
+                                const [endMonth, endDay, endYear] = [...endDateInputs].map(input => input.value);
+                                if (endMonth && endDay && endYear) {
+                                    object.endDate = `${endYear}-${endMonth.padStart(2, '0')}-${endDay.padStart(2, '0')}`;
+                                }
+                            }
+                        }
+
+                        // Handle completion status for non-recurring tasks
+                        if (object.kind === 'task' && !object.recurPattern && Object.keys(object.done).length > 0) {
+                            const keys = Object.keys(object.done);
+                            if (keys.length === 1) {
+                                const key = keys[0];
+                                if (key !== object.date) {
+                                    object.done = {
+                                        [object.date]: {
+                                            completed: true,
+                                            completedAt: DateTime.now().setZone(userTimezone).toISO()
+                                        }
+                                    };
+                                }
+                            }
+                        }
+
+                        saveUserData();
+                        renderTasks();
+                        renderCalendar();
+                    }
+
+                    hideVignette();
+                    modal.classList.remove('visible');
+                }
+            } else if (modalType === 'settings') {
                 document.getElementById('settingsModal').classList.remove('visible');
-            }
-            if (modalType === 'all' || modalType === 'task') {
-                document.getElementById('editTaskModal').classList.remove('visible');
-            }
-            document.getElementById('vignette').classList.remove('visible');
-            
-            // Remove any references to the current task being edited
-            if (modalType === 'all' || modalType === 'task') {
-                currentEditingTaskId = null;
+                hideVignette();
+            } else if (modalType === 'all') {
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.classList.remove('visible');
+                });
+                hideVignette();
             }
         }
 
