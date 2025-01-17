@@ -2305,32 +2305,29 @@
 
         // Helper function to create date/time display
         function createDateTimeDisplay(instance, isCompleted) {
-            const now = DateTime.now().setZone(userTimezone);
-            const instanceDate = DateTime.fromISO(instance.instanceDate);
-            const isOverdue = instanceDate < now;
+    const now = DateTime.now().setZone(userTimezone);
+    const instanceDate = DateTime.fromISO(instance.instanceDate);
+    const isOverdue = instanceDate < now;
 
-            const dateTimeSpan = document.createElement('span');
-            
-            if (instance.endTime) {
-                dateTimeSpan.className = 'task-time';
-                if (taskListRenderCount === 0) {
-                    dateTimeSpan.textContent = '';
-                } else {
-                    dateTimeSpan.innerHTML = formatTimeTaskList(instance.endTime);
-                }
-            } else {
-                dateTimeSpan.className = 'task-asterisk';
-                dateTimeSpan.textContent = '*';
-            }
+    const dateTimeSpan = document.createElement('span');
+    
+    if (instance.endTime) {
+        dateTimeSpan.className = 'task-time';
+        // Remove the taskListRenderCount check - it was preventing initial render
+        dateTimeSpan.innerHTML = formatTimeTaskList(instance.endTime);
+    } else {
+        dateTimeSpan.className = 'task-asterisk';
+        dateTimeSpan.textContent = '*';
+    }
 
-            if (isOverdue && !isCompleted) {
-                dateTimeSpan.style.color = '#ff4444';
-            } else if (isCompleted) {
-                dateTimeSpan.style.color = '#666';
-            }
+    if (isOverdue && !isCompleted) {
+        dateTimeSpan.style.color = '#ff4444';
+    } else if (isCompleted) {
+        dateTimeSpan.style.color = '#666';
+    }
 
-            return dateTimeSpan;
-        }
+    return dateTimeSpan;
+}
 
         // Check if an event spans multiple days
         function isMultiDayEvent(event) {
@@ -2625,28 +2622,7 @@
 
         // Helper function to render individual events
         function renderEvent(event, laneIndex, groupIndex, eventWidth, color, layout) {
-    if (event.isAllDay) {
-        console.log("Got an all-day event:", event);
-        const allDayEventsContainer = document.getElementById('allDayEvents');
-        
-        const eventEl = document.createElement('div');
-        eventEl.className = 'all-day-event';
-        eventEl.dataset.taskId = event.id;
-
-        const asterisk = document.createElement('span');
-        asterisk.className = 'task-asterisk';
-        asterisk.textContent = '*';
-
-        const eventContent = document.createElement('span');
-        eventContent.textContent = event.name;
-
-        eventEl.appendChild(asterisk);
-        eventEl.appendChild(eventContent);
-        eventEl.addEventListener('click', () => constructTaskEditorModal(event.id));
-
-        allDayEventsContainer.appendChild(eventEl);
-        return;
-    }
+    if (event.isAllDay) return; // Skip all-day events
     
     const {laneWidth, generalCalOffset, spaceBetweenEvents, showEvents} = layout;
     const eventEl = document.createElement('div');
@@ -2657,13 +2633,14 @@
 
     // Base styles
     eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + 
-                        (groupIndex * (eventWidth + spaceBetweenEvents))}px`;
+                    (groupIndex * (eventWidth + spaceBetweenEvents))}px`;
     eventEl.style.width = `${eventWidth}px`;
     eventEl.textContent = event.name;
     eventEl.style.backgroundColor = color;
 
     const startMinutes = timeToMinutes(event.startTime || '00:00');
-    const endMinutes = timeToMinutes(event.endTime || '23:59');
+    // If no end time, extend to bottom of calendar
+    const endMinutes = event.endTime ? timeToMinutes(event.endTime) : 1440;
     
     if (endMinutes === 1440) { // Extends to end of day
         eventEl.classList.add('extends-down');
@@ -4327,19 +4304,32 @@
     const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const instances = [];
     
+    // Handle non-recurring items first
     const dates = Array.isArray(item.date) ? item.date : [item.date];
-    const currentDayIndex = currentDate.weekday - 1;
     
     dates.forEach(dateBlock => {
-        if (!dateBlock.startDate?.startsWith('RECUR=')) return;
+        // If not a recurring pattern, just return the date block as is
+        if (!dateBlock.startDate?.startsWith('RECUR=')) {
+            instances.push({
+                ...dateBlock,
+                instanceDate: dateBlock.startDate || dateBlock.endDate,
+                startTime: dateBlock.startTime,
+                endTime: dateBlock.endTime
+            });
+            return;
+        }
 
+        // Rest of existing recurring event handling code...
+        const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const currentDayIndex = currentDate.weekday - 1;
+        
         const startPattern = parseRecurPattern(dateBlock.startDate);
         const endPattern = parseRecurPattern(dateBlock.endDate);
         
         if (!startPattern?.day || !endPattern?.day) return;
         
-        const startDayIndex = weekdays.indexOf(startPattern.day);  // friday = 4
-        const endDayIndex = weekdays.indexOf(endPattern.day);      // monday = 0
+        const startDayIndex = weekdays.indexOf(startPattern.day);
+        const endDayIndex = weekdays.indexOf(endPattern.day);
         
         let isInRange = false;
         if (endDayIndex < startDayIndex) {
@@ -4348,12 +4338,9 @@
             isInRange = (currentDayIndex >= startDayIndex) && (currentDayIndex <= endDayIndex);
         }
 
-        console.log(`Day ${weekdays[currentDayIndex]}: isInRange=${isInRange}`);
-
         if (!isInRange) return;
 
         if (currentDayIndex === startDayIndex) {
-            // Friday: 21:00 -> 24:00
             instances.push({
                 ...dateBlock,
                 instanceDate: currentDate.toISODate(),
@@ -4363,7 +4350,6 @@
                 dayType: 'start'
             });
         } else if (currentDayIndex === endDayIndex) {
-            // Monday: 00:00 -> 06:00
             instances.push({
                 ...dateBlock,
                 instanceDate: currentDate.toISODate(),
@@ -4373,7 +4359,6 @@
                 dayType: 'end'
             });
         } else if (currentDayIndex === 5 || currentDayIndex === 6) {
-            // Weekend days: make sure we preserve essential properties
             instances.push({
                 instanceDate: currentDate.toISODate(),
                 isMultiDay: true,
@@ -4382,12 +4367,11 @@
                 id: item.id,
                 name: item.name,
                 kind: item.kind,
-                date: item.date // Preserve the date array
+                date: item.date
             });
         }
     });
 
-    console.log("Generated instances:", instances);
     return instances;
 }
 
