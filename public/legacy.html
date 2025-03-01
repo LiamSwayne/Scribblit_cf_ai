@@ -200,7 +200,7 @@
             color: var(--grey-2);
             margin-right: 7px;
             min-width: 38px;
-            text-align: center;
+            text-align: right;
             margin-top: 2px;
         }
 
@@ -1590,12 +1590,6 @@
         prevDayBtn.addEventListener('click', () => changeDate(-1));
         nextDayBtn.addEventListener('click', () => changeDate(1));
 
-        function ASSERT(condition, message) {
-            if (!condition) {
-                console.error('ASSERTION FAILED: ' + message);
-            }
-        }
-
         function changeDate(delta) {
             const allDayEventsContainer = document.getElementById('allDayEvents');
             const oldAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
@@ -1870,8 +1864,8 @@
                 }
 
                 const responseText = await response.text();
-
                 let parsedResponse;
+                
                 try {
                     parsedResponse = JSON5.parse(responseText);
                 } catch (parseError) {
@@ -1879,22 +1873,55 @@
                     throw new Error('Invalid response format');
                 }
 
-                // Handle endTime for events
-                for (let i = 0; i < parsedResponse.length; i++) {
-                    if (parsedResponse[i].kind === "event" && parsedResponse[i].startTime && parsedResponse[i].endTime === "00:00") {
-                        parsedResponse[i].endTime = "24:00";
+                // Transform the response to handle new date format
+                const transformedResponse = parsedResponse.map(item => {
+                    const transformedItem = {
+                        ...item,
+                        done: {},
+                        description: '',
+                        id: 'task_' + Math.random().toString(36).substr(2, 9)
+                    };
+
+                    // Handle array of dates
+                    if (Array.isArray(item.date)) {
+                        // Extract first date object for backwards compatibility 
+                        const firstDate = item.date[0];
+                        if (firstDate) {
+                            transformedItem.date = firstDate.startDate || firstDate.endDate;
+                            transformedItem.startTime = firstDate.startTime;
+                            transformedItem.endTime = firstDate.endTime;
+                            transformedItem.endDate = firstDate.endDate;
+                        }
+                        // Store the full date array for future use
+                        transformedItem.dateArray = item.date;
+                    } else if (typeof item.date === 'object') {
+                        // Single date object
+                        transformedItem.date = item.date.startDate || item.date.endDate;
+                        transformedItem.startTime = item.date.startTime;
+                        transformedItem.endTime = item.date.endTime;
+                        transformedItem.endDate = item.date.endDate;
+                        transformedItem.dateArray = [item.date];
+                    } else {
+                        // Legacy string format
+                        transformedItem.date = item.date;
+                        transformedItem.dateArray = [{
+                            startDate: item.date,
+                            startTime: item.startTime,
+                            endTime: item.endTime,
+                            endDate: item.endDate
+                        }];
                     }
-                }
 
-                console.log('Parsed response:', parsedResponse);
+                    return transformedItem;
+                });
 
-                updateTaskEventArray(parsedResponse);
+                console.log('Transformed response:', transformedResponse);
+                updateTaskEventArray(transformedResponse);
                 saveUserData();
                 renderTasks();
                 renderCalendar();
             } catch (error) {
-                console.log('Error processing input:', error.message);
-                console.log('Stack:', error.stack);
+                console.log('Error processing input:', error);
                 alert('Sorry, there was an error processing your input. Please try again later.');
             }
         }
@@ -2103,17 +2130,34 @@
             // Generate all dates for recurring tasks within the week range
             const expandedTasks = [];
             tasks.forEach(task => {
-                if (task.recurPattern) {
-                    const dates = generateRecurringDates(task, today.toISODate(), weekEnd.toISODate());
-                    dates.forEach(date => {
-                        expandedTasks.push({
+                if (task.dateArray) {
+                    task.dateArray.forEach(dateObj => {
+                        // Create an expanded task for each date
+                        const expandedTask = {
                             ...task,
-                            date: date,
-                            originalDate: task.date,
-                            isRecurring: true
-                        });
+                            date: dateObj.startDate || dateObj.endDate,
+                            startTime: dateObj.startTime,
+                            endTime: dateObj.endTime,
+                            endDate: dateObj.endDate,
+                            isRecurring: !!dateObj.recurStart || !!dateObj.recurEnd
+                        };
+                        expandedTasks.push(expandedTask);
+
+                        // Handle recurring dates if present
+                        if (dateObj.recurStart || dateObj.recurEnd) {
+                            const dates = generateRecurringDates(expandedTask, dateObj.recurStart || today.toISODate(), dateObj.recurEnd || weekEnd.toISODate());
+                            dates.forEach(date => {
+                                expandedTasks.push({
+                                    ...expandedTask,
+                                    date,
+                                    originalDate: expandedTask.date,
+                                    isRecurring: true
+                                });
+                            });
+                        }
                     });
                 } else {
+                    // Fallback for legacy format
                     expandedTasks.push({ ...task, isRecurring: false });
                 }
             });
@@ -2220,7 +2264,7 @@
                         dateTimeSpan.className = task.endTime ? 'task-date-time' : 'task-date-no-time';
                         const dateSpan = document.createElement('span');
                         dateSpan.className = 'task-date';
-                        dateSpan.textContent = taskDate.toFormat('M/d');
+                        dateSpan.textContent = taskDate.toFormat('MM/dd');
                         dateTimeSpan.appendChild(dateSpan);
 
                         if (task.endTime) {
@@ -2301,7 +2345,7 @@
                     }
                     const dateSpan = document.createElement('span');
                     dateSpan.className = 'task-date';
-                    dateSpan.textContent = taskDate.toFormat('M/d');
+                    dateSpan.textContent = taskDate.toFormat('MM/dd');
                     dateTimeSpan.appendChild(dateSpan);
 
                     if (task.endTime) {
@@ -2459,16 +2503,24 @@
                 }
             });
 
-            // Process events
-            // TODO: Add support for recurring events
+            // Process events (including recurring events)
             let events = taskEventArray.filter(item => {
                 if (item.kind !== "event") return false;
-                
-                if (isMultiDayEvent(item)) {
-                    return isDateInEventRange(currentDate.toISODate(), item);
-                } else {
-                    return DateTime.fromISO(item.date).hasSame(currentDate, 'day');
+
+                if (item.dateArray) {
+                    return item.dateArray.some(dateObj => {
+                        const eventDate = dateObj.startDate || dateObj.endDate;
+                        if (dateObj.endDate) {
+                            return isDateInEventRange(currentDate.toISODate(), {
+                                date: eventDate,
+                                endDate: dateObj.endDate
+                            });
+                        }
+                        return DateTime.fromISO(eventDate).hasSame(currentDate, 'day');
+                    });
                 }
+
+                return DateTime.fromISO(item.date).hasSame(currentDate, 'day');
             });
 
             if (shouldUpdateLocalStorage) {
@@ -3782,29 +3834,16 @@
             const taskSettings = modal.querySelector('.task-settings-task');
 
             // First set initial classes without triggering clicks
-            // bypass sliding left/right animation when opening
             if (task.kind === 'event') {
                 newEventBtn.classList.add('active');
                 newTaskBtn.classList.remove('active');
-                // Disable transition temporarily
-                highlight.style.transition = 'none';
                 highlight.style.transform = 'translateX(4px)';
-                // Force a reflow
-                highlight.offsetHeight;
-                // Re-enable transition
-                highlight.style.transition = '';
                 eventSettings.classList.remove('inactive');
                 taskSettings.classList.add('inactive');
             } else {
                 newTaskBtn.classList.add('active');
                 newEventBtn.classList.remove('active');
-                // Disable transition temporarily
-                highlight.style.transition = 'none';
                 highlight.style.transform = 'translateX(calc(100% + 4px))';
-                // Force a reflow
-                highlight.offsetHeight;
-                // Re-enable transition
-                highlight.style.transition = '';
                 eventSettings.classList.add('inactive');
                 taskSettings.classList.remove('inactive');
             }
@@ -3871,14 +3910,14 @@
                         const time12 = convertTo12Hour(task.startTime);
                         const inputs = dueTimeInputs.querySelectorAll('input');
                         inputs[0].value = time12.hours;
-                        inputs[1].value = time12.minutes === '0' ? '00' : time12.minutes;
+                        inputs[1].value = time12.minutes;
                         inputs.forEach(input => input.removeAttribute('readonly'));
                     } else {
                         // Handle 24h format
                         const [hours, minutes] = task.startTime.split(':');
                         const inputs = dueTimeInputs.querySelectorAll('input');
                         inputs[0].value = parseInt(hours).toString();
-                        inputs[1].value = minutes === '0' ? '00' : minutes;
+                        inputs[1].value = parseInt(minutes).toString();
                         inputs.forEach(input => input.removeAttribute('readonly'));
                     }
                 }
@@ -4013,7 +4052,7 @@
 
                             const inputs = timeInputs.querySelectorAll('input');
                             inputs[0].value = time12.hours;
-                            inputs[1].value = time12.minutes === '0' ? '00' : time12.minutes;
+                            inputs[1].value = time12.minutes;
                         });
                     } else {
                         ['start', 'end'].forEach((prefix, index) => {
@@ -4024,7 +4063,7 @@
 
                             const inputs = timeInputs.querySelectorAll('input');
                             inputs[0].value = parseInt(hours).toString();
-                            inputs[1].value = minutes === '0' ? '00' : minutes;
+                            inputs[1].value = parseInt(minutes).toString();
                         });
                     }
 
@@ -4113,16 +4152,11 @@
                 newDeleteBtn.addEventListener('click', () => {
                     const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
                     if (taskIndex !== -1) {
-                        // First hide the modal and vignette
-                        const modal = document.getElementById('editTaskModal');
-                        modal.classList.remove('visible');
-                        document.getElementById('vignette').classList.remove('visible');
-                        
-                        // Then update the data and re-render
                         taskEventArray.splice(taskIndex, 1);
                         saveUserData();
                         renderTasks();
                         renderCalendar();
+                        hideModal('editTask');
                     }
                 });
             }
@@ -4134,9 +4168,6 @@
                     taskNameInput.setSelectionRange(taskNameInput.value.length, taskNameInput.value.length);
                 }
             }, 0);
-
-                // Set up time input validation
-                setupTimeInputValidation();
 
             showModal('editTask');
         }
@@ -4164,30 +4195,6 @@
                 errors.push("Task name is required");
             }
 
-            // Additional time validation
-            const validateTimeValues = (timeValues, label) => {
-                if (!timeValues || !timeValues.hours) return true;
-                
-                const hours = parseInt(timeValues.hours);
-                const minutes = parseInt(timeValues.minutes || '0');
-                const timeFormat = userSettings.timeFormat;
-                
-                const hoursValid = validateTimeInput({ value: hours.toString() }, 'hours', timeFormat);
-                const minutesValid = validateTimeInput({ value: minutes.toString() }, 'minutes', timeFormat);
-                
-                if (!hoursValid.valid) {
-                    errors.push(`Invalid ${label} hours: ${hoursValid.error}`);
-                    return false;
-                }
-                
-                if (!minutesValid.valid) {
-                    errors.push(`Invalid ${label} minutes: ${minutesValid.error}`);
-                    return false;
-                }
-                
-                return true;
-            };
-
             if (isEvent) {
                 // Event-specific validations
                 const startDateActive = document.getElementById('startDateSwitch').classList.contains('active');
@@ -4210,23 +4217,15 @@
                     // Start time required if time switch is on
                     if (!dateTimeValues.startTime.hours) {
                         errors.push("Start time is required when time is enabled");
-                    } else {
-                        // Validate start time format
-                        validateTimeValues(dateTimeValues.startTime, 'start');
                     }
 
                     // End time is optional, but if provided must be after start time
-                    if (dateTimeValues.endTime.hours) {
-                        // Validate end time format
-                        validateTimeValues(dateTimeValues.endTime, 'end');
-
-                        if (!endDateActive) {
-                            const startDateTime = convertToMinutes(dateTimeValues.startTime);
-                            const endDateTime = convertToMinutes(dateTimeValues.endTime);
-                            
-                            if (endDateTime <= startDateTime) {
-                                errors.push("End time must be after start time");
-                            }
+                    if (dateTimeValues.endTime.hours && !endDateActive) {
+                        const startDateTime = convertToMinutes(dateTimeValues.startTime);
+                        const endDateTime = convertToMinutes(dateTimeValues.endTime);
+                        
+                        if (endDateTime <= startDateTime) {
+                            errors.push("End time must be after start time");
                         }
                     }
                 }
@@ -4252,13 +4251,8 @@
                 if (dueTimeActive) {
                     if (!dateTimeValues.dueTime.hours) {
                         errors.push("Due time is required when time is enabled");
-                    } else {
-                        // First default the minutes if needed
-                        if (!dateTimeValues.dueTime.minutes) {
-                            dateTimeValues.dueTime.minutes = '00';
-                        }
-                        // Then validate with complete time
-                        validateTimeValues(dateTimeValues.dueTime, 'due');
+                    } else if (!dateTimeValues.dueTime.minutes) {
+                        dateTimeValues.dueTime.minutes = '00';
                     }
                 }
             }
@@ -4356,87 +4350,6 @@
                 if (timeObj.period === 'AM' && hours === 12) hours = 0;
             }
             return hours * 60 + parseInt(timeObj.minutes || 0);
-        }
-
-        function validateTimeInput(input, type, timeFormat) {
-            const value = input.value.trim();
-            
-            // Check if value contains only digits
-            if (!/^\d*$/.test(value)) {
-                return {
-                    valid: false,
-                    error: "Only numbers allowed"
-                };
-            }
-
-            const num = parseInt(value);
-            
-            if (type === 'hours') {
-                if (timeFormat === 'AM/PM') {
-                    // For 12-hour format: 1-12
-                    if (num < 1 || num > 12) {
-                        return {
-                            valid: false,
-                            error: "Hours must be 1-12"
-                        };
-                    }
-                } else {
-                    // For 24-hour format: 0-23
-                    if (num < 0 || num > 23) {
-                        return {
-                            valid: false,
-                            error: "Hours must be 0-23"
-                        };
-                    }
-                }
-            } else if (type === 'minutes') {
-                // Minutes: 0-59
-                if (num < 0 || num > 59) {
-                    return {
-                        valid: false,
-                        error: "Minutes must be 0-59"
-                    };
-                }
-            }
-
-            return { valid: true };
-        }
-
-        function setupTimeInputValidation() {
-            // Get all hour and minute inputs
-            const timeInputs = document.querySelectorAll('.time-inputs input');
-            
-            timeInputs.forEach(input => {
-                const allInputsInParent = Array.from(input.parentElement.querySelectorAll('input'));
-                const isHours = allInputsInParent.indexOf(input) === 0;
-                
-                input.addEventListener('input', (e) => {
-                    const timeFormat = userSettings.timeFormat;
-                    const result = validateTimeInput(input, isHours ? 'hours' : 'minutes', timeFormat);
-                    
-                    if (!result.valid) {
-                        // Store the previous valid value if not already stored
-                        if (!input.dataset.lastValidValue) {
-                            input.dataset.lastValidValue = '';
-                        }
-                        
-                        showErrorPopup(result.error);
-                        
-                        // Revert to last valid value or empty
-                        input.value = input.dataset.lastValidValue;
-                    } else {
-                        // Store new valid value
-                        input.dataset.lastValidValue = input.value;
-                    }
-                });
-                
-                input.addEventListener('blur', () => {
-                    // Pad with leading zero if needed
-                    if (input.value && !isHours) {
-                        input.value = input.value.padStart(2, '0');
-                    }
-                });
-            });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
