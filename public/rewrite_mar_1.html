@@ -3,22 +3,27 @@
 <head>
     <title>Scribblit</title>
     <style>
-        * {
+        body * {
             margin: 0;
             padding: 0;
+            display: inline-block;
         }
 
-        .logo {
+        #logo {
             position: fixed;
             width: 100px;
             height: auto;
-            top: 6px;
-            left: 6px;
+        }
+
+        .calendarDay {
+            height: 100%;
         }
     </style>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
+    <script defer src="./rewrite_mar_1.js"></script>
+    <script defer src="./testing.js"></script>
 </head>
 <body>
-    <img src="./scribblit_logo_2_black.svg" alt="Scribblit Logo" class="logo">
-
-    <script src="./rewrite_mar_1.js"></script>
+    <img src="./scribblit_logo_2_black.svg" alt="Scribblit Logo" id="logo">
+    </div>
 </body>
