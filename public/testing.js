@@ -1,11 +1,20 @@
-
 async function testContinously() {
     while (true) {
         await sleep(0.1);
 
         let columns = numberOfColumns();
-        ASSERT(Number.isInteger(columns), "numberOfColumns must return integer");
-        ASSERT(columns >= 1 && columns <= 4, "numberOfColumns value out of range 1-4");
+        ASSERT(Number.isInteger(columns), "numberOfColumns must return an integer");
+        ASSERT(columns >= 1 && columns <= 4, `numberOfColumns value out of range 1-4: ${columns}`);
+
+        // recursively scrape HTML for element to look for leading whitespace
+        // disallowed unless element has data-leadingWhitespace="true" attribute
+        // set in js with element.dataset.leadingWhitespace = "true"
+        // only check elements within the body
+        let elements = HTML.body.querySelectorAll('*');
+        elements.forEach(element => {
+            let hasLeadingWhitespace = element.innerHTML.match(/^\s+/);
+            ASSERT(!hasLeadingWhitespace || HTML.getDataUnsafely(element, "leadingWhitespace") == null || HTML.getData(element, "leadingWhitespace") === true, `Leading whitespace detected in element without data-leadingWhitespace attribute: ${element.outerHTML}`);
+        });
     }
 }
 
