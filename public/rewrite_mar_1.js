@@ -123,6 +123,7 @@ if (localStorage.getItem("numberOfCalendarColumns") == null) {
 let gapBetweenColumns = 4
 let windowBorderMargin = 6;
 let columnWidth; // portion of screen
+let headerSpace = 26; // px gap at top to make space for logo and buttons
 
 if (localStorage.getItem("SETTINGS.stacking") == null) {
     SETTINGS.stacking = false
@@ -157,17 +158,16 @@ function renderDay(day, element) {
     ASSERT(/^\d{4}-\d{2}-\d{2}$/.test(day), "day doesn't fit YYYY-MM-DD format");
     ASSERT(element != undefined && element != null, "renderDay element is undefined or null");
     ASSERT(element.style.width == String(columnWidth) + 'px', `renderDay element width (${element.style.width}) is not ${columnWidth}`);
-    ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
+    ASSERT(!isNaN(columnWidth), "columnWidth must be a number");
     ASSERT(element.style.height != undefined && element.style.height != null, "element height is undefined or null");
-    // FIX THIS REGEX TO PARSE FLOAT INSTEAD OF INT
-    ASSERT(/^\d+px$/.test(element.style.height), "element height is not a string of int followed by 'px'");
-    ASSERT(!isNaN(element.style.height.slice(0, -2)), "element height is not a float");
+    ASSERT(element.style.height.slice(element.style.height.length-2, element.style.height.length) == 'px', `element height last 2 chars aren't 'px': ${element.style.height.slice(element.style.height.length, element.style.height.length-2)}`);
+    ASSERT(!isNaN(parseFloat(element.style.height.slice(0, -2))), "element height is not a float");
 
     // look for hour markers
-    if (element.getElementById(`day${i}hourMarker1`) == null) { // create 24 hour markers
+    if (document.getElementById(`day${i}hourMarker1`) == null) { // create 24 hour markers
         // if one is missing, all 24 must be missing
         for (i = 0; i < 24; i++) {
-            ASSERT(element.getElementById(`day${i}hourMarker${i}`) == null, `hourMarker${i} exists but hourMarker${i} doesn't`);
+            ASSERT(document.getElementById(`day${i}hourMarker${i}`) == null, `hourMarker${i} exists but hourMarker${i} doesn't`);
             let hourMarker = document.createElement('div');
             hourMarker.id = `day${i}hourMarker${i}`;
             hourMarker.style.position = 'fixed';
@@ -180,12 +180,12 @@ function renderDay(day, element) {
             let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
             // same asserts for height
             ASSERT(element.style.height != undefined && element.style.height != null, "element.style.height is undefined or null");
-            ASSERT(/^\d+px$/.test(element.style.height), "element.style.height is not a string of int followed by 'px'");
+            ASSERT(element.style.height.slice(element.style.height.length-2, element.style.height.length) == 'px', `element height last 2 chars aren't 'px': ${element.style.height.slice(element.style.height.length, element.style.height.length-2)}`);
+            ASSERT(!isNaN(parseFloat(element.style.height.slice(0, -2))), "element height is not a float");
             let dayHeight = parseFloat(element.style.height.slice(0, -2));
             hourMarker.style.top = String(dayElementVerticalPos + (i * dayHeight / 24)) + 'px';
         }
     }
-
 }
 
 function renderCalendar(days) {
@@ -211,6 +211,7 @@ function renderCalendar(days) {
                 dayElement.id = 'day' + String(i);
                 dayElement.style.position = 'fixed';
                 dayElement.style.width = String(columnWidth) + 'px';
+                dayElement.style.height = String(window.innerHeight - (2 * windowBorderMargin) - headerSpace) + 'px';
                 dayElement.style.top = String(windowBorderMargin) + 'px';
                 dayElement.style.left = String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * i)) + 'px';
             }
