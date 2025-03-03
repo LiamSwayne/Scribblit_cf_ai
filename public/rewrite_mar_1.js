@@ -163,6 +163,51 @@ let HTML = new class HTMLroot {
         ASSERT(typeof(id) == "string", "HTML.getUnsafely id must be a string");
         return document.getElementById(id);
     }
+
+    body = document.body;
+
+    make(tag) {
+        ASSERT(typeof(tag) == "string", "HTML.make tag must be a string");
+        return document.createElement(tag);
+    }
+
+    setData(element, key, value) {
+        ASSERT(element != null, "HTML.setData element is null");
+        ASSERT(typeof(key) == "string", "HTML.setData key must be a string");
+        let data = element.dataset.data;
+        if (data == undefined || data == null) {
+            data = {};
+        } else {
+            data = JSON.parse(data);
+        }
+
+        // add or update key
+        data[key] = value;
+        element.dataset.data = JSON.stringify(data);
+    }
+
+    getData(element, key) {
+        ASSERT(element != null, "HTML.getData element is null");
+        ASSERT(typeof(key) == "string", "HTML.getData key must be a string");
+        let data = element.dataset.data;
+        
+        ASSERT(data != undefined && data != null, "HTML.getData data is undefined or null");
+
+        data = JSON.parse(data);
+        return data[key];
+    }
+
+    getDataUnsafely(element, key) {
+        ASSERT(element != null, "HTML.getDataUnsafely element is null");
+        ASSERT(typeof(key) == "string", "HTML.getDataUnsafely key must be a string");
+        let data = element.dataset.data;
+        if (data == undefined || data == null) {
+            return null;
+        } else {
+            data = JSON.parse(data);
+            return data[key];
+        }
+    }
 }();
 
 let logo = HTML.get('logo');
@@ -221,7 +266,7 @@ function renderDay(day, element, index) {
         // if one is missing, all 24 must be missing
         for (let j = 1; j < 24; j++) { // skip first because there's a top line
             ASSERT(HTML.getUnsafely(`day${index}hourMarker${j}`) == null, `hourMarker1 exists but hourMarker${j} doesn't`);
-            let hourMarker = document.createElement('div');
+            let hourMarker = HTML.make('div');
             hourMarker.id = `day${index}hourMarker${j}`;
             hourMarker.style.position = 'fixed';
             hourMarker.style.width = String(columnWidth + 1) + 'px';
@@ -240,11 +285,11 @@ function renderDay(day, element, index) {
             hourMarker.style.top = String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px';
             hourMarker.style.left = String(dayElementHorizontalPos + 1) + 'px';
             hourMarker.style.backgroundColor = '#000';
-            document.body.appendChild(hourMarker);
+            HTML.body.appendChild(hourMarker);
 
             // create hour marker text
             ASSERT(HTML.getUnsafely(`day${index}hourMarkerText${j}`) == null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
-            let hourMarkerText = document.createElement('div');
+            let hourMarkerText = HTML.make('div');
             hourMarkerText.id = `day${index}hourMarkerText${j}`;
             hourMarkerText.style.position = 'fixed';
 
@@ -253,12 +298,13 @@ function renderDay(day, element, index) {
             hourMarkerText.style.color = '#000';
             hourMarkerText.style.fontFamily = 'JetBrains Mono';
             hourMarkerText.style.fontSize = '12px';
+            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
             hourMarkerText.innerHTML = nthHourText(j);
-            document.body.appendChild(hourMarkerText);
+            HTML.body.appendChild(hourMarkerText);
         }
 
         // first hour (text only)
-        let hourMarkerText = document.createElement('div');
+        let hourMarkerText = HTML.make('div');
         hourMarkerText.id = `day${index}hourMarkerText0`;
         hourMarkerText.style.position = 'fixed';
         let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
@@ -268,8 +314,9 @@ function renderDay(day, element, index) {
         hourMarkerText.style.color = '#000';
         hourMarkerText.style.fontFamily = 'JetBrains Mono';
         hourMarkerText.style.fontSize = '12px';
+        HTML.setData(hourMarkerText, 'leadingWhitespace', true);
         hourMarkerText.innerHTML = nthHourText(0);
-        document.body.appendChild(hourMarkerText);
+        HTML.body.appendChild(hourMarkerText);
     } else { // update hour markers
         for (let j = 1; j < 24; j++) {
             // adjust position of hour markers
@@ -317,7 +364,7 @@ function renderCalendar(days) {
 
             let dayElement = HTML.getUnsafely('day' + String(i));
             if (dayElement == null) {
-                dayElement = document.createElement('div'); // create new element
+                dayElement = HTML.make('div'); // create new element
             }
             dayElement.id = 'day' + String(i);
             dayElement.style.position = 'fixed';
@@ -327,7 +374,7 @@ function renderCalendar(days) {
             dayElement.style.left = String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1))) + 'px'; // i+1 because first column is task list
             dayElement.style.border = '1px solid #000';
             dayElement.style.borderRadius = '5px';
-            document.body.appendChild(dayElement);
+            HTML.body.appendChild(dayElement);
 
             renderDay(days[i], dayElement, i);
         }
