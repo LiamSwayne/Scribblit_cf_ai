@@ -68,8 +68,8 @@ each item in the taskEventArray looks like this:
                         recurring: T/F
                         startDate: SAME AS TASK date
                         startDatePattern: SAME AS TASK but this is only for starting dates
-                        startTime: HH-MM
-                        endTime: HH-MM
+                        startTime: HH-MM (OPTIONAL)
+                        endTime: HH-MM (OPTIONAL)
                         differentEndDate: YYYY-MM-DD for events that end on a different day than they start (for when recurring is F) (OPTIONAL)
                         differentEndDatePattern: int number of days after start date (cannot be 0) (for when recurring is T) (OPTIONAL)
                     }
@@ -150,12 +150,24 @@ for (let i = 0; i < SETTINGS.numberOfCalendarDays; i++) {
     currentDays.push(getDay(i));
 }
 
-let HTML = new class HTMLroot {
-    logo = document.getElementById('logo');
+let HTML = new class HTMLroot {    
+    get(id) {
+        ASSERT(typeof(id) == "string", "HTML.get id must be a string");
+        let element = document.getElementById(id);
+        ASSERT(element != null, `HTML.get element with id ${id} is null`);
+        return element;
+    }
+
+    // get but it may not exist
+    getUnsafely(id) {
+        ASSERT(typeof(id) == "string", "HTML.getUnsafely id must be a string");
+        return document.getElementById(id);
+    }
 }();
 
-HTML.logo.style.top = String(windowBorderMargin) + 'px';
-HTML.logo.style.left = String(windowBorderMargin) + 'px';
+let logo = HTML.get('logo');
+logo.style.top = String(windowBorderMargin) + 'px';
+logo.style.left = String(windowBorderMargin) + 'px';
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
@@ -171,16 +183,24 @@ function nthHourText(n) {
     ASSERT(0 <= n && n < 24, "nthHourText n out of range 0-23");
     ASSERT(SETTINGS.ampmOr24 === 'ampm' || SETTINGS.ampmOr24 === '24', "SETTINGS.ampmOr24 must be 'ampm' or '24'");
     if (SETTINGS.ampmOr24 == '24') {
-        return String(n);
+        if (n < 10) {
+            return " " + String(n) + ":00";
+        } else {
+            return String(n) + ":00";
+        }
     } else { // ampm
         if (n == 0) {
-            return '12am';
+            return '12 AM';
         } else if (n == 12) {
-            return '12pm';
+            return '12 PM';
+        } else if (n < 10) {
+            return " " + String(n) + ' AM';
         } else if (n < 12) {
-            return String(n) + 'am';
+            return String(n) + ' AM';
+        } else if (n < 22) {
+            return " " + String(n-12) + ' PM';
         } else {
-            return String(n-12) + 'pm';
+            return String(n-12) + ' PM';
         }
     }
 }
@@ -197,10 +217,10 @@ function renderDay(day, element, index) {
     ASSERT(!isNaN(parseFloat(element.style.height.slice(0, -2))), "element height is not a number");
 
     // look for hour markers
-    if (document.getElementById(`day${index}hourMarker1`) == null) { // create hour markers
+    if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
         // if one is missing, all 24 must be missing
         for (let j = 1; j < 24; j++) { // skip first because there's a top line
-            ASSERT(document.getElementById(`day${index}hourMarker${j}`) == null, `hourMarker1 exists but hourMarker${j} doesn't`);
+            ASSERT(HTML.getUnsafely(`day${index}hourMarker${j}`) == null, `hourMarker1 exists but hourMarker${j} doesn't`);
             let hourMarker = document.createElement('div');
             hourMarker.id = `day${index}hourMarker${j}`;
             hourMarker.style.position = 'fixed';
@@ -223,7 +243,7 @@ function renderDay(day, element, index) {
             document.body.appendChild(hourMarker);
 
             // create hour marker text
-            ASSERT(document.getElementById(`day${index}hourMarkerText${j}`) == null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
+            ASSERT(HTML.getUnsafely(`day${index}hourMarkerText${j}`) == null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
             let hourMarkerText = document.createElement('div');
             hourMarkerText.id = `day${index}hourMarkerText${j}`;
             hourMarkerText.style.position = 'fixed';
@@ -231,7 +251,8 @@ function renderDay(day, element, index) {
             hourMarkerText.style.top = String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px';
             hourMarkerText.style.left = String(dayElementHorizontalPos + 4) + 'px';
             hourMarkerText.style.color = '#000';
-            hourMarkerText.style.fontSize = '10px';
+            hourMarkerText.style.fontFamily = 'JetBrains Mono';
+            hourMarkerText.style.fontSize = '12px';
             hourMarkerText.innerHTML = nthHourText(j);
             document.body.appendChild(hourMarkerText);
         }
@@ -245,13 +266,14 @@ function renderDay(day, element, index) {
         let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
         hourMarkerText.style.left = String(dayElementHorizontalPos + 4) + 'px';
         hourMarkerText.style.color = '#000';
-        hourMarkerText.style.fontSize = '10px';
+        hourMarkerText.style.fontFamily = 'JetBrains Mono';
+        hourMarkerText.style.fontSize = '12px';
         hourMarkerText.innerHTML = nthHourText(0);
         document.body.appendChild(hourMarkerText);
     } else { // update hour markers
         for (let j = 1; j < 24; j++) {
             // adjust position of hour markers
-            let hourMarker = document.getElementById(`day${index}hourMarker${j}`);
+            let hourMarker = HTML.get(`day${index}hourMarker${j}`);
             ASSERT(hourMarker != null, `hourMarker1 exists but hourMarker${j} doesn't`);
             let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
             let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
@@ -263,14 +285,14 @@ function renderDay(day, element, index) {
             hourMarker.style.width = String(columnWidth + 1) + 'px';
 
             // adjust position of hour marker text
-            let hourMarkerText = document.getElementById(`day${index}hourMarkerText${j}`);
+            let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
             ASSERT(hourMarkerText != null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
             hourMarkerText.style.top = String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px';
             hourMarkerText.style.left = String(dayElementHorizontalPos + 4) + 'px';
         }
 
         // first hour (text only)
-        let hourMarkerText = document.getElementById(`day${index}hourMarkerText0`);
+        let hourMarkerText = HTML.get(`day${index}hourMarkerText0`);
         let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
         hourMarkerText.style.top = String(dayElementVerticalPos + 2) + 'px';
         let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
@@ -286,21 +308,21 @@ function renderCalendar(days) {
         for (let i = 0; i < 7; i++) {
             if (i >= SETTINGS.numberOfCalendarDays) {
                 // remove excess day elements
-                let dayElement = document.getElementById('day' + String(i));
+                let dayElement = HTML.getUnsafely('day' + String(i));
                 if (dayElement != null) {
                     dayElement.remove();
                 }
                 continue;
             }
 
-            let dayElement = document.getElementById('day' + String(i));
+            let dayElement = HTML.getUnsafely('day' + String(i));
             if (dayElement == null) {
                 dayElement = document.createElement('div'); // create new element
             }
             dayElement.id = 'day' + String(i);
             dayElement.style.position = 'fixed';
             dayElement.style.width = String(columnWidth) + 'px';
-            dayElement.style.height = String(window.innerHeight - (2 * windowBorderMargin) - headerSpace - adjustCalendarUp) + 'px';
+            dayElement.style.height = String(window.innerHeight - (2 * windowBorderMargin) - headerSpace) + 'px';
             dayElement.style.top = String(windowBorderMargin + headerSpace) + 'px';
             dayElement.style.left = String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1))) + 'px'; // i+1 because first column is task list
             dayElement.style.border = '1px solid #000';
