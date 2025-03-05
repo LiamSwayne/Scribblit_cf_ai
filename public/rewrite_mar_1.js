@@ -59,6 +59,11 @@ each item in the taskEventArray looks like this:
                     date: YYYY-MM-DD
                 }
             showOverdue: T/F to show overdue instances of a task. for most tasks you want this on, but for something like brushing teeth, if you forget to check it off for a day, you don't want to see overdue times you should've done it yesterday plus today's times (on by default)
+            workTimes: array of event instances that are times to work on the task, not separate event object (OPTIONAL)
+                [
+                    same contents as an event instance,
+                    ...
+                ]
         }
     event:
         {
@@ -159,7 +164,7 @@ let HTML = new class HTMLroot {
     get(id) {
         ASSERT(typeof(id) == "string", "HTML.get id must be a string");
         let element = document.getElementById(id);
-        ASSERT(element != null, `HTML.get element with id ${id} is null`);
+        ASSERT(exists(element), `HTML.get element with id ${id} DNE`);
         
         // Check if multiple elements share the same ID
         let allWithId = document.querySelectorAll(`#${id}`);
@@ -180,6 +185,15 @@ let HTML = new class HTMLroot {
         }
         
         return element;
+    }
+
+    setId(element, id) {
+        ASSERT(exists(element) && typeof(id) == "string", "HTML.setId element must exist and id must be a string");
+
+        // Check if id is already in use
+        let existingElement = document.getElementById(id);
+        ASSERT(existingElement === null, `HTML.setId id ${id} is already in use`);
+        element.id = id;
     }
 
     body = document.body;
@@ -295,10 +309,8 @@ function renderDay(day, element, index) {
     ASSERT(day != undefined && day != null, "renderDay day is undefined or null");
     ASSERT(/^\d{4}-\d{2}-\d{2}$/.test(day), "day doesn't fit YYYY-MM-DD format");
     ASSERT(element != undefined && element != null, "renderDay element is undefined or null");
-    ASSERT(HTML.hasStyle(element, 'width'));
     ASSERT(parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2) == columnWidth.toFixed(2), `renderDay element width (${parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2)}) is not ${columnWidth.toFixed(2)}`);
     ASSERT(!isNaN(columnWidth), "columnWidth must be a number");
-    ASSERT(HTML.hasStyle(element, 'height'));
     ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length)}`);
     ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'height').slice(0, -2))), "element height is not a number");
 
@@ -306,14 +318,12 @@ function renderDay(day, element, index) {
     if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
         // if one is missing, all 24 must be missing
         for (let j = 0; j < 24; j++) {
-            ASSERT(HTML.hasStyle(element, 'top'));
             ASSERT(/^\d+px$/.test(HTML.getStyle(element, 'top')), "element.style.top is not a string of int followed by 'px'");
             let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
             ASSERT(HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length) == 'px', `element style 'left' last 2 chars aren't 'px': ${HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length)}`);
             ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'left').slice(0, -2))), "element height is not a number");
             let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
 
-            ASSERT(HTML.hasStyle(element, 'height'));
             ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length, HTML.getStyle(element, 'height').length-2)}`);
             ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'height').slice(0, -2))), "element height is not a number");
             let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
@@ -321,7 +331,7 @@ function renderDay(day, element, index) {
             if (j > 0) { // on the first hour, we only need the text
                 ASSERT(HTML.getUnsafely(`day${index}hourMarker${j}`) == null, `hourMarker1 exists but hourMarker${j} doesn't`);
                 let hourMarker = HTML.make('div');
-                hourMarker.id = `day${index}hourMarker${j}`;
+                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
                 
                 HTML.setStyle(hourMarker, {
                     'position': 'fixed',
@@ -338,7 +348,7 @@ function renderDay(day, element, index) {
             // create hour marker text
             ASSERT(HTML.getUnsafely(`day${index}hourMarkerText${j}`) == null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
             let hourMarkerText = HTML.make('div');
-            hourMarkerText.id = `day${index}hourMarkerText${j}`;
+            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
             HTML.setStyle(hourMarkerText, {
                 'position': 'fixed',
@@ -354,19 +364,20 @@ function renderDay(day, element, index) {
             HTML.body.appendChild(hourMarkerText);
         }
     } else { // update hour markers
-        for (let j = 1; j < 24; j++) {
-            // adjust position of hour markers
-            let hourMarker = HTML.get(`day${index}hourMarker${j}`); // will raise an error if hourMarker1 exists but hourMarker${j} doesn't`);
-            
+        for (let j = 0; j < 24; j++) {
             let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
             let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
             let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
-            
-            HTML.setStyle(hourMarker, {
-                'top': String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
-                'left': String(dayElementHorizontalPos + 1) + 'px',
-                'width': String(columnWidth + 1) + 'px'
-            });
+            if (j > 0) { // on the first hour, we only need the text
+                // adjust position of hour markers
+                let hourMarker = HTML.get(`day${index}hourMarker${j}`); // will raise an error if hourMarker1 exists but hourMarker${j} doesn't`);
+                
+                HTML.setStyle(hourMarker, {
+                    'top': String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
+                    'left': String(dayElementHorizontalPos + 1) + 'px',
+                    'width': String(columnWidth + 1) + 'px'
+                });
+            }
 
             // adjust position of hour marker text
             let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`); // will raise an error if hourMarkerText1 exists but hourMarkerText${j} doesn't`);
