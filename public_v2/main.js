@@ -118,23 +118,40 @@ function getDay(offset) {
         return DateTime.plus({days: offset}).toISODate();
     }
 }
+let taskEventArray = [];
 
-let SETTINGS = {
-    stacking: undefined,
-    numberOfCalendarDays: undefined,
-    ampmOr24: undefined
-}
+let palettes = {
+    'dark': { // default
+        accent: ['#47b6ff', '#b547ff'],
+        shades: ['#000000', '#383838', '#636363', '#9e9e9e']
+    },
+    'mignight': {
+        accent: ['#47b6ff', '#b547ff'],
+        shades: ['#000000', '#383838', '#636363', '#ffffff']
+    }
+    // TODO: add more palettes
+};
 
-if (localStorage.getItem("numberOfCalendarColumns") == null) {
-    SETTINGS.numberOfCalendarDays = 2;
+let USER; // user data
+if (!exists(localStorage.getItem("userData"))) {
+    user = {
+        taskEventArray: taskEventArray,
+        SETTINGS: {
+                stacking: false,
+                numberOfCalendarDays: 2,
+                ampmOr24: 'ampm'
+            },
+        palette: palettes['dark']
+    };
+    localStorage.setItem("userData", JSON.stringify(user));
 } else {
-    SETTINGS.numberOfCalendarDays = localStorage.getItem("numberOfCalendarColumns");
-}
-
-if (localStorage.getItem("ampmOr24") == null) {
-    SETTINGS.ampmOr24 = 'ampm';
-} else {
-    SETTINGS.ampmOr24 = localStorage.getItem("ampmOr24");
+    user = JSON.parse(localStorage.getItem("userData"));
+    ASSERT(exists(user.taskEventArray) && exists(user.SETTINGS));
+    ASSERT(user.SETTINGS.stacking == true || user.SETTINGS.stacking == false, "userData.SETTINGS.stacking must be a boolean");
+    ASSERT(Number.isInteger(user.SETTINGS.numberOfCalendarDays), "userData.SETTINGS.numberOfCalendarDays must be an integer");
+    ASSERT(user.SETTINGS.numberOfCalendarDays >= 2 && user.SETTINGS.numberOfCalendarDays <= 8, "userData.SETTINGS.numberOfCalendarDays out of range 2-8");
+    ASSERT(user.SETTINGS.ampmOr24 == 'ampm' || user.SETTINGS.ampmOr24 == '24');
+    ASSERT(Array.isArray(user.taskEventArray));
 }
 
 let gapBetweenColumns = 6;
@@ -149,14 +166,8 @@ if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
     adjustCalendarUp = 2;
 }
 
-if (localStorage.getItem("SETTINGS.stacking") == null) {
-    SETTINGS.stacking = false
-} else {
-    SETTINGS.stacking = true;
-}
-
 let currentDays = [];
-for (let i = 0; i < SETTINGS.numberOfCalendarDays; i++) {
+for (let i = 0; i < user.SETTINGS.numberOfCalendarDays; i++) {
     currentDays.push(getDay(i));
 }
 
@@ -246,10 +257,14 @@ let HTML = new class HTMLroot {
     setStyle(element, styles) {
         ASSERT(element != null && element != undefined && styles != undefined && styles != null);
         ASSERT(Object.keys(styles).length > 0);
-        for (const key of Object.keys(styles)) {
+        for (let key of Object.keys(styles)) {
             ASSERT(typeof(key) == "string", `Property "${key}" must be a string`);
             ASSERT(styles[key] != null && typeof(styles[key]) == "string", `Value for property "${key}" must be a non-null string`);
-            element.style[key] = styles[key];
+
+            // camelcase to hyphenated css property
+            let cssKey = key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
+
+            element.style[cssKey] = styles[key];
         }
     }
 
@@ -268,30 +283,25 @@ let HTML = new class HTMLroot {
 // the only use of stylesheet because "body *" in JS is not efficient to select
 // Create a style element
 let styleElement = HTML.make('style');
-    styleElement.textContent = `
-  body * {
-    margin: 0;
-    padding: 0;
-    display: inline-block;
-    font-size: 200px; /* This is to make sure that default font sizes are never used */
-    font-family: 'Inter';
-    white-space: pre; /* This preserves whitespace leading */
-  }
+styleElement.textContent = `
+    body * {
+        margin: 0;
+        padding: 0;
+        display: inline-block;
+        font-size: 200px; /* This is to make sure that default font sizes are never used */
+        font-family: 'Inter';
+        white-space: pre; /* This preserves whitespace leading */
+        color: #ff00aa; /* make sure that default colors are never used */
+    }
 `;
 HTML.head.appendChild(styleElement);
 
 HTML.setStyle(HTML.body, {
-    margin: '0',
-    padding: '0',
-    display: 'inline-block',
-    fontSize: '200px', // this is to make sure that default font sizes are never used and will be noticeable
-    fontFamily: 'Inter',
-    whiteSpace: 'pre' // preserves leading whitespace
+    backgroundColor: user.palette.shades[0],
 });
 
-
 let logo = HTML.make('img');
-logo.src = './scribblit_logo_2_black.svg';
+logo.src = './scribblit_logo_2.svg';
 HTML.setId(logo, 'logo');
 HTML.setStyle(logo, {
     position: 'fixed',
@@ -304,18 +314,18 @@ HTML.body.appendChild(logo);
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
-    if (SETTINGS.stacking) {
-        return Math.floor(SETTINGS.numberOfCalendarDays / 2) + 1;
+    if (user.SETTINGS.stacking) {
+        return Math.floor(user.SETTINGS.numberOfCalendarDays / 2) + 1;
     } else {
-        return SETTINGS.numberOfCalendarDays + 1;
+        return user.SETTINGS.numberOfCalendarDays + 1;
     }
 }
 
 function nthHourText(n) {
     ASSERT(Number.isInteger(n), "nthHourText n must be an integer");
     ASSERT(0 <= n && n < 24, "nthHourText n out of range 0-23");
-    ASSERT(SETTINGS.ampmOr24 === 'ampm' || SETTINGS.ampmOr24 === '24', "SETTINGS.ampmOr24 must be 'ampm' or '24'");
-    if (SETTINGS.ampmOr24 == '24') {
+    ASSERT(user.SETTINGS.ampmOr24 === 'ampm' || user.SETTINGS.ampmOr24 === '24', "user.SETTINGS.ampmOr24 must be 'ampm' or '24'");
+    if (user.SETTINGS.ampmOr24 == '24') {
         if (n < 10) {
             return " " + String(n) + ":00";
         } else {
@@ -323,17 +333,17 @@ function nthHourText(n) {
         }
     } else { // ampm
         if (n == 0) {
-            return '12 AM';
+            return '12AM';
         } else if (n == 12) {
-            return '12 PM';
+            return '12PM';
         } else if (n < 10) {
-            return " " + String(n) + ' AM';
+            return " " + String(n) + 'AM';
         } else if (n < 12) {
-            return String(n) + ' AM';
+            return String(n) + 'AM';
         } else if (n < 22) {
-            return " " + String(n-12) + ' PM';
+            return " " + String(n-12) + 'PM';
         } else {
-            return String(n-12) + ' PM';
+            return String(n-12) + 'PM';
         }
     }
 }
@@ -368,12 +378,12 @@ function renderDay(day, element, index) {
                 HTML.setId(hourMarker, `day${index}hourMarker${j}`);
                 
                 HTML.setStyle(hourMarker, {
-                    'position': 'fixed',
-                    'width': String(columnWidth + 1) + 'px',
-                    'height': '1px',
-                    'top': String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
-                    'left': String(dayElementHorizontalPos + 1) + 'px',
-                    'backgroundColor': '#000'
+                    position: 'fixed',
+                    width: String(columnWidth + 1) + 'px',
+                    height: '1px',
+                    top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
+                    left: String(dayElementHorizontalPos + 1) + 'px',
+                    backgroundColor: user.palette.shades[3]
                 });
                 
                 HTML.body.appendChild(hourMarker);
@@ -385,12 +395,12 @@ function renderDay(day, element, index) {
             HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
             HTML.setStyle(hourMarkerText, {
-                'position': 'fixed',
-                'top': String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
-                'left': String(dayElementHorizontalPos + 4) + 'px',
-                'color': '#000',
-                'fontFamily': 'JetBrains Mono',
-                'fontSize': '12px'
+                position: 'fixed',
+                top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
+                left: String(dayElementHorizontalPos + 4) + 'px',
+                color: user.palette.shades[3],
+                fontFamily: 'JetBrains Mono',
+                fontSize: '12px'
             });
             
             HTML.setData(hourMarkerText, 'leadingWhitespace', true);
@@ -407,9 +417,9 @@ function renderDay(day, element, index) {
                 let hourMarker = HTML.get(`day${index}hourMarker${j}`); // will raise an error if hourMarker1 exists but hourMarker${j} doesn't`);
                 
                 HTML.setStyle(hourMarker, {
-                    'top': String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
-                    'left': String(dayElementHorizontalPos + 1) + 'px',
-                    'width': String(columnWidth + 1) + 'px'
+                    top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
+                    left: String(dayElementHorizontalPos + 1) + 'px',
+                    width: String(columnWidth + 1) + 'px'
                 });
             }
 
@@ -417,8 +427,8 @@ function renderDay(day, element, index) {
             let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`); // will raise an error if hourMarkerText1 exists but hourMarkerText${j} doesn't`);
             
             HTML.setStyle(hourMarkerText, {
-                'top': String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
-                'left': String(dayElementHorizontalPos + 4) + 'px'
+                top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
+                left: String(dayElementHorizontalPos + 4) + 'px'
             });
         }
 
@@ -428,20 +438,23 @@ function renderDay(day, element, index) {
         let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
         
         HTML.setStyle(hourMarkerText, {
-            'top': String(dayElementVerticalPos + 2) + 'px',
-            'left': String(dayElementHorizontalPos + 4) + 'px'
+            top: String(dayElementVerticalPos + 2) + 'px',
+            left: String(dayElementHorizontalPos + 4) + 'px'
         });
     }
+
+    // get all event instances and task work time instances
+
 }
 
 function renderCalendar(days) {
-    ASSERT(exists(days) && Array.isArray(days) && exists(SETTINGS) && exists(SETTINGS.numberOfCalendarDays) && days.length == SETTINGS.numberOfCalendarDays)
-    ASSERT(SETTINGS.stacking == true || SETTINGS.stacking == false, "SETTINGS.stacking must be a boolean");
-    if (SETTINGS.stacking) { // vertically stack each 2 days and task list
+    ASSERT(exists(days) && Array.isArray(days) && exists(user.SETTINGS) && exists(user.SETTINGS.numberOfCalendarDays) && days.length == user.SETTINGS.numberOfCalendarDays)
+    ASSERT(user.SETTINGS.stacking == true || user.SETTINGS.stacking == false, "user.SETTINGS.stacking must be a boolean");
+    if (user.SETTINGS.stacking) { // vertically stack each 2 days and task list
         // TODO
     } else { // no vertical stacking
         for (let i = 0; i < 7; i++) {
-            if (i >= SETTINGS.numberOfCalendarDays) {
+            if (i >= user.SETTINGS.numberOfCalendarDays) {
                 // remove excess day elements
                 let dayElement = HTML.getUnsafely('day' + String(i));
                 if (dayElement != null) {
@@ -461,7 +474,7 @@ function renderCalendar(days) {
                 height: String(window.innerHeight - (2 * windowBorderMargin) - headerSpace) + 'px',
                 top: String(windowBorderMargin + headerSpace) + 'px',
                 left: String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1))) + 'px',
-                border: '1px solid #000',
+                border: '1px solid ' + user.palette.shades[3],
                 borderRadius: '5px'
             });
             HTML.body.appendChild(dayElement);
