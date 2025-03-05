@@ -92,6 +92,7 @@ function ASSERT(condition, message="") {
         } else {
             console.error('ASSERTION FAILED: ' + message);
         }
+        console.trace();
     }
 }
 
@@ -208,6 +209,29 @@ let HTML = new class HTMLroot {
             return data[key];
         }
     }
+
+    // function to cleanly apply styles to an element
+    style(element, css1, css2=null) {
+        ASSERT(element != null, "HTML.style element is null");
+
+        // either (css1 is a dictionary of style propety:value and css2 is null) or (css1 is a single style property and css2 is its value)
+        if (css2 == null) {
+            ASSERT(typeof(css1) == "object", "HTML.style css1 must be an object");
+            // verify that it's a 1D dictionary of strings:strings
+            ASSERT(Object.keys(css1).length > 0);
+            for (let key in Object.keys(css1)) {
+                ASSERT(key != null && typeof(key) == "string");
+                ASSERT(css1[key] != null && typeof(css1[key]) == "string");
+                element.style[key] = css1[key];
+            }
+        } else {
+            ASSERT(css1 != null && css2 != null);
+            ASSERT(typeof(css1) == "string" && typeof(css2) == "string");
+            ASSERT(css1 != "" && css2 != "");
+            element.style[css1] = css2;
+        }
+    }
+
 }();
 
 let logo = HTML.get('logo');
