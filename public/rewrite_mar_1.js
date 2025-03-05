@@ -197,6 +197,7 @@ let HTML = new class HTMLroot {
     }
 
     body = document.body;
+    head = document.head;
 
     make(tag) {
         ASSERT(typeof(tag) == "string", "HTML.make tag must be a string");
@@ -264,9 +265,42 @@ let HTML = new class HTMLroot {
     }
 }();
 
-let logo = HTML.get('logo');
-logo.style.top = String(windowBorderMargin) + 'px';
-logo.style.left = String(windowBorderMargin) + 'px';
+// the only use of stylesheet because "body *" in JS is not efficient to select
+// Create a style element
+let styleElement = HTML.make('style');
+    styleElement.textContent = `
+  body * {
+    margin: 0;
+    padding: 0;
+    display: inline-block;
+    font-size: 200px; /* This is to make sure that default font sizes are never used */
+    font-family: 'Inter';
+    white-space: pre; /* This preserves whitespace leading */
+  }
+`;
+HTML.head.appendChild(styleElement);
+
+HTML.setStyle(HTML.body, {
+    margin: '0',
+    padding: '0',
+    display: 'inline-block',
+    fontSize: '200px', // this is to make sure that default font sizes are never used and will be noticeable
+    fontFamily: 'Inter',
+    whiteSpace: 'pre' // preserves leading whitespace
+});
+
+
+let logo = HTML.make('img');
+logo.src = './scribblit_logo_2_black.svg';
+HTML.setId(logo, 'logo');
+HTML.setStyle(logo, {
+    position: 'fixed',
+    width: '100px',
+    height: 'auto',
+    top: String(windowBorderMargin) + 'px',
+    left: String(windowBorderMargin) + 'px'
+});
+HTML.body.appendChild(logo);
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
