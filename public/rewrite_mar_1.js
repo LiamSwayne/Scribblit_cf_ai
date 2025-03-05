@@ -211,27 +211,26 @@ let HTML = new class HTMLroot {
     }
 
     // function to cleanly apply styles to an element
-    style(element, css1, css2=null) {
-        ASSERT(element != null, "HTML.style element is null");
-
-        // either (css1 is a dictionary of style propety:value and css2 is null) or (css1 is a single style property and css2 is its value)
-        if (css2 == null) {
-            ASSERT(typeof(css1) == "object", "HTML.style css1 must be an object");
-            // verify that it's a 1D dictionary of strings:strings
-            ASSERT(Object.keys(css1).length > 0);
-            for (let key in Object.keys(css1)) {
-                ASSERT(key != null && typeof(key) == "string");
-                ASSERT(css1[key] != null && typeof(css1[key]) == "string");
-                element.style[key] = css1[key];
-            }
-        } else {
-            ASSERT(css1 != null && css2 != null);
-            ASSERT(typeof(css1) == "string" && typeof(css2) == "string");
-            ASSERT(css1 != "" && css2 != "");
-            element.style[css1] = css2;
+    setStyle(element, styles) {
+        ASSERT(element != null && element != undefined && styles != undefined && styles != null);
+        ASSERT(Object.keys(styles).length > 0);
+        for (const key of Object.keys(styles)) {
+            ASSERT(typeof(key) == "string", `Property "${key}" must be a string`);
+            ASSERT(styles[key] != null && typeof(styles[key]) == "string", `Value for property "${key}" must be a non-null string`);
+            element.style[key] = styles[key];
         }
     }
 
+    hasStyle(element, property) {
+        ASSERT(element != null && element != undefined && property != null && property != undefined && typeof(property) == "string");
+        return element.style[property] != null && element.style[property] != undefined;
+    }
+
+    getStyle(element, property) {
+        ASSERT(element != null && element != undefined && property != null && property != undefined && typeof(property) == "string");
+        ASSERT(this.hasStyle(element, property), `Element does not have property "${property}"`);
+        return element.style[property];
+    }
 }();
 
 let logo = HTML.get('logo');
@@ -279,11 +278,12 @@ function renderDay(day, element, index) {
     ASSERT(day != undefined && day != null, "renderDay day is undefined or null");
     ASSERT(/^\d{4}-\d{2}-\d{2}$/.test(day), "day doesn't fit YYYY-MM-DD format");
     ASSERT(element != undefined && element != null, "renderDay element is undefined or null");
-    ASSERT(parseFloat(element.style.width.slice(0, -2)).toFixed(2) == columnWidth.toFixed(2), `renderDay element width (${parseFloat(element.style.width.slice(0, -2)).toFixed(2)}) is not ${columnWidth.toFixed(2)}`);
+    ASSERT(HTML.hasStyle(element, 'width'));
+    ASSERT(parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2) == columnWidth.toFixed(2), `renderDay element width (${parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2)}) is not ${columnWidth.toFixed(2)}`);
     ASSERT(!isNaN(columnWidth), "columnWidth must be a number");
-    ASSERT(element.style.height != undefined && element.style.height != null, "element height is undefined or null");
-    ASSERT(element.style.height.slice(element.style.height.length-2, element.style.height.length) == 'px', `element height last 2 chars aren't 'px': ${element.style.height.slice(element.style.height.length-2, element.style.height.length)}`);
-    ASSERT(!isNaN(parseFloat(element.style.height.slice(0, -2))), "element height is not a number");
+    ASSERT(HTML.hasStyle(element, 'height'));
+    ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length)}`);
+    ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'height').slice(0, -2))), "element height is not a number");
 
     // look for hour markers
     if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
@@ -302,10 +302,10 @@ function renderDay(day, element, index) {
             ASSERT(element.style.left.slice(element.style.left.length-2, element.style.left.length) == 'px', `element style 'left' last 2 chars aren't 'px': ${element.style.left.slice(element.style.left.length-2, element.style.left.length)}`);
             ASSERT(!isNaN(parseFloat(element.style.left.slice(0, -2))), "element height is not a number");
             let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
-            ASSERT(element.style.height != undefined && element.style.height != null, "element.style.height is undefined or null");
-            ASSERT(element.style.height.slice(element.style.height.length-2, element.style.height.length) == 'px', `element height last 2 chars aren't 'px': ${element.style.height.slice(element.style.height.length, element.style.height.length-2)}`);
-            ASSERT(!isNaN(parseFloat(element.style.height.slice(0, -2))), "element height is not a number");
-            let dayHeight = parseFloat(element.style.height.slice(0, -2));
+            ASSERT(HTML.getStyle(element, 'height') != undefined && HTML.getStyle(element, 'height') != null, "element style height is undefined or null");
+            ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length, HTML.getStyle(element, 'height').length-2)}`);
+            ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'height').slice(0, -2))), "element height is not a number");
+            let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
             hourMarker.style.top = String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px';
             hourMarker.style.left = String(dayElementHorizontalPos + 1) + 'px';
             hourMarker.style.backgroundColor = '#000';
@@ -348,7 +348,7 @@ function renderDay(day, element, index) {
             ASSERT(hourMarker != null, `hourMarker1 exists but hourMarker${j} doesn't`);
             let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
             let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
-            let dayHeight = parseFloat(element.style.height.slice(0, -2));
+            let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
             hourMarker.style.top = String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px';
             hourMarker.style.left = String(dayElementHorizontalPos + 1) + 'px';
 
@@ -391,13 +391,15 @@ function renderCalendar(days) {
                 dayElement = HTML.make('div'); // create new element
             }
             dayElement.id = 'day' + String(i);
-            dayElement.style.position = 'fixed';
-            dayElement.style.width = String(columnWidth) + 'px';
-            dayElement.style.height = String(window.innerHeight - (2 * windowBorderMargin) - headerSpace) + 'px';
-            dayElement.style.top = String(windowBorderMargin + headerSpace) + 'px';
-            dayElement.style.left = String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1))) + 'px'; // i+1 because first column is task list
-            dayElement.style.border = '1px solid #000';
-            dayElement.style.borderRadius = '5px';
+            HTML.setStyle(dayElement, {
+                position: 'fixed',
+                width: String(columnWidth) + 'px',
+                height: String(window.innerHeight - (2 * windowBorderMargin) - headerSpace) + 'px',
+                top: String(windowBorderMargin + headerSpace) + 'px',
+                left: String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1))) + 'px',
+                border: '1px solid #000',
+                borderRadius: '5px'
+            });
             HTML.body.appendChild(dayElement);
 
             renderDay(days[i], dayElement, i);
