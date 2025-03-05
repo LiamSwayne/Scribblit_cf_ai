@@ -101,6 +101,10 @@ function sleep(seconds) {
     return new Promise(resolve => setTimeout(resolve, seconds * 1000)); // setTimeout works in milliseconds
 }
 
+function exists(obj) {
+    return obj != null && obj != undefined;
+}
+
 function getDay(offset) {
     ASSERT(0 <= offset && offset < 7, "getDay offset out of range 0-6");
     if (offset == 0) {
@@ -156,13 +160,26 @@ let HTML = new class HTMLroot {
         ASSERT(typeof(id) == "string", "HTML.get id must be a string");
         let element = document.getElementById(id);
         ASSERT(element != null, `HTML.get element with id ${id} is null`);
+        
+        // Check if multiple elements share the same ID
+        let allWithId = document.querySelectorAll(`#${id}`);
+        ASSERT(allWithId.length === 1, `HTML.get found ${allWithId.length} elements with id ${id}, should be exactly 1`);
+        
         return element;
     }
 
     // get but it may not exist
     getUnsafely(id) {
         ASSERT(typeof(id) == "string", "HTML.getUnsafely id must be a string");
-        return document.getElementById(id);
+        
+        // If there's an element at all, verify it's the only one
+        let element = document.getElementById(id);
+        if (element !== null) {
+            let allWithId = document.querySelectorAll(`#${id}`);
+            ASSERT(allWithId.length === 1, `HTML.getUnsafely found ${allWithId.length} elements with id ${id}, should be at most 1`);
+        }
+        
+        return element;
     }
 
     body = document.body;
@@ -223,7 +240,7 @@ let HTML = new class HTMLroot {
 
     hasStyle(element, property) {
         ASSERT(element != null && element != undefined && property != null && property != undefined && typeof(property) == "string");
-        return element.style[property] != null && element.style[property] != undefined;
+        return element.style[property] != null && element.style[property] != undefined && element.style[property] != "";
     }
 
     getStyle(element, property) {
@@ -288,93 +305,95 @@ function renderDay(day, element, index) {
     // look for hour markers
     if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
         // if one is missing, all 24 must be missing
-        for (let j = 1; j < 24; j++) { // skip first because there's a top line
-            ASSERT(HTML.getUnsafely(`day${index}hourMarker${j}`) == null, `hourMarker1 exists but hourMarker${j} doesn't`);
-            let hourMarker = HTML.make('div');
-            hourMarker.id = `day${index}hourMarker${j}`;
-            hourMarker.style.position = 'fixed';
-            hourMarker.style.width = String(columnWidth + 1) + 'px';
-            hourMarker.style.height = '1px';
-            hourMarker.backgroundColor = '#000';
-            ASSERT(element.style.top != undefined && element.style.top != null, "element.style.top is undefined or null");
-            ASSERT(/^\d+px$/.test(element.style.top), "element.style.top is not a string of int followed by 'px'");
-            let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
-            ASSERT(element.style.left.slice(element.style.left.length-2, element.style.left.length) == 'px', `element style 'left' last 2 chars aren't 'px': ${element.style.left.slice(element.style.left.length-2, element.style.left.length)}`);
-            ASSERT(!isNaN(parseFloat(element.style.left.slice(0, -2))), "element height is not a number");
-            let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
-            ASSERT(HTML.getStyle(element, 'height') != undefined && HTML.getStyle(element, 'height') != null, "element style height is undefined or null");
+        for (let j = 0; j < 24; j++) {
+            ASSERT(HTML.hasStyle(element, 'top'));
+            ASSERT(/^\d+px$/.test(HTML.getStyle(element, 'top')), "element.style.top is not a string of int followed by 'px'");
+            let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
+            ASSERT(HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length) == 'px', `element style 'left' last 2 chars aren't 'px': ${HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length)}`);
+            ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'left').slice(0, -2))), "element height is not a number");
+            let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
+
+            ASSERT(HTML.hasStyle(element, 'height'));
             ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length, HTML.getStyle(element, 'height').length-2)}`);
             ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'height').slice(0, -2))), "element height is not a number");
             let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
-            hourMarker.style.top = String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px';
-            hourMarker.style.left = String(dayElementHorizontalPos + 1) + 'px';
-            hourMarker.style.backgroundColor = '#000';
-            HTML.body.appendChild(hourMarker);
+
+            if (j > 0) { // on the first hour, we only need the text
+                ASSERT(HTML.getUnsafely(`day${index}hourMarker${j}`) == null, `hourMarker1 exists but hourMarker${j} doesn't`);
+                let hourMarker = HTML.make('div');
+                hourMarker.id = `day${index}hourMarker${j}`;
+                
+                HTML.setStyle(hourMarker, {
+                    'position': 'fixed',
+                    'width': String(columnWidth + 1) + 'px',
+                    'height': '1px',
+                    'top': String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
+                    'left': String(dayElementHorizontalPos + 1) + 'px',
+                    'backgroundColor': '#000'
+                });
+                
+                HTML.body.appendChild(hourMarker);
+            }
 
             // create hour marker text
             ASSERT(HTML.getUnsafely(`day${index}hourMarkerText${j}`) == null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
             let hourMarkerText = HTML.make('div');
             hourMarkerText.id = `day${index}hourMarkerText${j}`;
-            hourMarkerText.style.position = 'fixed';
-
-            hourMarkerText.style.top = String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px';
-            hourMarkerText.style.left = String(dayElementHorizontalPos + 4) + 'px';
-            hourMarkerText.style.color = '#000';
-            hourMarkerText.style.fontFamily = 'JetBrains Mono';
-            hourMarkerText.style.fontSize = '12px';
+            
+            HTML.setStyle(hourMarkerText, {
+                'position': 'fixed',
+                'top': String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
+                'left': String(dayElementHorizontalPos + 4) + 'px',
+                'color': '#000',
+                'fontFamily': 'JetBrains Mono',
+                'fontSize': '12px'
+            });
+            
             HTML.setData(hourMarkerText, 'leadingWhitespace', true);
             hourMarkerText.innerHTML = nthHourText(j);
             HTML.body.appendChild(hourMarkerText);
         }
-
-        // first hour (text only)
-        let hourMarkerText = HTML.make('div');
-        hourMarkerText.id = `day${index}hourMarkerText0`;
-        hourMarkerText.style.position = 'fixed';
-        let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
-        hourMarkerText.style.top = String(dayElementVerticalPos + 2) + 'px';
-        let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
-        hourMarkerText.style.left = String(dayElementHorizontalPos + 4) + 'px';
-        hourMarkerText.style.color = '#000';
-        hourMarkerText.style.fontFamily = 'JetBrains Mono';
-        hourMarkerText.style.fontSize = '12px';
-        HTML.setData(hourMarkerText, 'leadingWhitespace', true);
-        hourMarkerText.innerHTML = nthHourText(0);
-        HTML.body.appendChild(hourMarkerText);
     } else { // update hour markers
         for (let j = 1; j < 24; j++) {
             // adjust position of hour markers
-            let hourMarker = HTML.get(`day${index}hourMarker${j}`);
-            ASSERT(hourMarker != null, `hourMarker1 exists but hourMarker${j} doesn't`);
-            let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
-            let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
+            let hourMarker = HTML.get(`day${index}hourMarker${j}`); // will raise an error if hourMarker1 exists but hourMarker${j} doesn't`);
+            
+            let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
+            let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
             let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
-            hourMarker.style.top = String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px';
-            hourMarker.style.left = String(dayElementHorizontalPos + 1) + 'px';
-
-            // update width of hour markers
-            hourMarker.style.width = String(columnWidth + 1) + 'px';
+            
+            HTML.setStyle(hourMarker, {
+                'top': String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
+                'left': String(dayElementHorizontalPos + 1) + 'px',
+                'width': String(columnWidth + 1) + 'px'
+            });
 
             // adjust position of hour marker text
-            let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
-            ASSERT(hourMarkerText != null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
-            hourMarkerText.style.top = String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px';
-            hourMarkerText.style.left = String(dayElementHorizontalPos + 4) + 'px';
+            let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`); // will raise an error if hourMarkerText1 exists but hourMarkerText${j} doesn't`);
+            
+            HTML.setStyle(hourMarkerText, {
+                'top': String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
+                'left': String(dayElementHorizontalPos + 4) + 'px'
+            });
         }
 
         // first hour (text only)
         let hourMarkerText = HTML.get(`day${index}hourMarkerText0`);
-        let dayElementVerticalPos = parseInt(element.style.top.slice(0, -2));
-        hourMarkerText.style.top = String(dayElementVerticalPos + 2) + 'px';
-        let dayElementHorizontalPos = parseInt(element.style.left.slice(0, -2));
-        hourMarkerText.style.left = String(dayElementHorizontalPos + 4) + 'px';
+        let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
+        let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
+        
+        HTML.setStyle(hourMarkerText, {
+            'top': String(dayElementVerticalPos + 2) + 'px',
+            'left': String(dayElementHorizontalPos + 4) + 'px'
+        });
     }
 }
 
 function renderCalendar(days) {
-    ASSERT(days != undefined && days != null && days.length == SETTINGS.numberOfCalendarDays)
+    ASSERT(exists(days) && Array.isArray(days) && exists(SETTINGS) && exists(SETTINGS.numberOfCalendarDays) && days.length == SETTINGS.numberOfCalendarDays)
     ASSERT(SETTINGS.stacking == true || SETTINGS.stacking == false, "SETTINGS.stacking must be a boolean");
     if (SETTINGS.stacking) { // vertically stack each 2 days and task list
+        // TODO
     } else { // no vertical stacking
         for (let i = 0; i < 7; i++) {
             if (i >= SETTINGS.numberOfCalendarDays) {
