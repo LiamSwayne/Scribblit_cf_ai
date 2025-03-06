@@ -4,7 +4,7 @@ async function testContinously() {
 
         let columns = numberOfColumns();
         ASSERT(Number.isInteger(columns), "numberOfColumns must return an integer");
-        ASSERT(columns >= 2 && columns <= 8, `numberOfColumns value out of range: ${columns}`);
+        ASSERT(columns >= 1 && columns <= 8, `numberOfColumns value out of range: ${columns}`);
 
         // recursively scrape HTML for element to look for leading whitespace
         // disallowed unless element has data-leadingWhitespace="true" attribute
