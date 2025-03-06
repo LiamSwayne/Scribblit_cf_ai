@@ -86,9 +86,11 @@ each item in the taskEventArray looks like this:
 
 let TESTING = true;
 
+/*
 if (TESTING) {
     localStorage.clear();
 }
+*/
 
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
@@ -141,7 +143,7 @@ let user; // user data / all the stuff they can change
 if (!exists(localStorage.getItem("userData"))) {
     user = {
         taskEventArray: taskEventArray,
-        SETTINGS: {
+        settings: {
                 stacking: false,
                 numberOfCalendarDays: 2,
                 ampmOr24: 'ampm'
@@ -152,11 +154,11 @@ if (!exists(localStorage.getItem("userData"))) {
     localStorage.setItem("userData", JSON.stringify(user));
 } else {
     user = JSON.parse(localStorage.getItem("userData"));
-    ASSERT(exists(user.taskEventArray) && exists(user.SETTINGS));
-    ASSERT(user.SETTINGS.stacking == true || user.SETTINGS.stacking == false, "userData.SETTINGS.stacking must be a boolean");
-    ASSERT(Number.isInteger(user.SETTINGS.numberOfCalendarDays), "userData.SETTINGS.numberOfCalendarDays must be an integer");
-    ASSERT(1 <= user.SETTINGS.numberOfCalendarDays && user.SETTINGS.numberOfCalendarDays <= 7, "userData.SETTINGS.numberOfCalendarDays out of range 1-7");
-    ASSERT(user.SETTINGS.ampmOr24 == 'ampm' || user.SETTINGS.ampmOr24 == '24');
+    ASSERT(exists(user.taskEventArray) && exists(user.settings));
+    ASSERT(user.settings.stacking == true || user.settings.stacking == false, "userData.settings.stacking must be a boolean");
+    ASSERT(Number.isInteger(user.settings.numberOfCalendarDays), "userData.settings.numberOfCalendarDays must be an integer");
+    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7, "userData.settings.numberOfCalendarDays out of range 1-7");
+    ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
     ASSERT(Array.isArray(user.taskEventArray));
 }
 
@@ -176,17 +178,17 @@ function currentDays() {
     let days = [];
     
     // Start with the first day stored in user data
-    // Use SETTINGS.firstDayInCalendar instead of firstDayInCalendar
-    let firstDay = DateTime.fromISO(user.SETTINGS.firstDayInCalendar);
+    // Use settings.firstDayInCalendar instead of firstDayInCalendar
+    let firstDay = DateTime.fromISO(user.settings.firstDayInCalendar);
     
     // Check if parsing was successful
     if (!firstDay.isValid) {
-        ASSERT(false, "Invalid date:", user.SETTINGS.firstDayInCalendar);
+        ASSERT(false, "Invalid date:", user.settings.firstDayInCalendar);
         // Fallback to today's date if the stored date is invalid
         firstDay = DateTime.local();
     }
     
-    for (let i = 0; i < user.SETTINGS.numberOfCalendarDays; i++) {
+    for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         // Add the current day and each subsequent day
         days.push(firstDay.plus({days: i}).toISODate());
     }
@@ -352,18 +354,18 @@ HTML.body.appendChild(logo);
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
-    if (user.SETTINGS.stacking) {
-        return Math.floor(user.SETTINGS.numberOfCalendarDays / 2) + 1;
+    if (user.settings.stacking) {
+        return Math.floor(user.settings.numberOfCalendarDays / 2) + 1;
     } else {
-        return user.SETTINGS.numberOfCalendarDays + 1;
+        return user.settings.numberOfCalendarDays + 1;
     }
 }
 
 function nthHourText(n) {
     ASSERT(Number.isInteger(n), "nthHourText n must be an integer");
     ASSERT(0 <= n && n < 24, "nthHourText n out of range 0-23");
-    ASSERT(user.SETTINGS.ampmOr24 === 'ampm' || user.SETTINGS.ampmOr24 === '24', "user.SETTINGS.ampmOr24 must be 'ampm' or '24'");
-    if (user.SETTINGS.ampmOr24 == '24') {
+    ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24', "user.settings.ampmOr24 must be 'ampm' or '24'");
+    if (user.settings.ampmOr24 == '24') {
         if (n < 10) {
             return " " + String(n) + ":00";
         } else {
@@ -400,7 +402,7 @@ function renderDay(day, element, index) {
     if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
         // if one is missing, all 24 must be missing
         for (let j = 0; j < 24; j++) {
-            ASSERT(/^\d+px$/.test(HTML.getStyle(element, 'top')), "element.style.top is not a string of int followed by 'px'");
+            ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'top').slice(0, -2)), "element top is not a number"));
             let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
             ASSERT(HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length) == 'px', `element style 'left' last 2 chars aren't 'px': ${HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length)}`);
             ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'left').slice(0, -2))), "element height is not a number");
@@ -434,10 +436,10 @@ function renderDay(day, element, index) {
             HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
             let fontSize;
-            if (user.SETTINGS.ampmOr24 == 'ampm') {
+            if (user.settings.ampmOr24 == 'ampm') {
                 fontSize = '12px';
             } else {
-                fontSize = '11px'; // account for additional colon character
+                fontSize = '10px'; // account for additional colon character
             }
             HTML.setStyle(hourMarkerText, {
                 position: 'fixed',
@@ -490,133 +492,168 @@ function renderDay(day, element, index) {
     }
 
     // get all event instances and task work time instances
-
 }
 
 let topOfCalendarDay = 20; // px
 
 function renderCalendar(days) {
-    ASSERT(exists(days) && Array.isArray(days) && exists(user.SETTINGS) && exists(user.SETTINGS.numberOfCalendarDays) && days.length == user.SETTINGS.numberOfCalendarDays, "renderCalendar days must be an array of length user.SETTINGS.numberOfCalendarDays");
-    ASSERT(user.SETTINGS.stacking == true || user.SETTINGS.stacking == false, "user.SETTINGS.stacking must be a boolean");
-    if (user.SETTINGS.stacking) { // vertically stack each 2 days and task list
-        // TODO
-    } else { // no vertical stacking
-        for (let i = 0; i < 7; i++) {
-            if (i >= user.SETTINGS.numberOfCalendarDays) {
-                // remove excess day elements
-                let dayElement = HTML.getUnsafely('day' + String(i));
-                if (dayElement != null) {
-                    dayElement.remove();
-                }
-                // remove excess hour markers
-                for (let j = 0; j < 24; j++) {
-                    let hourMarker = HTML.getUnsafely(`day${i}hourMarker${j}`);
-                    if (exists(hourMarker)) {
-                        hourMarker.remove();
-                    }
-                    let hourMarkerText = HTML.getUnsafely(`day${i}hourMarkerText${j}`);
-                    if (exists(hourMarkerText)) {
-                        hourMarkerText.remove();
-                    }
-                }
-
-                // remove excess background elements
-                let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
-                if (exists(backgroundElement)) {
-                    backgroundElement.remove();
-                }
-
-                // remove excess date text elements
-                let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
-                if (exists(dateText)) {
-                    dateText.remove();
-                }
-                continue;
-            }
-
+    ASSERT(exists(days) && Array.isArray(days) && exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
+    ASSERT(user.settings.stacking == true || user.settings.stacking == false, "user.settings.stacking must be a boolean");
+    for (let i = 0; i < 7; i++) {
+        if (i >= user.settings.numberOfCalendarDays) { // delete excess elements if they exist
+            // day element
             let dayElement = HTML.getUnsafely('day' + String(i));
-            if (!exists(dayElement)) {
-                dayElement = HTML.make('div'); // create new element
-                HTML.setId(dayElement, 'day' + String(i));
+            if (dayElement != null) {
+                dayElement.remove();
             }
-            HTML.setStyle(dayElement, {
-                position: 'fixed',
-                width: String(columnWidth) + 'px',
-                height: String(window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay) + 'px',
-                top: String(windowBorderMargin + headerSpace + topOfCalendarDay) + 'px',
-                left: String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1))) + 'px',
-                border: '1px solid ' + user.palette.shades[3],
-                borderRadius: '5px',
-                backgroundColor: user.palette.shades[0],
-                zIndex: 300 // below hour markers
-            });
-            HTML.body.appendChild(dayElement);
-
-            // add background element which is the same but with lower z index
+            // hour markers
+            for (let j = 0; j < 24; j++) {
+                let hourMarker = HTML.getUnsafely(`day${i}hourMarker${j}`);
+                if (exists(hourMarker)) {
+                    hourMarker.remove();
+                }
+                let hourMarkerText = HTML.getUnsafely(`day${i}hourMarkerText${j}`);
+                if (exists(hourMarkerText)) {
+                    hourMarkerText.remove();
+                }
+            }
+            // backgrounds
             let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
-            if (!exists(backgroundElement)) {
-                backgroundElement = HTML.make('div');
-                HTML.setId(backgroundElement, 'day' + String(i) + 'Background');
+            if (exists(backgroundElement)) {
+                backgroundElement.remove();
             }
-            HTML.setStyle(backgroundElement, {
-                position: 'fixed',
-                width: String(columnWidth) + 'px',
-                height: String(window.innerHeight - (2 * windowBorderMargin) - headerSpace) + 'px',
-                top: String(windowBorderMargin + headerSpace) + 'px',
-                left: String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1))) + 'px',
-                backgroundColor: user.palette.shades[1],
-                border: '1px solid ' + user.palette.shades[3],
-                borderRadius: '5px',
-                zIndex: 200, // below dayElement
-            });
-            HTML.body.appendChild(backgroundElement);
-
-            // add YYYY-MM-DD text to top right of background element
+            // date text
             let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
-            if (!exists(dateText)) {
-                dateText = HTML.make('div');
-                HTML.setId(dateText, 'day' + String(i) + 'DateText');
+            if (exists(dateText)) {
+                dateText.remove();
             }
-            HTML.setStyle(dateText, {
-                position: 'fixed',
-                top: String(windowBorderMargin + headerSpace + 3.5) + 'px',
-                left: String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1)) + columnWidth - 74) + 'px',
-                fontSize: '12px',
-                color: user.palette.shades[3],
-                fontFamily: 'Inter',
-                fontWeight: 'bold',
-                zIndex: 400
-            });
-            dateText.innerHTML = days[i].replaceAll("-", '/');   
-            HTML.body.appendChild(dateText);
-
-
-            // add dayOfWeekOrRelativeDay text to top left of background element
+            // day of week text 
             let dayOfWeekText = HTML.getUnsafely('day' + String(i) + 'DayOfWeekText');
-            if (!exists(dayOfWeekText)) {
-                dayOfWeekText = HTML.make('div');
-                HTML.setId(dayOfWeekText, 'day' + String(i) + 'DayOfWeekText');
+            if (exists(dayOfWeekText)) {
+                dayOfWeekText.remove();
             }
-            HTML.setStyle(dayOfWeekText, {
-                position: 'fixed',
-                top: String(windowBorderMargin + headerSpace + 3.5) + 'px',
-                left: String(windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1)) + 4) + 'px',
-                fontSize: '12px',
-                color: user.palette.shades[3],
-                fontFamily: 'Inter',
-                fontWeight: 'bold',
-                zIndex: 400
-            });
-            dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(days[i]);
-            if (dayOfWeekOrRelativeDay(days[i]) == 'Today') {
-                // white text for today
-                HTML.setStyle(dateText, { color: user.palette.shades[4] });
-                HTML.setStyle(dayOfWeekText, { color: user.palette.shades[4] });
-            }
-            HTML.body.appendChild(dayOfWeekText);
 
-            renderDay(days[i], dayElement, i);
+            continue;
         }
+
+        let dayElement = HTML.getUnsafely('day' + String(i));
+        if (!exists(dayElement)) {
+            dayElement = HTML.make('div'); // create new element
+            HTML.setId(dayElement, 'day' + String(i));
+        }
+
+        let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
+        let top = windowBorderMargin + headerSpace + topOfCalendarDay;
+        let left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1));
+        if (user.settings.stacking) {
+            // half the height, then subtract margin between calendar days
+            height = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns)/2 - topOfCalendarDay;
+            height -= 1; // manual adjustment, not sure why it's off by 1
+            if (i >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
+                top += height + gapBetweenColumns + topOfCalendarDay;
+                
+                // if the number of days is even, bottom is same as top
+                if (user.settings.numberOfCalendarDays % 2 == 0) {
+                    left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i - Math.floor(user.settings.numberOfCalendarDays / 2) + 1));
+                } else {
+                    left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i - Math.floor(user.settings.numberOfCalendarDays / 2)));
+                }
+            } else { // top half
+                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i + 1));
+            }
+        }
+
+        HTML.setStyle(dayElement, {
+            position: 'fixed',
+            width: String(columnWidth) + 'px',
+            height: String(height) + 'px',
+            top: String(top) + 'px',
+            left: String(left) + 'px',
+            border: '1px solid ' + user.palette.shades[3],
+            borderRadius: '5px',
+            backgroundColor: user.palette.shades[0],
+            zIndex: 300 // below hour markers
+        });
+        HTML.body.appendChild(dayElement);
+
+        // add background element which is the same but with lower z index
+        let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
+        if (!exists(backgroundElement)) {
+            backgroundElement = HTML.make('div');
+            HTML.setId(backgroundElement, 'day' + String(i) + 'Background');
+        }
+
+        let topOfBackground = windowBorderMargin + headerSpace;
+        if (user.settings.stacking && i >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // in bottom half
+            topOfBackground = top - topOfCalendarDay; // height of top half + gap
+        }
+
+        HTML.setStyle(backgroundElement, {
+            position: 'fixed',
+            width: String(columnWidth) + 'px',
+            height: String(height + topOfCalendarDay) + 'px',
+            top: String(topOfBackground) + 'px',
+            left: String(left) + 'px',
+            backgroundColor: user.palette.shades[1],
+            border: '1px solid ' + user.palette.shades[3],
+            borderRadius: '5px',
+            zIndex: 200, // below dayElement
+        });
+        HTML.body.appendChild(backgroundElement);
+
+        // add MM-DD text to top right of background element
+        let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
+        if (!exists(dateText)) {
+            dateText = HTML.make('div');
+            HTML.setId(dateText, 'day' + String(i) + 'DateText');
+        }
+        let dateAndDayOfWeekSpacing = 3.5;
+        let dateAndDayOfWeekVerticalPos = top - topOfCalendarDay + dateAndDayOfWeekSpacing;
+        HTML.setStyle(dateText, {
+            position: 'fixed',
+            top: String(dateAndDayOfWeekVerticalPos) + 'px',
+            right: String(window.innerWidth - left - columnWidth + dateAndDayOfWeekSpacing) + 'px',
+            fontSize: '12px',
+            color: user.palette.shades[3],
+            fontFamily: 'Inter',
+            fontWeight: 'bold',
+            zIndex: 400
+        });
+        let [year, month, day] = days[i].split('-');
+        if (day[0] == '0') {
+            day = day[1];
+        }
+        if (month[0] == '0') {
+            month = month[1];
+        }
+        dateText.innerHTML = month + '/' + day;
+        HTML.body.appendChild(dateText);
+
+        // add dayOfWeekOrRelativeDay text to top left of background element
+        let dayOfWeekText = HTML.getUnsafely('day' + String(i) + 'DayOfWeekText');
+        if (!exists(dayOfWeekText)) {
+            dayOfWeekText = HTML.make('div');
+            HTML.setId(dayOfWeekText, 'day' + String(i) + 'DayOfWeekText');
+        }
+        HTML.setStyle(dayOfWeekText, {
+            position: 'fixed',
+            top: String(dateAndDayOfWeekVerticalPos) + 'px',
+            left: String(left + 4) + 'px',
+            fontSize: '12px',
+            color: user.palette.shades[3],
+            fontFamily: 'Inter',
+            fontWeight: 'bold',
+            zIndex: 400
+        });
+        dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(days[i]);
+        if (dayOfWeekOrRelativeDay(days[i]) == 'Today') {
+            // white text for today
+            HTML.setStyle(dateText, { color: user.palette.shades[4] });
+            HTML.setStyle(dayOfWeekText, { color: user.palette.shades[4] });
+        }
+        HTML.body.appendChild(dayOfWeekText);
+
+        renderDay(days[i], dayElement, i);
     }
 }
 
@@ -627,19 +664,19 @@ function resizeListener() {
 }
 
 function toggleNumberOfCalendarDays() {
-    ASSERT(exists(user.SETTINGS.numberOfCalendarDays) && Number.isInteger(user.SETTINGS.numberOfCalendarDays));
-    ASSERT(1 <= user.SETTINGS.numberOfCalendarDays && user.SETTINGS.numberOfCalendarDays <= 7);
+    ASSERT(exists(user.settings.numberOfCalendarDays) && Number.isInteger(user.settings.numberOfCalendarDays));
+    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
     
     // looping from 2 to 8 incrementing by 1
-    if (user.SETTINGS.numberOfCalendarDays >= 7) {
-        user.SETTINGS.numberOfCalendarDays = 1;
+    if (user.settings.numberOfCalendarDays >= 7) {
+        user.settings.numberOfCalendarDays = 1;
     } else {
-        user.SETTINGS.numberOfCalendarDays++;
+        user.settings.numberOfCalendarDays++;
     }
     localStorage.setItem("userData", JSON.stringify(user));
 
     let buttonNumberCalendarDays = HTML.get('buttonNumberCalendarDays');
-    buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.SETTINGS.numberOfCalendarDays;
+    buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
     resizeListener();
 }
 
@@ -654,19 +691,19 @@ HTML.setStyle(buttonNumberCalendarDays, {
     fontSize: '12px',
     color: user.palette.shades[3],
 });
-ASSERT(exists(user.SETTINGS.numberOfCalendarDays) && Number.isInteger(user.SETTINGS.numberOfCalendarDays));
-ASSERT(1 <= user.SETTINGS.numberOfCalendarDays && user.SETTINGS.numberOfCalendarDays <= 7);
-buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.SETTINGS.numberOfCalendarDays;
+ASSERT(exists(user.settings.numberOfCalendarDays) && Number.isInteger(user.settings.numberOfCalendarDays));
+ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
+buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
 buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
 HTML.body.appendChild(buttonNumberCalendarDays);
 
 function toggleAmPmOr24() {
-    ASSERT(exists(user.SETTINGS));
-    ASSERT(user.SETTINGS.ampmOr24 == 'ampm' || user.SETTINGS.ampmOr24 == '24');
-    if (user.SETTINGS.ampmOr24 == 'ampm') {
-        user.SETTINGS.ampmOr24 = '24';
+    ASSERT(exists(user.settings));
+    ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
+    if (user.settings.ampmOr24 == 'ampm') {
+        user.settings.ampmOr24 = '24';
     } else {
-        user.SETTINGS.ampmOr24 = 'ampm';
+        user.settings.ampmOr24 = 'ampm';
     }
     localStorage.setItem("userData", JSON.stringify(user));
 
@@ -674,12 +711,12 @@ function toggleAmPmOr24() {
     buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
     
     // update all hour markers
-    for (let i = 0; i < user.SETTINGS.numberOfCalendarDays; i++) {
+    for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         for (let j = 0; j < 24; j++) {
             let hourMarkerText = HTML.get(`day${i}hourMarkerText${j}`);
             hourMarkerText.innerHTML = nthHourText(j);
             let fontSize;
-            if (user.SETTINGS.ampmOr24 == 'ampm') {
+            if (user.settings.ampmOr24 == 'ampm') {
                 fontSize = '12px';
             } else {
                 fontSize = '10px'; // account for additional colon character
@@ -704,8 +741,31 @@ buttonAmPmOr24.onclick = toggleAmPmOr24;
 buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
 HTML.body.appendChild(buttonAmPmOr24);
 
+function toggleStacking() {
+    ASSERT(exists(user.settings));
+    ASSERT(user.settings.stacking == true || user.settings.stacking == false);
+    user.settings.stacking = !user.settings.stacking;
+    localStorage.setItem("userData", JSON.stringify(user));
+    resizeListener();
+}
+
+let buttonStacking = HTML.make('div');
+HTML.setId(buttonStacking, 'buttonStacking');
+HTML.setStyle(buttonStacking, {
+    position: 'fixed',
+    top: windowBorderMargin + 'px',
+    // logo width + window border margin*2
+    left: String(100 + windowBorderMargin*2 + 450) + 'px',
+    backgroundColor: user.palette.shades[1],
+    fontSize: '12px',
+    color: user.palette.shades[3],
+});
+buttonStacking.onclick = toggleStacking;
+buttonStacking.innerHTML = 'Toggle Stacking';
+HTML.body.appendChild(buttonStacking);
+
 window.onresize = resizeListener;
 
 // init call
-user.SETTINGS.firstDayInCalendar = getDay(0); // on page load we want to start with today
+user.settings.firstDayInCalendar = getDay(0); // on page load we want to start with today
 resizeListener();
