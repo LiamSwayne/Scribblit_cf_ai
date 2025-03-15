@@ -36,108 +36,6 @@ export default {
             return SEND({ error: 'Send a POST request with the input text' }, 405);
         }
 
-        // Handle file upload endpoint
-        if (request.url.endsWith('/process-file')) {
-            try {
-                // Parse form data
-                const formData = await request.formData();
-                const file = formData.get('file');
-                const date = formData.get('date');
-                const time = formData.get('time');
-                const dayOfWeek = formData.get('dayOfWeek');
-                
-                if (!file) {
-                    return SEND({ error: 'No file uploaded' }, 400);
-                }
-                
-                // Get file content as ArrayBuffer
-                const buffer = await file.arrayBuffer();
-                const base64Data = bufferToBase64(buffer);
-                
-                // Get the file type
-                const fileType = file.type;
-                const fileName = file.name;
-                
-                // Prepare the system prompt
-                const systemPrompt = `You are a task parsing AI. You will receive a file containing tasks, events, or schedule information. 
-Your job is to extract and format this information into structured data.
-
-The file type is: ${fileType}
-The file name is: ${fileName}
-
-Respond with a JSON array. Each item should have these properties:
-- kind: "task" or "event". a task is anything that must be completed by a date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
-- name: The input you are given is written very hastily, so expand shorthand like "HW" to the full term like "Homework". Don't expand acronyms. Remove words from the name that provide no value, like "due". The name you produce shouldn't remove any details from the input. Format the name to use sentence case, not title case.
-- date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today" If no date is specified, assume it's today. If a day of the week is found like "this monday" return that day as a string like "monday". If a day phrase relative to the span of a week like "next monday" is given, return "monday+1". This extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2". The date may contain typos. If a task is overdue you should put the overdue date, not the current date.
-- startTime: In HH:mm format (24-hour). Only for events. If a time is stated but doesn't state AM or PM use reasoning to infer AM or PM. If the start time cannot be figured out omit this field rather than making a guess. Never assign a "default" start time like the current time or 0:00, just omit the field instead.
-- endTime: In HH:mm format (24-hour). The end of an event or the due date of a task. If an end time cannot be inferred omit this field. Never use 23:59 as a default endTime for a task.
-
-FOR THE TIME BEING, JUST SPLIT RECURRING TASKS/EVENTS INTO COPIES (MULTIPLE TASKS/EVENTS) INSTEAD OF CREATING PATTERNS. IF SOMETHING RECURS MANY TIMES, DO IT TO A MAX OF SIX TIMES.
-
-Extract as many tasks and events as you can find in the document.
-Analyze the content thoroughly to identify all task and event information.
-Give me a JSON response and nothing else.`;
-
-                // Prepare request body for Anthropic API
-                const requestBody = {
-                    model: 'claude-3-5-sonnet-20241022',
-                    max_tokens: 8192,
-                    system: [
-                        {
-                            type: "text",
-                            text: systemPrompt,
-                            cache_control: { type: "ephemeral" }
-                        }
-                    ],
-                    messages: [
-                        {
-                            role: "user",
-                            content: [
-                                {
-                                    type: "text",
-                                    text: `The date is ${date} (${dayOfWeek}) and the time is ${time}. Please extract all tasks and events from the attached file.`
-                                },
-                                {
-                                    type: "image",
-                                    source: {
-                                        type: "base64",
-                                        media_type: fileType,
-                                        data: base64Data
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                }; 
-
-                // Call Anthropic API with the file content
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': env.ANTHROPIC_API_KEY,
-                        'anthropic-version': '2023-06-01',
-                        'anthropic-beta': 'prompt-caching-2024-07-31'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                if (!response.ok) {
-                    const errorBody = await response.text();
-                    console.error(`Error in anthropic API! status: ${response.status}, body: ${errorBody}`);
-                    return SEND({ error: errorBody }, 562);
-                }
-
-                const result = await response.json();
-                console.log(result);
-                return SEND(result.content[0].text, 200, 'text-no-content-type');
-            } catch (error) {
-                console.error('Error processing file:', error);
-                return SEND({ error: 'Failed to process file: ' + error.message }, 563);
-            }
-        }
-
-        // Handle regular text input
         const input = await request.text();
 
         // Parse the input to get the date, time, dayOfWeek, and actual input
@@ -154,12 +52,45 @@ Give me a JSON response and nothing else.`;
 Respond with a JSON array. Each item should have these properties:
 - kind: "task" or "event". a task is anything that must be completed by a date but can be started at any time. an event is something that starts at a specific time, and may or may not have an end time.
 - name: The input you are given is written very hastily, so expand shorthand like "HW" to the full term like "Homework". Don't expand acronyms. Remove words from the name that provide no value, like "due". The name you produce shouldn't remove any details from the input. Format the name to use sentence case, not title case.
-- date: If a date like "october 17th" is found put in YYYY-MM-DD format. If a relative time like "tomorrow" or "today" is given, return "tomorrow" or "today" If no date is specified, assume it's today. If a day of the week is found like "this monday" return that day as a string like "monday". If a day phrase relative to the span of a week like "next monday" is given, return "monday+1". This extends to phrases like "2 mondays from now" or "next next monday" or others, which should return "monday+2". The date may contain typos. If a task is overdue you should put the overdue date, not the current date.
-- startTime: In HH:mm format (24-hour). Only for events. If a time is stated but doesn't state AM or PM use reasoning to infer AM or PM. If the start time cannot be figured out omit this field rather than making a guess. Never assign a "default" start time like the current time or 0:00, just omit the field instead.
-- endTime: In HH:mm format (24-hour). The end of an event or the due date of a task. If an end time cannot be inferred omit this field. Never use 23:59 as a default endTime for a task.
+- date: Each event has one or more dates. Tasks have 0 or more. You list each date in a separate block and indent it's properties. You can also list an endTime for tasks (time it is due). Use "RECUR=" for recurring startDate for events and endDate for tasks. If they say every 7 mondays use RECUR=monday*7. endDate for event is only included if it runs 24/7 from startDate,startTime to endDate,endTime each time it occurs. For events, only startDate is mandatory, but if endTime is included, startDate must be included. Tasks have endDate and endTime, both optional. For tasks, startDate and startTime are when they become visible. Never include startDate or startTime for tasks unless the user asks to hide the task until a certain date. You can recur 5 times with recurCount:5. You can bound recurring with recurStart and recurEnd dates. You can recur every # of days with RECUR=day*#. Weekly is just RECUR=day*7. Annually is RECUR=day*365. You can recur on the 3rd of the month with RECUR=day3. If not specified, recurStart is today and recurEnd is indefinite. Never use 11:59 PM for stuff due today, just leave time blank in that case (unless user specifically says 11:59. By default assume a tasks/event given are today.
 
+Examples with all fields but date omitted:
+Event example: Class every Monday at 3pm to 5pm and this Thursday at 4pm. Today is Friday, August 12th. Semester ends December 18th.
+"date": [
+    {
+        "startDate": "RECUR=monday",
+        "startTime": "15:00",
+        "endTime": "17:00",
+        "recurStart": "2024-8-12",
+        "recurEnd": "2024-12-18"
+    },
+    {
+        "startDate": "thursday",
+        "startTime": "16:00"
+    }
+]
 
-FOR THE TIME BEING, JUST SPLIT RECURRING TASKS/EVENTS INTO COPIES (MULTIPLE TASKS/EVENTS) INSTEAD OF CREATING PATTERNS. IF SOMETHING RECURS MANY TIMES, DO IT TO A MAX OF SIX TIMES.
+Event example: Theme park open from every 2nd friday at 9pm to sunday at 6pm. Today is Friday, August 12th.
+"date": {
+    "startDate": "RECUR=friday*2",
+    "startTime": "21:00",
+    "endDate": "sunday",
+    "endTime": "18:00"
+}
+
+Task example: HW due every Monday at 5pm. Today is Friday, August 12th.
+"date": {
+    "endDate": "RECUR=monday",
+    "endTime": "17:00"
+}
+
+Task example: Fill out daily progress by 9pm. I only want to see this task 3 hrs before. Today is Friday, August 12th.
+"date": {
+    "startDate": "2024-8-12",
+    "startTime": "18:00",
+    "endDate": "2024-8-12",
+    "endTime": "21:00"
+}
 
 Give me a JSON response and nothing else.`;
 
@@ -176,7 +107,7 @@ Give me a JSON response and nothing else.`;
             messages: [
                 {
                     role: "user",
-                    content: `The date is ${date} (${dayOfWeek}) and the time is ${time}.\n\n${actualInput}`
+                    content: `Today is ${dayOfWeek}, ${date} and the time is ${time}.\n\n${actualInput}`
                 }
             ]
         };
@@ -207,15 +138,4 @@ Give me a JSON response and nothing else.`;
             return SEND({ error: 'Failed to process input' }, 563);
         }
     }
-}
-
-// Helper function to convert ArrayBuffer to Base64
-function bufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
 }
