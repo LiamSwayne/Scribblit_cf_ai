@@ -1329,7 +1329,6 @@
             display: flex;
         }
 
-
         .sliding-rect {
             position: fixed;
             background: linear-gradient(45deg, #61a3ff, #d477ff);
@@ -4353,77 +4352,82 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            localStorage.clear();
-            // Original data from paste.txt
-            const originalData = {
-                "taskEventArray": "[{\"kind\":\"event\",\"name\":\"Meeting with math teacher\",\"date\":\"2025-03-18\",\"done\":{},\"description\":\"\",\"id\":\"task_0fymn5yt6\",\"dateArray\":[{\"startDate\":\"tuesday\"}]},{\"kind\":\"event\",\"name\":\"Meeting with advisor\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_peludxw9t\",\"dateArray\":[{\"startDate\":\"2025-03-14\"}]},{\"kind\":\"task\",\"name\":\"Math homework\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_y4mq6ggwq\",\"endTime\":\"18:00\",\"endDate\":\"2025-03-14\",\"dateArray\":[{\"endDate\":\"2025-03-14\",\"endTime\":\"18:00\"}]},{\"kind\":\"event\",\"name\":\"Networking at the Gates Hillman super hill center\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_kwsbj8dny\",\"startTime\":\"15:00\",\"endTime\":\"22:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"15:00\",\"endTime\":\"22:00\"}]},{\"kind\":\"event\",\"name\":\"Biology lab\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_0ufv0fuh6\",\"dateArray\":[{\"startDate\":\"friday\"}]},{\"kind\":\"task\",\"name\":\"Finish recording new song\",\"date\":\"2025-03-15\",\"done\":{},\"description\":\"\",\"id\":\"task_r47bv5qho\",\"endDate\":\"2025-03-15\",\"dateArray\":[{\"endDate\":\"2025-03-15\"}]},{\"kind\":\"task\",\"name\":\"Programming homework\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_ni0uxltsy\",\"endTime\":\"15:00\",\"endDate\":\"friday\",\"dateArray\":[{\"endDate\":\"friday\",\"endTime\":\"15:00\"}]},{\"kind\":\"task\",\"name\":\"Buy carrots from Target\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_jszgdgkm3\",\"dateArray\":[{}]},{\"kind\":\"event\",\"name\":\"Study session\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_962qrjvkw\",\"startTime\":\"17:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"17:00\"}]},{\"kind\":\"event\",\"name\":\"Studying\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_rrvpylqi3\",\"startTime\":\"13:00\",\"endTime\":\"15:25\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"13:00\",\"endTime\":\"15:25\"}]},{\"kind\":\"task\",\"name\":\"Writing assignment\",\"date\":\"2025-03-13\",\"done\":{},\"description\":\"\",\"id\":\"task_sy12mdz6e\",\"endDate\":\"2025-03-13\",\"dateArray\":[{\"endDate\":\"2025-03-13\"}]},{\"kind\":\"event\",\"name\":\"Studying\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_xpdkt4kv7\",\"startTime\":\"19:00\",\"endTime\":\"20:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"19:00\",\"endTime\":\"20:00\"}]},{\"kind\":\"event\",\"name\":\"Meet up with Omar\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_39w2d610w\",\"startTime\":\"19:30\",\"endTime\":\"19:50\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"19:30\",\"endTime\":\"19:50\"}]},{\"kind\":\"event\",\"name\":\"Cycling club\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_51bcekirk\",\"startTime\":\"19:00\",\"endTime\":\"20:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"19:00\",\"endTime\":\"20:00\"}]},{\"kind\":\"task\",\"name\":\"Remind Bill to pick up cold medicine\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_an9xy0s66\",\"dateArray\":[{}]},{\"kind\":\"event\",\"name\":\"Meeting\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_u54n41oul\",\"dateArray\":[{\"startDate\":\"RECUR=friday\"}]},{\"kind\":\"event\",\"name\":\"Meeting\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_qmg97yzpc\",\"startTime\":\"16:00\",\"dateArray\":[{\"startDate\":\"RECUR=thursday\",\"startTime\":\"16:00\"}]},{\"kind\":\"event\",\"name\":\"No phone time\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_dwvpk55gi\",\"startTime\":\"21:00\",\"endTime\":\"06:00\",\"endDate\":\"monday\",\"dateArray\":[{\"startDate\":\"RECUR=friday\",\"startTime\":\"21:00\",\"endDate\":\"monday\",\"endTime\":\"06:00\"}]},{\"kind\":\"event\",\"name\":\"Festival\",\"date\":\"2025-03-15\",\"done\":{},\"description\":\"\",\"id\":\"task_cgczabxlg\",\"endTime\":\"23:59\",\"endDate\":\"2025-03-16\",\"dateArray\":[{\"startDate\":\"2025-03-15\",\"endDate\":\"2025-03-16\",\"endTime\":\"23:59\"}]}]",
-                "userSettings": "{\"timeFormat\":\"AM/PM\",\"calendarStyle\":\"tag-friendly\",\"weekStart\":\"sunday\",\"exampleSetting\":false}"
-            };
-            
-            // Parse the data
-            let taskArray = JSON.parse(originalData.taskEventArray);
-            const userSettings = JSON.parse(originalData.userSettings);
-            
-            // Find the "Meeting with advisor" task to get today's date
-            const today = new Date();
-            const todayISO = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-            
-            // Find the advisor meeting
-            const advisorMeeting = taskArray.find(task => 
-                task.name === "Meeting with advisor"
-            );
-            
-            if (advisorMeeting) {
-                // Calculate the date difference
-                const originalDate = new Date(advisorMeeting.date + "T00:00:00"); // Ensure beginning of day
-                originalDate.setHours(0, 0, 0, 0);
-                const dateDiff = today.getTime() - originalDate.getTime();
-                const daysDiff = Math.floor(dateDiff / (1000 * 60 * 60 * 24));
+            console.log(window.location.hash);
+            if (window.location.hash != '#blank') {
+                localStorage.clear();
+                // Original data from paste.txt
+                const originalData = {
+                    "taskEventArray": "[{\"kind\":\"event\",\"name\":\"Meeting with math teacher\",\"date\":\"2025-03-18\",\"done\":{},\"description\":\"\",\"id\":\"task_0fymn5yt6\",\"dateArray\":[{\"startDate\":\"tuesday\"}]},{\"kind\":\"event\",\"name\":\"Meeting with advisor\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_peludxw9t\",\"dateArray\":[{\"startDate\":\"2025-03-14\"}]},{\"kind\":\"task\",\"name\":\"Math homework\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_y4mq6ggwq\",\"endTime\":\"18:00\",\"endDate\":\"2025-03-14\",\"dateArray\":[{\"endDate\":\"2025-03-14\",\"endTime\":\"18:00\"}]},{\"kind\":\"event\",\"name\":\"Networking at the Gates Hillman super hill center\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_kwsbj8dny\",\"startTime\":\"15:00\",\"endTime\":\"22:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"15:00\",\"endTime\":\"22:00\"}]},{\"kind\":\"event\",\"name\":\"Biology lab\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_0ufv0fuh6\",\"dateArray\":[{\"startDate\":\"friday\"}]},{\"kind\":\"task\",\"name\":\"Finish recording new song\",\"date\":\"2025-03-15\",\"done\":{},\"description\":\"\",\"id\":\"task_r47bv5qho\",\"endDate\":\"2025-03-15\",\"dateArray\":[{\"endDate\":\"2025-03-15\"}]},{\"kind\":\"task\",\"name\":\"Programming homework\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_ni0uxltsy\",\"endTime\":\"15:00\",\"endDate\":\"friday\",\"dateArray\":[{\"endDate\":\"friday\",\"endTime\":\"15:00\"}]},{\"kind\":\"task\",\"name\":\"Buy carrots from Target\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_jszgdgkm3\",\"dateArray\":[{}]},{\"kind\":\"event\",\"name\":\"Study session\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_962qrjvkw\",\"startTime\":\"17:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"17:00\"}]},{\"kind\":\"event\",\"name\":\"Studying\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_rrvpylqi3\",\"startTime\":\"13:00\",\"endTime\":\"15:25\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"13:00\",\"endTime\":\"15:25\"}]},{\"kind\":\"task\",\"name\":\"Writing assignment\",\"date\":\"2025-03-13\",\"done\":{},\"description\":\"\",\"id\":\"task_sy12mdz6e\",\"endDate\":\"2025-03-13\",\"dateArray\":[{\"endDate\":\"2025-03-13\"}]},{\"kind\":\"event\",\"name\":\"Studying\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_xpdkt4kv7\",\"startTime\":\"19:00\",\"endTime\":\"20:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"19:00\",\"endTime\":\"20:00\"}]},{\"kind\":\"event\",\"name\":\"Meet up with Omar\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_39w2d610w\",\"startTime\":\"19:30\",\"endTime\":\"19:50\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"19:30\",\"endTime\":\"19:50\"}]},{\"kind\":\"event\",\"name\":\"Cycling club\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_51bcekirk\",\"startTime\":\"19:00\",\"endTime\":\"20:00\",\"dateArray\":[{\"startDate\":\"2025-03-14\",\"startTime\":\"19:00\",\"endTime\":\"20:00\"}]},{\"kind\":\"task\",\"name\":\"Remind Bill to pick up cold medicine\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_an9xy0s66\",\"dateArray\":[{}]},{\"kind\":\"event\",\"name\":\"Meeting\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_u54n41oul\",\"dateArray\":[{\"startDate\":\"RECUR=friday\"}]},{\"kind\":\"event\",\"name\":\"Meeting\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_qmg97yzpc\",\"startTime\":\"16:00\",\"dateArray\":[{\"startDate\":\"RECUR=thursday\",\"startTime\":\"16:00\"}]},{\"kind\":\"event\",\"name\":\"No phone time\",\"date\":\"2025-03-14\",\"done\":{},\"description\":\"\",\"id\":\"task_dwvpk55gi\",\"startTime\":\"21:00\",\"endTime\":\"06:00\",\"endDate\":\"monday\",\"dateArray\":[{\"startDate\":\"RECUR=friday\",\"startTime\":\"21:00\",\"endDate\":\"monday\",\"endTime\":\"06:00\"}]},{\"kind\":\"event\",\"name\":\"Festival\",\"date\":\"2025-03-15\",\"done\":{},\"description\":\"\",\"id\":\"task_cgczabxlg\",\"endTime\":\"23:59\",\"endDate\":\"2025-03-16\",\"dateArray\":[{\"startDate\":\"2025-03-15\",\"endDate\":\"2025-03-16\",\"endTime\":\"23:59\"}]}]",
+                    "userSettings": "{\"timeFormat\":\"AM/PM\",\"calendarStyle\":\"tag-friendly\",\"weekStart\":\"sunday\",\"exampleSetting\":false}"
+                };
                 
-                // Update all task dates
-                taskArray = taskArray.map(task => {
-                // Update main date if it's a specific date
-                if (task.date && task.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    const taskDate = new Date(task.date);
-                    taskDate.setDate(taskDate.getDate() + daysDiff);
-                    task.date = taskDate.toISOString().split('T')[0];
-                }
+                // Parse the data
+                let taskArray = JSON.parse(originalData.taskEventArray);
+                const userSettings = JSON.parse(originalData.userSettings);
                 
-                // Update end date if it's a specific date
-                if (task.endDate && task.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    const endDate = new Date(task.endDate);
-                    endDate.setDate(endDate.getDate() + daysDiff);
-                    task.endDate = endDate.toISOString().split('T')[0];
-                }
+                // Find the "Meeting with advisor" task to get today's date
+                const today = new Date();
+                const todayISO = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
                 
-                // Update date array
-                if (task.dateArray && Array.isArray(task.dateArray)) {
-                    task.dateArray = task.dateArray.map(dateObj => {
-                    if (dateObj.startDate && dateObj.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                        const startDate = new Date(dateObj.startDate);
-                        startDate.setDate(startDate.getDate() + daysDiff);
-                        dateObj.startDate = startDate.toISOString().split('T')[0];
+                // Find the advisor meeting
+                const advisorMeeting = taskArray.find(task => 
+                    task.name === "Meeting with advisor"
+                );
+                
+                if (advisorMeeting) {
+                    // Calculate the date difference
+                    const originalDate = new Date(advisorMeeting.date + "T00:00:00"); // Ensure beginning of day
+                    originalDate.setHours(0, 0, 0, 0);
+                    const dateDiff = today.getTime() - originalDate.getTime();
+                    const daysDiff = Math.floor(dateDiff / (1000 * 60 * 60 * 24));
+                    
+                    // Update all task dates
+                    taskArray = taskArray.map(task => {
+                    // Update main date if it's a specific date
+                    if (task.date && task.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        const taskDate = new Date(task.date);
+                        taskDate.setDate(taskDate.getDate() + daysDiff);
+                        task.date = taskDate.toISOString().split('T')[0];
                     }
                     
-                    if (dateObj.endDate && dateObj.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                        const endDate = new Date(dateObj.endDate);
+                    // Update end date if it's a specific date
+                    if (task.endDate && task.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        const endDate = new Date(task.endDate);
                         endDate.setDate(endDate.getDate() + daysDiff);
-                        dateObj.endDate = endDate.toISOString().split('T')[0];
+                        task.endDate = endDate.toISOString().split('T')[0];
                     }
                     
-                    return dateObj;
+                    // Update date array
+                    if (task.dateArray && Array.isArray(task.dateArray)) {
+                        task.dateArray = task.dateArray.map(dateObj => {
+                        if (dateObj.startDate && dateObj.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            const startDate = new Date(dateObj.startDate);
+                            startDate.setDate(startDate.getDate() + daysDiff);
+                            dateObj.startDate = startDate.toISOString().split('T')[0];
+                        }
+                        
+                        if (dateObj.endDate && dateObj.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            const endDate = new Date(dateObj.endDate);
+                            endDate.setDate(endDate.getDate() + daysDiff);
+                            dateObj.endDate = endDate.toISOString().split('T')[0];
+                        }
+                        
+                        return dateObj;
+                        });
+                    }
+                    
+                    return task;
                     });
                 }
                 
-                return task;
-                });
+                // Save updated data to localStorage
+                localStorage.setItem('taskEventArray', JSON.stringify(taskArray));
+                localStorage.setItem('userSettings', JSON.stringify(userSettings));
+                
+                console.log('Demo data loaded successfully! "Meeting with advisor" is set to today:', todayISO);
+            } else {
+                localStorage.clear();
             }
-            
-            // Save updated data to localStorage
-            localStorage.setItem('taskEventArray', JSON.stringify(taskArray));
-            localStorage.setItem('userSettings', JSON.stringify(userSettings));
-            
-            console.log('Demo data loaded successfully! "Meeting with advisor" is set to today:', todayISO);
         });
 
         document.addEventListener('DOMContentLoaded', () => {
