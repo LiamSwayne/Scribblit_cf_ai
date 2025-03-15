@@ -4749,7 +4749,7 @@
                 throw new Error('Invalid response format');
             }
             
-            // Transform the response
+            // Transform the response with special handling for recurring events
             const transformedResponse = parsedResponse.map(item => {
                 const transformedItem = {
                     ...item,
@@ -4758,44 +4758,56 @@
                     id: 'task_' + Math.random().toString(36).substr(2, 9)
                 };
                 
-                // Handle array of dates
-                if (Array.isArray(item.date)) {
-                    // Extract first date object for backwards compatibility 
-                    const firstDate = item.date[0];
-                    if (firstDate) {
-                        transformedItem.date = firstDate.startDate || firstDate.endDate;
-                        transformedItem.startTime = firstDate.startTime;
-                        transformedItem.endTime = firstDate.endTime;
-                        transformedItem.endDate = firstDate.endDate;
+                // Enhanced date handling
+                // Ensure date is properly formatted
+                if (item.date) {
+                    if (typeof item.date === 'string') {
+                        if (item.date.match(/^[a-z]+(\+\d+)?$/)) {
+                            // Handle day names with proper conversion
+                            transformedItem.date = convertToISODate(item.date);
+                        }
+                        // For 'today' or 'tomorrow', keep as is for the converter function
                     }
-                    // Store the full date array for future use
-                    transformedItem.dateArray = item.date;
-                } else if (typeof item.date === 'object') {
-                    // Single date object
-                    transformedItem.date = item.date.startDate || item.date.endDate;
-                    transformedItem.startTime = item.date.startTime;
-                    transformedItem.endTime = item.date.endTime;
-                    transformedItem.endDate = item.date.endDate;
-                    transformedItem.dateArray = [item.date];
                 } else {
-                    // Legacy string format
-                    transformedItem.date = item.date;
-                    transformedItem.dateArray = [{
-                        startDate: item.date,
-                        startTime: item.startTime,
-                        endTime: item.endTime,
-                        endDate: item.endDate
-                    }];
+                    // If no date specified, use today
+                    transformedItem.date = currentDate;
+                }
+                
+                // Create correct dateArray structure
+                transformedItem.dateArray = [{
+                    startDate: transformedItem.date,
+                    startTime: item.startTime,
+                    endTime: item.endTime,
+                    endDate: item.endDate || transformedItem.date
+                }];
+                
+                // Add recurring pattern if specified
+                if (item.recurPattern) {
+                    transformedItem.recurPattern = item.recurPattern;
                 }
                 
                 return transformedItem;
             });
             
             progressIndicator.textContent = 'Adding tasks to calendar...';
+            
+            // Force a refresh of the calendar view
             updateTaskEventArray(transformedResponse);
             saveUserData();
+            
+            // Extra call to convertToISODate to ensure all dates are properly set
+            taskEventArray.forEach(item => {
+                if (item.date) {
+                    item.date = convertToISODate(item.date);
+                }
+                if (item.endDate) {
+                    item.endDate = convertToISODate(item.endDate);
+                }
+            });
+            
+            saveUserData();
             renderTasks();
-            renderCalendar();
+            renderCalendar(true); // Force re-render with animation
             
             // Hide progress indicator with success message
             progressIndicator.textContent = 'File processed successfully!';
