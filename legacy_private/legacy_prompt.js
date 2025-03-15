@@ -73,6 +73,8 @@ Respond with a JSON array. Each item should have these properties:
 - endTime: In HH:mm format (24-hour). The end of an event or the due date of a task. If an end time cannot be inferred omit this field. Never use 23:59 as a default endTime for a task.
 - recurPattern: If a task or event is recurring like "every monday" or "every 2 weeks" make this field's value "daily" or "weekly" or "biweekly" or "monthly" or "yearly". If the task is not recurring or the recurrence pattern is unclear omit this field. For specific days of the week like "every monday and tuesday" return the days like "monday,tuesday". If it's a weekend day like "every weekend" return "saturday,sunday". If the recurrence pattern has a different time for specific recurrences like "every monday at 3pm and every tuesday at 4pm" return the days and times like "monday@15:00,tuesday@16:00". For every n'th week return "weekly+n" like "weekly+7" for every 7 weeks. For the first day, monday, etc of the month return "monthly_first_day" or "monthly_first_monday" etc. You can have multiple recurrence patterns in the same string like "weekly+7,monthly_first_monday".
 
+FOR THE TIME BEING, JUST CREATE MULTIPLE TASKS/EVENTS FOR RECURRING TASKS/EVENTS INSTEAD OF CREATING PATTERNS. IF SOMETHING RECURS MANY TIMES, DO IT TO A MAX OF SIX TIMES.
+
 Extract as many tasks and events as you can find in the document.
 Analyze the content thoroughly to identify all task and event information.
 Give me a JSON response and nothing else.`;
@@ -157,6 +159,8 @@ Respond with a JSON array. Each item should have these properties:
 - startTime: In HH:mm format (24-hour). Only for events. If a time is stated but doesn't state AM or PM use reasoning to infer AM or PM. If the start time cannot be figured out omit this field rather than making a guess. Never assign a "default" start time like the current time or 0:00, just omit the field instead.
 - endTime: In HH:mm format (24-hour). The end of an event or the due date of a task. If an end time cannot be inferred omit this field. Never use 23:59 as a default endTime for a task.
 - recurPattern: If a task or event is recurring like "every monday" or "every 2 weeks" make this field's value "daily" or "weekly" or "biweekly" or "monthly" or "yearly". If the task is not recurring or the recurrence pattern is unclear omit this field. For specific days of the week like "every monday and tuesday" return the days like "monday,tuesday". If it's a weekend day like "every weekend" return "saturday,sunday". If the recurrence pattern has a different time for specific recurrences like "every monday at 3pm and every tuesday at 4pm" return the days and times like "monday@15:00,tuesday@16:00". For every n'th week return "weekly+n" like "weekly+7" for every 7 weeks. For the first day, monday, etc of the month return "monthly_first_day" or "monthly_first_monday" etc. You can have multiple recurrence patterns in the same string like "weekly+7,monthly_first_monday".
+
+FOR THE TIME BEING, JUST CREATE MULTIPLE TASKS/EVENTS FOR RECURRING TASKS/EVENTS INSTEAD OF CREATING PATTERNS. IF SOMETHING RECURS MANY TIMES, DO IT TO A MAX OF SIX TIMES.
 
 Give me a JSON response and nothing else.`;
 
