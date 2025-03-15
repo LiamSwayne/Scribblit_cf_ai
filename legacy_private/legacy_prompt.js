@@ -107,7 +107,7 @@ Give me a JSON response and nothing else.`;
                             ]
                         }
                     ]
-                };
+                }; 
 
                 // Call Anthropic API with the file content
                 const response = await fetch('https://api.anthropic.com/v1/messages', {
