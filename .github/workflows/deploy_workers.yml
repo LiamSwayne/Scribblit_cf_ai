@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'private/**'
-      - 'private_legacy/**'
+      - 'legacy_private/**'
 
 jobs:
   deploy:
