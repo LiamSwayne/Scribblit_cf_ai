@@ -2823,12 +2823,371 @@
             localStorage.setItem('taskEventArray', JSON.stringify(taskEventArray));
         }
 
-        function loadUserData() {
-            const data = localStorage.getItem('taskEventArray');
-            if (data) {
-                taskEventArray = JSON.parse(data);
-            }
+        // Function to adjust dates relative to current day instead of April 27, 2025
+function adjustDatesToToday(taskData) {
+  const baseDate = DateTime.fromISO("2025-04-27");
+  const today = DateTime.now();
+  const daysDifference = today.diff(baseDate, 'days').days;
+  
+  return taskData.map(task => {
+    const newTask = {...task};
+    
+    // Handle specific date strings (relative weekdays like "monday", "tuesday", etc.)
+    const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+    
+    // Adjust date field
+    if (task.date) {
+      if (weekdays.includes(task.date.toLowerCase())) {
+        // Keep weekday names as is, they'll be calculated relative to current week
+        newTask.date = task.date.toLowerCase();
+      } else if (task.date.startsWith("RECUR=")) {
+        // Keep recurring patterns as is
+        newTask.date = task.date;
+      } else if (task.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // If it's an ISO date, adjust it by the day difference
+        const adjustedDate = DateTime.fromISO(task.date).plus({days: daysDifference});
+        newTask.date = adjustedDate.toISODate();
+      }
+    }
+    
+    // Adjust endDate field if it exists
+    if (task.endDate) {
+      if (weekdays.includes(task.endDate.toLowerCase())) {
+        // Keep weekday names as is
+        newTask.endDate = task.endDate.toLowerCase();
+      } else if (task.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // If it's an ISO date, adjust it
+        const adjustedEndDate = DateTime.fromISO(task.endDate).plus({days: daysDifference});
+        newTask.endDate = adjustedEndDate.toISODate();
+      }
+    }
+    
+    // Also adjust dates in dateArray
+    if (task.dateArray && Array.isArray(task.dateArray)) {
+      newTask.dateArray = task.dateArray.map(dateObj => {
+        const newDateObj = {...dateObj};
+        
+        if (dateObj.startDate) {
+          if (weekdays.includes(dateObj.startDate.toLowerCase())) {
+            newDateObj.startDate = dateObj.startDate.toLowerCase();
+          } else if (dateObj.startDate.startsWith("RECUR=")) {
+            newDateObj.startDate = dateObj.startDate;
+          } else if (dateObj.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const adjustedStartDate = DateTime.fromISO(dateObj.startDate).plus({days: daysDifference});
+            newDateObj.startDate = adjustedStartDate.toISODate();
+          }
         }
+        
+        if (dateObj.endDate) {
+          if (weekdays.includes(dateObj.endDate.toLowerCase())) {
+            newDateObj.endDate = dateObj.endDate.toLowerCase();
+          } else if (dateObj.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const adjustedEndDate = DateTime.fromISO(dateObj.endDate).plus({days: daysDifference});
+            newDateObj.endDate = adjustedEndDate.toISODate();
+          }
+        }
+        
+        return newDateObj;
+      });
+    }
+    
+    return newTask;
+  });
+}
+
+// Modified loadUserData function to override localStorage with our predefined data
+function loadUserData() {
+  // The predefined task data (your JSON data)
+  const predefinedTaskData = [
+    {
+        "kind": "event",
+        "name": "Meeting with math teacher",
+        "date": "tuesday",
+        "done": {},
+        "description": "",
+        "id": "task_h0ubfsjsr",
+        "dateArray": [
+            {
+                "startDate": "tuesday"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meeting with advisor",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_5zeml4lec",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Math homework",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_0vsvybsjv",
+        "endTime": "18:00",
+        "endDate": "2025-04-27",
+        "dateArray": [
+            {
+                "endDate": "2025-04-27",
+                "endTime": "18:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Networking at the Gates Hillman super hill center",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_njfi80jhu",
+        "startTime": "15:00",
+        "endTime": "22:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "15:00",
+                "endTime": "22:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Bio lab",
+        "date": "friday",
+        "done": {},
+        "description": "",
+        "id": "task_ie6959fc9",
+        "dateArray": [
+            {
+                "startDate": "friday"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Finish recording new song",
+        "date": "monday",
+        "done": {},
+        "description": "",
+        "id": "task_e97s8eezv",
+        "endDate": "monday",
+        "dateArray": [
+            {
+                "endDate": "monday"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Programming homework",
+        "date": "friday",
+        "done": {},
+        "description": "",
+        "id": "task_71x9qgjui",
+        "endTime": "15:00",
+        "endDate": "friday",
+        "dateArray": [
+            {
+                "endDate": "friday",
+                "endTime": "15:00"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Buy carrots from Target",
+        "done": {},
+        "description": "",
+        "id": "task_4orcuduik",
+        "dateArray": [
+            {}
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Study session",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_lk74pto06",
+        "startTime": "17:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "17:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Studying",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_mj2oe0l98",
+        "startTime": "13:00",
+        "endTime": "15:25",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "13:00",
+                "endTime": "15:25"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Writing assignment",
+        "date": "2025-04-26",
+        "done": {},
+        "description": "",
+        "id": "task_dspwc91vi",
+        "endDate": "2025-04-26",
+        "dateArray": [
+            {
+                "endDate": "2025-04-26"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Studying",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_h1skquruj",
+        "startTime": "19:00",
+        "endTime": "20:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "19:00",
+                "endTime": "20:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meet up with Omar",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_1qds06d6f",
+        "startTime": "19:30",
+        "endTime": "19:50",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "19:30",
+                "endTime": "19:50"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Cycling club",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_h76up74xv",
+        "startTime": "19:00",
+        "endTime": "20:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "19:00",
+                "endTime": "20:00"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Remind Bill to pick up cold medicine",
+        "done": {},
+        "description": "",
+        "id": "task_osl4oaa5m",
+        "dateArray": [
+            {}
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meeting",
+        "date": "RECUR=friday",
+        "done": {},
+        "description": "",
+        "id": "task_x4py9d6dz",
+        "dateArray": [
+            {
+                "startDate": "RECUR=friday"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meeting",
+        "date": "RECUR=thursday",
+        "done": {},
+        "description": "",
+        "id": "task_06siecv6n",
+        "startTime": "16:00",
+        "dateArray": [
+            {
+                "startDate": "RECUR=thursday",
+                "startTime": "16:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "No phone time",
+        "date": "RECUR=friday",
+        "done": {},
+        "description": "",
+        "id": "task_epfpe6fm1",
+        "startTime": "21:00",
+        "endTime": "06:00",
+        "endDate": "monday",
+        "dateArray": [
+            {
+                "startDate": "RECUR=friday",
+                "startTime": "21:00",
+                "endDate": "monday",
+                "endTime": "06:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Festival",
+        "date": "saturday",
+        "done": {},
+        "description": "",
+        "id": "task_4scbdk14x",
+        "endDate": "sunday",
+        "dateArray": [
+            {
+                "startDate": "saturday",
+                "endDate": "sunday"
+            }
+        ]
+    }
+  ];
+
+  // Adjust dates to be relative to today's date
+  taskEventArray = adjustDatesToToday(predefinedTaskData);
+  
+  // Save to localStorage for persistence during this session
+  saveUserData();
+}
 
         // take a date string from startTime, which shouldn't have a day but sometimes AI hallucinates and gives it a day, so we try to infer the correct date before clearing the field
         function calculateActualDate(dateString) {
