@@ -79,4 +79,118 @@ each item in the taskEventArray looks like this:
         }
 }
 */
-/* we keep all the data so when they select something else in the taskEvent editor we set it to their last stored value */
+
+// Date and Time
+class DateField {
+    constructor(year, month, day) {
+        this.year = year;
+        this.month = month;
+        this.day = day;
+    }
+}
+
+class TimeField {
+    constructor(hour, minute) {
+        this.hour = hour;
+        this.minute = minute;
+    }
+}
+
+// Recurrence patterns
+class EveryNDaysPattern {
+    constructor(initialDate, n) {
+        this.initialDate = initialDate; // DateField
+        this.n = n;
+    }
+}
+
+class MonthlyPattern {
+    constructor(day) {
+        this.day = day;
+    }
+}
+
+class AnnuallyPattern {
+    constructor(month, day) {
+        this.month = month;
+        this.day = day;
+    }
+}
+
+// Range specs
+class DateRange {
+    constructor(startDate, endDate) {
+        this.startDate = startDate; // DateField
+        this.endDate = endDate;     // DateField
+    }
+}
+
+class RecurrenceCount {
+    constructor(count) {
+        this.count = count; // int
+    }
+}
+
+// Task instances
+class NonRecurringTaskInstance {
+    constructor(date, dueTime, completion) {
+        this.date = date;         // DateField
+        this.dueTime = dueTime;   // TimeField
+        this.completion = completion; // array of Unix timestamps
+    }
+}
+
+class RecurringTaskInstance {
+    constructor(datePattern, dueTime, range, completion) {
+        this.datePattern = datePattern; // EveryNDaysPattern, MonthlyPattern, or AnnuallyPattern
+        this.dueTime = dueTime;         // TimeField
+        this.range = range;             // DateRange or RecurrenceCount
+        this.completion = completion;   // array of Unix timestamps
+    }
+}
+
+// Event instances
+class NonRecurringEventInstance {
+    constructor(startDate, startTime, endTime, differentEndDate = null) {
+        this.startDate = startDate;         // DateField
+        this.startTime = startTime;         // TimeField
+        this.endTime = endTime;             // TimeField
+        this.differentEndDate = differentEndDate; // DateField or null
+    }
+}
+
+class RecurringEventInstance {
+    constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern = null) {
+        this.startDatePattern = startDatePattern; // EveryNDaysPattern, MonthlyPattern, or AnnuallyPattern
+        this.startTime = startTime;               // TimeField
+        this.endTime = endTime;                   // TimeField
+        this.range = range;                       // DateRange or RecurrenceCount
+        this.differentEndDatePattern = differentEndDatePattern; // int (days after start)
+    }
+}
+
+// TaskData and EventData
+class TaskData {
+    constructor(instances, hideUntil, showOverdue, workSessions) {
+        this.instances = instances;  // array of NonRecurringTaskInstance or RecurringTaskInstance
+        this.hideUntil = hideUntil;  // { kind: 'dayOf' | 'relative' | 'date', value: int or DateField }
+        this.showOverdue = showOverdue; // boolean
+        this.workSessions = workSessions; // array of NonRecurringEventInstance or RecurringEventInstance
+    }
+}
+
+class EventData {
+    constructor(instances) {
+        this.instances = instances; // array of NonRecurringEventInstance or RecurringEventInstance
+    }
+}
+
+// Task or Event container
+class TaskOrEvent {
+    constructor(id, name, description, data) {
+        this.id = id;           // string
+        this.name = name;       // string
+        this.description = description; // string
+        this.data = data;       // TaskData or EventData
+    }
+}
