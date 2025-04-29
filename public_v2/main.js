@@ -247,6 +247,8 @@ function ASSERT(condition, message="") {
     }
 }
 
+const NULL = Symbol('NULL');
+
 // async/await sleep function like Python's
 function sleep(seconds) {
     return new Promise(resolve => setTimeout(resolve, seconds * 1000)); // setTimeout works in milliseconds
