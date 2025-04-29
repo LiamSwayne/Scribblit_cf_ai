@@ -83,6 +83,24 @@ each item in the taskEventArray looks like this:
 // Date and Time
 class DateField {
     constructor(year, month, day) {
+        ASSERT(exists(year));
+        ASSERT(typeof year === "number");
+        ASSERT(Number.isInteger(year));
+        
+        ASSERT(exists(month));
+        ASSERT(typeof month === "number");
+        ASSERT(Number.isInteger(month));
+        ASSERT(month >= 1 && month <= 12);
+        
+        ASSERT(exists(day));
+        ASSERT(typeof day === "number");
+        ASSERT(Number.isInteger(day));
+        ASSERT(day >= 1 && day <= 31);
+        
+        // Additional validation for days in month (including leap years)
+        const daysInMonth = new Date(year, month, 0).getDate();
+        ASSERT(day <= daysInMonth);
+        
         this.year = year;
         this.month = month;
         this.day = day;
@@ -91,6 +109,16 @@ class DateField {
 
 class TimeField {
     constructor(hour, minute) {
+        ASSERT(exists(hour));
+        ASSERT(typeof hour === "number");
+        ASSERT(Number.isInteger(hour));
+        ASSERT(hour >= 0 && hour <= 23);
+        
+        ASSERT(exists(minute));
+        ASSERT(typeof minute === "number");
+        ASSERT(Number.isInteger(minute));
+        ASSERT(minute >= 0 && minute <= 59);
+        
         this.hour = hour;
         this.minute = minute;
     }
@@ -99,19 +127,46 @@ class TimeField {
 // Recurrence patterns
 class EveryNDaysPattern {
     constructor(initialDate, n) {
-        this.initialDate = initialDate; // DateField
+        ASSERT(exists(initialDate));
+        ASSERT(initialDate instanceof DateField);
+        
+        ASSERT(exists(n));
+        ASSERT(typeof n === "number");
+        ASSERT(Number.isInteger(n));
+        ASSERT(n > 0);
+        
+        this.initialDate = initialDate;
         this.n = n;
     }
 }
 
 class MonthlyPattern {
     constructor(day) {
+        ASSERT(exists(day));
+        ASSERT(typeof day === "number");
+        ASSERT(Number.isInteger(day));
+        ASSERT(day >= 1 && day <= 31);
+        
         this.day = day;
     }
 }
 
 class AnnuallyPattern {
     constructor(month, day) {
+        ASSERT(exists(month));
+        ASSERT(typeof month === "number");
+        ASSERT(Number.isInteger(month));
+        ASSERT(month >= 1 && month <= 12);
+        
+        ASSERT(exists(day));
+        ASSERT(typeof day === "number");
+        ASSERT(Number.isInteger(day));
+        ASSERT(day >= 1 && day <= 31);
+        
+        // Additional validation for days in month
+        const daysInMonth = new Date(2020, month, 0).getDate();
+        ASSERT(day <= daysInMonth);
+        
         this.month = month;
         this.day = day;
     }
@@ -120,77 +175,260 @@ class AnnuallyPattern {
 // Range specs
 class DateRange {
     constructor(startDate, endDate) {
-        this.startDate = startDate; // DateField
-        this.endDate = endDate;     // DateField
+        ASSERT(exists(startDate));
+        ASSERT(startDate instanceof DateField);
+        
+        // endDate can be NULL (optional)
+        if (endDate !== NULL) {
+            ASSERT(endDate instanceof DateField);
+            
+            // Convert to Date objects for comparison
+            const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
+            const endDateObj = new Date(endDate.year, endDate.month - 1, endDate.day);
+            ASSERT(endDateObj >= startDateObj);
+        }
+        
+        this.startDate = startDate;
+        this.endDate = endDate;
     }
 }
 
 class RecurrenceCount {
     constructor(count) {
-        this.count = count; // int
+        ASSERT(exists(count));
+        ASSERT(typeof count === "number");
+        ASSERT(Number.isInteger(count));
+        ASSERT(count > 0);
+        
+        this.count = count;
     }
 }
 
 // Task instances
 class NonRecurringTaskInstance {
     constructor(date, dueTime, completion) {
-        this.date = date;         // DateField
-        this.dueTime = dueTime;   // TimeField
-        this.completion = completion; // array of Unix timestamps
+        ASSERT(exists(date));
+        ASSERT(date instanceof DateField);
+        
+        // dueTime can be NULL (optional)
+        if (dueTime !== NULL) {
+            ASSERT(dueTime instanceof TimeField);
+        }
+        
+        ASSERT(exists(completion));
+        ASSERT(Array.isArray(completion));
+        // Validate each completion timestamp is a number (unix time)
+        completion.forEach(timestamp => {
+            ASSERT(typeof timestamp === "number");
+            ASSERT(Number.isInteger(timestamp));
+        });
+        
+        this.date = date;
+        this.dueTime = dueTime;
+        this.completion = completion;
     }
 }
 
 class RecurringTaskInstance {
     constructor(datePattern, dueTime, range, completion) {
-        this.datePattern = datePattern; // EveryNDaysPattern, MonthlyPattern, or AnnuallyPattern
-        this.dueTime = dueTime;         // TimeField
-        this.range = range;             // DateRange or RecurrenceCount
-        this.completion = completion;   // array of Unix timestamps
+        ASSERT(exists(datePattern));
+        ASSERT(
+            datePattern instanceof EveryNDaysPattern || 
+            datePattern instanceof MonthlyPattern || 
+            datePattern instanceof AnnuallyPattern
+        );
+        
+        // dueTime can be NULL (optional)
+        if (dueTime !== NULL) {
+            ASSERT(dueTime instanceof TimeField);
+        }
+        
+        ASSERT(exists(range));
+        ASSERT(range instanceof DateRange || range instanceof RecurrenceCount);
+        
+        ASSERT(exists(completion));
+        ASSERT(Array.isArray(completion));
+        // Validate each completion timestamp is a number (unix time)
+        completion.forEach(timestamp => {
+            ASSERT(typeof timestamp === "number");
+            ASSERT(Number.isInteger(timestamp));
+        });
+        
+        this.datePattern = datePattern;
+        this.dueTime = dueTime;
+        this.range = range;
+        this.completion = completion;
     }
 }
 
 // Event instances
 class NonRecurringEventInstance {
-    constructor(startDate, startTime, endTime, differentEndDate = null) {
-        this.startDate = startDate;         // DateField
-        this.startTime = startTime;         // TimeField
-        this.endTime = endTime;             // TimeField
-        this.differentEndDate = differentEndDate; // DateField or null
+    constructor(startDate, startTime, endTime, differentEndDate = NULL) {
+        ASSERT(exists(startDate));
+        ASSERT(startDate instanceof DateField);
+        
+        // startTime and endTime can be NULL (optional)
+        if (startTime !== NULL) {
+            ASSERT(startTime instanceof TimeField);
+        }
+        
+        if (endTime !== NULL) {
+            ASSERT(endTime instanceof TimeField);
+            
+            // If both start and end times are provided, validate end is after start on same day
+            if (startTime !== NULL && differentEndDate === NULL) {
+                const startMinutes = startTime.hour * 60 + startTime.minute;
+                const endMinutes = endTime.hour * 60 + endTime.minute;
+                ASSERT(endMinutes > startMinutes);
+            }
+        }
+        
+        // differentEndDate is optional
+        if (differentEndDate !== NULL) {
+            ASSERT(differentEndDate instanceof DateField);
+            
+            // Convert to Date objects for comparison
+            const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
+            const endDateObj = new Date(differentEndDate.year, differentEndDate.month - 1, differentEndDate.day);
+            ASSERT(endDateObj > startDateObj);
+        }
+        
+        this.startDate = startDate;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.differentEndDate = differentEndDate;
     }
 }
 
 class RecurringEventInstance {
-    constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern = null) {
-        this.startDatePattern = startDatePattern; // EveryNDaysPattern, MonthlyPattern, or AnnuallyPattern
-        this.startTime = startTime;               // TimeField
-        this.endTime = endTime;                   // TimeField
-        this.range = range;                       // DateRange or RecurrenceCount
-        this.differentEndDatePattern = differentEndDatePattern; // int (days after start)
+    constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern = NULL) {
+        ASSERT(exists(startDatePattern));
+        ASSERT(
+            startDatePattern instanceof EveryNDaysPattern || 
+            startDatePattern instanceof MonthlyPattern || 
+            startDatePattern instanceof AnnuallyPattern
+        );
+        
+        // startTime and endTime can be NULL (optional)
+        if (startTime !== NULL) {
+            ASSERT(startTime instanceof TimeField);
+        }
+        
+        if (endTime !== NULL) {
+            ASSERT(endTime instanceof TimeField);
+            
+            // If both start and end times are provided, validate end is after start on same day (if not multi-day)
+            if (startTime !== NULL && differentEndDatePattern === NULL) {
+                const startMinutes = startTime.hour * 60 + startTime.minute;
+                const endMinutes = endTime.hour * 60 + endTime.minute;
+                ASSERT(endMinutes > startMinutes);
+            }
+        }
+        
+        ASSERT(exists(range));
+        ASSERT(range instanceof DateRange || range instanceof RecurrenceCount);
+        
+        // differentEndDatePattern is optional
+        if (differentEndDatePattern !== NULL) {
+            ASSERT(typeof differentEndDatePattern === "number");
+            ASSERT(Number.isInteger(differentEndDatePattern));
+            ASSERT(differentEndDatePattern > 0);
+        }
+        
+        this.startDatePattern = startDatePattern;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.range = range;
+        this.differentEndDatePattern = differentEndDatePattern;
     }
 }
 
 // TaskData and EventData
 class TaskData {
     constructor(instances, hideUntil, showOverdue, workSessions) {
-        this.instances = instances;  // array of NonRecurringTaskInstance or RecurringTaskInstance
-        this.hideUntil = hideUntil;  // { kind: 'dayOf' | 'relative' | 'date', value: int or DateField }
-        this.showOverdue = showOverdue; // boolean
-        this.workSessions = workSessions; // array of NonRecurringEventInstance or RecurringEventInstance
+        ASSERT(exists(instances));
+        ASSERT(Array.isArray(instances));
+        instances.forEach(instance => {
+            ASSERT(
+                instance instanceof NonRecurringTaskInstance || 
+                instance instanceof RecurringTaskInstance
+            );
+        });
+        
+        // hideUntil is optional
+        if (hideUntil !== NULL) {
+            ASSERT(exists(hideUntil.kind));
+            ASSERT(typeof hideUntil.kind === "string");
+            ASSERT(['dayOf', 'relative', 'date'].includes(hideUntil.kind));
+            
+            if (hideUntil.kind === 'relative') {
+                ASSERT(exists(hideUntil.value));
+                ASSERT(typeof hideUntil.value === "number");
+                ASSERT(Number.isInteger(hideUntil.value));
+            } else if (hideUntil.kind === 'date') {
+                ASSERT(exists(hideUntil.value));
+                ASSERT(hideUntil.value instanceof DateField);
+            }
+        }
+        
+        ASSERT(exists(showOverdue));
+        ASSERT(typeof showOverdue === "boolean");
+        
+        // workSessions is optional
+        if (workSessions !== NULL) {
+            ASSERT(Array.isArray(workSessions));
+            workSessions.forEach(session => {
+                ASSERT(
+                    session instanceof NonRecurringEventInstance || 
+                    session instanceof RecurringEventInstance
+                );
+            });
+        }
+        
+        this.instances = instances;
+        this.hideUntil = hideUntil;
+        this.showOverdue = showOverdue;
+        this.workSessions = workSessions;
     }
 }
 
 class EventData {
     constructor(instances) {
-        this.instances = instances; // array of NonRecurringEventInstance or RecurringEventInstance
+        ASSERT(exists(instances));
+        ASSERT(Array.isArray(instances));
+        instances.forEach(instance => {
+            ASSERT(
+                instance instanceof NonRecurringEventInstance || 
+                instance instanceof RecurringEventInstance
+            );
+        });
+        
+        this.instances = instances;
     }
 }
 
 // Task or Event container
 class TaskOrEvent {
     constructor(id, name, description, data) {
-        this.id = id;           // string
-        this.name = name;       // string
-        this.description = description; // string
-        this.data = data;       // TaskData or EventData
+        ASSERT(exists(id));
+        ASSERT(typeof id === "string");
+        ASSERT(id.length > 0);
+        
+        ASSERT(exists(name));
+        ASSERT(typeof name === "string");
+        ASSERT(name.length > 0);
+        
+        // description is optional
+        if (description !== NULL) {
+            ASSERT(typeof description === "string");
+        }
+        
+        ASSERT(exists(data));
+        ASSERT(data instanceof TaskData || data instanceof EventData);
+        
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.data = data;
     }
 }
