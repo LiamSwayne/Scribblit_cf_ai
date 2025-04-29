@@ -1,0 +1,4836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scribblit</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <!-- JSON parser that allows trailing commas produced by the LLM -->
+    <script src="https://unpkg.com/json5@2/dist/index.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/2.3.1/luxon.min.js"></script>
+    <style>
+        :root {
+            --grey-1: #e0e0e0;  /* Lightest - Used for text */
+            --grey-2: #888888;  /* Used for task dates and times */
+            --grey-3: #666666;  /* Used for hover states */
+            --grey-4: #444444;  /* Used for borders and lines */
+            --grey-5: #2d2d2d;  /* Used for input background */
+            --grey-6: #1e1e1e;  /* Darkest - Used for body background */
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            padding-top: 10px;
+            padding-left: 10px;
+            box-sizing: border-box;
+            font-family: 'Lexend', sans-serif;
+            background-color: var(--grey-6);
+            color: var(--grey-1);
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-grow: 1;
+            height: calc(100vh - 10px);
+            position: relative;
+        }
+
+        .left-column {
+            width: calc(50% - 10px);
+            padding-right: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: none;
+        }
+
+        #centerLine {
+            background-color: var(--grey-4);
+            width: 2px;
+            position: fixed;
+            left: calc(50% + 4px);
+            top: 8px;
+            height: calc(100% - 16px);
+        }
+
+        #taskInput {
+            width: calc(100% - 1px);
+            min-height: 100px;
+            margin-bottom: 30px;
+            background-color: var(--grey-5);
+            color: var(--grey-1);
+            border: 2px solid var(--grey-4);
+            padding: 2px 4px;
+            resize: none;
+            position: relative;
+            top: 30px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            box-sizing: border-box;
+            transition: min-height 0.3s ease, height 0.3s ease;
+            max-height: calc(80vh - 100px);
+            /* Hide default scrollbar for Firefox */
+            scrollbar-width: none;
+            /* Hide default scrollbar for Chrome/Safari */
+            &::-webkit-scrollbar {
+                display: none;
+            }
+            border-radius: 4px;
+        }
+
+        /* wrapper for the custom scrollbar */
+        #taskInputScrollbarWrapper {
+            position: absolute;
+            width: 5px;
+            right: -6.5px;
+            top: 30px;
+            bottom: 4px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Custom scrollbar track */
+        #taskInputScrollbar {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: var(--grey-4);
+            border-radius: 2.5px;
+        }
+
+        /* Custom scrollbar handle */
+        #taskInputScrollbarHandle {
+            position: absolute;
+            width: 100%;
+            min-height: 30px;
+            background-color: var(--grey-3);
+            border-radius: 2.5px;
+            transition: background-color 0.3s ease;
+        }
+
+        #taskInputScrollbarHandle:hover {
+            background-color: var(--grey-2);
+        }
+
+        @keyframes cursorPulse {
+            0% {
+                caret-color: #61a3ff; /* Starting with blue */
+            }
+            50% {
+                caret-color: #d477ff; /* Transitioning to purple */
+            }
+            100% {
+                caret-color: #61a3ff; /* Back to blue */
+            }
+        }
+
+        #taskInput:focus {
+            outline: none;
+            border-color: var(--grey-4);
+            animation: cursorPulse 3s infinite ease-in-out;
+        }
+
+        .task-section-container {
+            width: 100%;
+        }
+
+        .task-section {
+            width: 100%;
+            transition: opacity 0.3s ease;
+        }
+
+        .section-border {
+            height: 2px;
+            background-color: var(--grey-4);
+            margin: 5px 0;
+        }
+
+        .empty-section .task-section {
+            opacity: 0.5;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            user-select: none;
+            cursor: default;
+        }
+
+        .empty-section .section-title {
+            color: var(--grey-2);
+        }
+
+        .task-list {
+            padding: 0;
+            width: 100%;
+        }
+
+        .task-list > div {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .task-list li {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .task-asterisk {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--grey-2);
+            margin-right: 21px;
+            min-width: 24px;
+            text-align: right;
+            margin-top: 0px;
+        }
+
+        .task-date {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--grey-2);
+            margin-right: 7px;
+            min-width: 38px;
+            text-align: right;
+            margin-top: 2px;
+        }
+
+        .task-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--grey-2);
+            margin-right: 7px;
+            min-width: 38px;
+            text-align: right;
+            margin-top: 2px;
+            text-align: center;
+            /* animations for switching between AM/PM and 24h */
+            transition: font-size 0.3s ease, letter-spacing 0.3s ease;
+        }
+
+        .task-date-time {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 0px;
+            margin-top: -5px;
+        }
+
+        .task-date-no-time {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 0px;
+            margin-top: 0px;
+        }
+
+        .task-date-time .task-time {
+            font-size: 10.5px;
+            margin-top: -2px;
+        }
+
+        .time-format-ampm .task-time {
+            font-size: 9.5px !important;
+            letter-spacing: -0.5px !important;
+        }
+
+        .time-format-ampm .overdue-task .task-time {
+            font-size: 9.5px !important;
+            letter-spacing: -0.5px !important;
+        }
+
+        .time-colon {
+            margin-left: -1.5px;
+            margin-right: -1.5px;
+        }
+
+        .navigation {
+            position: absolute;
+            left: calc(50% + 10px);
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #allDayEvents {
+            position: absolute;
+            top: 23px;
+            left: calc(50% + 14px);
+            right: 4px;
+            padding-top: 2px;
+            padding-bottom: 4px;
+            padding-right: 4px;
+            margin-top: 6px;
+        }
+
+        #calendar {
+            position: absolute;
+            top: 60px;
+            left: calc(50% + 10px);
+            right: 10px;
+            bottom: 10px;
+            overflow: hidden;
+            border-bottom: 1px solid var(--grey-4);
+        }
+
+        .calendar-event {
+            position: absolute;
+            padding-top: 2px;
+            padding-left: 5px;
+            padding-right: 5px;
+            padding-bottom: 3px;
+            margin: 0px;
+            color: var(--grey-1);
+            border-radius: 8px;
+            font-size: 12px;
+            box-sizing: border-box;
+            user-select: none;
+            cursor: pointer;
+            transition: opacity 0.3s ease, background-color 0.3s ease;
+            white-space: normal;
+            max-width: 100%;
+            clip-path: inset(0 0 -100vh 0);
+        }
+
+        .calendar-event.extends-down {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .calendar-event.extends-up {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        /* white border */
+        .calendar-event::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            border: 2px solid white;
+            border-radius: 8px;
+        }
+
+        /* All events hover effect with standard border */
+        .calendar-event:hover::after {
+            opacity: 1;
+        }
+
+        /* Override for events with no end time */
+        .calendar-event[data-end-time=""]:hover::after,
+        .calendar-event[data-end-time=""]:after {
+            border: 2px solid white;
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            -webkit-mask: linear-gradient(
+                to bottom,
+                black 20%,
+                rgba(0, 0, 0, 0.6) 60%,
+                rgba(0, 0, 0, 0.4) 70%,
+                rgba(0, 0, 0, 0.2) 85%,
+                rgba(0, 0, 0, 0.1) 90%,
+                transparent 100%
+            );
+            mask: linear-gradient(
+                to bottom,
+                black 20%,
+                rgba(0, 0, 0, 0.6) 60%,
+                rgba(0, 0, 0, 0.4) 70%,
+                rgba(0, 0, 0, 0.2) 85%,
+                rgba(0, 0, 0, 0.1) 90%,
+                transparent 100%
+            );
+        }
+
+        /* override for multi-day events */
+        .calendar-event.extends-down::after {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .calendar-event.extends-up::after {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        .navigation button {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .navigation button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 2px solid var(--grey-1);
+            border-radius: 50%;
+            transition: border-width 0.3s ease;
+        }
+
+        .navigation button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #61a3ff, #d477ff);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .navigation button:hover::before {
+            border-width: 0;
+        }
+
+        .navigation button:hover::after {
+            opacity: 1;
+            animation: rotateGradient 3.5s linear infinite;
+        }
+
+        .navigation button svg {
+            width: 14px;
+            height: 14px;
+            position: relative;
+            z-index: 1;
+            stroke: #ffffff;
+            stroke-width: 3;
+        }
+
+        .hour-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-top: 1px solid var(--grey-4);
+            pointer-events: none;
+        }
+
+        .hour-label {
+            position: absolute;
+            left: 0;
+            width: 38px;
+            text-align: right;
+            padding-right: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--grey-2);
+            /* make it act like part of the background */
+            /* the user never wants to interact with this text */
+            /* it would only happen on accident */
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        /* make sure text in here is displayed same as text in entry box so the animation lines up seamlessly */
+        .animated-text-container {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--grey-1);
+            background-color: var(--grey-5);
+            padding: 2px 4px;
+            box-sizing: border-box;
+            overflow: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .animated-text {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #animationOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+            padding: 1px;
+        }
+
+        .all-day-event {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 5px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* background for all-day events, basically the same as task background */
+        .all-day-event::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20px;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .all-day-event:hover::after {
+            opacity: 1;
+        }
+
+        .all-day-event .task-asterisk {
+            margin-right: 10px;
+            margin-left: -10px;
+        }
+
+        #currentDate {
+            position: absolute;
+            top: -7px;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 10px;
+            opacity: 0;
+        }
+
+        #dayOfWeek {
+            position: absolute;
+            top: 14px;
+            color: var(--grey-2);
+            font-size: 13px;
+            margin-top: -2px;
+        }
+
+        /* text shouldn't be selectable */
+        /* pointer because it's clickable */
+        #currentDate, #dayOfWeek {
+            user-select: none;
+            cursor: pointer;
+        }
+
+        #prevDay {
+            left: 10px;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            width: 100%;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .task-item::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 42px;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .task-item:hover::after {
+            opacity: 1;
+        }
+
+        .task-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            margin-left: 8px;
+            border: 2px solid var(--grey-4);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            top: 0px;
+            right: 0px;
+            transition: background-color 0.3s, border-color 0.3s;
+            z-index: 2;
+        }
+
+        .task-checkbox:checked {
+            background-color: var(--grey-4);
+            border-color: var(--grey-4);
+        }
+
+        .task-checkbox:checked::after {
+            content: '\2714';
+            font-size: 12px;
+            color: var(--grey-1);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .task-checkbox:hover {
+            border-color: var(--grey-3);
+        }
+
+        .task-checkbox:checked:hover {
+            background-color: var(--grey-3);
+            border-color: var(--grey-3);
+        }
+
+        .task-content {
+            flex: 1;
+            transition: color 0.3s, text-decoration 0.3s;
+            overflow: hidden;
+        }
+
+        .overdue-task {
+            position: relative;
+        }
+
+        .overdue-task::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 42px;
+            right: 0;
+            bottom: 0;
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 0, 0, 0.08) 10px,
+                rgba(255, 0, 0, 0.08) 20px
+            );
+            z-index: -1;
+            transition: opacity 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .overdue-task:hover::before {
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 0, 0, 0.12) 10px,
+                rgba(255, 0, 0, 0.12) 20px
+            );
+        }
+
+        .overdue-task-done::before {
+            opacity: 0;
+        }
+
+        .overdue-task .task-date,
+        .overdue-task .task-time {
+            color: #ff4444;
+            transition: color 0.3s ease, font-size 0.3s ease, letter-spacing 0.3s ease;
+        }
+
+        .overdue-task-done .task-date,
+        .overdue-task-done .task-time {
+            color: var(--grey-3);
+        }
+
+        .current-time-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #ff444455;
+            pointer-events: none;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+
+        .time-triangle {
+            position: absolute;
+            left: 0px;
+            width: 0;
+            height: 0;
+            border-left: 14px solid #ff4444;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            pointer-events: none;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .time-triangle-hidden {
+            transform: translateX(-14px);
+        }
+
+        /* Add hover behavior for calendar events */
+        .calendar-event:hover {
+            opacity: 1 !important; /* Use !important to override the inline style */
+        }
+
+        #gear-background {
+            position: fixed;
+            left: calc(50% - 30px);
+            top: 8px;
+            width: 24px;
+            height: 24px;
+            background-color: var(--grey-4);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #gear-icon {
+            position: fixed;
+            left: calc(50% - 29px);
+            top: 9px;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        #gear-icon:hover {
+            transform: rotate(45deg);
+        }
+
+        @keyframes slideUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100%); opacity: 0; }
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes fadeInGrow {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes rotateGradient {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .calendar-no-transition {
+            transition: none !important;
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            background-color: var(--grey-6);
+            border: 1px solid var(--grey-4);
+            border-radius: 8px;
+            padding-left: 14px;
+            padding-right: 14px;
+            padding-top: 12px;
+            padding-bottom: 0px;
+            min-width: 400px;
+            max-width: 400px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .modal.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        /* Scale to 0.8 below 440px */
+        @media screen and (max-width: 439px) {
+            .modal {
+                transform: translate(-50%, -50%) scale(0.88);
+            }
+
+            .modal.visible {
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+        }
+
+        #vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(
+                circle at center,
+                rgba(0, 0, 0, 0.2) 0%,
+                rgba(0, 0, 0, 0.5) 50%,
+                rgba(0, 0, 0, 0.98) 100%
+            );
+            z-index: 9998;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        #vignette.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            color: var(--grey-1);
+        }
+
+        .modal-close {
+            cursor: pointer;
+            position: absolute;
+            right: 14px;
+            top: 14px;
+            transition: color 0.3s ease;
+            color: var(--grey-2);
+        }
+
+        .modal-close:hover {
+            color: var(--grey-1);
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .toggle-label {
+            flex-grow: 1;
+            color: var(--grey-1);
+        }
+
+        .toggle-track {
+            position: relative;
+            width: 40px;
+            height: 24px;
+            background-color: var(--grey-4);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .toggle-track.active {
+            background-color: #4CAF50;
+        }
+
+        .toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: var(--grey-1);
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-track.active .toggle-handle {
+            transform: translateX(16px);
+        }
+
+        .selector-switch {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .selector-label {
+            flex-grow: 1;
+            color: var(--grey-1);
+        }
+
+        .selector-container {
+            display: flex;
+            background-color: var(--grey-5);
+            border-radius: 4px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            padding-left: 2px;
+            padding-right: 2px;
+            position: relative;
+        }
+
+        .selector-option {
+            padding: 2px 8px;
+            cursor: pointer;
+            color: var(--grey-2);
+            z-index: 1;
+            transition: color 0.3s ease;
+            user-select: none;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .selector-option.active {
+            color: var(--grey-1);
+        }
+
+        .selector-highlight {
+            position: absolute;
+            height: calc(100% - 8px);
+            background-color: var(--grey-4);
+            border-radius: 3px;
+            transition: transform 0.3s ease, width 0.3s ease;
+        }
+
+        .task-modal {
+            display: grid;
+            grid-template-areas:
+                "header header"
+                "description description"
+                "type type"
+                "event task"
+                "footer footer";
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 20px;
+            padding: 10px;
+            width: 500px;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            background: var(--grey-6);
+            border: 1px solid var(--grey-4);
+            border-radius: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 9999;
+            user-select: none;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .task-description {
+            grid-area: description;
+            width: calc(100% - 18px);
+            height: 60px;
+            background: var(--grey-5);
+            border: 1px solid var(--grey-4);
+            border-radius: 4px;
+            color: var(--grey-1);
+            font-family: 'Lexend', sans-serif;
+            font-size: 12px;
+            padding: 8px;
+            margin-top: 24px;
+            margin-bottom: 10px;
+            resize: none;
+        }
+
+        .task-description:focus {
+            outline: none;
+        }
+
+        .task-modal-center-line {
+            position: absolute;
+            top: 190px;
+            bottom: 50px;
+            left: 50%;
+            width: 2px;
+            background-color: var(--grey-4);
+            transform: translateX(-50%);
+        }
+
+        .task-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* Scale to 0.8 between 430px and 549px */
+        @media screen and (max-width: 549px) {
+            .task-modal {
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+
+            .task-modal.visible {
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+        }
+
+        /* Scale to 0.6 below 430px */
+        @media screen and (max-width: 429px) {
+            .task-modal {
+                transform: translate(-50%, -50%) scale(0.65);
+            }
+
+            .task-modal.visible {
+                transform: translate(-50%, -50%) scale(0.6);
+            }
+        }
+
+        .task-modal-header {
+            grid-area: header;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: start;
+        }
+
+        .task-modal-close {
+            cursor: pointer;
+            color: var(--grey-2);
+            transition: color 0.3s ease;
+            right: 10px;
+            top: 10px;
+            position: absolute;
+        }
+
+        .task-modal-close:hover {
+            color: var(--grey-1);
+        }
+
+        .task-edit-input {
+            padding: 8px;
+            background: var(--grey-5);
+            border: 1px solid var(--grey-4);
+            border-radius: 4px;
+            color: var(--grey-1);
+            font-family: 'Lexend', sans-serif;
+            font-size: 14px;
+            left: 10px;
+            right: 34px;
+            top: 10px;
+            position: absolute;
+            user-select: none;
+        }
+
+        .task-edit-input:focus {
+            outline: none;
+        }
+
+        .task-type-selector {
+            grid-area: type;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--grey-5);
+            border-radius: 4px;
+            padding: 4px;
+            position: relative;
+            height: 32px;
+            width: calc(100% - 8px);
+            margin-top: -20px;
+            margin-bottom: -14px;
+        }
+
+        .task-type-highlight {
+            position: absolute;
+            top: 4px;
+            height: calc(100% - 8px);
+            width: calc(50% - 4px);
+            background-color: rgba(97, 163, 255, 0.8);
+            opacity: 0.2;
+            border-radius: 3px;
+            transition: transform 0.3s ease;
+        }
+
+        .task-type-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            cursor: pointer;
+            color: var(--grey-2);
+            transition: color 0.3s ease;
+            z-index: 1;
+            user-select: none;
+        }
+
+        .task-type-option.active {
+            color: var(--grey-1);
+        }
+
+        .task-settings-event,
+        .task-settings-task {
+            display: grid;
+            gap: 12px;
+            align-content: start;
+            transition: opacity 0.3s ease;
+        }
+
+        .task-settings-event {
+            grid-area: event;
+        }
+
+        .task-settings-task {
+            grid-area: task;
+        }
+
+        .task-settings-event.inactive,
+        .task-settings-task.inactive {
+            opacity: 0.5;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .date-time-group {
+            display: grid;
+            gap: 4px;
+            align-content: start;
+        }
+
+        .setting-label {
+            color: var(--grey-1);
+            font-size: 14px;
+            margin-bottom: 0px;
+            user-select: none;
+        }
+
+        .date-time-row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .date-time-inputs,
+        .time-inputs {
+            display: flex;
+            gap: 2px;
+            align-items: center;
+            justify-content: flex-end;
+            transition: opacity 0.3s ease;
+        }
+
+        .task-toggle-track {
+            width: 40px;
+            height: 24px;
+            background-color: var(--grey-4);
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s ease;
+            user-select: none;
+        }
+
+        .task-toggle-track.active {
+            background-color: #4CAF50;
+        }
+
+        .task-toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: var(--grey-1);
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .task-toggle-track.active .task-toggle-handle {
+            transform: translateX(16px);
+        }
+
+        .date-time-inputs input,
+        .time-inputs input {
+            width: 20px;
+            padding: 0px 0px;
+            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--grey-5);
+            border: 1px solid var(--grey-4);
+            border-radius: 4px;
+            color: var(--grey-1);
+            text-align: center;
+            outline: none;
+            user-select: none;
+            transition: background-color 0.15s ease, width 0.3s ease, height 0.3s ease;
+            caret-color: transparent;
+            height: 18px;
+            font-size: 14px;
+        }
+
+        .date-time-inputs input:focus,
+        .time-inputs input:focus {
+            outline: none;
+            background-color: rgba(97, 163, 255, 0.2);
+        }
+
+        .date-time-inputs input[placeholder="YYYY"] {
+            width: 40px;
+        }
+
+        .date-time-separator {
+            color: var(--grey-2);
+            font-family: 'JetBrains Mono', monospace;
+            user-select: none;
+        }
+
+        .task-modal-footer {
+            grid-area: footer;
+            display: grid;
+            justify-items: end;
+            padding-top: 10px;
+        }
+
+        .task-delete-btn {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            filter: brightness(1);
+            transition: filter 0.3s ease;
+        }
+
+        /* a weird hack to make it white on hover */
+        .task-delete-btn:hover {
+            filter: brightness(2);
+        }
+
+        /* AM PM switcher */
+        .time-period-container {
+            display: flex;
+            flex-direction: column;
+            background-color: var(--grey-5);
+            border-radius: 4px;
+            padding: 2px;
+            position: relative;
+            height: 24px;
+            width: 20px;
+            margin-right: 0;
+            margin-left: 2px;
+        }
+
+        .time-period-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 12px;
+            padding: 0px;
+            cursor: pointer;
+            color: var(--grey-2);
+            z-index: 1;
+            transition: color 0.3s ease;
+            user-select: none;
+            font-size: 10px;
+        }
+
+        .time-period-option.active {
+            color: var(--grey-1);
+        }
+
+        .time-period-highlight {
+            position: absolute;
+            width: calc(100% - 4px);
+            height: 12px;
+            background-color: var(--grey-4);
+            border-radius: 2px;
+            transition: transform 0.3s ease;
+            left: 2px;
+        }
+
+        .time-period-option.active[data-period="PM"] ~ .time-period-highlight {
+            transform: translateY(12px);
+        }
+
+        .date-time-inputs input[readonly]:focus,
+        .time-inputs input[readonly]:focus {
+            background-color: var(--grey-5) !important;
+            outline: none;
+            caret-color: transparent;
+        }
+
+        .date-time-inputs input[readonly],
+        .time-inputs input[readonly] {
+            cursor: default;
+            user-select: none;
+        }
+
+        .combined-time-inputs {
+            display: flex;
+            align-items: center;
+            /* align to right */
+            justify-content: flex-end;
+        }
+
+        .time-label {
+            color: var(--grey-2);
+            font-size: 12px;
+            user-select: none;
+            margin-left: 4px;
+            margin-right: 4px;
+        }
+
+        /* When time switch is off, disable both start and end time inputs */
+        #startTimeSwitch:not(.active) ~ .combined-time-inputs .time-inputs {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        #startTimeSwitch:not(.active) ~ .combined-time-inputs .time-inputs input {
+            cursor: default;
+        }
+
+        .time-period-selector {
+            display: none;
+        }
+
+        /* only show the am/pm selectors when the time format is AM/PM */
+        body.time-format-ampm .time-period-selector {
+            display: flex;
+        }
+
+
+        .sliding-rect {
+            position: fixed;
+            background: linear-gradient(45deg, #61a3ff, #d477ff);
+            border-radius: 2.5px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div id="centerLine"></div>
+    <img src="./scribblit_logo_2.svg" alt="Scribblit Logo" style="position: fixed; width: 100px; height: auto;">
+    <div class="container">
+        <div class="left-column">
+            <div style="position: relative;">
+                <textarea id="taskInput" spellcheck="false" placeholder="Scribble your tasks here..."></textarea>
+                <div id="animationOverlay"></div>
+            </div>
+            <div id="taskSections">
+                <!-- Task sections will be dynamically inserted here -->
+            </div>
+        </div>
+        <div id="gear-background" onclick="showModal('settings')"></div>
+        <img src="gear_icon.svg" alt="Settings" id="gear-icon" onclick="showModal('settings')">
+        <div class="navigation">
+            <button id="prevDay" aria-label="Previous day">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+            </button>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <span id="currentDate"></span>
+                <span id="dayOfWeek"></span>
+            </div>
+            <button id="nextDay" aria-label="Next day">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18l6-6-6-6"/>
+                </svg>
+            </button>
+        </div>
+        <div id="allDayEvents"></div>
+        <div id="calendar"></div>
+    </div>
+    <div id="vignette" onclick="hideModal('all')"></div>
+    <div id="settingsModal" class="modal">
+        <svg class="modal-close" width="16" height="16" viewBox="0 0 16 16" onclick="hideModal('settings')">
+            <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="modal-header">
+            <span class="modal-title">Settings</span>
+        </div>
+        <div class="toggle-switch">
+            <span class="toggle-label">Example Setting</span>
+            <div class="toggle-track" data-setting="exampleSetting" onclick="toggleSetting(this)">
+                <div class="toggle-handle"></div>
+            </div>
+        </div>
+        <div class="selector-switch">
+            <span class="selector-label">Time format</span>
+            <div class="selector-container" data-setting="timeFormat">
+                <div class="selector-highlight"></div>
+                <div class="selector-option" onclick="updateSelector(this, 'AM/PM')" data-value="AM/PM">AM/PM</div>
+                <div class="selector-option" onclick="updateSelector(this, '24h')" data-value="24h">24h</div>
+            </div>
+        </div>
+        <div class="selector-switch">
+            <span class="selector-label">Calendar color style</span>
+            <div class="selector-container" data-setting="calendarStyle">
+                <div class="selector-highlight"></div>
+                <div class="selector-option" onclick="updateSelector(this, 'clean')" data-value="clean">Clean</div>
+                <div class="selector-option" onclick="updateSelector(this, 'colorful')" data-value="colorful">Colorful</div>
+                <div class="selector-option" onclick="updateSelector(this, 'tag-friendly')" data-value="tag-friendly">Tag-friendly</div>
+            </div>
+        </div>
+        <div class="selector-switch">
+            <span class="selector-label">Start of week</span>
+            <div class="selector-container" data-setting="weekStart">
+                <div class="selector-highlight"></div>
+                <div class="selector-option" onclick="updateSelector(this, 'sunday')" data-value="sunday">Sunday</div>
+                <div class="selector-option" onclick="updateSelector(this, 'monday')" data-value="monday">Monday</div>
+            </div>
+        </div>
+    </div>
+    <div id="editTaskModal" class="task-modal">
+        <div class="task-modal-header">
+            <input id="editTaskName" type="text" class="task-edit-input" placeholder="Task name">
+            <svg id="editTaskClose" class="task-modal-close" width="16" height="16" viewBox="0 0 16 16">
+                <path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+
+        <textarea id="taskDescription" class="task-description" placeholder="Add a description..."></textarea>
+
+        <div class="task-type-selector">
+            <div class="task-type-highlight"></div>
+            <div id="eventTypeBtn" class="task-type-option" data-type="event">Event</div>
+            <div id="taskTypeBtn" class="task-type-option" data-type="task">Task</div>
+        </div>
+
+        <div class="task-modal-center-line"></div>
+
+        <div class="task-settings-event">
+            <!-- Start date (unchanged) -->
+            <div class="date-time-group">
+                <div class="date-time-row">
+                    <div id="startDateSwitch" class="task-toggle-track">
+                        <div class="task-toggle-handle"></div>
+                    </div>
+                    <div id="startDateInputs" class="date-time-inputs">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
+                    </div>
+                </div>
+
+                <!-- Combined time row -->
+                <div class="date-time-row combined-time-row">
+                    <div id="startTimeSwitch" class="task-toggle-track">
+                        <div class="task-toggle-handle"></div>
+                    </div>
+                    <div class="combined-time-inputs">
+                        <div id="startTimeInputs" class="time-inputs">
+                            <input type="text" maxlength="2" placeholder="HH">
+                            <span class="date-time-separator">:</span>
+                            <input type="text" maxlength="2" placeholder="MM">
+                            <div class="time-period-selector">
+                                <div class="time-period-container">
+                                    <div class="time-period-highlight"></div>
+                                    <div class="time-period-option active" data-period="AM">AM</div>
+                                    <div class="time-period-option" data-period="PM">PM</div>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="time-label">to</span>
+                        <div id="endTimeInputs" class="time-inputs">
+                            <input type="text" maxlength="2" placeholder="HH">
+                            <span class="date-time-separator">:</span>
+                            <input type="text" maxlength="2" placeholder="MM">
+                            <div class="time-period-selector">
+                                <div class="time-period-container">
+                                    <div class="time-period-highlight"></div>
+                                    <div class="time-period-option active" data-period="AM">AM</div>
+                                    <div class="time-period-option" data-period="PM">PM</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Different end date section -->
+            <div class="date-time-group">
+                <div class="setting-label">Different end date</div>
+                <div class="date-time-row">
+                    <div id="endDateSwitch" class="task-toggle-track">
+                        <div class="task-toggle-handle"></div>
+                    </div>
+                    <div id="endDateInputs" class="date-time-inputs">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="task-settings-task">
+            <div class="date-time-group">
+                <div class="date-time-row">
+                    <div id="dueDateSwitch" class="task-toggle-track">
+                        <div class="task-toggle-handle"></div>
+                    </div>
+                    <div id="dueDateInputs" class="date-time-inputs">
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="2" placeholder="DD">
+                        <span class="date-time-separator">/</span>
+                        <input type="text" maxlength="4" placeholder="YYYY">
+                    </div>
+                </div>
+                <div class="date-time-row">
+                    <div id="dueTimeSwitch" class="task-toggle-track">
+                        <div class="task-toggle-handle"></div>
+                    </div>
+                    <div id="dueTimeInputs" class="time-inputs">
+                        <input type="text" maxlength="2" placeholder="HH">
+                        <span class="date-time-separator">:</span>
+                        <input type="text" maxlength="2" placeholder="MM">
+                        <div class="time-period-selector">
+                            <div class="time-period-container">
+                                <div class="time-period-highlight"></div>
+                                <div class="time-period-option active" data-period="AM">AM</div>
+                                <div class="time-period-option" data-period="PM">PM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="task-modal-footer">
+            <img id="deleteTaskBtn" src="./trash_icon.svg" class="task-delete-btn">
+        </div>
+    </div>
+    <script>
+        let WORKERS_DOMAIN = 'scribblit-server.unrono.workers.dev';
+
+        // Global array to store all tasks and events
+        let taskEventArray = [];
+        // Dictionary of user settings
+        let userSettings = {};
+
+        let defaultSettings = {
+            'timeFormat': '24h',             // options AM/PM, 24h
+            'calendarStyle': 'tag-friendly', // options clean, colorful, tag-friendly
+            'weekStart': 'sunday'            // options sunday, monday
+        };
+
+        let isTimeMarkerShowing = false;
+
+        // keys are randomized hour label IDs, values are true/false
+        let hourLabelsCurrentlyAnimating = {};
+
+        // how far the calendar is from the top of the page when there are no all-day events
+        const calendarToTopDistanceNoAllDay = 32;
+
+        const DateTime = luxon.DateTime;
+        let currentDate = DateTime.now().minus({ days: 100000 });; // start here so that the first call to changeDate will set it to today
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        const taskInput = document.getElementById('taskInput');
+        const originalHeight = '100px'; // Store the original height
+        let isAnimating = false;
+        let animationCooldown = false;
+        let calendarRenderCount = 0;
+        let taskListRenderCount = 0;
+
+        const todayTaskList = document.getElementById('todayTaskList');
+        const tomorrowTaskList = document.getElementById('tomorrowTaskList');
+        const weekTaskList = document.getElementById('weekTaskList');
+        const calendar = document.getElementById('calendar');
+        const currentDateEl = document.getElementById('currentDate');
+        const dayOfWeekEl = document.getElementById('dayOfWeek');
+        const prevDayBtn = document.getElementById('prevDay');
+        const nextDayBtn = document.getElementById('nextDay');
+
+        taskInput.addEventListener('keydown', function(event) {
+            // pressing enter and not shift+enter
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                processInput();
+            }
+        });
+
+        prevDayBtn.addEventListener('click', () => changeDate(-1));
+        nextDayBtn.addEventListener('click', () => changeDate(1));
+
+        function changeDate(delta) {
+            const allDayEventsContainer = document.getElementById('allDayEvents');
+            const oldAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
+            const oldEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+
+            // First remove all existing events with animation
+            const removePromises = oldEvents.map(event => new Promise(resolve => {
+                event.style.transition = 'opacity 0.3s ease';
+                event.style.opacity = '0';
+                setTimeout(() => {
+                    event.remove();
+                    resolve();
+                }, 300);
+            }));
+
+            // Update date immediately
+            currentDate = currentDate.plus({ days: delta });
+            updateDateDisplay();
+
+            // Wait for all old events to be removed before adding new ones
+            Promise.all(removePromises).then(() => {
+                // Clear all-day events container
+                allDayEventsContainer.innerHTML = '';
+
+                // Count new all-day events
+                const newAllDayEventCount = allDayEventsContainer.querySelectorAll('.all-day-event').length;
+
+                // Calculate new calendar position
+                const newCalendarTop = newAllDayEventCount > 0 ?
+                    allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay :
+                    calendarToTopDistanceNoAllDay;
+
+                // Animate calendar to new position
+                calendar.style.transition = 'top 0.3s ease';
+                calendar.style.top = `${newCalendarTop}px`;
+
+                // Render new calendar
+                renderCalendar(false);
+
+                // Handle all-day events visibility
+                if (newAllDayEventCount > 0) {
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    allDayEventsContainer.style.opacity = '0';
+                    setTimeout(() => {
+                        allDayEventsContainer.style.opacity = '1';
+                    }, 150);
+                } else {
+                    allDayEventsContainer.style.opacity = '0';
+                }
+
+                // Fade in new events
+                const newEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                newEvents.forEach((event, index) => {
+                    // Ensure initial state
+                    event.style.transition = 'opacity 0.3s ease';
+                    event.style.opacity = '0';
+                    
+                    // Force a reflow
+                    event.offsetHeight;
+                    
+                    setTimeout(() => {
+                        event.style.opacity = '1';
+                    }, index * 50 + 150);
+                });
+            });
+        }
+
+        function adjustTextareaHeight() {
+            if (!isAnimating && !animationCooldown) {
+                const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
+                const handle = document.getElementById('taskInputScrollbarHandle');
+                const maxHeight = window.innerHeight * 0.8 - 100;
+                
+                taskInput.style.height = 'auto';
+                const scrollHeight = taskInput.scrollHeight;
+                
+                if (shouldShowScrollbar(taskInput)) {
+                    taskInput.style.height = `${maxHeight}px`;
+                    
+                    if (scrollbarWrapper && handle) {
+                        scrollbarWrapper.style.opacity = '1';
+                        
+                        // Adjust handle height to represent visible portion of content
+                        const visibleRatio = maxHeight / scrollHeight;
+                        const handleHeight = Math.max(30, visibleRatio * scrollbarWrapper.clientHeight);
+                        handle.style.height = `${handleHeight}px`;
+                        
+                        // Calculate available space for scrollbar movement
+                        const availableScrollSpace = scrollHeight - maxHeight;
+                        const availableHandleSpace = scrollbarWrapper.clientHeight - handleHeight;
+                        
+                        // Calculate handle position
+                        if (availableScrollSpace > 0) {
+                            const scrollPercentage = taskInput.scrollTop / availableScrollSpace;
+                            const handlePosition = scrollPercentage * availableHandleSpace;
+                            handle.style.top = `${handlePosition}px`;
+                        } else {
+                            handle.style.top = '0px';
+                        }
+                        
+                        // Check if cursor is at the end
+                        if (taskInput.selectionStart === taskInput.value.length) {
+                            taskInput.scrollTop = scrollHeight;
+                        }
+                    }
+                } else {
+                    taskInput.style.height = `${scrollHeight}px`;
+                    if (scrollbarWrapper) {
+                        scrollbarWrapper.style.opacity = '0';
+                    }
+                }
+            }
+        }
+
+        function isEventInPast(eventTime) {
+            const now = DateTime.now().setZone(userTimezone);
+            const currentMinutes = now.hour * 60 + now.minute;
+            return timeToMinutes(eventTime) < currentMinutes;
+        }
+
+        taskInput.addEventListener('input', adjustTextareaHeight);
+
+        function updateDateDisplay() {
+            const today = DateTime.local();
+
+            if (currentDate.hasSame(today, 'day')) {
+                currentDateEl.textContent = 'Today';
+            } else if (currentDate.hasSame(today.plus({ days: 1 }), 'day')) {
+                currentDateEl.textContent = 'Tomorrow';
+            } else if (currentDate.hasSame(today.minus({ days: 1 }), 'day')) {
+                currentDateEl.textContent = 'Yesterday';
+            } else {
+                currentDateEl.textContent = currentDate.toFormat('M/d');
+            }
+
+            // Update day of week
+            dayOfWeekEl.textContent = currentDate.toFormat('cccc');
+        }
+
+        // triggered by user submitting content in the entry box
+        async function processInput() {
+            const input = taskInput.value;
+            const animationOverlay = document.getElementById('animationOverlay');
+            const currentHeight = taskInput.style.height;
+            isAnimating = true;
+
+            const now = DateTime.now().setZone(userTimezone);
+            const currentDate = now.toISODate();
+            const currentTime = now.toFormat('HH:mm');
+            const dayOfWeek = now.weekdayLong.toLowerCase();
+
+            if (shouldShowScrollbar(taskInput)) {
+                const input = taskInput.value;
+                const currentHeight = taskInput.style.height;
+                isAnimating = true;
+                
+                // Disable input
+                taskInput.disabled = true;
+                
+                const scrollbarWrapper = document.getElementById('taskInputScrollbarWrapper');
+                const rect = scrollbarWrapper.getBoundingClientRect();
+                const taskInputWidth = taskInput.offsetWidth;
+                
+                const keyframesName = `slideInThenOut${Date.now()}`;
+                const keyframes = `
+                    @keyframes ${keyframesName} {
+                        0% { left: ${rect.left}px; width: 5px; opacity: 0; }
+                        10% { left: ${rect.left}px; width: 5px; opacity: 1; }
+                        45% { left: ${rect.left - taskInputWidth - 4}px; width: ${taskInputWidth + 9}px; }
+                        55% { left: ${rect.left - taskInputWidth - 4}px; width: ${taskInputWidth + 9}px; }
+                        100% { left: ${rect.left - taskInputWidth - 4}px; width: 0; }
+                    }
+                `;
+                
+                const style = document.createElement('style');
+                style.innerHTML = keyframes;
+                document.head.appendChild(style);
+                
+                const slidingRect = document.createElement('div');
+                slidingRect.className = 'sliding-rect';
+                slidingRect.style.top = `${rect.top}px`;
+                slidingRect.style.height = `${rect.height}px`;
+                slidingRect.style.animation = `${keyframesName} 0.8s cubic-bezier(0.85, 0, 0.15, 1) forwards`;
+                
+                document.body.appendChild(slidingRect);
+
+                setTimeout(() => {
+                    taskInput.value = '';
+                    taskInput.style.height = currentHeight;
+                }, 360);
+
+                await new Promise(resolve => setTimeout(resolve, 800));
+                slidingRect.remove();
+                style.remove();
+                taskInput.style.height = originalHeight;
+                
+                // Re-enable input
+                taskInput.disabled = false;
+
+                // Focus back on the input
+                taskInput.focus();
+            } else {
+                const inputRect = taskInput.getBoundingClientRect();
+                const overlayRect = animationOverlay.getBoundingClientRect();
+
+                // Create container for animated text
+                const animatedTextContainer = document.createElement('div');
+                animatedTextContainer.className = 'animated-text-container';
+                animatedTextContainer.style.position = 'absolute';
+                animatedTextContainer.style.top = `${inputRect.top - overlayRect.top}px`;
+                animatedTextContainer.style.left = `${inputRect.left - overlayRect.left}px`;
+                animatedTextContainer.style.width = `${inputRect.width}px`;
+                animatedTextContainer.style.height = `${inputRect.height}px`;
+
+                // Split input into lines and create animated lines
+                input.split('\n').forEach((line, index) => {
+                    const animatedLine = document.createElement('div');
+                    animatedLine.className = 'animated-text';
+                    animatedLine.textContent = line;
+                    animatedTextContainer.appendChild(animatedLine);
+                });
+
+                animationOverlay.appendChild(animatedTextContainer);
+
+                // Clear input but maintain height
+                taskInput.value = '';
+                taskInput.style.height = currentHeight;
+
+                // Start animations
+                const lines = Array.from(animatedTextContainer.children);
+                lines.forEach((line, index) => {
+                    line.style.opacity = '1';
+                    line.style.transform = 'translateY(0)';
+                    line.offsetHeight;
+                    line.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+
+                    setTimeout(() => {
+                        line.style.opacity = '0';
+                        line.style.transform = 'translateY(-10px)';
+                    }, index * 50);
+                });
+
+                // Wait for animation to complete
+                await new Promise(resolve => setTimeout(resolve, (input.split('\n').length - 1) * 50 + 300));
+                
+                // Clear animation overlay
+                animationOverlay.innerHTML = '';
+                
+                // Now reset height with animation
+                taskInput.style.height = originalHeight;
+            }
+
+            // Reset animation states
+            setTimeout(() => {
+                isAnimating = false;
+                animationCooldown = true;
+                setTimeout(() => {
+                    animationCooldown = false;
+                    adjustTextareaHeight();
+                }, 500);
+            }, 300);
+
+            try {
+                const response = await fetch(`https://${WORKERS_DOMAIN}/process-input`, {
+                    method: 'POST',
+                    body: `${currentDate},${currentTime},${dayOfWeek},${input}`
+                });
+
+                if (!response.ok) {
+                    console.log('response (error):', response);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const responseText = await response.text();
+                let parsedResponse;
+                
+                try {
+                    parsedResponse = JSON5.parse(responseText);
+                } catch (parseError) {
+                    console.log('Error parsing response:', parseError);
+                    throw new Error('Invalid response format');
+                }
+
+                // Transform the response to handle new date format
+                const transformedResponse = parsedResponse.map(item => {
+                    const transformedItem = {
+                        ...item,
+                        done: {},
+                        description: '',
+                        id: 'task_' + Math.random().toString(36).substr(2, 9)
+                    };
+
+                    // Handle array of dates
+                    if (Array.isArray(item.date)) {
+                        // Extract first date object for backwards compatibility 
+                        const firstDate = item.date[0];
+                        if (firstDate) {
+                            transformedItem.date = firstDate.startDate || firstDate.endDate;
+                            transformedItem.startTime = firstDate.startTime;
+                            transformedItem.endTime = firstDate.endTime;
+                            transformedItem.endDate = firstDate.endDate;
+                        }
+                        // Store the full date array for future use
+                        transformedItem.dateArray = item.date;
+                    } else if (typeof item.date === 'object') {
+                        // Single date object
+                        transformedItem.date = item.date.startDate || item.date.endDate;
+                        transformedItem.startTime = item.date.startTime;
+                        transformedItem.endTime = item.date.endTime;
+                        transformedItem.endDate = item.date.endDate;
+                        transformedItem.dateArray = [item.date];
+                    } else {
+                        // Legacy string format
+                        transformedItem.date = item.date;
+                        transformedItem.dateArray = [{
+                            startDate: item.date,
+                            startTime: item.startTime,
+                            endTime: item.endTime,
+                            endDate: item.endDate
+                        }];
+                    }
+
+                    return transformedItem;
+                });
+
+                console.log('Transformed response:', transformedResponse);
+                updateTaskEventArray(transformedResponse);
+                saveUserData();
+                renderTasks();
+                renderCalendar();
+            } catch (error) {
+                console.log('Error processing input:', error);
+                alert('Sorry, there was an error processing your input. Please try again later.');
+            }
+        }
+
+        function updateTaskEventArray(newItems) {
+            newItems.forEach(item => {
+                const sanitizedItem = {
+                    ...item,
+                    date: convertToISODate(item.date),
+                    done: {},
+                    description: '',
+                    id: 'task_' + Math.random().toString(36).substr(2, 9)
+                };
+                taskEventArray.push(sanitizedItem);
+            });
+            saveUserData();
+        }
+
+        function updateSectionTitleStyle(section, taskCount, completedCount) {
+            const sectionContainer = document.querySelector(`.task-section-container:has(#${section}TaskList)`);
+            const titleElement = sectionContainer.querySelector('.section-title');
+
+            if (taskCount === 0 || taskCount === completedCount) {
+                titleElement.style.color = '#666'; // Darken the title
+            } else {
+                titleElement.style.color = ''; // Reset to default color
+            }
+
+            // Special handling for overdue section
+            if (section === 'overdue') {
+                if (taskCount === 0) {
+                    sectionContainer.style.display = 'none';
+                } else {
+                    sectionContainer.style.display = 'block';
+                }
+            }
+        }
+
+        function shouldShowScrollbar(textarea) {
+            return textarea.scrollHeight > ((window.innerHeight * 0.8) - 100);
+        }
+
+        function setupCustomScrollbar() {
+            const taskInput = document.getElementById('taskInput');
+            const wrapper = document.createElement('div');
+            wrapper.id = 'taskInputScrollbarWrapper';
+            
+            const scrollbar = document.createElement('div');
+            scrollbar.id = 'taskInputScrollbar';
+            
+            const handle = document.createElement('div');
+            handle.id = 'taskInputScrollbarHandle';
+            
+            scrollbar.appendChild(handle);
+            wrapper.appendChild(scrollbar);
+            taskInput.parentNode.appendChild(wrapper);
+
+            // Update handle position when textarea scrolls
+            taskInput.addEventListener('scroll', () => {
+                if (!shouldShowScrollbar(taskInput)) {
+                    wrapper.style.opacity = '0';
+                    return;
+                }
+                
+                const maxHeight = window.innerHeight * 0.8 - 100;
+                const scrollHeight = taskInput.scrollHeight;
+                const visibleRatio = maxHeight / scrollHeight;
+                const handleHeight = Math.max(30, visibleRatio * wrapper.clientHeight);
+                handle.style.height = `${handleHeight}px`;
+                
+                const availableScrollSpace = scrollHeight - maxHeight;
+                const availableHandleSpace = wrapper.clientHeight - handleHeight;
+                
+                if (availableScrollSpace > 0) {
+                    const scrollPercentage = taskInput.scrollTop / availableScrollSpace;
+                    const handlePosition = scrollPercentage * availableHandleSpace;
+                    handle.style.top = `${handlePosition}px`;
+                } else {
+                    handle.style.top = '0px';
+                }
+                
+                wrapper.style.opacity = '1';
+            });
+
+            // Handle drag functionality (unchanged)
+            let isDragging = false;
+            let startY = 0;
+            let startScroll = 0;
+
+            handle.addEventListener('mousedown', (e) => {
+                if (!shouldShowScrollbar(taskInput)) return;
+                isDragging = true;
+                startY = e.clientY;
+                startScroll = taskInput.scrollTop;
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const delta = e.clientY - startY;
+                const scrollRatio = (taskInput.scrollHeight - taskInput.clientHeight) / (wrapper.clientHeight - handle.clientHeight);
+                taskInput.scrollTop = startScroll + (delta * scrollRatio);
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                document.body.style.userSelect = '';
+            });
+        }
+
+        function convertToISODate(dateString) {
+            const today = DateTime.local().setZone(userTimezone);
+
+            if (dateString) {
+                if (dateString === 'today') {
+                    return today.toISODate();
+                } else if (dateString === 'tomorrow') {
+                    return today.plus({ days: 1 }).toISODate();
+                } else if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    return dateString; // Already in ISO format
+                } else if (dateString.match(/^[a-z]+(\+\d+)?$/)) {
+                    // Extract the day name and optional offset
+                    const match = dateString.match(/^([a-z]+)(?:\+(\d+))?$/);
+                    if (!match) return today.toISODate(); // Fallback to today if match fails
+
+                    const [_, day, offsetStr] = match;
+                    const offset = offsetStr ? parseInt(offsetStr) : 0;
+
+                    // Get the weekday index (1-7, where 1 is Monday)
+                    const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                        .indexOf(day.toLowerCase()) + 1;
+
+                    if (weekdayIndex === 0) return today.toISODate(); // Invalid day name
+
+                    // Find the next occurrence of this weekday
+                    let targetDate = today.set({ weekday: weekdayIndex });
+
+                    // If the target date is before today, move to next week
+                    if (targetDate < today) {
+                        targetDate = targetDate.plus({ weeks: 1 });
+                    }
+
+                    // Add any additional weeks specified by the offset
+                    if (offset > 0) {
+                        targetDate = targetDate.plus({ weeks: offset });
+                    }
+
+                    return targetDate.toISODate();
+                }
+            }
+
+            // The date is null or invalid format, return today as fallback
+            console.log(`Invalid or null date found: ${dateString}`);
+            return today.toISODate();
+        }
+
+        function renderTasks() {
+            const taskSections = document.getElementById('taskSections');
+            taskSections.innerHTML = '';
+
+            const now = DateTime.now().setZone(userTimezone);
+            const today = now.startOf('day');
+            const tomorrow = today.plus({ days: 1 });
+            const weekEnd = today.plus({ days: 7 });
+
+            // Create sections
+            const sections = ['today', 'tomorrow', 'week'];
+            sections.forEach((section, index) => {
+                const sectionContainer = document.createElement('div');
+                sectionContainer.className = 'task-section-container';
+
+                const sectionElement = document.createElement('div');
+                sectionElement.className = 'task-section';
+
+                const titleElement = document.createElement('div');
+                titleElement.className = 'section-title';
+                titleElement.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+
+                const taskList = document.createElement('div');
+                taskList.id = `${section}TaskList`;
+                taskList.className = 'task-list';
+
+                sectionElement.appendChild(titleElement);
+                sectionElement.appendChild(taskList);
+                sectionContainer.appendChild(sectionElement);
+
+                if (index < sections.length - 1) {
+                    const border = document.createElement('div');
+                    border.className = 'section-border';
+                    sectionContainer.appendChild(border);
+                }
+
+                taskSections.appendChild(sectionContainer);
+            });
+
+            let todayTaskCount = 0;
+            let todayCompletedCount = 0;
+            let tomorrowTaskCount = 0;
+            let tomorrowCompletedCount = 0;
+            let weekTaskCount = 0;
+            let weekCompletedCount = 0;
+
+            // Filter and sort tasks
+            const tasks = taskEventArray.filter(item => item.kind === "task");
+
+            // Generate all dates for recurring tasks within the week range
+            const expandedTasks = [];
+            tasks.forEach(task => {
+                if (task.dateArray) {
+                    task.dateArray.forEach(dateObj => {
+                        // Create an expanded task for each date
+                        const expandedTask = {
+                            ...task,
+                            date: dateObj.startDate || dateObj.endDate,
+                            startTime: dateObj.startTime,
+                            endTime: dateObj.endTime,
+                            endDate: dateObj.endDate,
+                            isRecurring: !!dateObj.recurStart || !!dateObj.recurEnd
+                        };
+                        expandedTasks.push(expandedTask);
+
+                        // Handle recurring dates if present
+                        if (dateObj.recurStart || dateObj.recurEnd) {
+                            const dates = generateRecurringDates(expandedTask, dateObj.recurStart || today.toISODate(), dateObj.recurEnd || weekEnd.toISODate());
+                            dates.forEach(date => {
+                                expandedTasks.push({
+                                    ...expandedTask,
+                                    date,
+                                    originalDate: expandedTask.date,
+                                    isRecurring: true
+                                });
+                            });
+                        }
+                    });
+                } else {
+                    // Fallback for legacy format
+                    expandedTasks.push({ ...task, isRecurring: false });
+                }
+            });
+
+            // Sort expanded tasks
+            expandedTasks.sort((a, b) => {
+                const aDate = DateTime.fromISO(a.date);
+                const bDate = DateTime.fromISO(b.date);
+                if (aDate.equals(bDate)) {
+                    const aTime = a.endTime ? timeToMinutes(a.endTime) : 1440;
+                    const bTime = b.endTime ? timeToMinutes(b.endTime) : 1440;
+                    return aTime - bTime;
+                }
+                return aDate.valueOf() - bDate.valueOf();
+            });
+
+            expandedTasks.forEach(task => {
+                const taskDate = DateTime.fromISO(task.date);
+
+                // Create the task list item
+                const listItem = document.createElement('div');
+                listItem.className = 'task-item';
+                listItem.dataset.taskId = task.id;
+
+                listItem.addEventListener('click', (e) => {
+                    // If the click was on the checkbox, don't open the modal
+                    if (e.target.classList.contains('task-checkbox')) {
+                        return;
+                    }
+                    constructTaskEditorModal(e.currentTarget.dataset.taskId);
+                });
+
+                // Create task content
+                const taskContent = document.createElement('span');
+                taskContent.className = 'task-content';
+                taskContent.textContent = task.name;
+                if (task.isRecurring) {
+                    taskContent.textContent += ' (recurring)';
+                }
+
+                // Create checkbox
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'task-checkbox';
+
+                // Check completion status
+                const completionData = task.done[task.date];
+                const isCompleted = completionData?.completed || false;
+                const completedAt = completionData?.completedAt ? DateTime.fromISO(completionData.completedAt) : null;
+                const completedToday = completedAt?.hasSame(today, 'day') || false;
+
+                checkbox.checked = isCompleted;
+
+                checkbox.addEventListener('change', () => {
+                    if (checkbox.checked) {
+                        task.done[task.date] = {
+                            completed: true,
+                            completedAt: now.toISO()
+                        };
+                    } else {
+                        delete task.done[task.date];
+                    }
+
+                    saveUserData();
+
+                    const taskItem = checkbox.closest('.task-item');
+                    if (taskItem.classList.contains('overdue-task')) {
+                        if (checkbox.checked) {
+                            taskItem.classList.add('overdue-task-done');
+                        } else {
+                            taskItem.classList.remove('overdue-task-done');
+                        }
+                    }
+
+                    renderTasks();
+                });
+
+                if (isCompleted) {
+                    taskContent.style.textDecoration = 'line-through';
+                    taskContent.style.color = '#666';
+                }
+
+                let taskDateTime = task.endTime ?
+                    taskDate.set({
+                        hour: parseInt(task.endTime.split(':')[0]),
+                        minute: parseInt(task.endTime.split(':')[1])
+                    }) :
+                    taskDate.endOf('day');
+
+                const isOverdue = taskDateTime < now;
+                const isDueToday = taskDate.hasSame(today, 'day');
+
+                // Determine if the task should be shown in today's section
+                const showInToday = isDueToday || // Due today
+                                (isOverdue && !isCompleted) || // Overdue and not completed
+                                (isOverdue && isCompleted && completedToday); // Overdue and completed today
+
+                if (showInToday) {
+                    // Today's tasks (including relevant overdue tasks)
+                    const dateTimeSpan = document.createElement('span');
+
+                    if (isOverdue && !isDueToday) {
+                        // Show full date for overdue tasks not due today
+                        dateTimeSpan.className = task.endTime ? 'task-date-time' : 'task-date-no-time';
+                        const dateSpan = document.createElement('span');
+                        dateSpan.className = 'task-date';
+                        dateSpan.textContent = taskDate.toFormat('MM/dd');
+                        dateTimeSpan.appendChild(dateSpan);
+
+                        if (task.endTime) {
+                            const timeSpan = document.createElement('span');
+                            timeSpan.className = 'task-time';
+                            if (taskListRenderCount === 0) {
+                                timeSpan.textContent = '';
+                            } else {
+                                timeSpan.innerHTML = formatTimeTaskList(task.endTime);
+                            }
+                            dateTimeSpan.appendChild(timeSpan);
+                        }
+                    } else {
+                        // Show just time or asterisk for today's tasks
+                        if (task.endTime) {
+                            dateTimeSpan.className = 'task-time';
+                            if (taskListRenderCount === 0) {
+                                dateTimeSpan.textContent = '';
+                            } else {
+                                dateTimeSpan.innerHTML = formatTimeTaskList(task.endTime);
+                            }
+                        } else {
+                            dateTimeSpan.className = 'task-asterisk';
+                            dateTimeSpan.textContent = '*';
+                        }
+                    }
+
+                    if (isOverdue) {
+                        listItem.classList.add('overdue-task');
+                        if (isCompleted) {
+                            listItem.classList.add('overdue-task-done');
+                        }
+                        dateTimeSpan.style.color = isCompleted ? '#666' : '#ff4444';
+                    } else if (isCompleted) {
+                        dateTimeSpan.style.color = '#666';
+                    }
+
+                    listItem.appendChild(dateTimeSpan);
+                    listItem.appendChild(taskContent);
+                    listItem.appendChild(checkbox);
+                    document.getElementById('todayTaskList').appendChild(listItem);
+                    todayTaskCount++;
+                    if (isCompleted) todayCompletedCount++;
+
+                } else if (taskDate.hasSame(tomorrow, 'day')) {
+                    // Tomorrow's tasks
+                    const timeSpan = document.createElement('span');
+                    if (task.endTime) {
+                        timeSpan.className = 'task-time';
+                        if (taskListRenderCount === 0) {
+                            timeSpan.textContent = '';
+                        } else {
+                            timeSpan.innerHTML = formatTimeTaskList(task.endTime);
+                        }
+                    } else {
+                        timeSpan.className = 'task-asterisk';
+                        timeSpan.textContent = '*';
+                    }
+
+                    if (isCompleted) {
+                        timeSpan.style.color = '#666';
+                    }
+
+                    listItem.appendChild(timeSpan);
+                    listItem.appendChild(taskContent);
+                    listItem.appendChild(checkbox);
+                    document.getElementById('tomorrowTaskList').appendChild(listItem);
+                    tomorrowTaskCount++;
+                    if (isCompleted) tomorrowCompletedCount++;
+
+                } else if (taskDate > tomorrow && taskDate <= weekEnd) {
+                    // Week's tasks
+                    const dateTimeSpan = document.createElement('span');
+                    if (task.endTime) {
+                        dateTimeSpan.className = 'task-date-time';
+                    } else {
+                        dateTimeSpan.className = 'task-date-no-time';
+                    }
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'task-date';
+                    dateSpan.textContent = taskDate.toFormat('MM/dd');
+                    dateTimeSpan.appendChild(dateSpan);
+
+                    if (task.endTime) {
+                        const timeSpan = document.createElement('span');
+                        timeSpan.className = 'task-time';
+                        if (taskListRenderCount === 0) {
+                            timeSpan.textContent = '';
+                        } else {
+                            timeSpan.innerHTML = formatTimeTaskList(task.endTime);
+                        }
+                        dateTimeSpan.appendChild(timeSpan);
+                    }
+
+                    if (isCompleted) {
+                        dateSpan.style.color = '#666';
+                        if (task.endTime) {
+                            dateTimeSpan.querySelector('.task-time').style.color = '#666';
+                        }
+                    }
+
+                    listItem.appendChild(dateTimeSpan);
+                    listItem.appendChild(taskContent);
+                    listItem.appendChild(checkbox);
+                    document.getElementById('weekTaskList').appendChild(listItem);
+                    weekTaskCount++;
+                    if (isCompleted) weekCompletedCount++;
+                }
+            });
+
+            // Update section title styling
+            updateSectionTitleStyle('today', todayTaskCount, todayCompletedCount);
+            updateSectionTitleStyle('tomorrow', tomorrowTaskCount, tomorrowCompletedCount);
+            updateSectionTitleStyle('week', weekTaskCount, weekCompletedCount);
+
+            taskListRenderCount += 1;
+        }
+
+        function isMultiDayEvent(event) {
+            return event.kind === "event" && event.endDate && event.endDate !== event.date;
+        }
+
+        // Helper to check if a date falls within an event's date range
+        function isDateInEventRange(date, event) {
+            const eventStart = DateTime.fromISO(event.date);
+            const eventEnd = DateTime.fromISO(event.endDate || event.date);
+            const checkDate = DateTime.fromISO(date);
+            
+            return checkDate >= eventStart && checkDate <= eventEnd;
+        }
+
+        function renderCalendar(showEvents = true) {
+            // Preserve time marker elements if they exist
+            const existingMarker = document.querySelector('.current-time-marker');
+            const existingTriangle = document.querySelector('.time-triangle');
+            let markerStyle, triangleStyle;
+
+            if (existingMarker) {
+                markerStyle = {
+                    top: existingMarker.style.top,
+                    opacity: existingMarker.style.opacity,
+                    transition: existingMarker.style.transition
+                };
+            }
+            if (existingTriangle) {
+                triangleStyle = {
+                    top: existingTriangle.style.top,
+                    className: existingTriangle.className
+                };
+            }
+
+            // Clear calendar
+            calendar.innerHTML = '';
+
+            // Immediately restore time marker elements if they existed
+            if (existingMarker) {
+                const timeMarker = document.createElement('div');
+                timeMarker.className = 'current-time-marker';
+                timeMarker.style.top = markerStyle.top;
+                timeMarker.style.opacity = markerStyle.opacity;
+                timeMarker.style.transition = markerStyle.transition;
+                calendar.appendChild(timeMarker);
+            }
+            if (existingTriangle) {
+                const timeTriangle = document.createElement('div');
+                timeTriangle.className = triangleStyle.className;
+                timeTriangle.style.top = triangleStyle.top;
+                calendar.appendChild(timeTriangle);
+            }
+            const allDayEventsContainer = document.getElementById('allDayEvents');
+            allDayEventsContainer.innerHTML = '';
+
+            // Remove transition for first render
+            if (calendarRenderCount === 0) {
+                calendar.classList.add('calendar-no-transition');
+            }
+
+            // Render time markers
+            for (let i = 0; i < 24; i++) {
+                const hourMarker = document.createElement('div');
+                hourMarker.className = 'hour-marker';
+                hourMarker.style.top = `${i / 24 * 100}%`;
+
+                const hourLabel = document.createElement('div');
+                hourLabel.className = 'hour-label';
+                const timeText = formatTime(i, userSettings.timeFormat === '24h');
+                // Empty text first 2 times, then show the time directly
+                hourLabel.textContent = calendarRenderCount < 2 ? '' : timeText;
+                hourLabel.dataset.value = timeText;
+                // Assign random unique ID
+                hourLabel.id = 'hour-label-' + Math.random().toString(36).substr(2, 9);
+                hourLabel.style.top = `${i / 24 * 100}%`;
+
+                calendar.appendChild(hourMarker);
+                calendar.appendChild(hourLabel);
+            }
+
+            // Only animate on the second render (index 1)
+            if (calendarRenderCount === 1) {
+                const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
+                const intervalBetweenStarts = 600 / hourLabels.length;
+
+                const shuffledLabels = hourLabels
+                    .map(value => ({ value, sort: Math.random() }))
+                    .sort((a, b) => a.sort - b.sort)
+                    .map(({ value }) => value);
+
+                shuffledLabels.forEach((label, index) => {
+                    setTimeout(() => {
+                        if (!hourLabelsCurrentlyAnimating[label.id]) {
+                            hourLabelsCurrentlyAnimating[label.id] = true;
+                            animateHourLabel(label);
+                        }
+                    }, index * intervalBetweenStarts);
+                });
+            }
+
+            const now = DateTime.now().setZone(userTimezone);
+            const currentMinutes = now.hour * 60 + now.minute;
+
+            let shouldUpdateLocalStorage = false;
+            taskEventArray.forEach(event => {
+                if (event.kind == "event") {
+                    if (event.startTime) {
+                        if (!isValidTime(event.startTime)) {
+                            shouldUpdateLocalStorage = true;
+                            const calculatedDate = calculateActualDate(event.startTime);
+                            if (calculatedDate) {
+                                event.date = calculatedDate;
+                                delete event.startTime;
+                            } else {
+                                delete event.startTime;
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Process events (including recurring events)
+            let events = taskEventArray.filter(item => {
+                if (item.kind !== "event") return false;
+
+                if (item.dateArray) {
+                    return item.dateArray.some(dateObj => {
+                        const eventDate = dateObj.startDate || dateObj.endDate;
+                        if (dateObj.endDate) {
+                            return isDateInEventRange(currentDate.toISODate(), {
+                                date: eventDate,
+                                endDate: dateObj.endDate
+                            });
+                        }
+                        return DateTime.fromISO(eventDate).hasSame(currentDate, 'day');
+                    });
+                }
+
+                return DateTime.fromISO(item.date).hasSame(currentDate, 'day');
+            });
+
+            if (shouldUpdateLocalStorage) {
+                saveUserData();
+            }
+
+            // Separate all-day events and events without calculable start times
+            // multi-day events are converted into these
+            let allDayEvents = [];
+            let timedEvents = [];
+
+            events.forEach(event => {
+                if (isMultiDayEvent(event)) {
+                    const isStartDate = currentDate.toISODate() === event.date;
+                    const isEndDate = currentDate.toISODate() === event.endDate;
+
+                    if (isStartDate && event.startTime) {
+                        // On start date, treat as timed event from start time to end of day
+                        timedEvents.push({
+                            ...event,
+                            endTime: '24:00',
+                            extendsDown: true
+                        });
+                    } else if (isEndDate && event.endTime) {
+                        // On end date, treat as timed event from start of day to end time
+                        timedEvents.push({
+                            ...event,
+                            startTime: '00:00',
+                            extendsUp: true
+                        });
+                    } else {
+                        // For days in between or when no specific times, treat as all-day
+                        allDayEvents.push(event);
+                    }
+                } else {
+                    // Handle regular single-day events as before
+                    if (!event.startTime || !isValidTime(event.startTime)) {
+                        allDayEvents.push(event);
+                    } else {
+                        timedEvents.push(event);
+                    }
+                }
+            });
+
+            // Handle all-day events
+            if (allDayEvents.length > 0) {
+                allDayEvents.forEach(event => {
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'all-day-event';
+                    eventEl.dataset.taskId = event.id;
+
+                    const asterisk = document.createElement('span');
+                    asterisk.className = 'task-asterisk';
+                    asterisk.textContent = '*';
+
+                    const eventContent = document.createElement('span');
+                    eventContent.textContent = event.name;
+
+                    eventEl.appendChild(asterisk);
+                    eventEl.appendChild(eventContent);
+
+                    // Add click handler for all-day events
+                    eventEl.addEventListener('click', (e) => {
+                        constructTaskEditorModal(e.currentTarget.dataset.taskId);
+                    });
+
+                    allDayEventsContainer.appendChild(eventEl);
+                });
+            }
+
+            // Calculate new calendar position immediately
+            const newCalendarTop = allDayEvents.length > 0 ?
+                allDayEventsContainer.offsetHeight - 6 + calendarToTopDistanceNoAllDay :
+                calendarToTopDistanceNoAllDay;
+
+            // Set position without transition on first render
+            if (calendarRenderCount === 0) {
+                calendar.style.top = `${newCalendarTop}px`;
+                allDayEventsContainer.style.opacity = allDayEvents.length > 0 ? '1' : '0';
+            } else {
+                calendar.style.transition = 'top 0.3s ease';
+                calendar.style.top = `${newCalendarTop}px`;
+
+                if (allDayEvents.length > 0) {
+                    allDayEventsContainer.style.transition = 'opacity 0.3s ease';
+                    allDayEventsContainer.style.opacity = '0';
+                    setTimeout(() => {
+                        allDayEventsContainer.style.opacity = '1';
+                    }, 150);
+                } else {
+                    allDayEventsContainer.style.opacity = '0';
+                }
+            }
+
+            // Sort the timed events by start time
+            timedEvents.sort((a, b) => {
+                const aTime = timeToMinutes(a.startTime || '00:00');
+                const bTime = timeToMinutes(b.startTime || '00:00');
+                return aTime - bTime;
+            });
+
+            const colors = ['#3a506b', '#5b7553', '#6b4f4f', '#4f4f6b', '#6b5b4f'];
+            const lanes = [];
+            const calendarWidth = calendar.offsetWidth;
+            const generalCalOffset = 42; // space from left for time markers
+            const laneWidth = 8; // the horizontal space between the leftmost edge of the layer nth and the leftmost edge of the n+1th layer
+            const spaceBetweenEvents = 4;
+
+            // Group events by start time
+            const eventGroups = [];
+            let currentGroup = [];
+            let currentStartTime = null;
+
+            timedEvents.forEach((event, index) => {
+                const startTime = event.startTime || '00:00';
+                if (startTime !== currentStartTime) {
+                    if (currentGroup.length > 0) {
+                        eventGroups.push(currentGroup);
+                    }
+                    currentGroup = [event];
+                    currentStartTime = startTime;
+                } else {
+                    currentGroup.push(event);
+                }
+
+                if (index === timedEvents.length - 1 && currentGroup.length > 0) {
+                    eventGroups.push(currentGroup);
+                }
+            });
+
+            // Render timed events
+            eventGroups.forEach(group => {
+                const groupStartMinutes = timeToMinutes(group[0].startTime || '00:00');
+                const groupEndMinutes = Math.max(...group.map(e => {
+                    if (e.endTime) {
+                        return timeToMinutes(e.endTime);
+                    } else {
+                        return Math.min(groupStartMinutes + 100, 1440); // Default to 100 minutes if no end time
+                    }
+                }));
+
+                // Find the first available lane for the group
+                let laneIndex = 0;
+                while (true) {
+                    if (!lanes[laneIndex]) {
+                        lanes[laneIndex] = [];
+                    }
+                    const lane = lanes[laneIndex];
+
+                    let conflict = false;
+                    for (let i = 0; i < lane.length; i++) {
+                        const event = lane[i];
+                        const eventStart = event.start || 0;
+                        const eventEnd = event.end || Math.min(eventStart + 100, 1440);
+
+                        if (groupStartMinutes < eventEnd && groupEndMinutes > eventStart) {
+                            conflict = true;
+                            break;
+                        }
+                    }
+
+                    if (!conflict) {
+                        lane.push({ start: groupStartMinutes, end: groupEndMinutes });
+                        break;
+                    }
+                    laneIndex++;
+                }
+
+                const availableWidth = calendarWidth - (laneIndex * laneWidth) - generalCalOffset;
+                const eventWidth = (availableWidth - (spaceBetweenEvents * (group.length - 1))) / group.length;
+
+                group.forEach((item, index) => {
+                    const itemStartMinutes = timeToMinutes(item.startTime || '00:00');
+                    const itemEndMinutes = item.endTime ? timeToMinutes(item.endTime) : Math.min(itemStartMinutes + 100, 1440);
+
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'calendar-event';
+                    if (item.extendsDown) {
+                        eventEl.classList.add('extends-down');
+                    }
+                    if (item.extendsUp) {
+                        eventEl.classList.add('extends-up');
+                    }
+                    eventEl.dataset.startTime = item.startTime || '00:00';
+                    eventEl.dataset.endTime = item.endTime || '';
+                    eventEl.dataset.taskId = item.id;
+
+                    // make past events 0.5 opacity
+                    const now = DateTime.now().setZone(userTimezone);
+
+                    // Only apply past event styling if we're viewing today
+                    if (currentDate.hasSame(now, 'day')) {
+                        // Convert event time to Unix timestamp
+                        let eventEndTime;
+                        if (item.endDate) {
+                            // If it has an end date, use that with end time (or 23:59:59 if no end time)
+                            eventEndTime = DateTime.fromISO(item.endDate)
+                                .set({
+                                    hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
+                                    minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
+                                    second: 59
+                                });
+                        } else {
+                            // Single day event - use item.date with end time (or 23:59:59 if no end time)
+                            eventEndTime = DateTime.fromISO(item.date)
+                                .set({
+                                    hour: item.endTime ? parseInt(item.endTime.split(':')[0]) : 23,
+                                    minute: item.endTime ? parseInt(item.endTime.split(':')[1]) : 59,
+                                    second: 59
+                                });
+                        }
+
+                        if (eventEndTime < now) {
+                            // Calculate delay based on event index
+                            const allEvents = Array.from(calendar.querySelectorAll('.calendar-event'));
+                            const eventIndex = allEvents.indexOf(eventEl);
+                            const waterfallDelay = (eventIndex) * 50 + 1200;
+
+                            async function setOpacityUntilSuccess() {
+                                await new Promise(resolve => setTimeout(resolve, waterfallDelay));
+
+                                let attempts = 0;
+                                while (attempts < 100) {
+                                    try {
+                                        eventEl.style.opacity = '0.5';
+                                        if (getComputedStyle(eventEl).opacity === '0.5') {
+                                            break;
+                                        }
+                                        await new Promise(resolve => setTimeout(resolve, 50));
+                                        attempts++;
+                                    } catch (error) {
+                                        console.error('Failed to set opacity:', error);
+                                        break;
+                                    }
+                                }
+                            }
+                            setOpacityUntilSuccess();
+                        }
+                    }
+
+                    eventEl.textContent = item.name;
+                    eventEl.style.left = `${laneIndex * laneWidth + generalCalOffset + (index * (eventWidth + spaceBetweenEvents))}px`;
+                    eventEl.style.width = `${eventWidth}px`;
+                    eventEl.style.top = `${itemStartMinutes / 1440 * 100}%`;
+
+                    const color = colors[laneIndex % colors.length];
+
+                    if (item.endTime) {
+                        eventEl.style.height = `${(itemEndMinutes - itemStartMinutes) / 1440 * 100}%`;
+                        eventEl.style.backgroundColor = color;
+                    } else {
+                        eventEl.style.height = `${(100) / 1440 * 100}%`;
+                        eventEl.style.background = `linear-gradient(
+                            to bottom,
+                            ${color} 0%,
+                            ${color} 20%,
+                            ${color} 20%,
+                            rgba(${parseInt(color.slice(1, 3), 16)}, ${parseInt(color.slice(3, 5), 16)}, ${parseInt(color.slice(5, 7), 16)}, 0.6) 60%,
+                            rgba(${parseInt(color.slice(1, 3), 16)}, ${parseInt(color.slice(3, 5), 16)}, ${parseInt(color.slice(5, 7), 16)}, 0.4) 70%,
+                            rgba(${parseInt(color.slice(1, 3), 16)}, ${parseInt(color.slice(3, 5), 16)}, ${parseInt(color.slice(5, 7), 16)}, 0.2) 85%,
+                            rgba(${parseInt(color.slice(1, 3), 16)}, ${parseInt(color.slice(3, 5), 16)}, ${parseInt(color.slice(5, 7), 16)}, 0.1) 90%,
+                            rgba(${parseInt(color.slice(1, 3), 16)}, ${parseInt(color.slice(3, 5), 16)}, ${parseInt(color.slice(5, 7), 16)}, 0) 100%
+                        )`;
+                        eventEl.style.borderBottomLeftRadius = '0';
+                        eventEl.style.borderBottomRightRadius = '0';
+                    }
+
+                    eventEl.style.zIndex = timedEvents.indexOf(item) + 1;
+
+                    if (!showEvents) {
+                        eventEl.style.opacity = '0';
+                    }
+
+                    eventEl.addEventListener('click', (e) => {
+                        constructTaskEditorModal(e.currentTarget.dataset.taskId);
+                    });
+
+                    calendar.appendChild(eventEl);
+                });
+            });
+
+            if (calendarRenderCount === 0) {
+                requestAnimationFrame(() => {
+                    calendar.classList.remove('calendar-no-transition');
+                });
+            }
+
+            // we want time to pass in-between the time marker code at the top of this function and now
+            updateTimeMarker();
+
+            calendarRenderCount += 1;
+        }
+
+        function timeToMinutes(time) {
+            const [hours, minutes] = time.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        function saveUserData() {
+            localStorage.setItem('taskEventArray', JSON.stringify(taskEventArray));
+        }
+
+        // Function to adjust dates relative to current day instead of April 27, 2025
+function adjustDatesToToday(taskData) {
+  const baseDate = DateTime.fromISO("2025-04-27");
+  const today = DateTime.now();
+  const daysDifference = today.diff(baseDate, 'days').days;
+  
+  return taskData.map(task => {
+    const newTask = {...task};
+    
+    // Handle specific date strings (relative weekdays like "monday", "tuesday", etc.)
+    const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+    
+    // Adjust date field
+    if (task.date) {
+      if (weekdays.includes(task.date.toLowerCase())) {
+        // Keep weekday names as is, they'll be calculated relative to current week
+        newTask.date = task.date.toLowerCase();
+      } else if (task.date.startsWith("RECUR=")) {
+        // Keep recurring patterns as is
+        newTask.date = task.date;
+      } else if (task.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // If it's an ISO date, adjust it by the day difference
+        const adjustedDate = DateTime.fromISO(task.date).plus({days: daysDifference});
+        newTask.date = adjustedDate.toISODate();
+      }
+    }
+    
+    // Adjust endDate field if it exists
+    if (task.endDate) {
+      if (weekdays.includes(task.endDate.toLowerCase())) {
+        // Keep weekday names as is
+        newTask.endDate = task.endDate.toLowerCase();
+      } else if (task.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // If it's an ISO date, adjust it
+        const adjustedEndDate = DateTime.fromISO(task.endDate).plus({days: daysDifference});
+        newTask.endDate = adjustedEndDate.toISODate();
+      }
+    }
+    
+    // Also adjust dates in dateArray
+    if (task.dateArray && Array.isArray(task.dateArray)) {
+      newTask.dateArray = task.dateArray.map(dateObj => {
+        const newDateObj = {...dateObj};
+        
+        if (dateObj.startDate) {
+          if (weekdays.includes(dateObj.startDate.toLowerCase())) {
+            newDateObj.startDate = dateObj.startDate.toLowerCase();
+          } else if (dateObj.startDate.startsWith("RECUR=")) {
+            newDateObj.startDate = dateObj.startDate;
+          } else if (dateObj.startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const adjustedStartDate = DateTime.fromISO(dateObj.startDate).plus({days: daysDifference});
+            newDateObj.startDate = adjustedStartDate.toISODate();
+          }
+        }
+        
+        if (dateObj.endDate) {
+          if (weekdays.includes(dateObj.endDate.toLowerCase())) {
+            newDateObj.endDate = dateObj.endDate.toLowerCase();
+          } else if (dateObj.endDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const adjustedEndDate = DateTime.fromISO(dateObj.endDate).plus({days: daysDifference});
+            newDateObj.endDate = adjustedEndDate.toISODate();
+          }
+        }
+        
+        return newDateObj;
+      });
+    }
+    
+    return newTask;
+  });
+}
+
+// Modified loadUserData function to override localStorage with our predefined data
+function loadUserData() {
+  // The predefined task data (your JSON data)
+  const predefinedTaskData = [
+    {
+        "kind": "event",
+        "name": "Meeting with math teacher",
+        "date": "tuesday",
+        "done": {},
+        "description": "",
+        "id": "task_h0ubfsjsr",
+        "dateArray": [
+            {
+                "startDate": "tuesday"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meeting with advisor",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_5zeml4lec",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Math homework",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_0vsvybsjv",
+        "endTime": "18:00",
+        "endDate": "2025-04-27",
+        "dateArray": [
+            {
+                "endDate": "2025-04-27",
+                "endTime": "18:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Networking at the Gates Hillman super hill center",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_njfi80jhu",
+        "startTime": "15:00",
+        "endTime": "22:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "15:00",
+                "endTime": "22:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Bio lab",
+        "date": "friday",
+        "done": {},
+        "description": "",
+        "id": "task_ie6959fc9",
+        "dateArray": [
+            {
+                "startDate": "friday"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Finish recording new song",
+        "date": "monday",
+        "done": {},
+        "description": "",
+        "id": "task_e97s8eezv",
+        "endDate": "monday",
+        "dateArray": [
+            {
+                "endDate": "monday"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Programming homework",
+        "date": "friday",
+        "done": {},
+        "description": "",
+        "id": "task_71x9qgjui",
+        "endTime": "15:00",
+        "endDate": "friday",
+        "dateArray": [
+            {
+                "endDate": "friday",
+                "endTime": "15:00"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Buy carrots from Target",
+        "done": {},
+        "description": "",
+        "id": "task_4orcuduik",
+        "dateArray": [
+            {}
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Study session",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_lk74pto06",
+        "startTime": "17:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "17:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Studying",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_mj2oe0l98",
+        "startTime": "13:00",
+        "endTime": "15:25",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "13:00",
+                "endTime": "15:25"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Writing assignment",
+        "date": "2025-04-26",
+        "done": {},
+        "description": "",
+        "id": "task_dspwc91vi",
+        "endDate": "2025-04-26",
+        "dateArray": [
+            {
+                "endDate": "2025-04-26"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Studying",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_h1skquruj",
+        "startTime": "19:00",
+        "endTime": "20:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "19:00",
+                "endTime": "20:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meet up with Omar",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_1qds06d6f",
+        "startTime": "19:30",
+        "endTime": "19:50",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "19:30",
+                "endTime": "19:50"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Cycling club",
+        "date": "2025-04-27",
+        "done": {},
+        "description": "",
+        "id": "task_h76up74xv",
+        "startTime": "19:00",
+        "endTime": "20:00",
+        "dateArray": [
+            {
+                "startDate": "2025-04-27",
+                "startTime": "19:00",
+                "endTime": "20:00"
+            }
+        ]
+    },
+    {
+        "kind": "task",
+        "name": "Remind Bill to pick up cold medicine",
+        "done": {},
+        "description": "",
+        "id": "task_osl4oaa5m",
+        "dateArray": [
+            {}
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meeting",
+        "date": "RECUR=friday",
+        "done": {},
+        "description": "",
+        "id": "task_x4py9d6dz",
+        "dateArray": [
+            {
+                "startDate": "RECUR=friday"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Meeting",
+        "date": "RECUR=thursday",
+        "done": {},
+        "description": "",
+        "id": "task_06siecv6n",
+        "startTime": "16:00",
+        "dateArray": [
+            {
+                "startDate": "RECUR=thursday",
+                "startTime": "16:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "No phone time",
+        "date": "RECUR=friday",
+        "done": {},
+        "description": "",
+        "id": "task_epfpe6fm1",
+        "startTime": "21:00",
+        "endTime": "06:00",
+        "endDate": "monday",
+        "dateArray": [
+            {
+                "startDate": "RECUR=friday",
+                "startTime": "21:00",
+                "endDate": "monday",
+                "endTime": "06:00"
+            }
+        ]
+    },
+    {
+        "kind": "event",
+        "name": "Festival",
+        "date": "saturday",
+        "done": {},
+        "description": "",
+        "id": "task_4scbdk14x",
+        "endDate": "sunday",
+        "dateArray": [
+            {
+                "startDate": "saturday",
+                "endDate": "sunday"
+            }
+        ]
+    }
+  ];
+
+  // Adjust dates to be relative to today's date
+  taskEventArray = adjustDatesToToday(predefinedTaskData);
+  
+  // Save to localStorage for persistence during this session
+  saveUserData();
+}
+
+        // take a date string from startTime, which shouldn't have a day but sometimes AI hallucinates and gives it a day, so we try to infer the correct date before clearing the field
+        function calculateActualDate(dateString) {
+            const today = DateTime.local().setZone(userTimezone);
+
+            if (dateString === 'today') {
+                return today.toISODate();
+            } else if (dateString === 'tomorrow') {
+                return today.plus({ days: 1 }).toISODate();
+            } else {
+                const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                const dayIndex = daysOfWeek.indexOf(dateString.toLowerCase());
+                if (dayIndex !== -1) {
+                    let targetDate = today.set({ weekday: dayIndex + 1 });
+                    if (targetDate < today) {
+                        targetDate = targetDate.plus({ weeks: 1 });
+                    }
+                    return targetDate.toISODate();
+                }
+            }
+
+            return null;
+        }
+
+        function isValidTime(timeString) {
+            return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
+        }
+
+        function updateButtonStyles() {
+            const buttons = document.querySelectorAll('.navigation button');
+            buttons.forEach(button => {
+                button.addEventListener('mouseenter', () => {
+                    button.style.color = '#ffffff';
+                });
+                button.addEventListener('mouseleave', () => {
+                    button.style.color = '';
+                });
+            });
+        }
+
+        function convertTo24Hour(hours, minutes, period) {
+            hours = parseInt(hours);
+            if (period === 'PM' && hours !== 12) {
+                hours += 12;
+            } else if (period === 'AM' && hours === 12) {
+                hours = 0;
+            }
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+
+        function convertTo12Hour(time24) {
+            if (!time24) return { hours: '', minutes: '', period: 'AM' };
+            const [hours24, minutes] = time24.split(':').map(Number);
+            let period = hours24 >= 12 ? 'PM' : 'AM';
+            let hours12 = hours24 % 12;
+            if (hours12 === 0) hours12 = 12;
+            return {
+                hours: hours12.toString(),
+                minutes: minutes.toString().padStart(2, '0'),
+                period
+            };
+        }
+
+        // helper function to generate recurring dates from the string returned by the AI
+        function generateRecurringDates(task, startDate, endDate) {
+            const start = DateTime.fromISO(startDate);
+            const end = DateTime.fromISO(endDate);
+            const dates = [];
+
+            if (!task.recurPattern) return [task.date];
+
+            let current = DateTime.fromISO(task.date);
+
+            // Handle specific weekday patterns like "monday,tuesday" or "monday@15:00,tuesday@16:00"
+            if (task.recurPattern.includes(',')) {
+                const patterns = task.recurPattern.split(',');
+                while (current <= end) {
+                    patterns.forEach(pattern => {
+                        let [day, time] = pattern.split('@');
+                        const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                            .indexOf(day.toLowerCase());
+
+                        if (weekdayIndex !== -1) {
+                            let nextOccurrence = current.set({ weekday: weekdayIndex + 1 });
+                            if (nextOccurrence < current) {
+                                nextOccurrence = nextOccurrence.plus({ weeks: 1 });
+                            }
+
+                            // If this specific weekday has a time override
+                            if (time) {
+                                const [hours, minutes] = time.split(':').map(Number);
+                                task.endTime = time;
+                            }
+
+                            if (nextOccurrence >= start && nextOccurrence <= end) {
+                                dates.push(nextOccurrence.toISODate());
+                            }
+                        }
+                    });
+                    current = current.plus({ weeks: 1 });
+                }
+                return [...new Set(dates)]; // Remove duplicates
+            }
+
+            // Handle monthly patterns
+            if (task.recurPattern.startsWith('monthly_')) {
+                const pattern = task.recurPattern.substring(8); // Remove 'monthly_' prefix
+                while (current <= end) {
+                    let nextDate = current;
+
+                    if (pattern === 'first_day') {
+                        nextDate = current.startOf('month');
+                    } else if (pattern.includes('_')) {
+                        const [ord, day] = pattern.split('_'); // e.g., 'first', 'monday'
+                        const weekdayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                            .indexOf(day.toLowerCase());
+
+                        if (weekdayIndex !== -1) {
+                            const ordinalMap = {
+                                'first': 1, 'second': 2, 'third': 3, 'fourth': 4, 'last': -1
+                            };
+
+                            const ordinal = ordinalMap[ord];
+                            if (ordinal) {
+                                if (ordinal === -1) {
+                                    nextDate = current.endOf('month').set({ weekday: weekdayIndex + 1 });
+                                    while (nextDate.month !== current.month) {
+                                        nextDate = nextDate.minus({ weeks: 1 });
+                                    }
+                                } else {
+                                    nextDate = current.startOf('month').set({ weekday: weekdayIndex + 1 });
+                                    nextDate = nextDate.plus({ weeks: ordinal - 1 });
+                                    while (nextDate.month !== current.month) {
+                                        nextDate = nextDate.minus({ weeks: 1 });
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (nextDate >= start && nextDate <= end) {
+                        dates.push(nextDate.toISODate());
+                    }
+
+                    current = current.plus({ months: 1 });
+                }
+                return dates;
+            }
+
+            // Handle other recurrence patterns
+            const intervalMap = {
+                'daily': { days: 1 },
+                'weekly': { weeks: 1 },
+                'biweekly': { weeks: 2 },
+                'monthly': { months: 1 },
+                'yearly': { years: 1 }
+            };
+
+            // Handle "weekly+n" pattern
+            if (task.recurPattern.startsWith('weekly+')) {
+                const weeks = parseInt(task.recurPattern.split('+')[1]);
+                intervalMap.custom = { weeks };
+            }
+
+            const interval = intervalMap[task.recurPattern] || intervalMap.custom;
+            if (!interval) return [task.date];
+
+            while (current <= end) {
+                if (current >= start) {
+                    dates.push(current.toISODate());
+                }
+                current = current.plus(interval);
+            }
+
+            return dates;
+        }
+
+        function updateTimeMarker() {
+            const now = DateTime.now().setZone(userTimezone);
+            const currentMinutes = now.hour * 60 + now.minute;
+            const shouldShowMarker = currentDate.hasSame(now, 'day');
+            const existingMarker = document.querySelector('.current-time-marker');
+            const existingTriangle = document.querySelector('.time-triangle');
+
+            // Calculate position based on current time
+            const percentage = (currentMinutes / 1440) * 100;
+
+            // Update past-event status for all calendar events
+            if (shouldShowMarker) {
+                const calendarEvents = document.querySelectorAll('.calendar-event');
+                calendarEvents.forEach(eventEl => {
+                    if (eventEl.dataset.endTime) {
+                        const endTimeMinutes = timeToMinutes(eventEl.dataset.endTime);
+                        if (endTimeMinutes < currentMinutes) {
+                            // First ensure any existing transition is complete
+                            eventEl.style.transition = 'none';
+                            eventEl.offsetHeight; // Force reflow
+
+                            // Now start our new transition
+                            setTimeout(() => {
+                                eventEl.style.transition = 'opacity 300ms ease';
+                                eventEl.style.opacity = '0.5';
+                            }, 0);
+                        } else {
+                            eventEl.style.transition = 'none';
+                            eventEl.offsetHeight; // Force reflow
+
+                            setTimeout(() => {
+                                eventEl.style.transition = 'opacity 300ms ease';
+                                eventEl.style.opacity = '1';
+                            }, 0);
+                        }
+                    }
+                });
+            }
+
+            // Rest of the time marker update code...
+            if (shouldShowMarker && !isTimeMarkerShowing) {
+                // Create and show markers with fade in
+                if (!existingMarker) {
+                    const timeMarker = document.createElement('div');
+                    timeMarker.className = 'current-time-marker';
+                    timeMarker.style.opacity = '0';  // Start invisible
+                    timeMarker.style.top = `${percentage}%`;
+                    calendar.appendChild(timeMarker);
+
+                    // Force reflow
+                    timeMarker.offsetHeight;
+
+                    // Fade in
+                    timeMarker.style.transition = 'opacity 0.3s ease';
+                    timeMarker.style.opacity = '1';
+                }
+
+                if (!existingTriangle) {
+                    const timeTriangle = document.createElement('div');
+                    timeTriangle.className = 'time-triangle time-triangle-hidden';  // Start with hidden class
+                    timeTriangle.style.top = `calc(${percentage}% - 9px)`;
+                    calendar.appendChild(timeTriangle);
+
+                    // Force reflow
+                    timeTriangle.offsetHeight;
+
+                    // Animate in
+                    requestAnimationFrame(() => {
+                        timeTriangle.classList.remove('time-triangle-hidden');
+                    });
+                }
+
+                isTimeMarkerShowing = true;
+            } else if (!shouldShowMarker && isTimeMarkerShowing) {
+                // Remove markers with animation
+                if (existingMarker) {
+                    existingMarker.style.transition = 'opacity 0.3s ease';
+                    existingMarker.style.opacity = '0';
+                    setTimeout(() => existingMarker.remove(), 300);
+                }
+
+                if (existingTriangle) {
+                    existingTriangle.classList.add('time-triangle-hidden');
+                    setTimeout(() => existingTriangle.remove(), 300);
+                }
+
+                isTimeMarkerShowing = false;
+            } else if (shouldShowMarker && isTimeMarkerShowing) {
+                // Update position of existing markers
+                if (existingMarker) {
+                    existingMarker.style.top = `${percentage}%`;
+                }
+                if (existingTriangle) {
+                    existingTriangle.style.top = `calc(${percentage}% - 9px)`;
+                }
+            }
+        }
+
+        function showVignette() {
+            const vignette = document.getElementById('vignette');
+            vignette.classList.add('visible');
+        }
+
+        function hideVignette() {
+            const vignette = document.getElementById('vignette');
+            vignette.classList.remove('visible');
+        }
+
+        function showModal(modalType) {
+            showVignette();
+            const modal = document.getElementById(`${modalType}Modal`);
+            modal.classList.add('visible');
+        }
+
+        function hideModal(modalType) {
+            // If edit task modal is visible, treat this as an edit task close
+            if (modalType === 'all') {
+                const editTaskModal = document.getElementById('editTaskModal');
+                if (editTaskModal.classList.contains('visible')) {
+                    modalType = 'editTask';
+                }
+            }
+
+            if (modalType === 'editTask') {
+                const modal = document.getElementById('editTaskModal');
+                if (modal.classList.contains('visible')) {
+                    // verify the data
+                    // if it's not valid, don't close the modal
+                    const verification = verifyTaskModalData();
+                    if (!verification.valid) {
+                        return; // Don't hide anything if validation fails
+                    }
+
+                    const taskId = modal.dataset.taskId;
+                const object = taskEventArray.find(t => t.id === taskId);
+                if (object) {
+                    // Save name and description
+                    object.name = document.getElementById('editTaskName').value;
+                    object.description = document.getElementById('taskDescription').value;
+
+                    // Set kind based on active tab
+                    object.kind = document.getElementById('taskTypeBtn').classList.contains('active') ? 'task' : 'event';
+
+                    // Clear start/end times by default
+                    object.startTime = null;
+                    object.endTime = null;
+                    object.endDate = null;
+
+                    if (object.kind === 'task') {
+                        // Handle task date/time
+                        const dueDateSwitch = document.getElementById('dueDateSwitch');
+                        const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+
+                        if (dueDateSwitch.classList.contains('active')) {
+                            const dateInputs = document.getElementById('dueDateInputs').querySelectorAll('input');
+                            const [month, day, year] = [...dateInputs].map(input => input.value);
+                            if (month && day && year) {
+                                object.date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                            }
+
+                            if (dueTimeSwitch.classList.contains('active')) {
+                                const timeInputs = document.getElementById('dueTimeInputs');
+                                const inputs = timeInputs.querySelectorAll('input');
+                                const hours = inputs[0].value;
+                                let minutes = inputs[1].value;
+                                
+                                // If hours are provided but minutes are blank, use '00'
+                                if (hours && !minutes) {
+                                    minutes = '00';
+                                }
+
+                                if (hours) {  // Only need to check hours since we default minutes
+                                    if (userSettings.timeFormat === 'AM/PM') {
+                                        const periodOption = timeInputs.querySelector('.time-period-option.active');
+                                        const period = periodOption.dataset.period;
+                                        object.endTime = convertTo24Hour(hours, minutes, period);
+                                    } else {
+                                        object.endTime = `${hours.padStart(2, '0')}:${minutes}`;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Similar fix for event times...
+                        const startDateSwitch = document.getElementById('startDateSwitch');
+                        const startTimeSwitch = document.getElementById('startTimeSwitch');
+                        const endDateSwitch = document.getElementById('endDateSwitch');
+
+                        if (startDateSwitch.classList.contains('active')) {
+                            const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
+                            const [startMonth, startDay, startYear] = [...startDateInputs].map(input => input.value);
+                            if (startMonth && startDay && startYear) {
+                                object.date = `${startYear}-${startMonth.padStart(2, '0')}-${startDay.padStart(2, '0')}`;
+                            }
+
+                            if (startTimeSwitch.classList.contains('active')) {
+                                if (userSettings.timeFormat === 'AM/PM') {
+                                    // Handle start time
+                                    const startInputs = document.getElementById('startTimeInputs').querySelectorAll('input');
+                                    const startHours = startInputs[0].value;
+                                    let startMinutes = startInputs[1].value;
+                                    if (startHours && !startMinutes) {
+                                        startMinutes = '00';
+                                    }
+                                    if (startHours) {
+                                        const startPeriod = document.getElementById('startTimeInputs').querySelector('.time-period-option.active');
+                                        object.startTime = convertTo24Hour(startHours, startMinutes, startPeriod.dataset.period);
+                                    }
+
+                                    // Handle end time
+                                    const endInputs = document.getElementById('endTimeInputs').querySelectorAll('input');
+                                    const endHours = endInputs[0].value;
+                                    let endMinutes = endInputs[1].value;
+                                    if (endHours && !endMinutes) {
+                                        endMinutes = '00';
+                                    }
+                                    if (endHours) {
+                                        const endPeriod = document.getElementById('endTimeInputs').querySelector('.time-period-option.active');
+                                        object.endTime = convertTo24Hour(endHours, endMinutes, endPeriod.dataset.period);
+                                    }
+                                } else {
+                                    // Handle 24h format
+                                    const startInputs = document.getElementById('startTimeInputs').querySelectorAll('input');
+                                    const endInputs = document.getElementById('endTimeInputs').querySelectorAll('input');
+                                    
+                                    const startHours = startInputs[0].value;
+                                    let startMinutes = startInputs[1].value;
+                                    if (startHours && !startMinutes) {
+                                        startMinutes = '00';
+                                    }
+                                    if (startHours) {
+                                        object.startTime = `${startHours.padStart(2, '0')}:${startMinutes}`;
+                                    }
+
+                                    const endHours = endInputs[0].value;
+                                    let endMinutes = endInputs[1].value;
+                                    if (endHours && !endMinutes) {
+                                        endMinutes = '00';
+                                    }
+                                    if (endHours) {
+                                        object.endTime = `${endHours.padStart(2, '0')}:${endMinutes}`;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (endDateSwitch.classList.contains('active')) {
+                                const endDateInputs = document.getElementById('endDateInputs').querySelectorAll('input');
+                                const [endMonth, endDay, endYear] = [...endDateInputs].map(input => input.value);
+                                if (endMonth && endDay && endYear) {
+                                    object.endDate = `${endYear}-${endMonth.padStart(2, '0')}-${endDay.padStart(2, '0')}`;
+                                }
+                            }
+                        }
+
+                        // Handle completion status for non-recurring tasks
+                        if (object.kind === 'task' && !object.recurPattern && Object.keys(object.done).length > 0) {
+                            const keys = Object.keys(object.done);
+                            if (keys.length === 1) {
+                                const key = keys[0];
+                                if (key !== object.date) {
+                                    object.done = {
+                                        [object.date]: {
+                                            completed: true,
+                                            completedAt: DateTime.now().setZone(userTimezone).toISO()
+                                        }
+                                    };
+                                }
+                            }
+                        }
+
+                        saveUserData();
+                        renderTasks();
+                        renderCalendar();
+                    }
+
+                    hideVignette();
+                    modal.classList.remove('visible');
+                }
+            } else if (modalType === 'settings') {
+                document.getElementById('settingsModal').classList.remove('visible');
+                hideVignette();
+            } else if (modalType === 'all') {
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.classList.remove('visible');
+                });
+                hideVignette();
+            }
+        }
+
+        function saveUserSettings() {
+            localStorage.setItem('userSettings', JSON.stringify(userSettings));
+        }
+
+        function loadUserSettings() {
+            const savedSettings = localStorage.getItem('userSettings');
+            if (savedSettings) {
+                userSettings = JSON.parse(savedSettings);
+
+                // Immediately apply time format class if needed
+                if (userSettings.timeFormat === 'AM/PM') {
+                    document.body.classList.add('time-format-ampm');
+                }
+
+                // Apply saved settings to toggle switches
+                document.querySelectorAll('.toggle-track').forEach(track => {
+                    const setting = track.dataset.setting;
+                    if (userSettings[setting]) {
+                        track.classList.add('active');
+                    }
+                });
+
+                // Apply saved settings to selectors
+                document.querySelectorAll('.selector-container').forEach(container => {
+                    const setting = container.dataset.setting;
+                    const savedValue = userSettings[setting];
+
+                    // Use setTimeout to ensure elements are rendered
+                    setTimeout(() => {
+                        const option = savedValue ?
+                            container.querySelector(`[data-value="${savedValue}"]`) :
+                            container.querySelector('.selector-option');
+
+                        if (option) {
+                            updateSelector(option, option.dataset.value);
+
+                            // Save default value if none was saved
+                            if (!savedValue) {
+                                userSettings[setting] = option.dataset.value;
+                                saveUserSettings();
+                            }
+                        } else {
+                            console.error(`Invalid saved value for setting: ${setting}`);
+                        }
+                    }, 300);
+                });
+            } else {
+                // Default settings
+                userSettings = defaultSettings;
+                localStorage.setItem('userSettings', JSON.stringify(userSettings));
+                loadUserSettings();
+            }
+        }
+
+        function toggleSetting(trackElement) {
+            const setting = trackElement.dataset.setting;
+            const newValue = !trackElement.classList.contains('active');
+            trackElement.classList.toggle('active');
+            userSettings[setting] = newValue;
+            saveUserSettings();
+        }
+
+        // Track active animation intervals
+        let activeAnimations = {
+            timeFormat: {
+                intervals: new Set(),
+                timeouts: new Set()
+            }
+        };
+
+        function clearTimeFormatAnimations() {
+            // Clear all intervals
+            activeAnimations.timeFormat.intervals.forEach(interval => {
+                clearInterval(interval);
+            });
+            activeAnimations.timeFormat.intervals.clear();
+
+            // Clear all timeouts
+            activeAnimations.timeFormat.timeouts.forEach(timeout => {
+                clearTimeout(timeout);
+            });
+            activeAnimations.timeFormat.timeouts.clear();
+        }
+
+        function animateTaskTimeFormatChange(to24Hour) {
+            // Clear any existing animations first
+            clearTimeFormatAnimations();
+
+            const taskTimes = document.querySelectorAll('.task-time, .overdue-task .task-time');
+            const intervalBetweenStarts = 600 / taskTimes.length;
+
+            taskTimes.forEach((timeElement, index) => {
+                const timeout = setTimeout(() => {
+                    const taskItem = timeElement.closest('.task-item');
+                    if (!taskItem) return;
+                    const taskId = taskItem.dataset.taskId;
+                    const task = taskEventArray.find(t => t.id === taskId);
+                    if (!task || !task.endTime) return;
+
+                    // Store original classes
+                    const originalClassList = timeElement.className;
+
+                    // Prepare new text
+                    const [hours24, minutes] = task.endTime.split(':').map(Number);
+                    let newText;
+                    if (to24Hour) {
+                        newText = `${hours24}:${minutes.toString().padStart(2, '0')}`;  // Remove padStart from hours
+                    } else {
+                        const period = hours24 >= 12 ? 'PM' : 'AM';
+                        const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+                        newText = `${hours12}:${minutes.toString().padStart(2, '0')}${period}`;  // Remove padStart from hours
+                    }
+
+                    let currentText = timeElement.textContent;
+                    let currentDisplayText = currentText;
+
+                    // Delete phase
+                    const deleteInterval = setInterval(() => {
+                        if (currentDisplayText.length > 0) {
+                            if (currentDisplayText.endsWith('AM') || currentDisplayText.endsWith('PM')) {
+                                currentDisplayText = currentDisplayText.slice(0, -2);
+                            } else if (currentDisplayText.includes(':')) {
+                                if (currentDisplayText.endsWith(':')) {
+                                    currentDisplayText = currentDisplayText.slice(0, -1);
+                                    timeElement.innerHTML = `${currentDisplayText}<span class="time-colon">:</span>`;
+                                } else {
+                                    currentDisplayText = currentDisplayText.slice(0, -1);
+                                }
+                            } else {
+                                currentDisplayText = currentDisplayText.slice(0, -1);
+                            }
+                            timeElement.innerHTML = currentDisplayText;
+                            timeElement.className = originalClassList;
+                        } else {
+                            clearInterval(deleteInterval);
+                            activeAnimations.timeFormat.intervals.delete(deleteInterval);
+
+                            // Add phase
+                            let currentIndex = 0;
+                            const addInterval = setInterval(() => {
+                                if (currentIndex <= newText.length) {
+                                    let displayText = newText.slice(0, currentIndex);
+                                    if (displayText.includes(':')) {
+                                        const parts = displayText.split(':');
+                                        displayText = `${parts[0]}<span class="time-colon">:</span>${parts[1] || ''}`;
+                                    }
+                                    timeElement.innerHTML = displayText;
+                                    timeElement.className = originalClassList;
+                                    currentIndex++;
+                                } else {
+                                    clearInterval(addInterval);
+                                    activeAnimations.timeFormat.intervals.delete(addInterval);
+                                }
+                            }, 400 / newText.length);
+                            activeAnimations.timeFormat.intervals.add(addInterval);
+                        }
+                    }, 400 / currentText.length);
+                    activeAnimations.timeFormat.intervals.add(deleteInterval);
+                }, index * intervalBetweenStarts);
+
+                activeAnimations.timeFormat.timeouts.add(timeout);
+            });
+        }
+
+        function updateSelector(optionElement, value) {
+            const container = optionElement.parentElement;
+            const setting = container.dataset.setting;
+            const highlight = container.querySelector('.selector-highlight');
+            const allOptions = container.querySelectorAll('.selector-option');
+
+            // Remove active class from all options
+            allOptions.forEach(opt => opt.classList.remove('active'));
+
+            // Add active class to selected option
+            optionElement.classList.add('active');
+
+            // Move highlight
+            const optionIndex = Array.from(allOptions).indexOf(optionElement);
+            highlight.style.width = String(optionElement.offsetWidth - 4) + 'px';
+            highlight.style.transform = `translateX(${optionElement.offsetLeft}px)`;
+
+            // Save setting
+            userSettings[setting] = value;
+            saveUserSettings();
+
+            // If this is the time format setting, handle the change
+            if (setting === 'timeFormat') {
+                // Clear any pending class changes
+                clearTimeout(activeAnimations.timeFormat.classTimeout);
+
+                if (value === 'AM/PM') {
+                    document.body.classList.add('time-format-ampm');
+                    animateHourLabelFormatChange(false);
+                    animateTaskTimeFormatChange(false);
+                } else {
+                    animateHourLabelFormatChange(true);
+                    animateTaskTimeFormatChange(true);
+
+                    // Schedule class removal after animation
+                    const classTimeout = setTimeout(() => {
+                        document.body.classList.remove('time-format-ampm');
+                    }, 600);
+                    activeAnimations.timeFormat.classTimeout = classTimeout;
+                }
+            }
+        }
+
+        function animateHourLabelFormatChange(to24Hour) {
+            const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
+            const totalLabels = hourLabels.length;
+            const intervalBetweenStarts = 600 / totalLabels;
+
+            // Update data-value immediately for all labels
+            hourLabels.forEach(label => {
+                const currentDataValue = label.dataset.value;
+                let hour;
+                if (currentDataValue.includes('AM') || currentDataValue.includes('PM')) {
+                    const [timeStr, period] = currentDataValue.split(' ');
+                    hour = parseInt(timeStr);
+                    if (period === 'PM' && hour !== 12) hour += 12;
+                    if (period === 'AM' && hour === 12) hour = 0;
+                } else {
+                    hour = parseInt(currentDataValue);
+                }
+                label.dataset.value = formatTime(hour, to24Hour);
+            });
+
+            const shuffledLabels = hourLabels
+                .map(value => ({ value, sort: Math.random() }))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({ value }) => value);
+
+            shuffledLabels.forEach((label, index) => {
+                setTimeout(() => {
+                    if (label.textContent !== label.dataset.value && !hourLabelsCurrentlyAnimating[label.id]) {
+                        hourLabelsCurrentlyAnimating[label.id] = true;
+                        animateHourLabel(label);
+                    }
+                }, index * intervalBetweenStarts);
+            });
+        }
+
+        function animateHourLabel(label) {
+            // Exit if label no longer exists in DOM
+            if (!label || !document.getElementById(label.id)) {
+                if (label?.id) {
+                    hourLabelsCurrentlyAnimating[label.id] = false;
+                }
+                return;
+            }
+
+            // Extract the hour from the current text (handles both formats)
+            const currentText = label.textContent;
+            let hour;
+            if (currentText.includes('AM') || currentText.includes('PM')) {
+                const [timeStr, period] = currentText.split(' ');
+                hour = parseInt(timeStr);
+                if (period === 'PM' && hour !== 12) hour += 12;
+                if (period === 'AM' && hour === 12) hour = 0;
+            } else {
+                hour = parseInt(currentText);
+            }
+
+            let oldText = label.textContent;
+            let newText = label.dataset.value;
+
+            // First, delete characters one by one
+            let currentDisplayText = oldText;
+            const deleteInterval = setInterval(() => {
+                // Check again if label still exists
+                if (!document.getElementById(label.id)) {
+                    clearInterval(deleteInterval);
+                    if (label.id) {
+                        hourLabelsCurrentlyAnimating[label.id] = false;
+                    }
+                    return;
+                }
+
+                if (currentDisplayText.length > 0) {
+                    currentDisplayText = currentDisplayText.slice(0, -1);
+                    label.textContent = currentDisplayText;
+                } else {
+                    clearInterval(deleteInterval);
+
+                    // Add new characters one by one
+                    let currentIndex = 0;
+                    const addInterval = setInterval(() => {
+                        // Check again if label still exists
+                        if (!document.getElementById(label.id)) {
+                            clearInterval(addInterval);
+                            if (label.id) {
+                                hourLabelsCurrentlyAnimating[label.id] = false;
+                            }
+                            return;
+                        }
+
+                        if (currentIndex <= newText.length) {
+                            label.textContent = newText.slice(0, currentIndex);
+                            currentIndex++;
+                        } else {
+                            clearInterval(addInterval);
+                            if (label.textContent !== label.dataset.value) {
+                                animateHourLabel(label);
+                            } else {
+                                // Mark this label as no longer animating
+                                hourLabelsCurrentlyAnimating[label.id] = false;
+                            }
+                        }
+                    }, 400 / newText.length);
+                }
+            }, 400 / oldText.length);
+        }
+
+        // format time for calendar hour labels
+        function formatTime(hour, to24Hour) {
+            if (to24Hour) {
+                return `${hour}:00`;
+            } else {
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                return `${hour12} ${period}`;
+            }
+        }
+
+        // format time for task list
+        function formatTimeTaskList(time24) {
+            if (!time24) return '';
+            const [hours24, minutes] = time24.split(':').map(Number);
+            if (userSettings.timeFormat === '24h') {
+                return `${hours24}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}`;
+            }
+            const period = hours24 >= 12 ? 'PM' : 'AM';
+            const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+            return `${hours12}<span class="time-colon">:</span>${minutes.toString().padStart(2, '0')}${period}`;
+        }
+
+        function constructTaskEditorModal(taskId) {
+            const modal = document.getElementById('editTaskModal');
+            const task = taskEventArray.find(t => t.id === taskId);
+            if (!task) return;
+
+            // Handle task name input
+            const taskNameInput = document.getElementById('editTaskName');
+            taskNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    taskNameInput.blur();
+                }
+            });
+
+            const taskDescriptionInput = document.getElementById('taskDescription');
+            taskDescriptionInput.value = task.description || '';
+
+            // First, remove any existing event listeners by cloning and replacing elements
+            const switches = ['dueDate', 'dueTime', 'startDate', 'startTime', 'endDate'];
+            switches.forEach(switchType => {
+                const switchEl = document.getElementById(`${switchType}Switch`);
+                if (!switchEl) return; // Skip if element doesn't exist
+                const newSwitch = switchEl.cloneNode(true);
+                switchEl.parentNode.replaceChild(newSwitch, switchEl);
+            });
+
+            document.querySelectorAll('.date-time-inputs input, .time-inputs input').forEach(input => {
+                input.value = '';
+                input.setAttribute('readonly', 'true');
+            });
+
+            document.querySelectorAll('.task-toggle-track').forEach(track => {
+                if (!track.id.includes('startDate')) { // Don't reset startDate switch
+                    track.classList.remove('active');
+                }
+            });
+
+            document.querySelectorAll('.date-time-inputs, .time-inputs').forEach(container => {
+                container.style.opacity = '0.5';
+            });
+
+            const endDateSwitch = document.getElementById('endDateSwitch');
+            const endDateInputs = document.getElementById('endDateInputs');
+
+            // Turn off end date switch unless event has endDate
+            if (task.endDate) {
+                endDateSwitch.classList.add('active');
+                endDateInputs.style.opacity = '1';
+                const [endYear, endMonth, endDay] = task.endDate.split('-');
+                const inputs = endDateInputs.querySelectorAll('input');
+                inputs[0].value = parseInt(endMonth).toString();
+                inputs[1].value = parseInt(endDay).toString();
+                inputs[2].value = endYear;
+                inputs.forEach(input => input.removeAttribute('readonly'));
+            } else {
+                endDateSwitch.classList.remove('active');
+                endDateInputs.style.opacity = '0.5';
+                endDateInputs.querySelectorAll('input').forEach(input => {
+                    input.value = '';
+                    input.setAttribute('readonly', 'true');
+                });
+            }
+
+            endDateSwitch.addEventListener('click', () => {
+                const isActive = endDateSwitch.classList.toggle('active');
+                endDateInputs.style.opacity = isActive ? '1' : '0.5';
+
+                const inputs = endDateInputs.querySelectorAll('input');
+                if (isActive) {
+                    inputs.forEach(input => input.removeAttribute('readonly'));
+                    // Only set the date if it's not already set
+                    if (!inputs[0].value && !inputs[1].value && !inputs[2].value) {
+                        // Set the end date inputs to match the start date by default
+                        const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
+                        inputs[0].value = startDateInputs[0].value;
+                        inputs[1].value = startDateInputs[1].value;
+                        inputs[2].value = startDateInputs[2].value;
+                    }
+                } else {
+                    inputs.forEach(input => {
+                        input.value = '';
+                        input.setAttribute('readonly', 'true');
+                    });
+                }
+            });
+
+            // Then fill in task data
+            if (task.kind === 'event') {
+                // Handle event dates and times
+                if (task.date) {
+                    const [year, month, day] = task.date.split('-');
+
+                    // Fill start date (always active for events)
+                    const startDateInputs = document.getElementById('startDateInputs').querySelectorAll('input');
+                    startDateInputs[0].value = parseInt(month).toString();
+                    startDateInputs[1].value = parseInt(day).toString();
+                    startDateInputs[2].value = year;
+                    startDateInputs.forEach(input => input.removeAttribute('readonly'));
+                }
+
+                // Handle times
+                if (task.startTime || task.endTime) {
+                    const timeSwitch = document.getElementById('startTimeSwitch');
+                    timeSwitch.classList.add('active');
+
+                    ['start', 'end'].forEach(prefix => {
+                        const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                        timeInputs.style.opacity = '1';  // Always set opacity since switch is on
+                        const inputs = timeInputs.querySelectorAll('input');
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+
+                        // Only fill in values if this specific time exists
+                        const timeValue = task[`${prefix}Time`];
+                        if (timeValue) {
+                            if (userSettings.timeFormat === 'AM/PM') {
+                                const time12 = convertTo12Hour(timeValue);
+                                inputs[0].value = time12.hours;
+                                inputs[1].value = time12.minutes.padStart(2, '0');  // Add leading zero
+                            } else {
+                                const [hours, minutes] = timeValue.split(':');
+                                inputs[0].value = parseInt(hours).toString();
+                                inputs[1].value = minutes.padStart(2, '0');  // Add leading zero
+                            }
+                        }
+                    });
+                }
+            } else {
+                // Handle task date and time
+                if (task.date) {
+                    const [year, month, day] = task.date.split('-');
+                    const dueDateSwitch = document.getElementById('dueDateSwitch');
+                    const dueDateInputs = document.getElementById('dueDateInputs');
+
+                    dueDateSwitch.classList.add('active');
+                    dueDateInputs.style.opacity = '1';
+
+                    const inputs = dueDateInputs.querySelectorAll('input');
+                    inputs[0].value = parseInt(month).toString();
+                    inputs[1].value = parseInt(day).toString();
+                    inputs[2].value = year;
+                    inputs.forEach(input => input.removeAttribute('readonly'));
+                }
+
+                // Handle task time
+                if (task.endTime) {
+                    const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+                    const dueTimeInputs = document.getElementById('dueTimeInputs');
+
+                    dueTimeSwitch.classList.add('active');
+                    dueTimeInputs.style.opacity = '1';
+
+                    if (userSettings.timeFormat === 'AM/PM') {
+                        const time12 = convertTo12Hour(task.endTime);
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = time12.hours;
+                        inputs[1].value = time12.minutes;
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                    } else {
+                        const [hours, minutes] = task.endTime.split(':');
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = parseInt(hours).toString();
+                        inputs[1].value = parseInt(minutes).toString();
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                    }
+                }
+            }
+
+            const eventBtn = document.getElementById('eventTypeBtn');
+            const taskBtn = document.getElementById('taskTypeBtn');
+            const newEventBtn = eventBtn.cloneNode(true);
+            const newTaskBtn = taskBtn.cloneNode(true);
+            eventBtn.parentNode.replaceChild(newEventBtn, eventBtn);
+            taskBtn.parentNode.replaceChild(newTaskBtn, taskBtn);
+
+            const closeBtn = document.getElementById('editTaskClose');
+            const newCloseBtn = closeBtn.cloneNode(true);
+            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+
+            const deleteBtn = document.getElementById('deleteTaskBtn');
+            const newDeleteBtn = deleteBtn.cloneNode(true);
+            deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+
+            modal.dataset.taskId = taskId;
+            taskNameInput.value = task.name;
+
+            // Add focus handler to all date and time inputs
+            document.querySelectorAll('.date-time-inputs input, .time-inputs input').forEach(input => {
+                input.addEventListener('focus', function() {
+                    const length = this.value.length;
+                    this.setSelectionRange(length, length);
+                    setTimeout(() => {
+                        this.setSelectionRange(length, length);
+                    }, 0);
+                });
+            });
+
+            // Set up task type switching
+            const highlight = modal.querySelector('.task-type-highlight');
+            const eventSettings = modal.querySelector('.task-settings-event');
+            const taskSettings = modal.querySelector('.task-settings-task');
+
+            // First set initial classes without triggering clicks
+            if (task.kind === 'event') {
+                newEventBtn.classList.add('active');
+                newTaskBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(4px)';
+                eventSettings.classList.remove('inactive');
+                taskSettings.classList.add('inactive');
+            } else {
+                newTaskBtn.classList.add('active');
+                newEventBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(calc(100% + 4px))';
+                eventSettings.classList.add('inactive');
+                taskSettings.classList.remove('inactive');
+            }
+
+            // Then set up click handlers for type switching
+            newEventBtn.addEventListener('click', () => {
+                newEventBtn.classList.add('active');
+                newTaskBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(4px)';
+                eventSettings.classList.remove('inactive');
+                taskSettings.classList.add('inactive');
+                task.kind = 'event';
+            });
+
+            newTaskBtn.addEventListener('click', () => {
+                newTaskBtn.classList.add('active');
+                newEventBtn.classList.remove('active');
+                highlight.style.transform = 'translateX(calc(100% + 4px))';
+                eventSettings.classList.add('inactive');
+                taskSettings.classList.remove('inactive');
+                task.kind = 'task';
+            });
+
+            // Copy time data from task's due time to event's start time ONLY
+            const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+            const startTimeSwitch = document.getElementById('startTimeSwitch');
+            if (dueTimeSwitch.classList.contains('active')) {
+                startTimeSwitch.classList.add('active');
+                const dueTimeInputs = document.getElementById('dueTimeInputs');
+                const startTimeInputs = document.getElementById('startTimeInputs');
+                const endTimeInputs = document.getElementById('endTimeInputs');
+
+                // Copy input values to start time only
+                const dueInputs = dueTimeInputs.querySelectorAll('input');
+                const startInputs = startTimeInputs.querySelectorAll('input');
+
+                // Copy hours and minutes
+                startInputs[0].value = dueInputs[0].value;
+                startInputs[1].value = dueInputs[1].value.padStart(2, '0');  // Add leading zero
+                startInputs.forEach(input => input.removeAttribute('readonly'));
+
+                // Enable end time inputs but don't copy values
+                endTimeInputs.querySelectorAll('input').forEach(input => {
+                    input.value = '';
+                    input.removeAttribute('readonly');
+                });
+
+                // Enable both input containers
+                startTimeInputs.style.opacity = '1';
+                endTimeInputs.style.opacity = '1';
+            }
+
+            // Check if this is an event and copy time fields to due time fields
+            if (task.kind === 'event') {
+                if (task.startTime) {
+                    const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+                    const dueTimeInputs = document.getElementById('dueTimeInputs');
+
+                    // Activate the due time switch
+                    dueTimeSwitch.classList.add('active');
+                    dueTimeInputs.style.opacity = '1';
+
+                    if (userSettings.timeFormat === 'AM/PM') {
+                        const time12 = convertTo12Hour(task.startTime);
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = time12.hours;
+                        inputs[1].value = time12.minutes;
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                    } else {
+                        // Handle 24h format
+                        const [hours, minutes] = task.startTime.split(':');
+                        const inputs = dueTimeInputs.querySelectorAll('input');
+                        inputs[0].value = parseInt(hours).toString();
+                        inputs[1].value = parseInt(minutes).toString();
+                        inputs.forEach(input => input.removeAttribute('readonly'));
+                    }
+                }
+            }
+
+            // Lock the start date toggle for events
+            const startDateToggle = document.getElementById('startDateSwitch');
+            if (startDateToggle) {
+                const startDateHandle = startDateToggle.querySelector('.task-toggle-handle');
+                startDateToggle.classList.add('active');
+                startDateToggle.style.pointerEvents = 'none';
+
+                if (startDateHandle && !startDateHandle.querySelector('.lock-icon')) {
+                    const lockIcon = document.createElement('img');
+                    lockIcon.src = './lock_icon.svg';
+                    lockIcon.className = 'lock-icon';
+                    lockIcon.style.width = '10px';
+                    lockIcon.style.height = '10px';
+                    lockIcon.style.opacity = '0.7';
+                    startDateHandle.appendChild(lockIcon);
+                }
+                const startDateInputs = document.getElementById('startDateInputs');
+                if (startDateInputs) {
+                    startDateInputs.style.opacity = '1';
+                }
+            }
+
+            // Set up event listeners for switches
+            switches.forEach(switchType => {
+                const switchEl = document.getElementById(`${switchType}Switch`);
+                if (!switchEl) return;
+
+                const inputsEl = document.getElementById(`${switchType}Inputs`);
+                if (!inputsEl) return;
+
+                const newSwitch = switchEl.cloneNode(true);
+                switchEl.parentNode.replaceChild(newSwitch, switchEl);
+
+                newSwitch.addEventListener('click', () => {
+                    if (switchType === 'startDate') return; // Prevent toggling start date
+
+                    if (switchType === 'startTime') {
+                        const isActive = newSwitch.classList.toggle('active');
+                        const startTimeInputs = document.getElementById('startTimeInputs');
+                        const endTimeInputs = document.getElementById('endTimeInputs');
+
+                        startTimeInputs.style.opacity = isActive ? '1' : '0.5';
+                        endTimeInputs.style.opacity = isActive ? '1' : '0.5';
+
+                        const allInputs = [...startTimeInputs.querySelectorAll('input'), ...endTimeInputs.querySelectorAll('input')];
+                        if (isActive) {
+                            allInputs.forEach(input => input.removeAttribute('readonly'));
+                        } else {
+                            allInputs.forEach(input => {
+                                // Keep the value but make it readonly
+                                input.setAttribute('readonly', 'true');
+                            });
+                        }
+                    } else {
+                        const isActive = newSwitch.classList.toggle('active');
+                        inputsEl.style.opacity = isActive ? '1' : '0.5';
+
+                        const inputs = inputsEl.querySelectorAll('input');
+                        if (isActive) {
+                            inputs.forEach(input => input.removeAttribute('readonly'));
+
+                            // If turning on due time, ensure due date is on
+                            if (switchType === 'dueTime') {
+                                const dueDateSwitch = document.getElementById('dueDateSwitch');
+                                const dueDateInputs = document.getElementById('dueDateInputs');
+                                dueDateSwitch.classList.add('active');
+                                dueDateInputs.style.opacity = '1';
+                                dueDateInputs.querySelectorAll('input').forEach(input => input.removeAttribute('readonly'));
+                            }
+                        } else {
+                            inputs.forEach(input => input.setAttribute('readonly', 'true'));
+
+                            // If turning off due date, also turn off due time
+                            if (switchType === 'dueDate') {
+                                const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+                                const dueTimeInputs = document.getElementById('dueTimeInputs');
+                                dueTimeSwitch.classList.remove('active');
+                                dueTimeInputs.style.opacity = '0.5';
+                                dueTimeInputs.querySelectorAll('input').forEach(input => {
+                                    input.value = '';
+                                    input.setAttribute('readonly', 'true');
+                                });
+                            }
+                        }
+                    }
+                });
+            });
+
+            // Fill in existing values if task has them
+            // Event end date is handled elsewhere
+            if (task.date) {
+                const [year, month, day] = task.date.split('-');
+                ['due', 'start'].forEach(prefix => {   // Remove 'end' from this array
+                    const dateInputsEl = document.getElementById(`${prefix}DateInputs`);
+                    if (!dateInputsEl) return;
+
+                    const dateInputs = dateInputsEl.querySelectorAll('input');
+                    dateInputs[0].value = parseInt(month).toString();
+                    dateInputs[1].value = parseInt(day).toString();
+                    dateInputs[2].value = year;
+
+                    const dateSwitch = document.getElementById(`${prefix}DateSwitch`);
+                    if (dateSwitch) {
+                        dateSwitch.classList.add('active');
+                        dateInputsEl.style.opacity = '1';
+                        dateInputs.forEach(input => input.removeAttribute('readonly'));
+                    }
+                });
+            }
+
+            // Handle time inputs
+            if (task.kind === 'event') {
+                if (task.startTime && task.endTime) {
+                    const timeSwitch = document.getElementById('startTimeSwitch');
+                    if (timeSwitch) {
+                        timeSwitch.classList.add('active');
+                    }
+
+                    if (userSettings.timeFormat === 'AM/PM') {
+                        const startTime12 = convertTo12Hour(task.startTime);
+                        const endTime12 = convertTo12Hour(task.endTime);
+
+                        ['start', 'end'].forEach((prefix, index) => {
+                            const time12 = index === 0 ? startTime12 : endTime12;
+                            const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                            if (!timeInputs) return;
+
+                            const inputs = timeInputs.querySelectorAll('input');
+                            inputs[0].value = time12.hours;
+                            inputs[1].value = time12.minutes;
+                        });
+                    } else {
+                        ['start', 'end'].forEach((prefix, index) => {
+                            const time24 = index === 0 ? task.startTime : task.endTime;
+                            const [hours, minutes] = time24.split(':');
+                            const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                            if (!timeInputs) return;
+
+                            const inputs = timeInputs.querySelectorAll('input');
+                            inputs[0].value = parseInt(hours).toString();
+                            inputs[1].value = parseInt(minutes).toString();
+                        });
+                    }
+
+                    // Enable all time inputs
+                    document.querySelectorAll('#startTimeInputs input, #endTimeInputs input').forEach(input => {
+                        input.removeAttribute('readonly');
+                    });
+                }
+
+                // set the existing AM/PM values for the selector
+                if (userSettings.timeFormat === 'AM/PM') {
+                    if (task.startTime || task.endTime) {
+                        ['start', 'end'].forEach((prefix, index) => {
+                            const timeValue = index === 0 ? task.startTime : task.endTime;
+                            if (timeValue) {
+                                const time12 = convertTo12Hour(timeValue);
+                                const timeInputs = document.getElementById(`${prefix}TimeInputs`);
+                                if (!timeInputs) return;
+
+                                // Find and set correct AM/PM period
+                                const periodContainer = timeInputs.querySelector('.time-period-container');
+                                if (periodContainer) {
+                                    const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                                    periodOptions.forEach(option => {
+                                        option.classList.toggle('active', option.dataset.period === time12.period);
+                                    });
+                                    // Move highlight to correct position
+                                    const highlight = periodContainer.querySelector('.time-period-highlight');
+                                    if (highlight) {
+                                        highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            } else {
+                if (task.endTime) {
+                    // Handle task due time
+                    const timeSwitch = document.getElementById('dueTimeSwitch');
+                    const timeInputs = document.getElementById('dueTimeInputs');
+                    if (timeSwitch && timeInputs) {
+                        timeSwitch.classList.add('active');
+                        timeInputs.style.opacity = '1';
+
+                        if (userSettings.timeFormat === 'AM/PM') {
+                            const time12 = convertTo12Hour(task.endTime);
+                            const inputs = timeInputs.querySelectorAll('input');
+                            inputs[0].value = time12.hours;
+                            inputs[1].value = time12.minutes;
+
+                            // Set correct AM/PM period
+                            const periodContainer = timeInputs.querySelector('.time-period-container');
+                            if (periodContainer) {
+                                const periodOptions = periodContainer.querySelectorAll('.time-period-option');
+                                periodOptions.forEach(option => {
+                                    option.classList.toggle('active', option.dataset.period === time12.period);
+                                });
+                                // Move highlight to correct position
+                                const highlight = periodContainer.querySelector('.time-period-highlight');
+                                if (highlight) {
+                                    highlight.style.transform = time12.period === 'AM' ? 'translateY(0)' : 'translateY(12px)';
+                                }
+                            }
+                        } else {
+                            const [hours, minutes] = task.endTime.split(':');
+                            const inputs = timeInputs.querySelectorAll('input');
+                            inputs[0].value = parseInt(hours).toString();
+                            inputs[1].value = parseInt(minutes).toString();
+                        }
+
+                        timeInputs.querySelectorAll('input').forEach(input => {
+                            input.removeAttribute('readonly');
+                        });
+                    }
+                }
+            }
+
+            // Close button event listener
+            if (newCloseBtn) {
+                newCloseBtn.addEventListener('click', () => hideModal('editTask'));
+            }
+
+            // Delete button event listener
+            if (newDeleteBtn) {
+                newDeleteBtn.addEventListener('click', () => {
+                    const taskIndex = taskEventArray.findIndex(t => t.id === taskId);
+                    if (taskIndex !== -1) {
+                        taskEventArray.splice(taskIndex, 1);
+                        saveUserData();
+                        renderTasks();
+                        renderCalendar();
+                        hideModal('editTask');
+                    }
+                });
+            }
+
+            // Focus on task name input and move cursor to end after modal is shown
+            setTimeout(() => {
+                if (taskNameInput) {
+                    taskNameInput.focus();
+                    taskNameInput.setSelectionRange(taskNameInput.value.length, taskNameInput.value.length);
+                }
+            }, 0);
+
+            showModal('editTask');
+        }
+
+        function verifyTaskModalData() {
+            const task = taskEventArray.find(t => t.id === document.getElementById('editTaskModal').dataset.taskId);
+            if (!task) return { valid: false, error: "Task not found" };
+
+            const isEvent = document.getElementById('eventTypeBtn').classList.contains('active');
+            const errors = [];
+
+            // Extract all date and time values
+            const dateTimeValues = {
+                startDate: extractDateInputs('startDateInputs'),
+                endDate: extractDateInputs('endDateInputs'),
+                dueDate: extractDateInputs('dueDateInputs'),
+                startTime: extractTimeInputs('startTimeInputs'),
+                endTime: extractTimeInputs('endTimeInputs'),
+                dueTime: extractTimeInputs('dueTimeInputs')
+            };
+
+            // Check task name
+            const taskName = document.getElementById('editTaskName').value.trim();
+            if (!taskName) {
+                errors.push("Task name is required");
+            }
+
+            if (isEvent) {
+                // Event-specific validations
+                const startDateActive = document.getElementById('startDateSwitch').classList.contains('active');
+                const endDateActive = document.getElementById('endDateSwitch').classList.contains('active');
+                const timeActive = document.getElementById('startTimeSwitch').classList.contains('active');
+
+                if (!startDateActive || !dateTimeValues.startDate) {
+                    errors.push("Start date is required for events");
+                }
+
+                if (timeActive) {
+                    // Auto-fill minutes if only hour provided
+                    if (dateTimeValues.startTime.hours && !dateTimeValues.startTime.minutes) {
+                        dateTimeValues.startTime.minutes = '00';
+                    }
+                    if (dateTimeValues.endTime.hours && !dateTimeValues.endTime.minutes) {
+                        dateTimeValues.endTime.minutes = '00';
+                    }
+
+                    // Start time required if time switch is on
+                    if (!dateTimeValues.startTime.hours) {
+                        errors.push("Start time is required when time is enabled");
+                    }
+
+                    // End time is optional, but if provided must be after start time
+                    if (dateTimeValues.endTime.hours && !endDateActive) {
+                        const startDateTime = convertToMinutes(dateTimeValues.startTime);
+                        const endDateTime = convertToMinutes(dateTimeValues.endTime);
+                        
+                        if (endDateTime <= startDateTime) {
+                            errors.push("End time must be after start time");
+                        }
+                    }
+                }
+
+                // Validate end date if active
+                if (endDateActive && dateTimeValues.endDate) {
+                    const startDate = convertToDateTime(dateTimeValues.startDate);
+                    const endDate = convertToDateTime(dateTimeValues.endDate);
+                    
+                    if (endDate < startDate) {
+                        errors.push("End date must be after start date");
+                    }
+                }
+            } else {
+                // Task-specific validations
+                const dueDateActive = document.getElementById('dueDateSwitch').classList.contains('active');
+                const dueTimeActive = document.getElementById('dueTimeSwitch').classList.contains('active');
+
+                if (dueDateActive && !dateTimeValues.dueDate) {
+                    errors.push("Due date is required when date is enabled");
+                }
+
+                if (dueTimeActive) {
+                    if (!dateTimeValues.dueTime.hours) {
+                        errors.push("Due time is required when time is enabled");
+                    } else if (!dateTimeValues.dueTime.minutes) {
+                        dateTimeValues.dueTime.minutes = '00';
+                    }
+                }
+            }
+
+            // Show error popup if any errors exist
+            if (errors.length > 0) {
+                showErrorPopup(errors[0]);
+                return { valid: false, error: errors[0] };
+            }
+
+            return { valid: true, dateTimeValues };
+        }
+
+        function extractDateInputs(containerId) {
+            const inputs = document.getElementById(containerId)?.querySelectorAll('input');
+            if (!inputs) return null;
+
+            const [month, day, year] = [...inputs].map(input => input.value);
+            if (!month || !day || !year) return null;
+
+            return { month, day, year };
+        }
+
+        function extractTimeInputs(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return { hours: null, minutes: null, period: null };
+
+            const inputs = container.querySelectorAll('input');
+            const [hours, minutes] = [...inputs].map(input => input.value);
+            const period = userSettings.timeFormat === 'AM/PM' ? 
+                container.querySelector('.time-period-option.active')?.dataset.period : null;
+
+            return {
+                hours: hours || null,
+                minutes: minutes || '00',
+                period
+            };
+        }
+
+        function showErrorPopup(message) {
+            const existingPopup = document.querySelector('.error-popup');
+            if (existingPopup) existingPopup.remove();
+
+            const popup = document.createElement('div');
+            popup.className = 'error-popup';
+            popup.textContent = message;
+
+            // Position popup relative to modal
+            const modal = document.getElementById('editTaskModal');
+            modal.appendChild(popup);
+
+            // Add styles
+            const style = document.createElement('style');
+            style.textContent = `
+                .error-popup {
+                    position: absolute;
+                    top: 0;
+                    left: 50%;
+                    transform: translate(-50%, -120%);
+                    background-color: #ff4444;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    opacity: 0;
+                    transition: transform 0.3s ease, opacity 0.3s ease;
+                    z-index: 10000;
+                    white-space: nowrap;
+                }
+                .error-popup.visible {
+                    transform: translate(-50%, -110%);
+                    opacity: 1;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Animate in
+            requestAnimationFrame(() => popup.classList.add('visible'));
+
+            // Remove after delay
+            setTimeout(() => {
+                popup.classList.remove('visible');
+                setTimeout(() => popup.remove(), 300);
+            }, 3000);
+        }
+
+        function convertToDateTime(dateObj) {
+            return new Date(`${dateObj.year}-${dateObj.month.padStart(2, '0')}-${dateObj.day.padStart(2, '0')}`);
+        }
+
+        function convertToMinutes(timeObj) {
+            let hours = parseInt(timeObj.hours);
+            if (timeObj.period) {
+                if (timeObj.period === 'PM' && hours !== 12) hours += 12;
+                if (timeObj.period === 'AM' && hours === 12) hours = 0;
+            }
+            return hours * 60 + parseInt(timeObj.minutes || 0);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUserSettings();
+            loadUserData();
+
+            setupCustomScrollbar();
+
+            // Start with both date and day of week hidden
+            document.getElementById('currentDate').style.opacity = '0';
+            document.getElementById('dayOfWeek').style.opacity = '0';
+
+            document.getElementById('allDayEvents').style.opacity = '0';
+            updateDateDisplay();
+            renderCalendar(false);
+
+            // wait for the animations to finish
+            setTimeout(() => {
+                changeDate(100000);
+
+                const hourLabels = Array.from(document.querySelectorAll('.hour-label'));
+                const intervalBetweenStarts = 600 / hourLabels.length;
+
+                // Shuffle the labels for random order animation
+                const shuffledLabels = hourLabels
+                    .map(value => ({ value, sort: Math.random() }))
+                    .sort((a, b) => a.sort - b.sort)
+                    .map(({ value }) => value);
+
+                shuffledLabels.forEach((label, index) => {
+                    setTimeout(() => {
+                        if (!hourLabelsCurrentlyAnimating[label.id]) {
+                            hourLabelsCurrentlyAnimating[label.id] = true;
+                            animateHourLabel(label);
+                        }
+                    }, index * intervalBetweenStarts);
+                });
+
+                // fade in current date and day of week
+                document.getElementById('currentDate').style.transition = 'opacity 0.3s ease';
+                document.getElementById('dayOfWeek').style.transition = 'opacity 0.3s ease';
+                document.getElementById('currentDate').style.opacity = '1';
+                document.getElementById('dayOfWeek').style.opacity = '1';
+            }, 350);
+
+            updateButtonStyles();
+            adjustTextareaHeight();
+            renderTasks();
+
+            // Calculate delay until start of next minute
+            const now = new Date();
+            const delay = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+
+            // First timeout to sync with minute start
+            setTimeout(() => {
+                updateTimeMarker();
+                // After first sync, run every minute
+                setInterval(updateTimeMarker, 60000);
+            }, delay);
+
+            // Set up resize event listener
+            window.addEventListener('resize', () => {
+                renderCalendar();
+            });
+
+            // Run AM/PM state & click handler check every 10ms
+            setInterval(() => {
+                const eventBtn = document.getElementById('eventTypeBtn');
+                const taskBtn = document.getElementById('taskTypeBtn');
+                const startTimeSwitch = document.getElementById('startTimeSwitch');
+                const dueTimeSwitch = document.getElementById('dueTimeSwitch');
+
+                // If modal isn't open, elements won't exist, so skip
+                if (!eventBtn || !taskBtn || !startTimeSwitch || !dueTimeSwitch) return;
+
+                const isEventMode = eventBtn.classList.contains('active');
+                const startTimeSwitchOn = startTimeSwitch.classList.contains('active');
+                const dueTimeSwitchOn = dueTimeSwitch.classList.contains('active');
+
+                // Get all period containers
+                document.querySelectorAll('.time-period-container').forEach(container => {
+                    // First ensure click handlers exist
+                    const options = container.querySelectorAll('.time-period-option');
+                    const highlight = container.querySelector('.time-period-highlight');
+                    
+                    options.forEach(option => {
+                        // Remove any existing click handler
+                        option.removeEventListener('click', option.clickHandler);
+                        
+                        // Add new click handler
+                        option.clickHandler = () => {
+                            options.forEach(opt => opt.classList.remove('active'));
+                            option.classList.add('active');
+                            highlight.style.transform = option.dataset.period === 'AM' ? 'translateY(0)' : 'translateY(100%)';
+                        };
+                        option.addEventListener('click', option.clickHandler);
+                    });
+
+                    // Then control overall selector state
+                    const timeInputs = container.closest('.time-inputs');
+                    if (timeInputs) {
+                        const isStartTime = timeInputs.id === 'startTimeInputs';
+                        const isEndTime = timeInputs.id === 'endTimeInputs';
+                        const isDueTime = timeInputs.id === 'dueTimeInputs';
+
+                        if (isEventMode) {
+                            if (isStartTime || isEndTime) {
+                                container.style.pointerEvents = startTimeSwitchOn ? 'auto' : 'none';
+                            } else if (isDueTime) {
+                                container.style.pointerEvents = 'none';
+                            }
+                        } else {
+                            if (isStartTime || isEndTime) {
+                                container.style.pointerEvents = 'none';
+                            } else if (isDueTime) {
+                                container.style.pointerEvents = dueTimeSwitchOn ? 'auto' : 'none';
+                            }
+                        }
+                    }
+                });
+            }, 10);
+        });
+    </script>
+</body>
+</html>
