@@ -229,31 +229,6 @@ if (TESTING) {
 
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
-function ASSERT(condition, message="") {
-    if (typeof(condition) != "boolean") {
-        console.error('MALFORMED ASSERTION');
-    }
-    if (!condition) {
-        if (message == "") {
-            console.error('ASSERTION FAILED');
-        } else {
-            console.error('ASSERTION FAILED: ' + message);
-        }
-        console.trace();
-    }
-}
-
-const NULL = Symbol('NULL');
-
-// async/await sleep function like Python's
-function sleep(seconds) {
-    return new Promise(resolve => setTimeout(resolve, seconds * 1000)); // setTimeout works in milliseconds
-}
-
-function exists(obj) {
-    return obj != null && obj != undefined;
-}
-
 function getDay(offset) {
     ASSERT(0 <= offset && offset < 7, "getDay offset out of range 0-6");
     if (offset == 0) {
