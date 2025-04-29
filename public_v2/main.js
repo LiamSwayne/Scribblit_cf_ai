@@ -6,7 +6,7 @@ if (TESTING) {
     // AUDIT OF AI CODE NEEDED
     // Create sample tasks and events
     let taskEventArray = [
-        // Task 1: One-time task with work time
+        // one-time task with work time
         {
             kind: 'task',
             id: 'task-001',
@@ -17,22 +17,22 @@ if (TESTING) {
                     {
                         recurring: false,
                         date: '2025-03-10',
-                        time: '23:59',
-                        completion: [] // Not completed yet
+                        dueTime: '23:59',
+                        completion: []
                     }
                 ],
                 workTimes: [
                     {
                         recurring: false,
                         startDate: '2025-03-07',
-                        startTime: '14-30',
-                        endTime: '16-30'
+                        startTime: '14:30',
+                        endTime: '16:30'
                     }
                 ]
             }
         },
-        
-        // Task 2: Recurring task (weekly) with completion
+    
+        // recurring weekly task with completion
         {
             kind: 'task',
             id: 'task-002',
@@ -48,24 +48,23 @@ if (TESTING) {
                                 initialDay: 7,
                                 initialMonth: 3,
                                 initialYear: 2025,
-                                n: 7 // Every 7 days (weekly)
+                                n: 7
                             }
                         },
                         range: {
                             kind: 'dateRange',
                             dateRange: {
                                 start: '2025-03-07',
-                                end: '2025-05-30'
+                                end:   '2025-05-30'
                             }
                         },
-                        time: '17:00',
-                        completion: [1709913600000] // Example: first instance completed
+                        dueTime: '17:00',
+                        completion: [1709913600000]
                     }
                 ],
                 workTimes: [
                     {
                         recurring: true,
-                        startDate: '2025-03-07',
                         startDatePattern: {
                             kind: 'everyNDays',
                             everyNDays: {
@@ -75,14 +74,14 @@ if (TESTING) {
                                 n: 7
                             }
                         },
-                        startTime: '14-00',
-                        endTime: '15-00'
+                        startTime: '14:00',
+                        endTime:   '15:00'
                     }
                 ]
             }
         },
-        
-        // Task 3: Monthly recurring task
+    
+        // monthly recurring task
         {
             kind: 'task',
             id: 'task-003',
@@ -94,20 +93,20 @@ if (TESTING) {
                         recurring: true,
                         datePattern: {
                             kind: 'monthly',
-                            monthly: 1 // 1st of each month
+                            monthly: 1
                         },
                         range: {
                             kind: 'recurrenceCount',
-                            recurrenceCount: 6 // Repeat 6 times
+                            recurrenceCount: 6
                         },
-                        time: '10:00',
-                        completion: [] // Not completed yet
+                        dueTime: '10:00',
+                        completion: []
                     }
                 ]
             }
         },
-        
-        // Event 1: One-time all-day event
+    
+        // one-time all-day event
         {
             kind: 'event',
             id: 'event-001',
@@ -118,13 +117,12 @@ if (TESTING) {
                     {
                         recurring: false,
                         startDate: '2025-03-08'
-                        // No startTime makes it an all-day event
                     }
                 ]
             }
         },
-        
-        // Event 2: Regular meeting (recurring)
+    
+        // recurring daily meeting
         {
             kind: 'event',
             id: 'event-002',
@@ -134,31 +132,30 @@ if (TESTING) {
                 instances: [
                     {
                         recurring: true,
-                        startDate: '2025-03-06',
                         startDatePattern: {
                             kind: 'everyNDays',
                             everyNDays: {
                                 initialDay: 6,
                                 initialMonth: 3,
                                 initialYear: 2025,
-                                n: 1 // Every day
+                                n: 1
                             }
                         },
                         range: {
                             kind: 'dateRange',
                             dateRange: {
                                 start: '2025-03-06',
-                                end: '2025-03-20'
+                                end:   '2025-03-20'
                             }
                         },
-                        startTime: '09-30',
-                        endTime: '10-00'
+                        startTime: '09:30',
+                        endTime:   '10:00'
                     }
                 ]
             }
         },
-        
-        // Event 3: Multi-day event
+    
+        // one-time multi-day event
         {
             kind: 'event',
             id: 'event-003',
@@ -169,15 +166,15 @@ if (TESTING) {
                     {
                         recurring: false,
                         startDate: '2025-03-15',
-                        startTime: '09-00',
-                        endTime: '17-00',
-                        differentEndDate: '2025-03-17' // Multi-day event
+                        startTime: '09:00',
+                        endTime:   '17:00',
+                        differentEndDate: '2025-03-17'
                     }
                 ]
             }
         },
-        
-        // Event 4: Recurring event with pattern and different end day
+    
+        // recurring weekend workshop with multi-day span
         {
             kind: 'event',
             id: 'event-004',
@@ -187,29 +184,28 @@ if (TESTING) {
                 instances: [
                     {
                         recurring: true,
-                        startDate: '2025-03-08', // Starting on a Saturday
                         startDatePattern: {
                             kind: 'everyNDays',
                             everyNDays: {
                                 initialDay: 8,
                                 initialMonth: 3,
                                 initialYear: 2025,
-                                n: 7 // Weekly
+                                n: 7
                             }
                         },
                         range: {
                             kind: 'recurrenceCount',
                             recurrenceCount: 4
                         },
-                        startTime: '10-00',
-                        endTime: '16-00',
-                        differentEndDatePattern: 1 // Ends the next day
+                        startTime: '10:00',
+                        endTime:   '16:00',
+                        differentEndDatePattern: 1
                     }
                 ]
             }
         }
-    ];
-    
+    ];      
+
     // Create user object with the sample data
     let user = {
         taskEventArray: taskEventArray,
@@ -939,8 +935,8 @@ function renderDay(day, element, index) {
                         // Non-recurring work session - simple case
                         let workStart = DateTime.fromISO(workTime.startDate);
                         workStart = workStart.plus({
-                            hours: parseInt(workTime.startTime.split('-')[0]),
-                            minutes: parseInt(workTime.startTime.split('-')[1])
+                            hours: parseInt(workTime.startTime.split(':')[0]),
+                            minutes: parseInt(workTime.startTime.split(':')[1])
                         });
                         
                         let workEnd;
@@ -953,8 +949,8 @@ function renderDay(day, element, index) {
                         }
                         
                         workEnd = workEnd.plus({
-                            hours: parseInt(workTime.endTime.split('-')[0]),
-                            minutes: parseInt(workTime.endTime.split('-')[1])
+                            hours: parseInt(workTime.endTime.split(':')[0]),
+                            minutes: parseInt(workTime.endTime.split(':')[1])
                         });
                         
                         // Convert to milliseconds for comparison
@@ -1000,8 +996,8 @@ function renderDay(day, element, index) {
                             
                             // Add the end time hours and minutes
                             endTime = endTime.plus({
-                                hours: parseInt(workTime.endTime.split('-')[0]),
-                                minutes: parseInt(workTime.endTime.split('-')[1])
+                                hours: parseInt(workTime.endTime.split(':')[0]),
+                                minutes: parseInt(workTime.endTime.split(':')[1])
                             });
                             
                             let endMs = endTime.toMillis();
@@ -1068,8 +1064,8 @@ function renderDay(day, element, index) {
                     // Non-recurring event
                     eventStart = DateTime.fromISO(instance.startDate);
                     eventStart = eventStart.plus({
-                        hours: parseInt(instance.startTime.split('-')[0]), 
-                        minutes: parseInt(instance.startTime.split('-')[1])
+                        hours: parseInt(instance.startTime.split(':')[0]), 
+                        minutes: parseInt(instance.startTime.split(':')[1])
                     }).toMillis();
                     
                     // Handle event end time
@@ -1083,8 +1079,8 @@ function renderDay(day, element, index) {
                         }
                         
                         eventEnd = eventEnd.plus({
-                            hours: parseInt(instance.endTime.split('-')[0]), 
-                            minutes: parseInt(instance.endTime.split('-')[1])
+                            hours: parseInt(instance.endTime.split(':')[0]), 
+                            minutes: parseInt(instance.endTime.split(':')[1])
                         }).toMillis();
                     } else {
                         // Default to 1 hour if no end time specified
@@ -1119,10 +1115,10 @@ function renderDay(day, element, index) {
                         
                         if (exists(instance.endTime)) {
                             // Calculate hours/minutes difference between start and end times
-                            let startHours = parseInt(instance.startTime.split('-')[0]);
-                            let startMinutes = parseInt(instance.startTime.split('-')[1]);
-                            let endHours = parseInt(instance.endTime.split('-')[0]);
-                            let endMinutes = parseInt(instance.endTime.split('-')[1]);
+                            let startHours = parseInt(instance.startTime.split(':')[0]);
+                            let startMinutes = parseInt(instance.startTime.split(':')[1]);
+                            let endHours = parseInt(instance.endTime.split(':')[0]);
+                            let endMinutes = parseInt(instance.endTime.split(':')[1]);
                             
                             // Calculate duration
                             let durationHours = endHours - startHours;
@@ -1144,8 +1140,8 @@ function renderDay(day, element, index) {
                             patternEnd = DateTime.fromMillis(patternStart)
                                 .plus({days: instance.differentEndDatePattern})
                                 .set({
-                                    hour: parseInt(instance.endTime.split('-')[0]),
-                                    minute: parseInt(instance.endTime.split('-')[1])
+                                    hour: parseInt(instance.endTime.split(':')[0]),
+                                    minute: parseInt(instance.endTime.split(':')[1])
                                 }).toMillis();
                         }
                         

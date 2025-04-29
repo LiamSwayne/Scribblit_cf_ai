@@ -39,7 +39,7 @@ each item in the taskEventArray looks like this:
                                     }
                                 recurrenceCount: int
                             }
-                        time: HH:MM (24 hour time) (OPTIONAL)
+                        dueTime: HH:MM (24 hour time) (OPTIONAL)
                         completion: array of unix times corresponding to the date/times for which the task has been completed
                             [
                                 int,

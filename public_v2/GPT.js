@@ -1,197 +1,157 @@
 // code written by AI
 // needs to be audited!!!
-// Helper function to generate all instances of a recurring pattern within a given range
-function generateInstancesFromPattern(instance, startUnix = null, endUnix = null) {
-    if (!instance.recurring || !exists(instance.datePattern)) {
+// Helper to generate all instances of a recurring pattern within a given range
+function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
+    ASSERT(exists(instance), "instance is required");
+    ASSERT(typeof instance.recurring === "boolean", "instance.recurring must be a boolean");
+
+    // Identify whether this is a task (dueTime + datePattern) or an event (startTime + startDatePattern)
+    let pattern;
+    let timeKey;
+    if (exists(instance.datePattern)) {
+        pattern = instance.datePattern;
+        timeKey = 'dueTime';
+    } else if (exists(instance.startDatePattern)) {
+        pattern = instance.startDatePattern;
+        timeKey = 'startTime';
+    } else {
+        ASSERT(false, "Instance must have datePattern or startDatePattern");
+    }
+
+    if (!instance.recurring) {
         return [];
     }
-    
-    // Determine start and end dates for the pattern
-    let startDate, endDate;
-    
-    // If a specific range is provided in function call, use that
-    if (startUnix !== null) {
+    ASSERT(typeof pattern.kind === "string", "pattern.kind must be a string");
+
+    // Determine start date
+    let startDate;
+    if (startUnix !== NULL) {
         startDate = DateTime.fromMillis(startUnix);
-    } else if (exists(instance.range) && instance.range.kind === 'dateRange' && 
-              exists(instance.range.dateRange) && exists(instance.range.dateRange.start)) {
+    } else if (exists(instance.range)
+               && instance.range.kind === 'dateRange'
+               && exists(instance.range.dateRange.start)) {
         startDate = DateTime.fromISO(instance.range.dateRange.start);
+    } else if (pattern.kind === 'everyNDays') {
+        ASSERT(exists(pattern.everyNDays), "everyNDays data is required");
+        startDate = DateTime.local(
+            pattern.everyNDays.initialYear || DateTime.local().year,
+            pattern.everyNDays.initialMonth,
+            pattern.everyNDays.initialDay
+        );
     } else {
-        // Default to pattern's initial date or today if no start provided
-        if (instance.datePattern.kind === 'everyNDays' && 
-            exists(instance.datePattern.everyNDays)) {
-            startDate = DateTime.local(
-                instance.datePattern.everyNDays.initialYear || DateTime.local().year,
-                instance.datePattern.everyNDays.initialMonth,
-                instance.datePattern.everyNDays.initialDay
-            );
-        } else {
-            startDate = DateTime.local();
-        }
+        startDate = DateTime.local();
     }
-    
-    // For pattern end date
-    if (endUnix !== null) {
+
+    // Determine end date
+    let endDate;
+    if (endUnix !== NULL) {
         endDate = DateTime.fromMillis(endUnix);
-    } else if (exists(instance.range) && instance.range.kind === 'dateRange' && 
-              exists(instance.range.dateRange) && exists(instance.range.dateRange.end)) {
+    } else if (exists(instance.range)
+               && instance.range.kind === 'dateRange'
+               && exists(instance.range.dateRange.end)) {
         endDate = DateTime.fromISO(instance.range.dateRange.end);
-    } else if (exists(instance.range) && instance.range.kind === 'recurrenceCount' &&
-              exists(instance.range.recurrenceCount)) {
-        // Handle recurrence count - we'll calculate this later
-        endDate = null;
+    } else if (exists(instance.range) && instance.range.kind === 'recurrenceCount') {
+        ASSERT(typeof instance.range.recurrenceCount === 'number' && instance.range.recurrenceCount > 0,
+               "range.recurrenceCount must be a positive integer");
+        endDate = NULL;
     } else {
-        // If no end is specified, we return an empty array as this is an indefinite pattern
-        return [];
+        ASSERT(false, "Cannot determine end date for recurring instance");
     }
-    
-    let allDates = [];
-    let currentDate = startDate;
-    let recurrenceCount = 0;
-    let maxRecurrences = exists(instance.range) && instance.range.kind === 'recurrenceCount' ? 
-                         instance.range.recurrenceCount : Number.MAX_SAFE_INTEGER;
-    
-    // Generate dates based on pattern type
-    while ((endDate === null || currentDate <= endDate) && recurrenceCount < maxRecurrences) {
-        // Convert to unix timestamp (considering the time if provided)
-        let timestamp = currentDate.startOf('day').toMillis();
-        if (exists(instance.time)) {
-            let [hours, minutes] = instance.time.split(':').map(Number);
-            timestamp = currentDate.set({hour: hours, minute: minutes}).toMillis();
+
+    let dates = [];
+    let current = startDate;
+    let count = 0;
+    let maxCount = (exists(instance.range) && instance.range.kind === 'recurrenceCount')
+                   ? instance.range.recurrenceCount
+                   : Number.MAX_SAFE_INTEGER;
+
+    while ((endDate === NULL || current <= endDate) && count < maxCount) {
+        // build timestamp (start of day + optional time)
+        let timestamp = current.startOf('day').toMillis();
+        if (exists(instance[timeKey])) {
+            // strictly require "HH:MM"
+            ASSERT(/^\d{2}:\d{2}$/.test(instance[timeKey]), `${timeKey} must be in HH:MM format`);
+            let [hh, mm] = instance[timeKey].split(':').map(Number);
+            timestamp = current.set({hour: hh, minute: mm}).toMillis();
         }
-        
-        allDates.push(timestamp);
-        recurrenceCount++;
-        
-        // Calculate next date based on pattern
-        if (instance.datePattern.kind === 'everyNDays') {
-            currentDate = currentDate.plus({days: instance.datePattern.everyNDays.n});
-        } else if (instance.datePattern.kind === 'monthly') {
-            currentDate = currentDate.plus({months: 1});
-        } else if (instance.datePattern.kind === 'annually') {
-            currentDate = currentDate.plus({years: 1});
+        dates.push(timestamp);
+        count++;
+
+        // step to next
+        if (pattern.kind === 'everyNDays') {
+            current = current.plus({days: pattern.everyNDays.n});
+        } else if (pattern.kind === 'monthly') {
+            current = current.plus({months: 1}).set({day: pattern.monthly});
+        } else if (pattern.kind === 'annually') {
+            current = current.plus({years: 1})
+                             .set({month: pattern.annually.month, day: pattern.annually.day});
         } else {
-            break; // Unknown pattern
+            ASSERT(false, `Unknown pattern.kind: ${pattern.kind}`);
         }
     }
-    
-    return allDates;
+
+    return dates;
 }
 
-// Main function to check if a task is complete
+// Main to check if a task is complete
 function isTaskComplete(task) {
-    // If the task doesn't exist or doesn't have instances, it can't be complete
-    if (!exists(task) || !exists(task.instances) || !Array.isArray(task.instances) || task.instances.length === 0) {
+    ASSERT(exists(task), "task is required");
+    ASSERT(Array.isArray(task.instances), "task.instances must be an array");
+    if (task.instances.length === 0) {
         return false;
     }
-    
-    // Check each instance
-    for (let instance of task.instances) {
-        // For non-recurring tasks, check if there's at least one completion
-        if (!instance.recurring) {
-            if (!exists(instance.completion) || !Array.isArray(instance.completion) || instance.completion.length === 0) {
-                return false; // No completions for this non-recurring task
+
+    for (let inst of task.instances) {
+        ASSERT(typeof inst.recurring === "boolean", "inst.recurring must be a boolean");
+
+        if (!inst.recurring) {
+            ASSERT(exists(inst.date), "inst.date is required for non-recurring");
+            ASSERT(Array.isArray(inst.completion), "inst.completion must be an array");
+            let dt = DateTime.fromISO(inst.date);
+            ASSERT(dt.isValid, `Invalid inst.date: ${inst.date}`);
+            let targetTs = dt.startOf('day').toMillis();
+            if (exists(inst.dueTime)) {
+                let [hh, mm] = inst.dueTime.split(':').map(Number);
+                targetTs = dt.set({hour: hh, minute: mm}).toMillis();
             }
-            
-            // For non-recurring tasks, convert the date to a unix timestamp
-            let taskDate = DateTime.fromISO(instance.date);
-            if (!taskDate.isValid) {
-                return false; // Invalid date
+            let found = inst.completion.some(ct => {
+                let cd = DateTime.fromMillis(ct);
+                return cd.hasSame(DateTime.fromMillis(targetTs).startOf('day'), 'day');
+            });
+            if (!found) {
+                return false;
             }
-            
-            // Add time if specified
-            let timestamp = taskDate.startOf('day').toMillis();
-            if (exists(instance.time)) {
-                let [hours, minutes] = instance.time.split(':').map(Number);
-                timestamp = taskDate.set({hour: hours, minute: minutes}).toMillis();
+        } else {
+            ASSERT(exists(inst.range), "inst.range is required for recurring");
+            let patternDates;
+            if (inst.range.kind === 'dateRange') {
+                ASSERT(exists(inst.range.dateRange.start) && exists(inst.range.dateRange.end),
+                       "Both start and end are required for dateRange");
+                let startMs = DateTime.fromISO(inst.range.dateRange.start).startOf('day').toMillis();
+                let endMs   = DateTime.fromISO(inst.range.dateRange.end).endOf('day').toMillis();
+                patternDates = generateInstancesFromPattern(inst, startMs, endMs);
+            } else if (inst.range.kind === 'recurrenceCount') {
+                ASSERT(typeof inst.range.recurrenceCount === 'number' && inst.range.recurrenceCount > 0,
+                       "range.recurrenceCount must be a positive integer");
+                patternDates = generateInstancesFromPattern(inst);
+                ASSERT(patternDates.length === inst.range.recurrenceCount,
+                       "Pattern count does not match recurrenceCount");
+            } else {
+                ASSERT(false, `Unknown inst.range.kind: ${inst.range.kind}`);
             }
-            
-            // Check if this specific time is marked as completed
-            if (!instance.completion.some(completionTime => {
-                // Allow some leeway in completion time (same day)
-                let completionDate = DateTime.fromMillis(completionTime);
-                let taskDateOnly = DateTime.fromMillis(timestamp).startOf('day');
-                return completionDate.hasSame(taskDateOnly, 'day');
-            })) {
-                return false; // This specific task time hasn't been completed
-            }
-        } 
-        // For recurring tasks
-        else {
-            // First, check if this is a definite pattern
-            if (!exists(instance.range)) {
-                return false; // Indefinite pattern with no range
-            }
-            
-            if (instance.range.kind === 'dateRange') {
-                if (!exists(instance.range.dateRange) || !exists(instance.range.dateRange.end)) {
-                    return false; // Indefinite pattern with no end date
-                }
-                
-                // Generate all instances of this pattern within the date range
-                let startDate = DateTime.fromISO(instance.range.dateRange.start).startOf('day').toMillis();
-                let endDate = DateTime.fromISO(instance.range.dateRange.end).endOf('day').toMillis();
-                let patternInstances = generateInstancesFromPattern(instance, startDate, endDate);
-                
-                // Check if we have all completions needed
-                if (!exists(instance.completion) || !Array.isArray(instance.completion)) {
-                    return false; // No completions array
-                }
-                
-                // For each pattern instance, ensure there's a matching completion
-                for (let patternTime of patternInstances) {
-                    let patternDate = DateTime.fromMillis(patternTime).startOf('day');
-                    
-                    // Check if any completion matches this pattern instance (same day)
-                    let hasMatching = instance.completion.some(completionTime => {
-                        let completionDate = DateTime.fromMillis(completionTime);
-                        return completionDate.hasSame(patternDate, 'day');
-                    });
-                    
-                    if (!hasMatching) {
-                        return false; // Missing completion for this pattern instance
-                    }
-                }
-            } 
-            else if (instance.range.kind === 'recurrenceCount') {
-                if (!exists(instance.range.recurrenceCount) || instance.range.recurrenceCount <= 0) {
-                    return false; // Invalid recurrence count
-                }
-                
-                // Generate pattern instances based on recurrence count
-                let patternInstances = generateInstancesFromPattern(instance);
-                
-                // Check if we have all the needed completions
-                if (!exists(instance.completion) || !Array.isArray(instance.completion) || 
-                    instance.completion.length < instance.range.recurrenceCount) {
-                    return false; // Not enough completions
-                }
-                
-                // Match each pattern instance with a completion
-                // For recurrence count, we need exactly recurrenceCount completions
-                if (patternInstances.length !== instance.range.recurrenceCount) {
+
+            ASSERT(Array.isArray(inst.completion), "inst.completion must be an array");
+            for (let pd of patternDates) {
+                let pdDay = DateTime.fromMillis(pd).startOf('day');
+                let ok = inst.completion.some(ct => {
+                    return DateTime.fromMillis(ct).hasSame(pdDay, 'day');
+                });
+                if (!ok) {
                     return false;
                 }
-                
-                for (let patternTime of patternInstances) {
-                    let patternDate = DateTime.fromMillis(patternTime).startOf('day');
-                    
-                    // Check if any completion matches this pattern instance (same day)
-                    let hasMatching = instance.completion.some(completionTime => {
-                        let completionDate = DateTime.fromMillis(completionTime);
-                        return completionDate.hasSame(patternDate, 'day');
-                    });
-                    
-                    if (!hasMatching) {
-                        return false; // Missing completion for this pattern instance
-                    }
-                }
-            }
-            else {
-                return false; // Unknown range kind
             }
         }
     }
-    
-    // If we've made it through all instances without returning false, the task is complete
+
     return true;
 }
