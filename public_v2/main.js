@@ -1,5 +1,3 @@
-let TESTING = true;
-
 if (TESTING) {
     localStorage.clear();
     
@@ -515,119 +513,79 @@ function nthHourText(n) {
 
 // code written by AI
 // needs to be audited!!!
-// Helper to generate all instances of a recurring pattern within a given range
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
-    ASSERT(exists(instance), "instance is required");
-    ASSERT(typeof instance.recurring === "boolean", "instance.recurring must be a boolean");
-
+    ASSERT(type(instance, RecurringTaskInstance) || type(instance, RecurringEventInstance));
+    ASSERT(type(startUnix, Int) || type(startUnix, NULL));
+    ASSERT(type(endUnix, Int) || type(endUnix, NULL));
     // Identify whether this is a task (dueTime + datePattern) or an event (startTime + startDatePattern)
     let pattern;
     let timeKey;
-    if (exists(instance.datePattern)) {
+    if (type(instance, RecurringTaskInstance)) {
+        ASSERT(type(instance.datePattern, EveryNDaysPattern) || type(instance.datePattern, MonthlyPattern) || type(instance.datePattern, AnnuallyPattern));
         pattern = instance.datePattern;
         timeKey = 'dueTime';
-    } else if (exists(instance.startDatePattern)) {
+    } else {
+        ASSERT(type(instance.startDatePattern, EveryNDaysPattern) || type(instance.startDatePattern, MonthlyPattern) || type(instance.startDatePattern, AnnuallyPattern));
         pattern = instance.startDatePattern;
         timeKey = 'startTime';
-    } else {
-        ASSERT(false, "Instance must have datePattern or startDatePattern");
     }
-
-    if (!instance.recurring) {
-        return [];
-    }
-    ASSERT(typeof pattern.kind === "string", "pattern.kind must be a string");
-
     // Determine start date
-    let startDate;
-    if (startUnix !== NULL) {
-        startDate = DateTime.fromMillis(startUnix);
-    } else if (exists(instance.range)
-               && instance.range.kind === 'dateRange'
-               && exists(instance.range.dateRange.start)) {
-        if (instance.range.dateRange.start instanceof DateField) {
-            startDate = DateTime.local(
-                instance.range.dateRange.start.year,
-                instance.range.dateRange.start.month,
-                instance.range.dateRange.start.day
-            );
-        } else {
-            startDate = DateTime.fromISO(instance.range.dateRange.start);
-        }
-    } else if (pattern.kind === 'everyNDays') {
-        ASSERT(exists(pattern.everyNDays), "everyNDays data is required");
-        if (pattern.everyNDays.initialDate instanceof DateField) {
-            let initialDate = pattern.everyNDays.initialDate;
-            startDate = DateTime.local(
-                initialDate.year || DateTime.local().year,
-                initialDate.month,
-                initialDate.day
-            );
-        } else {
-            startDate = DateTime.local(
-                pattern.everyNDays.initialYear || DateTime.local().year,
-                pattern.everyNDays.initialMonth,
-                pattern.everyNDays.initialDay
-            );
-        }
+    let startDateTime;
+    if (type(startUnix, Int)) {
+        startDateTime = DateTime.fromMillis(startUnix);
+    } else if (type(instance.range, DateRange)) {
+        ASSERT(type(instance.range.startDate, DateField));
+        startDateTime = DateTime.local(instance.range.startDate.year, instance.range.startDate.month, instance.range.startDate.day);
+    } else if (type(pattern, EveryNDaysPattern)) {
+        startDateTime = DateTime.local(pattern.initialDate.year, pattern.initialDate.month, pattern.initialDate.day);
     } else {
-        startDate = DateTime.local();
+        startDateTime = DateTime.local();
     }
-
     // Determine end date
-    let endDate;
-    if (endUnix !== NULL) {
-        endDate = DateTime.fromMillis(endUnix);
-    } else if (exists(instance.range)
-               && instance.range.kind === 'dateRange'
-               && exists(instance.range.dateRange.end)) {
-        if (instance.range.dateRange.end instanceof DateField) {
-            endDate = DateTime.local(
-                instance.range.dateRange.end.year,
-                instance.range.dateRange.end.month,
-                instance.range.dateRange.end.day
-            );
+    let endDateTime;
+    if (type(endUnix, Int)) {
+        endDateTime = DateTime.fromMillis(endUnix);
+    } else if (type(instance.range, DateRange)) {
+        if (instance.range.endDate !== NULL) {
+            ASSERT(type(instance.range.endDate, DateField));
+            endDateTime = DateTime.local(instance.range.endDate.year, instance.range.endDate.month, instance.range.endDate.day);
         } else {
-            endDate = DateTime.fromISO(instance.range.dateRange.end);
+            endDateTime = NULL;
         }
-    } else if (exists(instance.range) && instance.range.kind === 'recurrenceCount') {
-        ASSERT(typeof instance.range.recurrenceCount === 'number' && instance.range.recurrenceCount > 0,
-               "range.recurrenceCount must be a positive integer");
-        endDate = NULL;
+    } else if (type(instance.range, RecurrenceCount)) {
+        endDateTime = NULL;
     } else {
-        ASSERT(false, "Cannot determine end date for recurring instance");
+        ASSERT(false);
     }
-
-    let dates = [];
-    let current = startDate;
+    const dates = [];
+    let currentDateTime = startDateTime;
     let count = 0;
-    let maxCount = (exists(instance.range) && instance.range.kind === 'recurrenceCount')
-                   ? instance.range.recurrenceCount
-                   : Number.MAX_SAFE_INTEGER;
-
-    while ((endDate === NULL || current <= endDate) && count < maxCount) {
+    // max of 10000 instances
+    const maxCount = type(instance.range, RecurrenceCount) ? instance.range.count : 10000;
+    while ((endDateTime === NULL || currentDateTime <= endDateTime) && count < maxCount) {
         // build timestamp (start of day + optional time)
-        let timestamp = current.startOf('day').toMillis();
-        if (exists(instance[timeKey])) {
-            // strictly require "HH:MM"
-            ASSERT(/^\d{2}:\d{2}$/.test(instance[timeKey]), `${timeKey} must be in HH:MM format`);
-            let [hh, mm] = instance[timeKey].split(':').map(Number);
-            timestamp = current.set({hour: hh, minute: mm}).toMillis();
+        let timestamp = currentDateTime.startOf('day').toMillis();
+        if (type(instance[timeKey], TimeField)) {
+            timestamp = currentDateTime.set({hour: instance[timeKey].hour, minute: instance[timeKey].minute}).toMillis();
         }
         dates.push(timestamp);
         count++;
-
         // step to next
-        if (pattern.kind === 'everyNDays') {
-            current = current.plus({days: pattern.everyNDays.n});
-        } else if (pattern.kind === 'monthly') {
-            current = current.plus({months: 1}).set({day: pattern.monthly});
-        } else if (pattern.kind === 'annually') {
-            current = current.plus({years: 1})
-                             .set({month: pattern.annually.month, day: pattern.annually.day});
+        if (type(pattern, EveryNDaysPattern)) {
+            currentDateTime = currentDateTime.plus({days: pattern.n});
+        } else if (type(pattern, MonthlyPattern)) {
+            currentDateTime = currentDateTime.plus({months: 1}).set({day: pattern.day});
+        } else if (type(pattern, AnnuallyPattern)) {
+            currentDateTime = currentDateTime.plus({years: 1}).set({month: pattern.month, day: pattern.day});
         } else {
-            ASSERT(false, `Unknown pattern.kind: ${pattern.kind}`);
+            ASSERT(false);
         }
+    }
+
+    ASSERT(dates.length <= maxCount);
+
+    if (dates.length === 10000) {
+        log("hit 10000 instance limit for: " + instance.name);
     }
 
     return dates;
