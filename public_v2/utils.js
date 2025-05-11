@@ -1,3 +1,5 @@
+let TESTING = true;
+
 function ASSERT(condition, message="") {
     if (typeof(condition) != "boolean") {
         console.error('MALFORMED ASSERTION');
@@ -36,4 +38,10 @@ class List {
 // Convenience alias for creating list type without 'new'
 function LIST(innerType) {
     return new List(innerType);
+}
+
+function log(message) {
+    if (TESTING) {
+        console.log(message);
+    }
 }
