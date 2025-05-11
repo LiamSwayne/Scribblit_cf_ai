@@ -270,8 +270,11 @@ function currentDays() {
 }
 
 // returns today, yesterday, tomorrow, or the day of the week
+// 'day' must be an ISO date string in 'YYYY-MM-DD' format
 function dayOfWeekOrRelativeDay(day) {
+    ASSERT(type(day, String));
     let date = DateTime.fromISO(day);
+    ASSERT(date.isValid);
     let today = DateTime.local();
     if (date.hasSame(today, 'day')) {
         return 'Today';
@@ -463,11 +466,11 @@ HTML.body.appendChild(logo);
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
-    if (user.settings.stacking) {
+    ASSERT(type(user.settings.stacking, Boolean) && type(user.settings.numberOfCalendarDays, Int), "numberOfColumns: settings.stacking must be Boolean and numberOfCalendarDays must be Int");
+    if (user.settings.stacking === true) {
         return Math.floor(user.settings.numberOfCalendarDays / 2) + 1;
-    } else {
-        return user.settings.numberOfCalendarDays + 1;
     }
+    return user.settings.numberOfCalendarDays + 1;
 }
 
 function nthHourText(n) {

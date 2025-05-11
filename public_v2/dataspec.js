@@ -1,4 +1,5 @@
 /*
+DEPRECATED SPECIFICATION
 each item in the taskEventArray looks like this:
 {
     kind: 'task' or 'event'
@@ -433,6 +434,13 @@ class TaskOrEvent {
     }
 }
 
+// String format symbols for date components
+const YYYY_MM_DD = Symbol('YYYY_MM_DD');
+const YYYY = Symbol('YYYY');
+const MM = Symbol('MM');
+const DD = Symbol('DD');
+const DAY_OF_WEEK = Symbol('DAY_OF_WEEK');
+
 // type checking function
 function type(thing, sometype) {
     ASSERT(exists(thing));
@@ -544,6 +552,46 @@ function type(thing, sometype) {
     if (sometype === Boolean) return typeof thing === 'boolean';
     if (sometype === Symbol) return typeof thing === 'symbol';
     if (sometype === BigInt) return typeof thing === 'bigint';
+    // String format symbols for date components
+    if (sometype === YYYY_MM_DD) {
+        if (typeof thing !== 'string') return false;
+        const parts = thing.split('-');
+        if (parts.length !== 3) return false;
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        const day = Number(parts[2]);
+        if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+        try {
+            new DateField(year, month, day);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+    if (sometype === YYYY) {
+        if (typeof thing !== 'string' || thing.length !== 4) return false;
+        const y = Number(thing);
+        if (!Number.isInteger(y)) return false;
+        return true;
+    }
+    if (sometype === MM) {
+        if (typeof thing !== 'string' || thing.length !== 2) return false;
+        const m = Number(thing);
+        if (!Number.isInteger(m) || m < 1 || m > 12) return false;
+        return true;
+    }
+    if (sometype === DD) {
+        if (typeof thing !== 'string' || thing.length !== 2) return false;
+        const d = Number(thing);
+        if (!Number.isInteger(d) || d < 1 || d > 31) return false;
+        return true;
+    }
+    if (sometype === DAY_OF_WEEK) {
+        if (typeof thing !== 'string') return false;
+        const dow = thing;
+        const valid = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        return valid.includes(dow);
+    }
     // Default object instance check
     return thing instanceof sometype;
 }
