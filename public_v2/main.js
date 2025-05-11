@@ -189,7 +189,7 @@ if (TESTING) {
         firstDayInCalendar: new Date().toISOString().split('T')[0] // Today's date
     };
     
-    // Store in localStorage
+    // Store in localStorage and it will be discovered later
     localStorage.setItem("userData", JSON.stringify(user));
 }
 
@@ -219,6 +219,7 @@ let palettes = {
 
 let user; // user data / all the stuff they can change
 if (!exists(localStorage.getItem("userData"))) {
+    // create a user with the default settings
     user = {
         taskEventArray: taskEventArray,
         settings: {
