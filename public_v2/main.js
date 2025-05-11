@@ -196,12 +196,11 @@ if (TESTING) {
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
 function getDay(offset) {
-    ASSERT(0 <= offset && offset < 7, "getDay offset out of range 0-6");
-    if (offset == 0) {
+    ASSERT(type(offset, Int) && offset >= 0 && offset < 7, "getDay offset must be an Int between 0 and 6");
+    if (offset === 0) {
         return DateTime.local().toISODate();
-    } else {
-        return DateTime.local().plus({days: offset}).toISODate();
     }
+    return DateTime.local().plus({days: offset}).toISODate();
 }
 let taskEventArray = [];
 
