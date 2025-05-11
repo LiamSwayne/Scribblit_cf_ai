@@ -517,7 +517,6 @@ function nthHourText(n) {
 // needs to be audited!!!
 // Helper to generate all instances of a recurring pattern within a given range
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
-    
     ASSERT(exists(instance), "instance is required");
     ASSERT(typeof instance.recurring === "boolean", "instance.recurring must be a boolean");
 
