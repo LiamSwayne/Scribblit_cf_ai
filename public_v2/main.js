@@ -245,8 +245,8 @@ if (!exists(localStorage.getItem("userData"))) {
 } else {
     user = JSON.parse(localStorage.getItem("userData"));
     ASSERT(exists(user.taskEventArray) && exists(user.settings));
-    ASSERT(user.settings.stacking == true || user.settings.stacking == false, "userData.settings.stacking must be a boolean");
-    ASSERT(Number.isInteger(user.settings.numberOfCalendarDays), "userData.settings.numberOfCalendarDays must be an integer");
+    ASSERT(type(user.settings.stacking, Boolean));
+    ASSERT(type(user.settings.numberOfCalendarDays, Int));
     ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7, "userData.settings.numberOfCalendarDays out of range 1-7");
     ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
     ASSERT(Array.isArray(user.taskEventArray));
@@ -285,7 +285,7 @@ function currentDays() {
 // returns today, yesterday, tomorrow, or the day of the week
 // 'day' must be an ISO date string in 'YYYY-MM-DD' format
 function dayOfWeekOrRelativeDay(day) {
-    ASSERT(type(day, String));
+    ASSERT(type(day, YYYY_MM_DD));
     let date = DateTime.fromISO(day);
     ASSERT(date.isValid);
     let today = DateTime.local();
@@ -479,15 +479,15 @@ HTML.body.appendChild(logo);
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
-    ASSERT(type(user.settings.stacking, Boolean) && type(user.settings.numberOfCalendarDays, Int), "numberOfColumns: settings.stacking must be Boolean and numberOfCalendarDays must be Int");
-    if (user.settings.stacking === true) {
+    ASSERT(type(user.settings.stacking, Boolean) && type(user.settings.numberOfCalendarDays, Int));
+    if (user.settings.stacking) {
         return Math.floor(user.settings.numberOfCalendarDays / 2) + 1;
     }
     return user.settings.numberOfCalendarDays + 1;
 }
 
 function nthHourText(n) {
-    ASSERT(Number.isInteger(n), "nthHourText n must be an integer");
+    ASSERT(type(n, Int));
     ASSERT(0 <= n && n < 24, "nthHourText n out of range 0-23");
     ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24', "user.settings.ampmOr24 must be 'ampm' or '24'");
     if (user.settings.ampmOr24 == '24') {
@@ -873,7 +873,7 @@ function isTaskComplete(task) {
 function renderDay(day, element, index) {
     // get existing element
     ASSERT(day != undefined && day != null, "renderDay day is undefined or null");
-    ASSERT(/^\d{4}-\d{2}-\d{2}$/.test(day), "day doesn't fit YYYY-MM-DD format");
+    ASSERT(type(day, YYYY_MM_DD));
     ASSERT(element != undefined && element != null, "renderDay element is undefined or null");
     ASSERT(parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2) == columnWidth.toFixed(2), `renderDay element width (${parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2)}) is not ${columnWidth.toFixed(2)}`);
     ASSERT(!isNaN(columnWidth), "columnWidth must be a number");
@@ -1357,7 +1357,7 @@ let topOfCalendarDay = 20; // px
 
 function renderCalendar(days) {
     ASSERT(exists(days) && Array.isArray(days) && exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
-    ASSERT(user.settings.stacking == true || user.settings.stacking == false, "user.settings.stacking must be a boolean");
+    ASSERT(type(user.settings.stacking, Boolean));
     for (let i = 0; i < 7; i++) {
         if (i >= user.settings.numberOfCalendarDays) { // delete excess elements if they exist
             // day element
@@ -1523,7 +1523,7 @@ function resizeListener() {
 }
 
 function toggleNumberOfCalendarDays() {
-    ASSERT(exists(user.settings.numberOfCalendarDays) && Number.isInteger(user.settings.numberOfCalendarDays));
+    ASSERT(type(user.settings.numberOfCalendarDays, Int));
     ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
     
     // looping from 2 to 8 incrementing by 1
@@ -1550,7 +1550,7 @@ HTML.setStyle(buttonNumberCalendarDays, {
     fontSize: '12px',
     color: user.palette.shades[3],
 });
-ASSERT(exists(user.settings.numberOfCalendarDays) && Number.isInteger(user.settings.numberOfCalendarDays));
+ASSERT(type(user.settings.numberOfCalendarDays, Int));
 ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
 buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
 buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
@@ -1602,7 +1602,7 @@ HTML.body.appendChild(buttonAmPmOr24);
 
 function toggleStacking() {
     ASSERT(exists(user.settings));
-    ASSERT(user.settings.stacking == true || user.settings.stacking == false);
+    ASSERT(type(user.settings.stacking, Boolean));
     user.settings.stacking = !user.settings.stacking;
     localStorage.setItem("userData", JSON.stringify(user));
     resizeListener();
