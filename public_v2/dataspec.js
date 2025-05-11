@@ -81,7 +81,7 @@ each item in the taskEventArray looks like this:
 }
 */
 
-// Date and Time
+// Date
 class DateField {
     constructor(year, month, day) {
         ASSERT(exists(year));
@@ -106,8 +106,19 @@ class DateField {
         this.month = month;
         this.day = day;
     }
+
+    static fromYYYY_MM_DD(dateString) {
+        // assertions
+        ASSERT(exists(dateString));
+        ASSERT(typeof dateString === "string");
+        ASSERT(dateString.length === 10);
+        ASSERT(dateString[4] === '-' && dateString[7] === '-');
+        const parts = dateString.split('-');
+        return new DateField(Number(parts[0]), Number(parts[1]), Number(parts[2]));
+    }
 }
 
+// Time
 class TimeField {
     constructor(hour, minute) {
         ASSERT(exists(hour));
