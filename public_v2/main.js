@@ -1160,13 +1160,10 @@ function renderDay(day, element, index) {
                             });
                         }
                     }
-                    continue;
-                }
-        
-                // Event with specific time
-                let eventStart, eventEnd;
-                
-                if (!instance.recurring) {
+                } else if (!instance.recurring) {
+                    // Event with specific time
+                    let eventStart, eventEnd;
+
                     // Non-recurring event
                     eventStart = DateTime.fromISO(instance.startDate);
                     eventStart = eventStart.plus({
