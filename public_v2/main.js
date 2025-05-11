@@ -257,24 +257,15 @@ if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
 }
 
 function currentDays() {
-    let days = [];
-    
-    // Start with the first day stored in user data
-    // Use settings.firstDayInCalendar instead of firstDayInCalendar
-    let firstDay = DateTime.fromISO(user.settings.firstDayInCalendar);
-    
-    // Check if parsing was successful
-    if (!firstDay.isValid) {
-        ASSERT(false, "Invalid date:", user.settings.firstDayInCalendar);
-        // Fallback to today's date if the stored date is invalid
-        firstDay = DateTime.local();
-    }
-    
+    ASSERT(type(user.settings.firstDayInCalendar, String) && type(user.settings.numberOfCalendarDays, Int), "currentDays: settings.firstDayInCalendar must be String and numberOfCalendarDays must be Int");
+    // Start with the first day stored in user data; use settings.firstDayInCalendar
+    const firstDay = DateTime.fromISO(user.settings.firstDayInCalendar);
+    ASSERT(firstDay.isValid, "currentDays: invalid date: " + user.settings.firstDayInCalendar);
+    const days = [];
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         // Add the current day and each subsequent day
         days.push(firstDay.plus({days: i}).toISODate());
     }
-    
     return days;
 }
 
