@@ -263,22 +263,20 @@ if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
 
 // the current days to display
 function currentDays() {
-    // MODIFY THIS TO USE DATEFIELD
     // firstDayInCalendar must be DateField
     ASSERT(type(user.firstDayInCalendar, DateField));
     // numberOfCalendarDays must be Int between 1 and 7
     ASSERT(type(user.settings.numberOfCalendarDays, Int) && user.settings.numberOfCalendarDays >= 1 && user.settings.numberOfCalendarDays <= 7);
     let days = [];
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
-        // Convert DateField to DateTime, add days, then get ISO string
+        // Convert DateField to DateTime, add days, then create a new DateField
         let dt = DateTime.local(user.firstDayInCalendar.year, user.firstDayInCalendar.month, user.firstDayInCalendar.day);
         let dtWithOffset = dt.plus({days: i});
-        let iso = dtWithOffset.toISODate();
-        ASSERT(type(iso, YYYY_MM_DD));
-        days.push(iso);
+        let dateField = new DateField(dtWithOffset.year, dtWithOffset.month, dtWithOffset.day);
+        days.push(dateField);
     }
-    // ensure days array contains valid ISO date strings
-    ASSERT(type(days, LIST(YYYY_MM_DD)));
+    // ensure days array contains DateField objects
+    ASSERT(type(days, LIST(DateField)));
     return days;
 }
 
@@ -519,6 +517,7 @@ function nthHourText(n) {
 // needs to be audited!!!
 // Helper to generate all instances of a recurring pattern within a given range
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
+    
     ASSERT(exists(instance), "instance is required");
     ASSERT(typeof instance.recurring === "boolean", "instance.recurring must be a boolean");
 
