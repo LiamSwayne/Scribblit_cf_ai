@@ -196,11 +196,19 @@ if (TESTING) {
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
 function getDay(offset) {
-    ASSERT(type(offset, Int) && offset >= 0 && offset < 7, "getDay offset must be an Int between 0 and 6");
+    // offset must be an Int between 0 and 6
+    ASSERT(type(offset, Int) && offset >= 0 && offset < 7);
+    let result;
     if (offset === 0) {
-        return DateTime.local().toISODate();
+        // today's ISO date
+        result = DateTime.local().toISODate();
+    } else {
+        // ISO date offset by given days
+        result = DateTime.local().plus({days: offset}).toISODate();
     }
-    return DateTime.local().plus({days: offset}).toISODate();
+    // ensure result is valid 'YYYY-MM-DD'
+    ASSERT(type(result, YYYY_MM_DD));
+    return result;
 }
 let taskEventArray = [];
 
@@ -256,16 +264,21 @@ if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
     adjustCalendarUp = 2;
 }
 
+// the current days to display
 function currentDays() {
-    ASSERT(type(user.settings.firstDayInCalendar, String) && type(user.settings.numberOfCalendarDays, Int), "currentDays: settings.firstDayInCalendar must be String and numberOfCalendarDays must be Int");
-    // Start with the first day stored in user data; use settings.firstDayInCalendar
-    const firstDay = DateTime.fromISO(user.settings.firstDayInCalendar);
-    ASSERT(firstDay.isValid, "currentDays: invalid date: " + user.settings.firstDayInCalendar);
-    const days = [];
+    // firstDayInCalendar must be ISO date 'YYYY-MM-DD'
+    ASSERT(type(user.settings.firstDayInCalendar, YYYY_MM_DD));
+    // numberOfCalendarDays must be Int between 1 and 7
+    ASSERT(type(user.settings.numberOfCalendarDays, Int) && user.settings.numberOfCalendarDays >= 1 && user.settings.numberOfCalendarDays <= 7);
+    let days = [];
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
-        // Add the current day and each subsequent day
-        days.push(firstDay.plus({days: i}).toISODate());
+        // compute ISO date for each day
+        let iso = DateTime.fromISO(user.settings.firstDayInCalendar).plus({days: i}).toISODate();
+        ASSERT(type(iso, YYYY_MM_DD));
+        days.push(iso);
     }
+    // ensure days array contains valid ISO date strings
+    ASSERT(type(days, LIST(YYYY_MM_DD)));
     return days;
 }
 
