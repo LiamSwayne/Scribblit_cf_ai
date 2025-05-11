@@ -7,203 +7,169 @@ if (TESTING) {
     // Create sample tasks and events
     let taskEventArray = [
         // one-time task with work time
-        {
-            kind: 'task',
-            id: 'task-001',
-            name: 'Submit Final Project',
-            description: 'Complete and submit the final project for CS401',
-            task: {
-                instances: [
-                    {
-                        recurring: false,
-                        date: '2025-03-10',
-                        dueTime: '23:59',
-                        completion: []
-                    }
-                ],
-                workTimes: [
-                    {
-                        recurring: false,
-                        startDate: '2025-03-07',
-                        startTime: '14:30',
-                        endTime: '16:30'
-                    }
-                ]
-            }
-        },
+        new TaskOrEvent(
+            'task-001', // id
+            'Submit Final Project', // name
+            'Complete and submit the final project for CS401', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        new DateField(2025, 3, 10), // date
+                        new TimeField(23, 59), // dueTime
+                        [] // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [
+                    new NonRecurringEventInstance(
+                        new DateField(2025, 3, 7), // startDate
+                        new TimeField(14, 30), // startTime
+                        new TimeField(16, 30), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // workSessions
+            ) // data
+        ),
     
         // recurring weekly task with completion
-        {
-            kind: 'task',
-            id: 'task-002',
-            name: 'Weekly Report',
-            description: 'Submit weekly status report to manager',
-            task: {
-                instances: [
-                    {
-                        recurring: true,
-                        datePattern: {
-                            kind: 'everyNDays',
-                            everyNDays: {
-                                initialDay: 7,
-                                initialMonth: 3,
-                                initialYear: 2025,
-                                n: 7
-                            }
-                        },
-                        range: {
-                            kind: 'dateRange',
-                            dateRange: {
-                                start: '2025-03-07',
-                                end:   '2025-05-30'
-                            }
-                        },
-                        dueTime: '17:00',
-                        completion: [1709913600000]
-                    }
-                ],
-                workTimes: [
-                    {
-                        recurring: true,
-                        startDatePattern: {
-                            kind: 'everyNDays',
-                            everyNDays: {
-                                initialDay: 7,
-                                initialMonth: 3,
-                                initialYear: 2025,
-                                n: 7
-                            }
-                        },
-                        startTime: '14:00',
-                        endTime:   '15:00'
-                    }
-                ]
-            }
-        },
+        new TaskOrEvent(
+            'task-002', // id
+            'Weekly Report', // name
+            'Submit weekly status report to manager', // description
+            new TaskData( // data
+                [
+                    new RecurringTaskInstance(
+                        new EveryNDaysPattern(
+                            new DateField(2025, 3, 7), // initialDate
+                            7 // n
+                        ), // datePattern
+                        new TimeField(17, 0), // dueTime
+                        new DateRange(
+                            new DateField(2025, 3, 7), // startDate
+                            new DateField(2025, 5, 30) // endDate
+                        ), // range
+                        [1709913600000] // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            new DateField(2025, 3, 7), // initialDate
+                            7 // n
+                        ), // startDatePattern
+                        new TimeField(14, 0), // startTime
+                        new TimeField(15, 0), // endTime
+                        new DateRange(
+                            new DateField(2025, 3, 7), // startDate
+                            new DateField(2025, 5, 30) // endDate
+                        ), // range
+                        NULL // differentEndDatePattern
+                    )
+                ] // workSessions
+            ) // data
+        ),
     
         // monthly recurring task
-        {
-            kind: 'task',
-            id: 'task-003',
-            name: 'Monthly Budget Review',
-            description: 'Review and update monthly budget',
-            task: {
-                instances: [
-                    {
-                        recurring: true,
-                        datePattern: {
-                            kind: 'monthly',
-                            monthly: 1
-                        },
-                        range: {
-                            kind: 'recurrenceCount',
-                            recurrenceCount: 6
-                        },
-                        dueTime: '10:00',
-                        completion: []
-                    }
-                ]
-            }
-        },
+        new TaskOrEvent(
+            'task-003', // id
+            'Monthly Budget Review', // name
+            'Review and update monthly budget', // description
+            new TaskData( // data
+                [
+                    new RecurringTaskInstance(
+                        new MonthlyPattern(1), // datePattern
+                        new TimeField(10, 0), // dueTime
+                        new RecurrenceCount(6), // range
+                        [] // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                NULL // workSessions
+            ) // data
+        ),
     
         // one-time all-day event
-        {
-            kind: 'event',
-            id: 'event-001',
-            name: 'Company Holiday',
-            description: 'Annual company holiday',
-            event: {
-                instances: [
-                    {
-                        recurring: false,
-                        startDate: '2025-03-08'
-                    }
-                ]
-            }
-        },
+        new TaskOrEvent(
+            'event-001', // id
+            'Company Holiday', // name
+            'Annual company holiday', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        new DateField(2025, 3, 8), // startDate
+                        NULL, // startTime
+                        NULL, // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            ) // data
+        ),
     
         // recurring daily meeting
-        {
-            kind: 'event',
-            id: 'event-002',
-            name: 'Team Standup',
-            description: 'Daily team standup meeting',
-            event: {
-                instances: [
-                    {
-                        recurring: true,
-                        startDatePattern: {
-                            kind: 'everyNDays',
-                            everyNDays: {
-                                initialDay: 6,
-                                initialMonth: 3,
-                                initialYear: 2025,
-                                n: 1
-                            }
-                        },
-                        range: {
-                            kind: 'dateRange',
-                            dateRange: {
-                                start: '2025-03-06',
-                                end:   '2025-03-20'
-                            }
-                        },
-                        startTime: '09:30',
-                        endTime:   '10:00'
-                    }
-                ]
-            }
-        },
+        new TaskOrEvent(
+            'event-002', // id
+            'Team Standup', // name
+            'Daily team standup meeting', // description
+            new EventData( // data
+                [
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            new DateField(2025, 3, 6), // initialDate
+                            1 // n
+                        ), // startDatePattern
+                        new TimeField(9, 30), // startTime
+                        new TimeField(10, 0), // endTime
+                        new DateRange(
+                            new DateField(2025, 3, 6), // startDate
+                            new DateField(2025, 3, 20) // endDate
+                        ), // range
+                        NULL // differentEndDatePattern
+                    )
+                ] // instances
+            ) // data
+        ),
     
         // one-time multi-day event
-        {
-            kind: 'event',
-            id: 'event-003',
-            name: 'Annual Conference',
-            description: 'Industry annual conference',
-            event: {
-                instances: [
-                    {
-                        recurring: false,
-                        startDate: '2025-03-15',
-                        startTime: '09:00',
-                        endTime:   '17:00',
-                        differentEndDate: '2025-03-17'
-                    }
-                ]
-            }
-        },
+        new TaskOrEvent(
+            'event-003', // id
+            'Annual Conference', // name
+            'Industry annual conference', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        new DateField(2025, 3, 15), // startDate
+                        new TimeField(9, 0), // startTime
+                        new TimeField(17, 0), // endTime
+                        new DateField(2025, 3, 17) // differentEndDate
+                    )
+                ] // instances
+            ) // data
+        ),
     
         // recurring weekend workshop with multi-day span
-        {
-            kind: 'event',
-            id: 'event-004',
-            name: 'Weekend Workshop',
-            description: 'Weekend coding workshop',
-            event: {
-                instances: [
-                    {
-                        recurring: true,
-                        startDatePattern: {
-                            kind: 'everyNDays',
-                            everyNDays: {
-                                initialDay: 8,
-                                initialMonth: 3,
-                                initialYear: 2025,
-                                n: 7
-                            }
-                        },
-                        range: {
-                            kind: 'recurrenceCount',
-                            recurrenceCount: 4
-                        },
-                        startTime: '10:00',
-                        endTime:   '16:00',
-                        differentEndDatePattern: 1
-                    }
-                ]
-            }
-        }
+        new TaskOrEvent(
+            'event-004', // id
+            'Weekend Workshop', // name
+            'Weekend coding workshop', // description
+            new EventData( // data
+                [
+                    new RecurringTaskInstance(
+                        new EveryNDaysPattern(
+                            new DateField(2025, 3, 8), // initialDate
+                            7 // n
+                        ), // startDatePattern
+                        new TimeField(10, 0), // startTime
+                        new TimeField(16, 0), // endTime
+                        new RecurrenceCount(4), // range
+                        1 // differentEndDatePattern
+                    )
+                ] // instances
+            ) // data
+        )
     ];      
 
     // Create user object with the sample data
