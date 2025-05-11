@@ -1,4 +1,611 @@
-let TESTING = true;
+/*
+DEPRECATED SPECIFICATION
+each item in the taskEventArray looks like this:
+{
+    kind: 'task' or 'event'
+    id: 'randomized ID'
+    name: string
+    description: string (OPTIONAL)
+    task:
+        {
+            instances: array of dates/patterns of when the task is due
+                [
+                    {
+                        recurring: T/F
+                        date: YYYY-MM-DD (for when recurring is false)
+                        datePattern: (for when recurring is true)
+                            {
+                                kind: string of which ONE of the below has been selected, ex: 'everyNthDay'
+                                everyNDays: repeat every n days, ex: every 2 mondays would be date of first monday and 14
+                                    {
+                                        initialDay: DD
+                                        initialMonth: MM
+                                        initialYear: YYYY (OPTIONAL in case of leap year and want to reset on start day each year)
+                                        n: int
+                                    }
+                                annually: on this same day every year (using every 365 wouldn't work because of leap years)
+                                    {
+                                        day: DD
+                                        month: MM
+                                    }
+                                monthly: int on the n'th day of each month
+                            }
+                        range: inclusive range of when the date pattern covers (for when recurring is true)
+                            {
+                                kind: 'dateRange' or 'recurrenceCount'
+                                dateRange:
+                                    {
+                                        start: YYYY-MM-DD
+                                        end: YYYY-MM-DD (OPTIONAL)
+                                    }
+                                recurrenceCount: int
+                            }
+                        dueTime: HH:MM (24 hour time) (OPTIONAL)
+                        completion: array of unix times corresponding to the date/times for which the task has been completed
+                            [
+                                int,
+                                ...
+                            ]
+                    },
+                    ...
+                ]
+            hideUntil: when to hide the task until (applies to all instances) (on by default) (OPTIONAL)
+                {
+                    kind: string of 'dayOf' meaning hide until day of, 'relative' meaning hide until int number of days before, or 'date' meaning a specific date
+                    relative: int
+                    date: YYYY-MM-DD
+                }
+            showOverdue: T/F to show overdue instances of a task. for most tasks you want this on, but for something like brushing teeth, if you forget to check it off for a day, you don't want to see overdue times you should've done it yesterday plus today's times (on by default)
+            workTimes: array of event instances that are times to work on the task, not separate event object (OPTIONAL)
+                [
+                    same contents as an event instance
+                    ...
+                ]
+        }
+    event:
+        {
+            instances: mostly the same as task but some events can last multiple days
+                [
+                    {
+                        recurring: T/F
+                        startDate: SAME AS TASK date
+                        startDatePattern: SAME AS TASK but this is only for starting dates
+                        startTime: HH-MM (OPTIONAL)
+                        endTime: HH-MM (OPTIONAL)
+                        differentEndDate: YYYY-MM-DD for events that end on a different day than they start (for when recurring is F) (OPTIONAL)
+                        differentEndDatePattern: int number of days after start date (cannot be 0) (for when recurring is T) (OPTIONAL)
+                    },
+                    ...
+                ]
+        }
+}
+*/
+
+// Date
+class DateField {
+    constructor(year, month, day) {
+        ASSERT(exists(year));
+        ASSERT(typeof year === "number");
+        ASSERT(Number.isInteger(year));
+        
+        ASSERT(exists(month));
+        ASSERT(typeof month === "number");
+        ASSERT(Number.isInteger(month));
+        ASSERT(month >= 1 && month <= 12);
+        
+        ASSERT(exists(day));
+        ASSERT(typeof day === "number");
+        ASSERT(Number.isInteger(day));
+        ASSERT(day >= 1 && day <= 31);
+        
+        // Additional validation for days in month (including leap years)
+        const daysInMonth = new Date(year, month, 0).getDate();
+        ASSERT(day <= daysInMonth);
+        
+        this.year = year;
+        this.month = month;
+        this.day = day;
+    }
+
+    static fromYYYY_MM_DD(dateString) {
+        // assertions
+        ASSERT(exists(dateString));
+        ASSERT(typeof dateString === "string");
+        ASSERT(dateString.length === 10);
+        ASSERT(dateString[4] === '-' && dateString[7] === '-');
+        const parts = dateString.split('-');
+        return new DateField(Number(parts[0]), Number(parts[1]), Number(parts[2]));
+    }
+}
+
+// Time
+class TimeField {
+    constructor(hour, minute) {
+        ASSERT(exists(hour));
+        ASSERT(typeof hour === "number");
+        ASSERT(Number.isInteger(hour));
+        ASSERT(hour >= 0 && hour <= 23);
+        
+        ASSERT(exists(minute));
+        ASSERT(typeof minute === "number");
+        ASSERT(Number.isInteger(minute));
+        ASSERT(minute >= 0 && minute <= 59);
+        
+        this.hour = hour;
+        this.minute = minute;
+    }
+}
+
+// Recurrence patterns
+class EveryNDaysPattern {
+    constructor(initialDate, n) {
+        ASSERT(exists(initialDate));
+        ASSERT(initialDate instanceof DateField);
+        
+        ASSERT(exists(n));
+        ASSERT(typeof n === "number");
+        ASSERT(Number.isInteger(n));
+        ASSERT(n > 0);
+        
+        this.initialDate = initialDate;
+        this.n = n;
+    }
+}
+
+class MonthlyPattern {
+    constructor(day) {
+        ASSERT(exists(day));
+        ASSERT(typeof day === "number");
+        ASSERT(Number.isInteger(day));
+        ASSERT(day >= 1 && day <= 31);
+        
+        this.day = day;
+    }
+}
+
+class AnnuallyPattern {
+    constructor(month, day) {
+        ASSERT(exists(month));
+        ASSERT(typeof month === "number");
+        ASSERT(Number.isInteger(month));
+        ASSERT(month >= 1 && month <= 12);
+        
+        ASSERT(exists(day));
+        ASSERT(typeof day === "number");
+        ASSERT(Number.isInteger(day));
+        ASSERT(day >= 1 && day <= 31);
+        
+        // Additional validation for days in month
+        const daysInMonth = new Date(2020, month, 0).getDate();
+        ASSERT(day <= daysInMonth);
+        
+        this.month = month;
+        this.day = day;
+    }
+}
+
+// Range specs
+class DateRange {
+    constructor(startDate, endDate) {
+        ASSERT(exists(startDate));
+        ASSERT(startDate instanceof DateField);
+        
+        // endDate can be NULL (optional)
+        if (endDate !== NULL) {
+            ASSERT(endDate instanceof DateField);
+            
+            // Convert to Date objects for comparison
+            const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
+            const endDateObj = new Date(endDate.year, endDate.month - 1, endDate.day);
+            ASSERT(endDateObj >= startDateObj);
+        }
+        
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+}
+
+class RecurrenceCount {
+    constructor(count) {
+        ASSERT(exists(count));
+        ASSERT(typeof count === "number");
+        ASSERT(Number.isInteger(count));
+        ASSERT(count > 0);
+        
+        this.count = count;
+    }
+}
+
+// Task instances
+class NonRecurringTaskInstance {
+    constructor(date, dueTime, completion) {
+        ASSERT(exists(date));
+        ASSERT(date instanceof DateField);
+        
+        // dueTime can be NULL (optional)
+        if (dueTime !== NULL) {
+            ASSERT(dueTime instanceof TimeField);
+        }
+        
+        ASSERT(exists(completion));
+        ASSERT(Array.isArray(completion));
+        // Validate each completion timestamp is a number (unix time)
+        completion.forEach(timestamp => {
+            ASSERT(typeof timestamp === "number");
+            ASSERT(Number.isInteger(timestamp));
+        });
+        
+        this.date = date;
+        this.dueTime = dueTime;
+        this.completion = completion;
+    }
+}
+
+class RecurringTaskInstance {
+    constructor(datePattern, dueTime, range, completion) {
+        ASSERT(exists(datePattern));
+        ASSERT(
+            datePattern instanceof EveryNDaysPattern || 
+            datePattern instanceof MonthlyPattern || 
+            datePattern instanceof AnnuallyPattern
+        );
+        
+        // dueTime can be NULL (optional)
+        if (dueTime !== NULL) {
+            ASSERT(dueTime instanceof TimeField);
+        }
+        
+        ASSERT(exists(range));
+        ASSERT(range instanceof DateRange || range instanceof RecurrenceCount);
+        
+        ASSERT(exists(completion));
+        ASSERT(Array.isArray(completion));
+        // Validate each completion timestamp is a number (unix time)
+        completion.forEach(timestamp => {
+            ASSERT(typeof timestamp === "number");
+            ASSERT(Number.isInteger(timestamp));
+        });
+        
+        this.datePattern = datePattern;
+        this.dueTime = dueTime;
+        this.range = range;
+        this.completion = completion;
+    }
+}
+
+// Event instances
+class NonRecurringEventInstance {
+    constructor(startDate, startTime, endTime, differentEndDate = NULL) {
+        ASSERT(exists(startDate));
+        ASSERT(startDate instanceof DateField);
+        
+        // startTime and endTime can be NULL (optional)
+        if (startTime !== NULL) {
+            ASSERT(startTime instanceof TimeField);
+        }
+        
+        if (endTime !== NULL) {
+            ASSERT(endTime instanceof TimeField);
+            
+            // If both start and end times are provided, validate end is after start on same day
+            if (startTime !== NULL && differentEndDate === NULL) {
+                const startMinutes = startTime.hour * 60 + startTime.minute;
+                const endMinutes = endTime.hour * 60 + endTime.minute;
+                ASSERT(endMinutes > startMinutes);
+            }
+        }
+        
+        // differentEndDate is optional
+        if (differentEndDate !== NULL) {
+            ASSERT(differentEndDate instanceof DateField);
+            
+            // Convert to Date objects for comparison
+            const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
+            const endDateObj = new Date(differentEndDate.year, differentEndDate.month - 1, differentEndDate.day);
+            ASSERT(endDateObj > startDateObj);
+        }
+        
+        this.startDate = startDate;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.differentEndDate = differentEndDate;
+    }
+}
+
+class RecurringEventInstance {
+    constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern = NULL) {
+        ASSERT(exists(startDatePattern));
+        ASSERT(
+            startDatePattern instanceof EveryNDaysPattern || 
+            startDatePattern instanceof MonthlyPattern || 
+            startDatePattern instanceof AnnuallyPattern
+        );
+        
+        // startTime and endTime can be NULL (optional)
+        if (startTime !== NULL) {
+            ASSERT(startTime instanceof TimeField);
+        }
+        
+        if (endTime !== NULL) {
+            ASSERT(endTime instanceof TimeField);
+            
+            // If both start and end times are provided, validate end is after start on same day (if not multi-day)
+            if (startTime !== NULL && differentEndDatePattern === NULL) {
+                const startMinutes = startTime.hour * 60 + startTime.minute;
+                const endMinutes = endTime.hour * 60 + endTime.minute;
+                ASSERT(endMinutes > startMinutes);
+            }
+        }
+        
+        ASSERT(exists(range));
+        ASSERT(range instanceof DateRange || range instanceof RecurrenceCount);
+        
+        // differentEndDatePattern is optional
+        if (differentEndDatePattern !== NULL) {
+            ASSERT(typeof differentEndDatePattern === "number");
+            ASSERT(Number.isInteger(differentEndDatePattern));
+            ASSERT(differentEndDatePattern > 0);
+        }
+        
+        this.startDatePattern = startDatePattern;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.range = range;
+        this.differentEndDatePattern = differentEndDatePattern;
+    }
+}
+
+// TaskData and EventData
+class TaskData {
+    constructor(instances, hideUntil, showOverdue, workSessions) {
+        ASSERT(exists(instances));
+        ASSERT(Array.isArray(instances));
+        instances.forEach(instance => {
+            ASSERT(
+                instance instanceof NonRecurringTaskInstance || 
+                instance instanceof RecurringTaskInstance
+            );
+        });
+        
+        // hideUntil is optional
+        if (hideUntil !== NULL) {
+            ASSERT(exists(hideUntil.kind));
+            ASSERT(typeof hideUntil.kind === "string");
+            ASSERT(['dayOf', 'relative', 'date'].includes(hideUntil.kind));
+            
+            if (hideUntil.kind === 'relative') {
+                ASSERT(exists(hideUntil.value));
+                ASSERT(typeof hideUntil.value === "number");
+                ASSERT(Number.isInteger(hideUntil.value));
+            } else if (hideUntil.kind === 'date') {
+                ASSERT(exists(hideUntil.value));
+                ASSERT(hideUntil.value instanceof DateField);
+            }
+        }
+        
+        ASSERT(exists(showOverdue));
+        ASSERT(typeof showOverdue === "boolean");
+        
+        // workSessions is optional
+        if (workSessions !== NULL) {
+            ASSERT(Array.isArray(workSessions));
+            workSessions.forEach(session => {
+                ASSERT(
+                    session instanceof NonRecurringEventInstance || 
+                    session instanceof RecurringEventInstance
+                );
+            });
+        }
+        
+        this.instances = instances;
+        this.hideUntil = hideUntil;
+        this.showOverdue = showOverdue;
+        this.workSessions = workSessions;
+    }
+}
+
+class EventData {
+    constructor(instances) {
+        ASSERT(exists(instances));
+        ASSERT(Array.isArray(instances));
+        instances.forEach(instance => {
+            ASSERT(
+                instance instanceof NonRecurringEventInstance || 
+                instance instanceof RecurringEventInstance
+            );
+        });
+        
+        this.instances = instances;
+    }
+}
+
+// Task or Event container, the uppermost level of the data structure
+class TaskOrEvent {
+    constructor(id, name, description, data) {
+        ASSERT(exists(id));
+        ASSERT(typeof id === "string");
+        ASSERT(id.length > 0);
+        
+        ASSERT(exists(name));
+        ASSERT(typeof name === "string");
+        ASSERT(name.length > 0);
+        
+        // description is optional
+        if (description !== NULL) {
+            ASSERT(typeof description === "string");
+        }
+        
+        ASSERT(exists(data));
+        ASSERT(data instanceof TaskData || data instanceof EventData);
+        
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.data = data;
+    }
+}
+
+// String format symbols for date components
+const YYYY_MM_DD = Symbol('YYYY_MM_DD');
+const YYYY = Symbol('YYYY');
+const MM = Symbol('MM');
+const DD = Symbol('DD');
+const DAY_OF_WEEK = Symbol('DAY_OF_WEEK');
+
+// type checking function
+function type(thing, sometype) {
+    ASSERT(exists(thing));
+    ASSERT(exists(sometype));
+    // NULL type handling
+    if (sometype === NULL) {
+        return thing === NULL;
+    }
+    // List type handling
+    if (sometype instanceof List) {
+        if (!Array.isArray(thing)) return false;
+        for (const elem of thing) {
+            if (!type(elem, sometype.innertype)) return false;
+        }
+        return true;
+    }
+    // Class type checks using constructors for validation
+    if (sometype === DateField) {
+        if (!exists(thing.year) || !exists(thing.month) || !exists(thing.day)) return false;
+        try { new DateField(thing.year, thing.month, thing.day); return true; } catch (e) { return false; }
+    }
+    if (sometype === TimeField) {
+        if (!exists(thing.hour) || !exists(thing.minute)) return false;
+        try { new TimeField(thing.hour, thing.minute); return true; } catch (e) { return false; }
+    }
+    if (sometype === EveryNDaysPattern) {
+        if (!exists(thing.initialDate) || !exists(thing.n)) return false;
+        if (!type(thing.initialDate, DateField)) return false;
+        try { new EveryNDaysPattern(thing.initialDate, thing.n); return true; } catch (e) { return false; }
+    }
+    if (sometype === MonthlyPattern) {
+        if (!exists(thing.day)) return false;
+        try { new MonthlyPattern(thing.day); return true; } catch (e) { return false; }
+    }
+    if (sometype === AnnuallyPattern) {
+        if (!exists(thing.month) || !exists(thing.day)) return false;
+        try { new AnnuallyPattern(thing.month, thing.day); return true; } catch (e) { return false; }
+    }
+    if (sometype === DateRange) {
+        if (!exists(thing.startDate)) return false;
+        if (!type(thing.startDate, DateField)) return false;
+        const endDate = thing.endDate;
+        if (endDate !== NULL && !type(endDate, DateField)) return false;
+        try { new DateRange(thing.startDate, endDate); return true; } catch (e) { return false; }
+    }
+    if (sometype === RecurrenceCount) {
+        if (!exists(thing.count)) return false;
+        try { new RecurrenceCount(thing.count); return true; } catch (e) { return false; }
+    }
+    if (sometype === NonRecurringTaskInstance) {
+        if (!exists(thing.date) || !exists(thing.dueTime) || !exists(thing.completion)) return false;
+        if (!type(thing.date, DateField)) return false;
+        const dueTime = thing.dueTime;
+        if (dueTime !== NULL && !type(dueTime, TimeField)) return false;
+        if (!Array.isArray(thing.completion)) return false;
+        try { new NonRecurringTaskInstance(thing.date, dueTime, thing.completion); return true; } catch (e) { return false; }
+    }
+    if (sometype === RecurringTaskInstance) {
+        if (!exists(thing.datePattern) || !exists(thing.dueTime) || !exists(thing.range) || !exists(thing.completion)) return false;
+        if (!type(thing.datePattern, EveryNDaysPattern) && !type(thing.datePattern, MonthlyPattern) && !type(thing.datePattern, AnnuallyPattern)) return false;
+        const dueTime2 = thing.dueTime;
+        if (dueTime2 !== NULL && !type(dueTime2, TimeField)) return false;
+        if (!type(thing.range, DateRange) && !type(thing.range, RecurrenceCount)) return false;
+        if (!Array.isArray(thing.completion)) return false;
+        try { new RecurringTaskInstance(thing.datePattern, dueTime2, thing.range, thing.completion); return true; } catch (e) { return false; }
+    }
+    if (sometype === NonRecurringEventInstance) {
+        if (!exists(thing.startDate) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.differentEndDate)) return false;
+        if (!type(thing.startDate, DateField)) return false;
+        const startTime = thing.startTime;
+        if (startTime !== NULL && !type(startTime, TimeField)) return false;
+        const endTime = thing.endTime;
+        if (endTime !== NULL && !type(endTime, TimeField)) return false;
+        const diffEndDate = thing.differentEndDate;
+        if (diffEndDate !== NULL && !type(diffEndDate, DateField)) return false;
+        try { new NonRecurringEventInstance(thing.startDate, startTime, endTime, diffEndDate); return true; } catch (e) { return false; }
+    }
+    if (sometype === RecurringEventInstance) {
+        if (!exists(thing.startDatePattern) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.range) || !exists(thing.differentEndDatePattern)) return false;
+        if (!type(thing.startDatePattern, EveryNDaysPattern) && !type(thing.startDatePattern, MonthlyPattern) && !type(thing.startDatePattern, AnnuallyPattern)) return false;
+        const startTime2 = thing.startTime;
+        if (startTime2 !== NULL && !type(startTime2, TimeField)) return false;
+        const endTime2 = thing.endTime;
+        if (endTime2 !== NULL && !type(endTime2, TimeField)) return false;
+        if (!type(thing.range, DateRange) && !type(thing.range, RecurrenceCount)) return false;
+        const dep = thing.differentEndDatePattern;
+        if (dep !== NULL && !(typeof dep === 'number' && Number.isInteger(dep) && dep > 0)) return false;
+        try { new RecurringEventInstance(thing.startDatePattern, startTime2, endTime2, thing.range, dep); return true; } catch (e) { return false; }
+    }
+    if (sometype === TaskData) {
+        if (!exists(thing.instances) || !Array.isArray(thing.instances)) return false;
+        const hideUntil = thing.hideUntil;
+        const workSessions = thing.workSessions;
+        if (hideUntil !== NULL && !exists(hideUntil.kind)) return false;
+        if (workSessions !== NULL && !Array.isArray(workSessions)) return false;
+        try { new TaskData(thing.instances, hideUntil, thing.showOverdue, workSessions); return true; } catch (e) { return false; }
+    }
+    if (sometype === EventData) {
+        if (!exists(thing.instances) || !Array.isArray(thing.instances)) return false;
+        try { new EventData(thing.instances); return true; } catch (e) { return false; }
+    }
+    if (sometype === TaskOrEvent) {
+        if (!exists(thing.id) || !exists(thing.name) || !exists(thing.data)) return false;
+        try { new TaskOrEvent(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
+    }
+    // Primitive type checks
+    if (sometype === Number) return typeof thing === 'number';
+    if (sometype === String) return typeof thing === 'string';
+    if (sometype === Boolean) return typeof thing === 'boolean';
+    if (sometype === Symbol) return typeof thing === 'symbol';
+    if (sometype === BigInt) return typeof thing === 'bigint';
+    // String format symbols for date components
+    if (sometype === YYYY_MM_DD) {
+        if (typeof thing !== 'string') return false;
+        const parts = thing.split('-');
+        if (parts.length !== 3) return false;
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        const day = Number(parts[2]);
+        if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+        try {
+            new DateField(year, month, day);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+    if (sometype === YYYY) {
+        if (typeof thing !== 'string' || thing.length !== 4) return false;
+        const y = Number(thing);
+        if (!Number.isInteger(y)) return false;
+        return true;
+    }
+    if (sometype === MM) {
+        if (typeof thing !== 'string' || thing.length !== 2) return false;
+        const m = Number(thing);
+        if (!Number.isInteger(m) || m < 1 || m > 12) return false;
+        return true;
+    }
+    if (sometype === DD) {
+        if (typeof thing !== 'string' || thing.length !== 2) return false;
+        const d = Number(thing);
+        if (!Number.isInteger(d) || d < 1 || d > 31) return false;
+        return true;
+    }
+    if (sometype === DAY_OF_WEEK) {
+        if (typeof thing !== 'string') return false;
+        const dow = thing;
+        const valid = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        return valid.includes(dow);
+    }
+    // Default object instance check
+    return thing instanceof sometype;
+}let TESTING = true;
 
 if (TESTING) {
     localStorage.clear();
@@ -186,7 +793,7 @@ if (TESTING) {
             accent: ['#47b6ff', '#b547ff'],
             shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
         },
-        firstDayInCalendar: getDay(0) // set to today as DateField
+        firstDayInCalendar: new Date().toISOString().split('T')[0] // Today's date
     };
     
     // Store in localStorage and it will be discovered later
@@ -246,7 +853,13 @@ if (!exists(localStorage.getItem("userData"))) {
     ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7, "userData.settings.numberOfCalendarDays out of range 1-7");
     ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
     ASSERT(Array.isArray(user.taskEventArray));
-    ASSERT(type(user.firstDayInCalendar, DateField));
+    
+    // Convert the firstDayInCalendar from string to DateField if needed
+    if (typeof user.firstDayInCalendar === "string") {
+        user.firstDayInCalendar = DateField.fromYYYY_MM_DD(user.firstDayInCalendar);
+    } else if (!exists(user.firstDayInCalendar)) {
+        user.firstDayInCalendar = getDay(0); // Default to today
+    }
 }
 
 let gapBetweenColumns = 6;
@@ -263,30 +876,32 @@ if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
 
 // the current days to display
 function currentDays() {
-    // MODIFY THIS TO USE DATEFIELD
     // firstDayInCalendar must be DateField
     ASSERT(type(user.firstDayInCalendar, DateField));
     // numberOfCalendarDays must be Int between 1 and 7
     ASSERT(type(user.settings.numberOfCalendarDays, Int) && user.settings.numberOfCalendarDays >= 1 && user.settings.numberOfCalendarDays <= 7);
     let days = [];
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
-        // Convert DateField to DateTime, add days, then get ISO string
-        let dt = DateTime.local(user.firstDayInCalendar.year, user.firstDayInCalendar.month, user.firstDayInCalendar.day);
-        let dtWithOffset = dt.plus({days: i});
-        let iso = dtWithOffset.toISODate();
-        ASSERT(type(iso, YYYY_MM_DD));
-        days.push(iso);
+        // Create DateField for each day
+        let date;
+        if (i === 0) {
+            date = user.firstDayInCalendar;
+        } else {
+            // Create a new date by adding days to the first date
+            let dt = DateTime.local(user.firstDayInCalendar.year, user.firstDayInCalendar.month, user.firstDayInCalendar.day).plus({days: i});
+            date = new DateField(dt.year, dt.month, dt.day);
+        }
+        days.push(date);
     }
-    // ensure days array contains valid ISO date strings
-    ASSERT(type(days, LIST(YYYY_MM_DD)));
     return days;
 }
 
 // returns today, yesterday, tomorrow, or the day of the week
-// 'day' must be an ISO date string in 'YYYY-MM-DD' format
+// 'day' must be a DateField object
 function dayOfWeekOrRelativeDay(day) {
-    ASSERT(type(day, DateField));
-    // Convert to DateTime for comparison
+    ASSERT(day instanceof DateField);
+    
+    // Convert DateField to DateTime for comparison
     let date = DateTime.local(day.year, day.month, day.day);
     ASSERT(date.isValid);
     
@@ -517,6 +1132,205 @@ function nthHourText(n) {
 
 // code written by AI
 // needs to be audited!!!
+// Helper function to generate all instances of a recurring pattern within a given range
+function generateInstancesFromPattern(instance, startUnix = null, endUnix = null) {
+    if (!instance.recurring || !exists(instance.datePattern)) {
+        return [];
+    }
+    
+    // Determine start and end dates for the pattern
+    let startDate, endDate;
+    
+    // If a specific range is provided in function call, use that
+    if (startUnix !== null) {
+        startDate = DateTime.fromMillis(startUnix);
+    } else if (exists(instance.range) && instance.range.kind === 'dateRange' && 
+              exists(instance.range.dateRange) && exists(instance.range.dateRange.start)) {
+        startDate = DateTime.fromISO(instance.range.dateRange.start);
+    } else {
+        // Default to pattern's initial date or today if no start provided
+        if (instance.datePattern.kind === 'everyNDays' && 
+            exists(instance.datePattern.everyNDays)) {
+            startDate = DateTime.local(
+                instance.datePattern.everyNDays.initialYear || DateTime.local().year,
+                instance.datePattern.everyNDays.initialMonth,
+                instance.datePattern.everyNDays.initialDay
+            );
+        } else {
+            startDate = DateTime.local();
+        }
+    }
+    
+    // For pattern end date
+    if (endUnix !== null) {
+        endDate = DateTime.fromMillis(endUnix);
+    } else if (exists(instance.range) && instance.range.kind === 'dateRange' && 
+              exists(instance.range.dateRange) && exists(instance.range.dateRange.end)) {
+        endDate = DateTime.fromISO(instance.range.dateRange.end);
+    } else if (exists(instance.range) && instance.range.kind === 'recurrenceCount' &&
+              exists(instance.range.recurrenceCount)) {
+        // Handle recurrence count - we'll calculate this later
+        endDate = null;
+    } else {
+        // If no end is specified, we return an empty array as this is an indefinite pattern
+        return [];
+    }
+    
+    let allDates = [];
+    let currentDate = startDate;
+    let recurrenceCount = 0;
+    let maxRecurrences = exists(instance.range) && instance.range.kind === 'recurrenceCount' ? 
+                         instance.range.recurrenceCount : Number.MAX_SAFE_INTEGER;
+    
+    // Generate dates based on pattern type
+    while ((endDate === null || currentDate <= endDate) && recurrenceCount < maxRecurrences) {
+        // Convert to unix timestamp (considering the time if provided)
+        let timestamp = currentDate.startOf('day').toMillis();
+        if (exists(instance.time)) {
+            let [hours, minutes] = instance.time.split(':').map(Number);
+            timestamp = currentDate.set({hour: hours, minute: minutes}).toMillis();
+        }
+        
+        allDates.push(timestamp);
+        recurrenceCount++;
+        
+        // Calculate next date based on pattern
+        if (instance.datePattern.kind === 'everyNDays') {
+            currentDate = currentDate.plus({days: instance.datePattern.everyNDays.n});
+        } else if (instance.datePattern.kind === 'monthly') {
+            currentDate = currentDate.plus({months: 1});
+        } else if (instance.datePattern.kind === 'annually') {
+            currentDate = currentDate.plus({years: 1});
+        } else {
+            break; // Unknown pattern
+        }
+    }
+    
+    return allDates;
+}
+
+// AI AUDIT NEEDED
+// check if all of a task is complete
+function isTaskComplete(task) {
+    // If the task doesn't exist or doesn't have instances, it can't be complete
+    if (!exists(task) || !exists(task.instances) || !Array.isArray(task.instances) || task.instances.length === 0) {
+        return false;
+    }
+    
+    // Check each instance
+    for (let instance of task.instances) {
+        // For non-recurring tasks, check if there's at least one completion
+        if (!instance.recurring) {
+            if (!exists(instance.completion) || !Array.isArray(instance.completion) || instance.completion.length === 0) {
+                return false; // No completions for this non-recurring task
+            }
+            
+            // For non-recurring tasks, convert the date to a unix timestamp
+            let taskDate = DateTime.fromISO(instance.date);
+            if (!taskDate.isValid) {
+                return false; // Invalid date
+            }
+            
+            // Add time if specified
+            let timestamp = taskDate.startOf('day').toMillis();
+            if (exists(instance.time)) {
+                let [hours, minutes] = instance.time.split(':').map(Number);
+                timestamp = taskDate.set({hour: hours, minute: minutes}).toMillis();
+            }
+            
+            // Check if this specific time is marked as completed
+            if (!instance.completion.some(completionTime => {
+                // Allow some leeway in completion time (same day)
+                let completionDate = DateTime.fromMillis(completionTime);
+                let taskDateOnly = DateTime.fromMillis(timestamp).startOf('day');
+                return completionDate.hasSame(taskDateOnly, 'day');
+            })) {
+                return false; // This specific task time hasn't been completed
+            }
+        } 
+        // For recurring tasks
+        else {
+            // First, check if this is a definite pattern
+            if (!exists(instance.range)) {
+                return false; // Indefinite pattern with no range
+            }
+            
+            if (instance.range.kind === 'dateRange') {
+                if (!exists(instance.range.dateRange) || !exists(instance.range.dateRange.end)) {
+                    return false; // Indefinite pattern with no end date
+                }
+                
+                // Generate all instances of this pattern within the date range
+                let startDate = DateTime.fromISO(instance.range.dateRange.start).startOf('day').toMillis();
+                let endDate = DateTime.fromISO(instance.range.dateRange.end).endOf('day').toMillis();
+                let patternInstances = generateInstancesFromPattern(instance, startDate, endDate);
+                
+                // Check if we have all completions needed
+                if (!exists(instance.completion) || !Array.isArray(instance.completion)) {
+                    return false; // No completions array
+                }
+                
+                // For each pattern instance, ensure there's a matching completion
+                for (let patternTime of patternInstances) {
+                    let patternDate = DateTime.fromMillis(patternTime).startOf('day');
+                    
+                    // Check if any completion matches this pattern instance (same day)
+                    let hasMatching = instance.completion.some(completionTime => {
+                        let completionDate = DateTime.fromMillis(completionTime);
+                        return completionDate.hasSame(patternDate, 'day');
+                    });
+                    
+                    if (!hasMatching) {
+                        return false; // Missing completion for this pattern instance
+                    }
+                }
+            } 
+            else if (instance.range.kind === 'recurrenceCount') {
+                if (!exists(instance.range.recurrenceCount) || instance.range.recurrenceCount <= 0) {
+                    return false; // Invalid recurrence count
+                }
+                
+                // Generate pattern instances based on recurrence count
+                let patternInstances = generateInstancesFromPattern(instance);
+                
+                // Check if we have all the needed completions
+                if (!exists(instance.completion) || !Array.isArray(instance.completion) || 
+                    instance.completion.length < instance.range.recurrenceCount) {
+                    return false; // Not enough completions
+                }
+                
+                // Match each pattern instance with a completion
+                // For recurrence count, we need exactly recurrenceCount completions
+                if (patternInstances.length !== instance.range.recurrenceCount) {
+                    return false;
+                }
+                
+                for (let patternTime of patternInstances) {
+                    let patternDate = DateTime.fromMillis(patternTime).startOf('day');
+                    
+                    // Check if any completion matches this pattern instance (same day)
+                    let hasMatching = instance.completion.some(completionTime => {
+                        let completionDate = DateTime.fromMillis(completionTime);
+                        return completionDate.hasSame(patternDate, 'day');
+                    });
+                    
+                    if (!hasMatching) {
+                        return false; // Missing completion for this pattern instance
+                    }
+                }
+            }
+            else {
+                return false; // Unknown range kind
+            }
+        }
+    }
+    
+    // If we've made it through all instances without returning false, the task is complete
+    return true;
+}
+
+// code written by AI
+// needs to be audited!!!
 // Helper to generate all instances of a recurring pattern within a given range
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
     ASSERT(exists(instance), "instance is required");
@@ -547,31 +1361,14 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     } else if (exists(instance.range)
                && instance.range.kind === 'dateRange'
                && exists(instance.range.dateRange.start)) {
-        if (instance.range.dateRange.start instanceof DateField) {
-            startDate = DateTime.local(
-                instance.range.dateRange.start.year,
-                instance.range.dateRange.start.month,
-                instance.range.dateRange.start.day
-            );
-        } else {
-            startDate = DateTime.fromISO(instance.range.dateRange.start);
-        }
+        startDate = DateTime.fromISO(instance.range.dateRange.start);
     } else if (pattern.kind === 'everyNDays') {
         ASSERT(exists(pattern.everyNDays), "everyNDays data is required");
-        if (pattern.everyNDays.initialDate instanceof DateField) {
-            let initialDate = pattern.everyNDays.initialDate;
-            startDate = DateTime.local(
-                initialDate.year || DateTime.local().year,
-                initialDate.month,
-                initialDate.day
-            );
-        } else {
-            startDate = DateTime.local(
-                pattern.everyNDays.initialYear || DateTime.local().year,
-                pattern.everyNDays.initialMonth,
-                pattern.everyNDays.initialDay
-            );
-        }
+        startDate = DateTime.local(
+            pattern.everyNDays.initialYear || DateTime.local().year,
+            pattern.everyNDays.initialMonth,
+            pattern.everyNDays.initialDay
+        );
     } else {
         startDate = DateTime.local();
     }
@@ -583,15 +1380,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     } else if (exists(instance.range)
                && instance.range.kind === 'dateRange'
                && exists(instance.range.dateRange.end)) {
-        if (instance.range.dateRange.end instanceof DateField) {
-            endDate = DateTime.local(
-                instance.range.dateRange.end.year,
-                instance.range.dateRange.end.month,
-                instance.range.dateRange.end.day
-            );
-        } else {
-            endDate = DateTime.fromISO(instance.range.dateRange.end);
-        }
+        endDate = DateTime.fromISO(instance.range.dateRange.end);
     } else if (exists(instance.range) && instance.range.kind === 'recurrenceCount') {
         ASSERT(typeof instance.range.recurrenceCount === 'number' && instance.range.recurrenceCount > 0,
                "range.recurrenceCount must be a positive integer");
@@ -635,8 +1424,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     return dates;
 }
 
-// AI AUDIT NEEDED
-// check if all of a task is complete
+// Main to check if a task is complete
 function isTaskComplete(task) {
     ASSERT(exists(task), "task is required");
     ASSERT(Array.isArray(task.instances), "task.instances must be an array");
@@ -648,11 +1436,9 @@ function isTaskComplete(task) {
         ASSERT(typeof inst.recurring === "boolean", "inst.recurring must be a boolean");
 
         if (!inst.recurring) {
-            ASSERT(type(inst.date, DateField));
+            ASSERT(exists(inst.date), "inst.date is required for non-recurring");
             ASSERT(Array.isArray(inst.completion), "inst.completion must be an array");
-            
-            let dt = DateTime.local(inst.date.year, inst.date.month, inst.date.day);
-            
+            let dt = DateTime.fromISO(inst.date);
             ASSERT(dt.isValid, `Invalid inst.date: ${inst.date}`);
             let targetTs = dt.startOf('day').toMillis();
             if (exists(inst.dueTime)) {
@@ -670,26 +1456,14 @@ function isTaskComplete(task) {
             ASSERT(exists(inst.range), "inst.range is required for recurring");
             let patternDates;
             if (inst.range.kind === 'dateRange') {
-                ASSERT(type(inst.range.dateRange.start, DateField));
-                ASSERT(type(inst.range.dateRange.end, DateField));
-                
-                let startDate = DateTime.local(
-                        inst.range.dateRange.start.year,
-                        inst.range.dateRange.start.month,
-                        inst.range.dateRange.start.day
-                    );
-                
-                let endDate = DateTime.local(
-                        inst.range.dateRange.end.year,
-                        inst.range.dateRange.end.month,
-                        inst.range.dateRange.end.day
-                    );
-                
-                let startMs = startDate.startOf('day').toMillis();
-                let endMs = endDate.endOf('day').toMillis();
+                ASSERT(exists(inst.range.dateRange.start) && exists(inst.range.dateRange.end),
+                       "Both start and end are required for dateRange");
+                let startMs = DateTime.fromISO(inst.range.dateRange.start).startOf('day').toMillis();
+                let endMs   = DateTime.fromISO(inst.range.dateRange.end).endOf('day').toMillis();
                 patternDates = generateInstancesFromPattern(inst, startMs, endMs);
             } else if (inst.range.kind === 'recurrenceCount') {
-                ASSERT(type(inst.range.recurrenceCount, Int) && inst.range.recurrenceCount > 0)
+                ASSERT(typeof inst.range.recurrenceCount === 'number' && inst.range.recurrenceCount > 0,
+                       "range.recurrenceCount must be a positive integer");
                 patternDates = generateInstancesFromPattern(inst);
                 ASSERT(patternDates.length === inst.range.recurrenceCount,
                        "Pattern count does not match recurrenceCount");
@@ -714,9 +1488,9 @@ function isTaskComplete(task) {
 }
 
 function renderDay(day, element, index) {
-    ASSERT(type(day, DateField));
     // get existing element
-    
+    ASSERT(day != undefined && day != null, "renderDay day is undefined or null");
+    ASSERT(day instanceof DateField, "day must be a DateField");
     ASSERT(element != undefined && element != null, "renderDay element is undefined or null");
     ASSERT(parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2) == columnWidth.toFixed(2), `renderDay element width (${parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2)}) is not ${columnWidth.toFixed(2)}`);
     ASSERT(!isNaN(columnWidth), "columnWidth must be a number");
@@ -823,30 +1597,28 @@ function renderDay(day, element, index) {
         filtered instance {
             start: int unix time,
             end: int unix time,
-            wrapToPreviousDay: true/false, // optional, is this a multi-day event that wraps to the previous 
-            day
+            wrapToPreviousDay: true/false, // optional, is this a multi-day event that wraps to the previous day
             wrapToNextDay: true/false, // optional, is this a multi-day event that wraps to the next day
             completeTask: true/false, // is this work time on a task that's been completed
         }
         filtered all day instance {
-            startDate: 'YYYY-MM-DD',
+            startDate: DateField,
             faded: true/false
         }
     */
     // get unix start and end of day with user's offsets
-    // Create DateTime from DateField
-    let dayTime = DateTime.local(day.year, day.month, day.day);
-    let startOfDay = dayTime.startOf('day').plus({hours: user.settings.startOfDayOffset});
+    // Convert DateField to DateTime
+    let dayDateTime = DateTime.local(day.year, day.month, day.day);
+    let startOfDay = dayDateTime.startOf('day').plus({hours: user.settings.startOfDayOffset});
     startOfDay = startOfDay.toMillis(); // unix
-    let endOfDay = dayTime.endOf('day').plus({hours: user.settings.endOfDayOffset});
+    let endOfDay = dayDateTime.endOf('day').plus({hours: user.settings.endOfDayOffset});
     endOfDay = endOfDay.toMillis() + 1; // +1 to include the end of the day
 
     let filteredInstances = [];
     let filteredAllDayInstances = [];
     for (let obj of user.taskEventArray) {
-        ASSERT(type(obj, TaskOrEvent));
-        if (type(obj.data, TaskData)) {
-            // AUDIT OF AI NEEDED
+        if (obj.kind == 'task') {
+            // AI AUDIT NEEDED
             // Handle task work times
             if (exists(obj.task.workTimes)) {
                 for (let workTime of obj.task.workTimes) {
@@ -855,32 +1627,27 @@ function renderDay(day, element, index) {
                         let workDate;
                         
                         if (!workTime.recurring) {
-                            // Instead of directly using fromISO, convert workDate to DateField if needed
-                            if (workTime.startDate instanceof DateField) {
-                                workDate = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
-                            } else {
-                                workDate = DateTime.fromISO(workTime.startDate);
-                            }
+                            workDate = DateTime.fromISO(workTime.startDate);
                             
                             // Check if this all-day work session falls on the current day
-                            if (workDate.hasSame(dayTime, 'day')) {
+                            if (workDate.toISODate() === dayDateTime.toISODate()) {
                                 filteredAllDayInstances.push({
-                                    startDate: day,
+                                    startDate: workDate,
                                     faded: false
                                 });
                             }
                         } else {
                             // Recurring all-day work session
                             // Calculate day boundaries for pattern matching
-                            let dayStartMs = dayTime.startOf('day').toMillis();
-                            let dayEndMs = dayTime.endOf('day').toMillis();
+                            let dayStartMs = DateTime.fromISO(dayDateTime).startOf('day').toMillis();
+                            let dayEndMs = DateTime.fromISO(dayDateTime).endOf('day').toMillis();
                             
                             // Generate all instances for this day using the helper
                             let patternDates = generateInstancesFromPattern(workTime, dayStartMs, dayEndMs);
                             
                             if (patternDates.length > 0) {
                                 filteredAllDayInstances.push({
-                                    startDate: day,
+                                    startDate: dayDateTime,
                                     faded: false
                                 });
                             }
@@ -891,9 +1658,7 @@ function renderDay(day, element, index) {
                     // Handle timed work sessions
                     if (!workTime.recurring) {
                         // Non-recurring work session - simple case
-                        ASSERT(type(workTime.startDate, DateField));
-                        let workStart = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
-                        
+                        let workStart = DateTime.fromISO(workTime.startDate);
                         workStart = workStart.plus({
                             hours: parseInt(workTime.startTime.split(':')[0]),
                             minutes: parseInt(workTime.startTime.split(':')[1])
@@ -901,12 +1666,11 @@ function renderDay(day, element, index) {
                         
                         let workEnd;
                         if (exists(workTime.differentEndDate)) {
-                            ASSERT(type(workTime.differentEndDate, DateField));
                             // Different end date
-                            workEnd = DateTime.local(workTime.differentEndDate.year, workTime.differentEndDate.month, workTime.differentEndDate.day);
+                            workEnd = DateTime.fromISO(workTime.differentEndDate);
                         } else {
                             // Same end date as start
-                            workEnd = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
+                            workEnd = DateTime.fromISO(workTime.startDate);
                         }
                         
                         workEnd = workEnd.plus({
@@ -934,8 +1698,8 @@ function renderDay(day, element, index) {
                     } else {
                         // Recurring work session - use pattern helper
                         // Include a wider time range to catch wrap-around events
-                        let dayBeforeMs = dayTime.minus({days: 1}).startOf('day').toMillis();
-                        let dayAfterMs = dayTime.plus({days: 1}).endOf('day').toMillis();
+                        let dayBeforeMs = DateTime.fromISO(dayDateTime).minus({days: 1}).startOf('day').toMillis();
+                        let dayAfterMs = DateTime.fromISO(dayDateTime).plus({days: 1}).endOf('day').toMillis();
                         
                         // Generate all instances from the pattern
                         let patternStartTimes = generateInstancesFromPattern(workTime, dayBeforeMs, dayAfterMs);
@@ -980,7 +1744,7 @@ function renderDay(day, element, index) {
                     }
                 }
             }
-        } else if (type(obj.data, EventData)) {
+        } else if (obj.kind == 'event') {
             // THIS BLOCK REQUIRES AUDIT OF AI CODE
             // Handle events similar to task work times but with some differences
             for (let instance of obj.event.instances) {
@@ -989,21 +1753,20 @@ function renderDay(day, element, index) {
                     let eventDate;
                     
                     if (!instance.recurring) {
-                        ASSERT(type(instance.startDate, DateField));
-                        eventDate = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
+                        eventDate = DateTime.fromISO(instance.startDate);
                         
                         // Check if the event falls on this day
-                        if (eventDate.hasSame(dayTime, 'day')) {
+                        if (eventDate.toISODate() === dayDateTime.toISODate()) {
                             filteredAllDayInstances.push({
-                                startDate: day,
+                                startDate: eventDate,
                                 faded: false
                             });
                         }
                     } else {
                         // Recurring all-day event
                         // Generate all instances of this pattern that fall on this day
-                        let eventDayStart = dayTime.startOf('day').toMillis();
-                        let eventDayEnd = dayTime.endOf('day').toMillis();
+                        let eventDayStart = DateTime.fromISO(dayDateTime).startOf('day').toMillis();
+                        let eventDayEnd = DateTime.fromISO(dayDateTime).endOf('day').toMillis();
                         
                         // Use our helper function to get all instances on this day
                         let patternInstances = generateInstancesFromPattern(instance, eventDayStart, eventDayEnd);
@@ -1011,33 +1774,30 @@ function renderDay(day, element, index) {
                         if (patternInstances.length > 0) {
                             // If any instance falls on this day, add it
                             filteredAllDayInstances.push({
-                                startDate: day,
+                                startDate: dayDateTime,
                                 faded: false
                             });
                         }
                     }
                 } else if (!instance.recurring) {
-                    ASSERT(type(instance.startDate, DateField));
                     // Event with specific time
+                    let eventStart, eventEnd;
 
                     // Non-recurring event
-                    let eventStart = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
-                    
+                    eventStart = DateTime.fromISO(instance.startDate);
                     eventStart = eventStart.plus({
                         hours: parseInt(instance.startTime.split(':')[0]), 
                         minutes: parseInt(instance.startTime.split(':')[1])
                     }).toMillis();
-
-                    let eventEnd;
                     
                     // Handle event end time
                     if (exists(instance.endTime)) {
                         if (exists(instance.differentEndDate)) {
                             // Multi-day event
-                            eventEnd = DateTime.local(instance.differentEndDate.year, instance.differentEndDate.month, instance.differentEndDate.day);
+                            eventEnd = DateTime.fromISO(instance.differentEndDate);
                         } else {
                             // Same day event
-                            eventEnd = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
+                            eventEnd = DateTime.fromISO(instance.startDate);
                         }
                         
                         eventEnd = eventEnd.plus({
@@ -1065,8 +1825,8 @@ function renderDay(day, element, index) {
                 } else {
                     // Recurring event
                     // Generate all instances that overlap with this day
-                    let dayBefore = dayTime.minus({days: 1}).startOf('day').toMillis();
-                    let dayAfter = dayTime.plus({days: 1}).endOf('day').toMillis();
+                    let dayBefore = DateTime.fromISO(dayDateTime).minus({days: 1}).startOf('day').toMillis();
+                    let dayAfter = DateTime.fromISO(dayDateTime).plus({days: 1}).endOf('day').toMillis();
                     
                     // We look at a wider range to catch events that wrap from previous/to next day
                     let patternInstances = generateInstancesFromPattern(instance, dayBefore, dayAfter);
@@ -1212,8 +1972,7 @@ function renderDay(day, element, index) {
 let topOfCalendarDay = 20; // px
 
 function renderCalendar(days) {
-    ASSERT(type(days, LIST(DateField)));
-    ASSERT(exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
+    ASSERT(exists(days) && Array.isArray(days) && exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
     ASSERT(type(user.settings.stacking, Boolean));
     for (let i = 0; i < 7; i++) {
         if (i >= user.settings.numberOfCalendarDays) { // delete excess elements if they exist
@@ -1336,19 +2095,15 @@ function renderCalendar(days) {
             zIndex: 400
         });
         
-        // Create DateField from the ISO string
-        let month = String(days[i].month);
-        let day = String(days[i].day);
+        // Get the date components from DateField
+        let day = days[i];
+        ASSERT(day instanceof DateField, "day must be a DateField");
         
-        // Remove leading zeros if present
-        if (day[0] == '0') {
-            day = day[1];
-        }
-        if (month[0] == '0') {
-            month = month[1];
-        }
+        let month = day.month;
+        let dayOfMonth = day.day;
         
-        dateText.innerHTML = month + '/' + day;
+        // Format as M/D without leading zeros
+        dateText.innerHTML = month + '/' + dayOfMonth;
         HTML.body.appendChild(dateText);
 
         // add dayOfWeekOrRelativeDay text to top left of background element
@@ -1367,15 +2122,15 @@ function renderCalendar(days) {
             fontWeight: 'bold',
             zIndex: 400
         });
-        dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(days[i]);
-        if (dayOfWeekOrRelativeDay(days[i]) == 'Today') {
+        dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(day);
+        if (dayOfWeekOrRelativeDay(day) == 'Today') {
             // white text for today
             HTML.setStyle(dateText, { color: user.palette.shades[4] });
             HTML.setStyle(dayOfWeekText, { color: user.palette.shades[4] });
         }
         HTML.body.appendChild(dayOfWeekText);
 
-        renderDay(days[i], dayElement, i);
+        renderDay(day, dayElement, i);
     }
 }
 
@@ -1489,5 +2244,43 @@ HTML.body.appendChild(buttonStacking);
 window.onresize = resizeListener;
 
 // init call
-user.settings.firstDayInCalendar = getDay(0); // on page load we want to start with today
-resizeListener();
+user.firstDayInCalendar = getDay(0); // on page load we want to start with today (as DateField)
+resizeListener();function ASSERT(condition, message="") {
+    if (typeof(condition) != "boolean") {
+        console.error('MALFORMED ASSERTION');
+    }
+    if (!condition) {
+        if (message == "") {
+            console.error('ASSERTION FAILED');
+        } else {
+            console.error('ASSERTION FAILED: ' + message);
+        }
+        console.trace();
+    }
+}
+
+const NULL = Symbol('NULL');
+
+function exists(obj) {
+    return obj != null && obj != undefined;
+}
+
+// async/await sleep function like Python's
+function sleep(seconds) {
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000)); // setTimeout works in milliseconds
+}
+
+// List type for homogeneous arrays
+class List {
+    constructor(innerType) {
+        ASSERT(exists(innerType));
+        // innerType can be a constructor or another List
+        ASSERT(typeof innerType === 'function' || innerType instanceof List);
+        this.innertype = innerType;
+    }
+}
+
+// Convenience alias for creating list type without 'new'
+function LIST(innerType) {
+    return new List(innerType);
+}
