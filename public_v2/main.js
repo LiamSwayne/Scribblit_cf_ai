@@ -155,7 +155,7 @@ if (TESTING) {
             'Weekend coding workshop', // description
             new EventData( // data
                 [
-                    new RecurringTaskInstance(
+                    new RecurringEventInstance(
                         new EveryNDaysPattern(
                             new DateField(2025, 3, 8), // initialDate
                             7 // n
@@ -224,14 +224,14 @@ if (!exists(localStorage.getItem("userData"))) {
     user = {
         taskEventArray: taskEventArray,
         settings: {
-                stacking: false,
-                numberOfCalendarDays: 2,
-                ampmOr24: 'ampm',
-                // make a day span at a different time
-                // for example if you wake up at 9 and go to bed at 3, you could make march 1st start at march 1st 9am and end at march 2nd at 3am
-                startOfDayOffset: 0,
-                endOfDayOffset: 0,
-            },
+            stacking: false,
+            numberOfCalendarDays: 2,
+            ampmOr24: 'ampm',
+            // make a day span at a different time
+            // for example if you wake up at 9 and go to bed at 3, you could make march 1st start at march 1st 9am and end at march 2nd at 3am
+            startOfDayOffset: 0,
+            endOfDayOffset: 0,
+        },
         palette: palettes['dark'],
         firstDayInCalendar: getDay(0) // set to today as DateField
     };
@@ -625,32 +625,19 @@ function isTaskComplete(task) {
         } else {
             ASSERT(exists(inst.range), "inst.range is required for recurring");
             let patternDates;
-            if (inst.range.kind === 'dateRange') {
-                ASSERT(type(inst.range.dateRange.start, DateField));
-                ASSERT(type(inst.range.dateRange.end, DateField));
-                
-                let startDate = DateTime.local(
-                        inst.range.dateRange.start.year,
-                        inst.range.dateRange.start.month,
-                        inst.range.dateRange.start.day
-                    );
-                
-                let endDate = DateTime.local(
-                        inst.range.dateRange.end.year,
-                        inst.range.dateRange.end.month,
-                        inst.range.dateRange.end.day
-                    );
-                
-                let startMs = startDate.startOf('day').toMillis();
-                let endMs = endDate.endOf('day').toMillis();
+            if (type(inst.range, DateRange)) {
+                ASSERT(type(inst.range.startDate, DateField));
+                ASSERT(type(inst.range.endDate, DateField));
+                let startMs = DateTime.local(inst.range.startDate.year, inst.range.startDate.month, inst.range.startDate.day).startOf('day').toMillis();
+                let endMs = DateTime.local(inst.range.endDate.year, inst.range.endDate.month, inst.range.endDate.day).endOf('day').toMillis();
                 patternDates = generateInstancesFromPattern(inst, startMs, endMs);
-            } else if (inst.range.kind === 'recurrenceCount') {
-                ASSERT(type(inst.range.recurrenceCount, Int) && inst.range.recurrenceCount > 0)
+            } else if (type(inst.range, RecurrenceCount)) {
+                ASSERT(type(inst.range.count, Int));
+                ASSERT(inst.range.count > 0);
                 patternDates = generateInstancesFromPattern(inst);
-                ASSERT(patternDates.length === inst.range.recurrenceCount,
-                       "Pattern count does not match recurrenceCount");
+                ASSERT(patternDates.length === inst.range.count);
             } else {
-                ASSERT(false, `Unknown inst.range.kind: ${inst.range.kind}`);
+                ASSERT(false);
             }
 
             ASSERT(Array.isArray(inst.completion), "inst.completion must be an array");

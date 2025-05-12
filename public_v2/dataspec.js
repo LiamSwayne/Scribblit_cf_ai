@@ -238,7 +238,6 @@ class NonRecurringTaskInstance {
         this.date = date;
         this.dueTime = dueTime;
         this.completion = completion;
-        this.recurring = false;
     }
 }
 
@@ -271,7 +270,6 @@ class RecurringTaskInstance {
         this.dueTime = dueTime;
         this.range = range;
         this.completion = completion;
-        this.recurring = true;
     }
 }
 
@@ -311,7 +309,6 @@ class NonRecurringEventInstance {
         this.startTime = startTime;
         this.endTime = endTime;
         this.differentEndDate = differentEndDate;
-        this.recurring = false;
     }
 }
 
@@ -355,7 +352,6 @@ class RecurringEventInstance {
         this.endTime = endTime;
         this.range = range;
         this.differentEndDatePattern = differentEndDatePattern;
-        this.recurring = true;
     }
 }
 
