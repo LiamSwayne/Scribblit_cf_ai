@@ -804,8 +804,8 @@ function renderDay(day, element, index) {
         if (type(obj.data, TaskData)) {
             // AUDIT OF AI NEEDED
             // Handle task work times
-            if (exists(obj.task.workTimes)) {
-                for (let workTime of obj.task.workTimes) {
+            if (exists(obj.data.workSessions)) {
+                for (let workTime of obj.data.workSessions) {
                     if (!exists(workTime.startTime)) {
                         // All day work session
                         let workDate;
@@ -884,7 +884,7 @@ function renderDay(day, element, index) {
                                 differentEndDate: workEndMs,
                                 wrapToPreviousDay: workStartMs < startOfDay,
                                 wrapToNextDay: workEndMs > endOfDay,
-                                completeTask: isTaskComplete(obj.task)
+                                completeTask: isTaskComplete(obj.data)
                             });
                         }
                     } else {
@@ -929,7 +929,7 @@ function renderDay(day, element, index) {
                                     differentEndDate: endMs,
                                     wrapToPreviousDay: startMs < startOfDay,
                                     wrapToNextDay: endMs > endOfDay,
-                                    completeTask: isTaskComplete(obj.task)
+                                    completeTask: isTaskComplete(obj.data)
                                 });
                             }
                         }
@@ -939,7 +939,7 @@ function renderDay(day, element, index) {
         } else if (type(obj.data, EventData)) {
             // THIS BLOCK REQUIRES AUDIT OF AI CODE
             // Handle events similar to task work times but with some differences
-            for (let instance of obj.event.instances) {
+            for (let instance of obj.data.instances) {
                 if (!exists(instance.startTime)) {
                     // All day event
                     let eventDate;
