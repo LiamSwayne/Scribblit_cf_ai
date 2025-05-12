@@ -594,36 +594,29 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
 // AI AUDIT NEEDED
 // check if all of a task is complete
 function isTaskComplete(task) {
-    ASSERT(exists(task), "task is required");
-    ASSERT(Array.isArray(task.instances), "task.instances must be an array");
+    ASSERT(type(task, TaskData));
     if (task.instances.length === 0) {
         return false;
     }
 
     for (let inst of task.instances) {
-        ASSERT(typeof inst.recurring === "boolean", "inst.recurring must be a boolean");
-
-        if (!inst.recurring) {
+        if (type(inst, NonRecurringTaskInstance)) {
             ASSERT(type(inst.date, DateField));
-            ASSERT(Array.isArray(inst.completion), "inst.completion must be an array");
-            
+            ASSERT(type(inst.completion, LIST(Int)));
             let dt = DateTime.local(inst.date.year, inst.date.month, inst.date.day);
-            
-            ASSERT(dt.isValid, `Invalid inst.date: ${inst.date}`);
+            ASSERT(dt.isValid);
             let targetTs = dt.startOf('day').toMillis();
-            if (exists(inst.dueTime)) {
-                let [hh, mm] = inst.dueTime.split(':').map(Number);
-                targetTs = dt.set({hour: hh, minute: mm}).toMillis();
+            if (type(inst.dueTime, TimeField)) {
+                targetTs = dt.set({hour: inst.dueTime.hour, minute: inst.dueTime.minute}).toMillis();
             }
-            let found = inst.completion.some(ct => {
+            if (!inst.completion.some(ct => {
                 let cd = DateTime.fromMillis(ct);
                 return cd.hasSame(DateTime.fromMillis(targetTs).startOf('day'), 'day');
-            });
-            if (!found) {
+            })) {
                 return false;
             }
-        } else {
-            ASSERT(exists(inst.range), "inst.range is required for recurring");
+        } else if (type(inst, RecurringTaskInstance)) {
+            ASSERT(type(inst.range, DateRange) || type(inst.range, RecurrenceCount));
             let patternDates;
             if (type(inst.range, DateRange)) {
                 ASSERT(type(inst.range.startDate, DateField));
@@ -631,25 +624,21 @@ function isTaskComplete(task) {
                 let startMs = DateTime.local(inst.range.startDate.year, inst.range.startDate.month, inst.range.startDate.day).startOf('day').toMillis();
                 let endMs = DateTime.local(inst.range.endDate.year, inst.range.endDate.month, inst.range.endDate.day).endOf('day').toMillis();
                 patternDates = generateInstancesFromPattern(inst, startMs, endMs);
-            } else if (type(inst.range, RecurrenceCount)) {
+            } else {
+                ASSERT(type(inst.range, RecurrenceCount));
                 ASSERT(type(inst.range.count, Int));
                 ASSERT(inst.range.count > 0);
                 patternDates = generateInstancesFromPattern(inst);
                 ASSERT(patternDates.length === inst.range.count);
-            } else {
-                ASSERT(false);
             }
-
-            ASSERT(Array.isArray(inst.completion), "inst.completion must be an array");
+            ASSERT(type(inst.completion, LIST(Int)));
             for (let pd of patternDates) {
-                let pdDay = DateTime.fromMillis(pd).startOf('day');
-                let ok = inst.completion.some(ct => {
-                    return DateTime.fromMillis(ct).hasSame(pdDay, 'day');
-                });
-                if (!ok) {
+                if (!inst.completion.some(ct => DateTime.fromMillis(ct).hasSame(DateTime.fromMillis(pd).startOf('day'), 'day'))) {
                     return false;
                 }
             }
+        } else {
+            ASSERT(false);
         }
     }
 
