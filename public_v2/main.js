@@ -782,24 +782,14 @@ function renderDay(day, element, index) {
             // Handle task work times
             if (exists(obj.data.workSessions)) {
                 for (let workTime of obj.data.workSessions) {
+                    ASSERT(type(workTime, NonRecurringEventInstance) || type(workTime, RecurringEventInstance));
                     if (!exists(workTime.startTime)) {
-                        // All day work session
-                        let workDate;
-                        
-                        if (!workTime.recurring) {
-                            // Instead of directly using fromISO, convert workDate to DateField if needed
-                            if (workTime.startDate instanceof DateField) {
-                                workDate = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
-                            } else {
-                                workDate = DateTime.fromISO(workTime.startDate);
-                            }
-                            
-                            // Check if this all-day work session falls on the current day
+                        // handle all-day session by type
+                        if (type(workTime, NonRecurringEventInstance)) {
+                            ASSERT(type(workTime.startDate, DateField));
+                            let workDate = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
                             if (workDate.hasSame(dayTime, 'day')) {
-                                filteredAllDayInstances.push({
-                                    startDate: day,
-                                    faded: false
-                                });
+                                filteredAllDayInstances.push({startDate: day, faded: false});
                             }
                         } else {
                             // Recurring all-day work session
@@ -811,17 +801,14 @@ function renderDay(day, element, index) {
                             let patternDates = generateInstancesFromPattern(workTime, dayStartMs, dayEndMs);
                             
                             if (patternDates.length > 0) {
-                                filteredAllDayInstances.push({
-                                    startDate: day,
-                                    faded: false
-                                });
+                                filteredAllDayInstances.push({startDate: day, faded: false});
                             }
                         }
                         continue;
                     }
                     
                     // Handle timed work sessions
-                    if (!workTime.recurring) {
+                    if (type(workTime, NonRecurringEventInstance)) {
                         // Non-recurring work session - simple case
                         ASSERT(type(workTime.startDate, DateField));
                         let workStart = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
@@ -916,20 +903,14 @@ function renderDay(day, element, index) {
             // THIS BLOCK REQUIRES AUDIT OF AI CODE
             // Handle events similar to task work times but with some differences
             for (let instance of obj.data.instances) {
+                ASSERT(type(instance, NonRecurringEventInstance) || type(instance, RecurringEventInstance));
                 if (!exists(instance.startTime)) {
-                    // All day event
-                    let eventDate;
-                    
-                    if (!instance.recurring) {
+                    // handle all-day event by type
+                    if (type(instance, NonRecurringEventInstance)) {
                         ASSERT(type(instance.startDate, DateField));
-                        eventDate = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
-                        
-                        // Check if the event falls on this day
+                        let eventDate = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
                         if (eventDate.hasSame(dayTime, 'day')) {
-                            filteredAllDayInstances.push({
-                                startDate: day,
-                                faded: false
-                            });
+                            filteredAllDayInstances.push({startDate: day, faded: false});
                         }
                     } else {
                         // Recurring all-day event
@@ -948,11 +929,9 @@ function renderDay(day, element, index) {
                             });
                         }
                     }
-                } else if (!instance.recurring) {
+                } else if (type(instance, NonRecurringEventInstance)) {
                     ASSERT(type(instance.startDate, DateField));
                     // Event with specific time
-
-                    // Non-recurring event
                     let eventStart = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
                     
                     eventStart = eventStart.plus({
