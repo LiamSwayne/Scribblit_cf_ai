@@ -30,8 +30,8 @@ function sleep(seconds) {
 class LIST {
     constructor(innerType) {
         ASSERT(exists(innerType));
-        // innerType can be a constructor or another List
-        ASSERT(typeof innerType === 'function' || innerType instanceof LIST);
+        // innerType can be any other type
+        ASSERT(typeof innerType === 'function' || innerType instanceof LIST || typeof innerType === 'symbol');
         this.innertype = innerType;
     }
 }
@@ -46,9 +46,9 @@ class DICT {
     constructor(keyType, valueType) {
         ASSERT(exists(keyType));
         ASSERT(exists(valueType));
-        // keyType and valueType can be a constructor or another List/Dict
-        ASSERT(typeof keyType === 'function' || keyType instanceof LIST || keyType instanceof DICT);
-        ASSERT(typeof valueType === 'function' || valueType instanceof LIST || valueType instanceof DICT);
+        // keyType and valueType can be ny other type
+        ASSERT(typeof keyType === 'function' || keyType instanceof LIST || keyType instanceof DICT || typeof keyType === 'symbol');
+        ASSERT(typeof valueType === 'function' || valueType instanceof LIST || valueType instanceof DICT || typeof valueType === 'symbol');
         this.keyType = keyType;
         this.valueType = valueType;
     }
@@ -412,39 +412,39 @@ function type(thing, sometype) {
     }
     // Class type checks using constructors for validation
     if (sometype === DateField) {
-        if (!exists(thing.year) || !exists(thing.month) || !exists(thing.day)) return false;
+        if (!exists(thing) || !exists(thing.year) || !exists(thing.month) || !exists(thing.day)) return false;
         try { new DateField(thing.year, thing.month, thing.day); return true; } catch (e) { return false; }
     }
     if (sometype === TimeField) {
-        if (!exists(thing.hour) || !exists(thing.minute)) return false;
+        if (!exists(thing) || !exists(thing.hour) || !exists(thing.minute)) return false;
         try { new TimeField(thing.hour, thing.minute); return true; } catch (e) { return false; }
     }
     if (sometype === EveryNDaysPattern) {
-        if (!exists(thing.initialDate) || !exists(thing.n)) return false;
+        if (!exists(thing) || !exists(thing.initialDate) || !exists(thing.n)) return false;
         if (!type(thing.initialDate, DateField)) return false;
         try { new EveryNDaysPattern(thing.initialDate, thing.n); return true; } catch (e) { return false; }
     }
     if (sometype === MonthlyPattern) {
-        if (!exists(thing.day)) return false;
+        if (!exists(thing) || !exists(thing.day)) return false;
         try { new MonthlyPattern(thing.day); return true; } catch (e) { return false; }
     }
     if (sometype === AnnuallyPattern) {
-        if (!exists(thing.month) || !exists(thing.day)) return false;
+        if (!exists(thing) || !exists(thing.month) || !exists(thing.day)) return false;
         try { new AnnuallyPattern(thing.month, thing.day); return true; } catch (e) { return false; }
     }
     if (sometype === DateRange) {
-        if (!exists(thing.startDate)) return false;
+        if (!exists(thing) || !exists(thing.startDate)) return false;
         if (!type(thing.startDate, DateField)) return false;
         const endDate = thing.endDate;
         if (endDate !== NULL && !type(endDate, DateField)) return false;
         try { new DateRange(thing.startDate, endDate); return true; } catch (e) { return false; }
     }
     if (sometype === RecurrenceCount) {
-        if (!exists(thing.count)) return false;
+        if (!exists(thing) || !exists(thing.count)) return false;
         try { new RecurrenceCount(thing.count); return true; } catch (e) { return false; }
     }
     if (sometype === NonRecurringTaskInstance) {
-        if (!exists(thing.date) || !exists(thing.dueTime) || !exists(thing.completion)) return false;
+        if (!exists(thing) || !exists(thing.date) || !exists(thing.dueTime) || !exists(thing.completion)) return false;
         if (!type(thing.date, DateField)) return false;
         const dueTime = thing.dueTime;
         if (dueTime !== NULL && !type(dueTime, TimeField)) return false;
@@ -452,7 +452,7 @@ function type(thing, sometype) {
         try { new NonRecurringTaskInstance(thing.date, dueTime, thing.completion); return true; } catch (e) { return false; }
     }
     if (sometype === RecurringTaskInstance) {
-        if (!exists(thing.datePattern) || !exists(thing.dueTime) || !exists(thing.range) || !exists(thing.completion)) return false;
+        if (!exists(thing) || !exists(thing.datePattern) || !exists(thing.dueTime) || !exists(thing.range) || !exists(thing.completion)) return false;
         if (!type(thing.datePattern, EveryNDaysPattern) && !type(thing.datePattern, MonthlyPattern) && !type(thing.datePattern, AnnuallyPattern)) return false;
         const dueTime2 = thing.dueTime;
         if (dueTime2 !== NULL && !type(dueTime2, TimeField)) return false;
@@ -461,7 +461,7 @@ function type(thing, sometype) {
         try { new RecurringTaskInstance(thing.datePattern, dueTime2, thing.range, thing.completion); return true; } catch (e) { return false; }
     }
     if (sometype === NonRecurringEventInstance) {
-        if (!exists(thing.startDate) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.differentEndDate)) return false;
+        if (!exists(thing) || !exists(thing.startDate) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.differentEndDate)) return false;
         if (!type(thing.startDate, DateField)) return false;
         const startTime = thing.startTime;
         if (startTime !== NULL && !type(startTime, TimeField)) return false;
@@ -472,7 +472,7 @@ function type(thing, sometype) {
         try { new NonRecurringEventInstance(thing.startDate, startTime, endTime, diffEndDate); return true; } catch (e) { return false; }
     }
     if (sometype === RecurringEventInstance) {
-        if (!exists(thing.startDatePattern) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.range) || !exists(thing.differentEndDatePattern)) return false;
+        if (!exists(thing) || !exists(thing.startDatePattern) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.range) || !exists(thing.differentEndDatePattern)) return false;
         if (!type(thing.startDatePattern, EveryNDaysPattern) && !type(thing.startDatePattern, MonthlyPattern) && !type(thing.startDatePattern, AnnuallyPattern)) return false;
         const startTime2 = thing.startTime;
         if (startTime2 !== NULL && !type(startTime2, TimeField)) return false;
@@ -487,16 +487,17 @@ function type(thing, sometype) {
         if (!exists(thing.instances) || !Array.isArray(thing.instances)) return false;
         const hideUntil = thing.hideUntil;
         const workSessions = thing.workSessions;
-        if (hideUntil !== NULL && !exists(hideUntil.kind)) return false;
+        // Make sure hideUntil exists before accessing its properties
+        if (hideUntil !== NULL && (!exists(hideUntil) || !exists(hideUntil.kind))) return false;
         if (workSessions !== NULL && !Array.isArray(workSessions)) return false;
         try { new TaskData(thing.instances, hideUntil, thing.showOverdue, workSessions); return true; } catch (e) { return false; }
     }
     if (sometype === EventData) {
-        if (!exists(thing.instances) || !Array.isArray(thing.instances)) return false;
+        if (!exists(thing) || !exists(thing.instances) || !Array.isArray(thing.instances)) return false;
         try { new EventData(thing.instances); return true; } catch (e) { return false; }
     }
     if (sometype === TaskOrEvent) {
-        if (!exists(thing.id) || !exists(thing.name) || !exists(thing.data)) return false;
+        if (!exists(thing) || !exists(thing.id) || !exists(thing.name) || !exists(thing.data)) return false;
         try { new TaskOrEvent(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     }
     // Primitive type checks
