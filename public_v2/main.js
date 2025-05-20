@@ -1,3 +1,31 @@
+const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
+
+// returns today's ISO date or the date offset from today by the given number of days
+function getDay(offset) {
+    ASSERT(type(offset, Int) && offset >= 0 && offset < 7);
+    let dt = DateTime.local();
+    if (offset > 0) {
+        dt = dt.plus({days: offset});
+    }
+    
+    // Create a DateField object instead of string
+    return new DateField(dt.year, dt.month, dt.day);
+}
+let taskEventArray = [];
+
+let palettes = {
+    'dark': { // default
+        accent: ['#47b6ff', '#b547ff'],
+        shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
+    },
+    'midnight': {
+        accent: ['#47b6ff', '#b547ff'],
+        shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
+    }
+    // TODO: add more palettes
+};
+
+// load sample data
 if (TESTING) {
     localStorage.clear();
     
@@ -190,33 +218,6 @@ if (TESTING) {
     // Store in localStorage and it will be discovered later
     localStorage.setItem("userData", JSON.stringify(user));
 }
-
-const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
-
-// returns today's ISO date or the date offset from today by the given number of days
-function getDay(offset) {
-    ASSERT(type(offset, Int) && offset >= 0 && offset < 7);
-    let dt = DateTime.local();
-    if (offset > 0) {
-        dt = dt.plus({days: offset});
-    }
-    
-    // Create a DateField object instead of string
-    return new DateField(dt.year, dt.month, dt.day);
-}
-let taskEventArray = [];
-
-let palettes = {
-    'dark': { // default
-        accent: ['#47b6ff', '#b547ff'],
-        shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
-    },
-    'midnight': {
-        accent: ['#47b6ff', '#b547ff'],
-        shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
-    }
-    // TODO: add more palettes
-};
 
 let user; // user data / all the stuff they can change
 if (!exists(localStorage.getItem("userData"))) {
