@@ -340,8 +340,7 @@ let HTML = new class HTMLroot {
     }
 
     setData(element, key, value) {
-        ASSERT(exists(element));
-        ASSERT(type(key, String));
+        ASSERT(exists(element) && type(key, String));
         
         let data;
         if (!exists(element.dataset.data)) {
@@ -356,16 +355,14 @@ let HTML = new class HTMLroot {
     }
 
     getData(element, key) {
-        ASSERT(exists(element));
-        ASSERT(type(key, String));
+        ASSERT(exists(element) && type(key, String));
         ASSERT(exists(element.dataset.data), "HTML.getData data is undefined or null");
 
         return JSON.parse(element.dataset.data)[key];
     }
 
     getDataUnsafely(element, key) {
-        ASSERT(exists(element));
-        ASSERT(type(key, String));
+        ASSERT(exists(element) && type(key, String));
         
         if (!exists(element.dataset.data)) {
             return NULL;
@@ -422,12 +419,12 @@ let HTML = new class HTMLroot {
     }
 
     hasStyle(element, property) {
-        ASSERT(exists(element) && exists(property) && type(property, String));
+        ASSERT(exists(element) && type(property, String));
         return exists(element.style[property]) && element.style[property] !== "";
     }
 
     getStyle(element, property) {
-        ASSERT(exists(element) && exists(property) && type(property, String));
+        ASSERT(exists(element) && type(property, String));
         ASSERT(this.hasStyle(element, property), `Element does not have property "${property}"`);
         return element.style[property];
     }
@@ -1321,7 +1318,7 @@ buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
 HTML.body.appendChild(buttonNumberCalendarDays);
 
 function toggleAmPmOr24() {
-    ASSERT(exists(user.settings));
+    ASSERT(type(user.settings.ampmOr24, String));
     ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
     if (user.settings.ampmOr24 == 'ampm') {
         user.settings.ampmOr24 = '24';
@@ -1365,7 +1362,6 @@ buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
 HTML.body.appendChild(buttonAmPmOr24);
 
 function toggleStacking() {
-    ASSERT(exists(user.settings));
     ASSERT(type(user.settings.stacking, Boolean));
     user.settings.stacking = !user.settings.stacking;
     localStorage.setItem("userData", JSON.stringify(user));
