@@ -16,6 +16,7 @@ function ASSERT(condition, message="") {
 
 const NULL = Symbol('NULL');
 const Int = Symbol('Int'); // Symbol for integer type checking
+const Type = Symbol('Type'); // Meta type to represent valid types
 
 function exists(obj) {
     return obj != null && obj != undefined;
@@ -30,8 +31,8 @@ function sleep(seconds) {
 class LIST {
     constructor(innerType) {
         ASSERT(exists(innerType));
-        // innerType can be any other type
-        ASSERT(typeof innerType === 'function' || innerType instanceof LIST || typeof innerType === 'symbol');
+        // Validate that innerType is a valid type
+        ASSERT(type(innerType, Type), "LIST constructor requires a valid type parameter");
         this.innertype = innerType;
     }
 }
@@ -46,9 +47,9 @@ class DICT {
     constructor(keyType, valueType) {
         ASSERT(exists(keyType));
         ASSERT(exists(valueType));
-        // keyType and valueType can be ny other type
-        ASSERT(typeof keyType === 'function' || keyType instanceof LIST || keyType instanceof DICT || typeof keyType === 'symbol');
-        ASSERT(typeof valueType === 'function' || valueType instanceof LIST || valueType instanceof DICT || typeof valueType === 'symbol');
+        // Validate that both types are valid
+        ASSERT(type(keyType, Type), "DICT constructor requires a valid keyType parameter");
+        ASSERT(type(valueType, Type), "DICT constructor requires a valid valueType parameter");
         this.keyType = keyType;
         this.valueType = valueType;
     }
@@ -62,8 +63,11 @@ function Dict(keyType, valueType) {
 // Union type for supporting type1 OR type2 OR ...
 class UNION {
     constructor(...types) {
-        ASSERT(types.length >= 2);
-        types.forEach(t => ASSERT(exists(t)));
+        ASSERT(types.length >= 2, "UNION requires at least 2 types");
+        types.forEach(t => {
+            ASSERT(exists(t));
+            ASSERT(type(t, Type), "UNION constructor requires valid type parameters");
+        });
         this.types = types;
     }
 }
@@ -405,6 +409,10 @@ function type(thing, sometype) {
             if (type(thing, unionType)) return true;
         }
         return false;
+    }
+    // Type meta-type handling
+    if (sometype === Type) {
+        return typeof thing === 'function' || typeof thing === 'symbol' || thing instanceof LIST || thing instanceof DICT || thing instanceof UNION;
     }
     // Integer type check
     if (sometype === Int) {
