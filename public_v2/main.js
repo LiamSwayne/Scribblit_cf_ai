@@ -375,11 +375,9 @@ let HTML = new class HTMLroot {
     setStyle(element, styles) {
         ASSERT(exists(element) && exists(styles));
         ASSERT(Object.keys(styles).length > 0);
+        ASSERT(type(styles, Dict(String, String)));
         
         for (let key of Object.keys(styles)) {
-            ASSERT(type(key, String));
-            ASSERT(exists(styles[key]), `Value for property "${key}" must be a non-null string`);
-
             // camelcase to hyphenated css property
             element.style[key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()] = styles[key];
         }
@@ -388,6 +386,7 @@ let HTML = new class HTMLroot {
     resetHoverStyle(element, styles) {
         ASSERT(exists(element) && exists(styles));
         ASSERT(Object.keys(styles).length > 0);
+        ASSERT(type(styles, Dict(String, String)));
         
         // Check if element has an ID
         ASSERT(exists(element.id) && element.id.length > 0, "Element must have an ID to use setHoverStyle");
@@ -401,9 +400,6 @@ let HTML = new class HTMLroot {
         // Build CSS string
         let cssRules = `#${element.id}:hover {`;
         for (let key of Object.keys(styles)) {
-            ASSERT(type(key, String));
-            ASSERT(exists(styles[key]));
-    
             cssRules += `${key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()}: ${styles[key]}; `;
         }
         cssRules += `}`;
