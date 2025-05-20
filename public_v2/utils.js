@@ -59,6 +59,20 @@ function DICT(keyType, valueType) {
     return new Dict(keyType, valueType);
 }
 
+// Union type for supporting type1 OR type2 OR ...
+class Union {
+    constructor(...types) {
+        ASSERT(types.length >= 2);
+        types.forEach(t => ASSERT(exists(t)));
+        this.types = types;
+    }
+}
+
+// Convenience alias for creating union type without 'new'
+function UNION(...types) {
+    return new Union(...types);
+}
+
 function log(message) {
     if (TESTING) {
         console.log(message);
@@ -68,18 +82,12 @@ function log(message) {
 // Date
 class DateField {
     constructor(year, month, day) {
-        ASSERT(exists(year));
-        ASSERT(typeof year === "number");
-        ASSERT(Number.isInteger(year));
+        ASSERT(type(year, Int));
         
-        ASSERT(exists(month));
-        ASSERT(typeof month === "number");
-        ASSERT(Number.isInteger(month));
+        ASSERT(type(month, Int));
         ASSERT(month >= 1 && month <= 12);
         
-        ASSERT(exists(day));
-        ASSERT(typeof day === "number");
-        ASSERT(Number.isInteger(day));
+        ASSERT(type(day, Int));
         ASSERT(day >= 1 && day <= 31);
         
         // Additional validation for days in month (including leap years)
@@ -105,14 +113,10 @@ class DateField {
 // Time
 class TimeField {
     constructor(hour, minute) {
-        ASSERT(exists(hour));
-        ASSERT(typeof hour === "number");
-        ASSERT(Number.isInteger(hour));
+        ASSERT(type(hour, Int));
         ASSERT(hour >= 0 && hour <= 23);
         
-        ASSERT(exists(minute));
-        ASSERT(typeof minute === "number");
-        ASSERT(Number.isInteger(minute));
+        ASSERT(type(minute, Int));
         ASSERT(minute >= 0 && minute <= 59);
         
         this.hour = hour;
@@ -123,12 +127,9 @@ class TimeField {
 // Recurrence patterns
 class EveryNDaysPattern {
     constructor(initialDate, n) {
-        ASSERT(exists(initialDate));
-        ASSERT(initialDate instanceof DateField);
+        ASSERT(type(initialDate, DateField));
         
-        ASSERT(exists(n));
-        ASSERT(typeof n === "number");
-        ASSERT(Number.isInteger(n));
+        ASSERT(type(n, Int));
         ASSERT(n > 0);
         
         this.initialDate = initialDate;
@@ -138,9 +139,7 @@ class EveryNDaysPattern {
 
 class MonthlyPattern {
     constructor(day) {
-        ASSERT(exists(day));
-        ASSERT(typeof day === "number");
-        ASSERT(Number.isInteger(day));
+        ASSERT(type(day, Int));
         ASSERT(day >= 1 && day <= 31);
         
         this.day = day;
@@ -149,14 +148,10 @@ class MonthlyPattern {
 
 class AnnuallyPattern {
     constructor(month, day) {
-        ASSERT(exists(month));
-        ASSERT(typeof month === "number");
-        ASSERT(Number.isInteger(month));
+        ASSERT(type(month, Int));
         ASSERT(month >= 1 && month <= 12);
         
-        ASSERT(exists(day));
-        ASSERT(typeof day === "number");
-        ASSERT(Number.isInteger(day));
+        ASSERT(type(day, Int));
         ASSERT(day >= 1 && day <= 31);
         
         // Additional validation for days in month
@@ -171,12 +166,11 @@ class AnnuallyPattern {
 // Range specs
 class DateRange {
     constructor(startDate, endDate) {
-        ASSERT(exists(startDate));
-        ASSERT(startDate instanceof DateField);
+        ASSERT(type(startDate, DateField));
         
         // endDate can be NULL (optional)
         if (endDate !== NULL) {
-            ASSERT(endDate instanceof DateField);
+            ASSERT(type(endDate, DateField));
             
             // Convert to Date objects for comparison
             const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
@@ -191,9 +185,7 @@ class DateRange {
 
 class RecurrenceCount {
     constructor(count) {
-        ASSERT(exists(count));
-        ASSERT(typeof count === "number");
-        ASSERT(Number.isInteger(count));
+        ASSERT(type(count, Int));
         ASSERT(count > 0);
         
         this.count = count;
@@ -203,21 +195,14 @@ class RecurrenceCount {
 // Task instances
 class NonRecurringTaskInstance {
     constructor(date, dueTime, completion) {
-        ASSERT(exists(date));
-        ASSERT(date instanceof DateField);
+        ASSERT(type(date, DateField));
         
         // dueTime can be NULL (optional)
         if (dueTime !== NULL) {
-            ASSERT(dueTime instanceof TimeField);
+            ASSERT(type(dueTime, TimeField));
         }
         
-        ASSERT(exists(completion));
-        ASSERT(Array.isArray(completion));
-        // Validate each completion timestamp is a number (unix time)
-        completion.forEach(timestamp => {
-            ASSERT(typeof timestamp === "number");
-            ASSERT(Number.isInteger(timestamp));
-        });
+        ASSERT(type(completion, LIST(Int)));
         
         this.date = date;
         this.dueTime = dueTime;
@@ -227,28 +212,16 @@ class NonRecurringTaskInstance {
 
 class RecurringTaskInstance {
     constructor(datePattern, dueTime, range, completion) {
-        ASSERT(exists(datePattern));
-        ASSERT(
-            datePattern instanceof EveryNDaysPattern || 
-            datePattern instanceof MonthlyPattern || 
-            datePattern instanceof AnnuallyPattern
-        );
+        ASSERT(type(datePattern, UNION(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         
         // dueTime can be NULL (optional)
         if (dueTime !== NULL) {
-            ASSERT(dueTime instanceof TimeField);
+            ASSERT(type(dueTime, TimeField));
         }
         
-        ASSERT(exists(range));
-        ASSERT(range instanceof DateRange || range instanceof RecurrenceCount);
+                ASSERT(type(range, UNION(DateRange, RecurrenceCount)));
         
-        ASSERT(exists(completion));
-        ASSERT(Array.isArray(completion));
-        // Validate each completion timestamp is a number (unix time)
-        completion.forEach(timestamp => {
-            ASSERT(typeof timestamp === "number");
-            ASSERT(Number.isInteger(timestamp));
-        });
+        ASSERT(type(completion, LIST(Int)));
         
         this.datePattern = datePattern;
         this.dueTime = dueTime;
@@ -260,16 +233,15 @@ class RecurringTaskInstance {
 // Event instances
 class NonRecurringEventInstance {
     constructor(startDate, startTime, endTime, differentEndDate = NULL) {
-        ASSERT(exists(startDate));
-        ASSERT(startDate instanceof DateField);
+        ASSERT(type(startDate, DateField));
         
         // startTime and endTime can be NULL (optional)
         if (startTime !== NULL) {
-            ASSERT(startTime instanceof TimeField);
+            ASSERT(type(startTime, TimeField));
         }
         
         if (endTime !== NULL) {
-            ASSERT(endTime instanceof TimeField);
+            ASSERT(type(endTime, TimeField));
             
             // If both start and end times are provided, validate end is after start on same day
             if (startTime !== NULL && differentEndDate === NULL) {
@@ -281,7 +253,7 @@ class NonRecurringEventInstance {
         
         // differentEndDate is optional
         if (differentEndDate !== NULL) {
-            ASSERT(differentEndDate instanceof DateField);
+            ASSERT(type(differentEndDate, DateField));
             
             // Convert to Date objects for comparison
             const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
@@ -298,20 +270,15 @@ class NonRecurringEventInstance {
 
 class RecurringEventInstance {
     constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern = NULL) {
-        ASSERT(exists(startDatePattern));
-        ASSERT(
-            startDatePattern instanceof EveryNDaysPattern || 
-            startDatePattern instanceof MonthlyPattern || 
-            startDatePattern instanceof AnnuallyPattern
-        );
+        ASSERT(type(startDatePattern, UNION(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         
         // startTime and endTime can be NULL (optional)
         if (startTime !== NULL) {
-            ASSERT(startTime instanceof TimeField);
+            ASSERT(type(startTime, TimeField));
         }
         
         if (endTime !== NULL) {
-            ASSERT(endTime instanceof TimeField);
+            ASSERT(type(endTime, TimeField));
             
             // If both start and end times are provided, validate end is after start on same day (if not multi-day)
             if (startTime !== NULL && differentEndDatePattern === NULL) {
@@ -321,13 +288,11 @@ class RecurringEventInstance {
             }
         }
         
-        ASSERT(exists(range));
-        ASSERT(range instanceof DateRange || range instanceof RecurrenceCount);
+        ASSERT(type(range, UNION(DateRange, RecurrenceCount)));
         
         // differentEndDatePattern is optional
         if (differentEndDatePattern !== NULL) {
-            ASSERT(typeof differentEndDatePattern === "number");
-            ASSERT(Number.isInteger(differentEndDatePattern));
+            ASSERT(type(differentEndDatePattern, Int));
             ASSERT(differentEndDatePattern > 0);
         }
         
@@ -342,43 +307,26 @@ class RecurringEventInstance {
 // TaskData and EventData
 class TaskData {
     constructor(instances, hideUntil, showOverdue, workSessions) {
-        ASSERT(exists(instances));
-        ASSERT(Array.isArray(instances));
-        instances.forEach(instance => {
-            ASSERT(
-                instance instanceof NonRecurringTaskInstance || 
-                instance instanceof RecurringTaskInstance
-            );
-        });
+        // Check instances is a list of either NonRecurringTaskInstance or RecurringTaskInstance
+        ASSERT(type(instances, LIST(UNION(NonRecurringTaskInstance, RecurringTaskInstance))));
         
         // hideUntil is optional
         if (hideUntil !== NULL) {
-            ASSERT(exists(hideUntil.kind));
-            ASSERT(typeof hideUntil.kind === "string");
+            ASSERT(type(hideUntil.kind, String));
             ASSERT(['dayOf', 'relative', 'date'].includes(hideUntil.kind));
             
             if (hideUntil.kind === 'relative') {
-                ASSERT(exists(hideUntil.value));
-                ASSERT(typeof hideUntil.value === "number");
-                ASSERT(Number.isInteger(hideUntil.value));
+                ASSERT(type(hideUntil.value, Int));
             } else if (hideUntil.kind === 'date') {
-                ASSERT(exists(hideUntil.value));
-                ASSERT(hideUntil.value instanceof DateField);
+                ASSERT(type(hideUntil.value, DateField));
             }
         }
         
-        ASSERT(exists(showOverdue));
-        ASSERT(typeof showOverdue === "boolean");
+        ASSERT(type(showOverdue, Boolean));
         
         // workSessions is optional
         if (workSessions !== NULL) {
-            ASSERT(Array.isArray(workSessions));
-            workSessions.forEach(session => {
-                ASSERT(
-                    session instanceof NonRecurringEventInstance || 
-                    session instanceof RecurringEventInstance
-                );
-            });
+            ASSERT(type(workSessions, LIST(UNION(NonRecurringEventInstance, RecurringEventInstance))));
         }
         
         this.instances = instances;
@@ -390,14 +338,7 @@ class TaskData {
 
 class EventData {
     constructor(instances) {
-        ASSERT(exists(instances));
-        ASSERT(Array.isArray(instances));
-        instances.forEach(instance => {
-            ASSERT(
-                instance instanceof NonRecurringEventInstance || 
-                instance instanceof RecurringEventInstance
-            );
-        });
+        ASSERT(type(instances, LIST(UNION(NonRecurringEventInstance, RecurringEventInstance))));
         
         this.instances = instances;
     }
@@ -406,21 +347,18 @@ class EventData {
 // Task or Event container, the uppermost level of the data structure
 class TaskOrEvent {
     constructor(id, name, description, data) {
-        ASSERT(exists(id));
-        ASSERT(typeof id === "string");
+        ASSERT(type(id, String));
         ASSERT(id.length > 0);
         
-        ASSERT(exists(name));
-        ASSERT(typeof name === "string");
+        ASSERT(type(name, String));
         ASSERT(name.length > 0);
         
         // description is optional
         if (description !== NULL) {
-            ASSERT(typeof description === "string");
+            ASSERT(type(description, String));
         }
         
-        ASSERT(exists(data));
-        ASSERT(data instanceof TaskData || data instanceof EventData);
+        ASSERT(type(data, UNION(TaskData, EventData)));
         
         this.id = id;
         this.name = name;
@@ -451,6 +389,22 @@ function type(thing, sometype) {
             if (!type(elem, sometype.innertype)) return false;
         }
         return true;
+    }
+    // Dict type handling
+    if (sometype instanceof Dict) {
+        if (typeof thing !== 'object' || thing === null || Array.isArray(thing)) return false;
+        for (const key in thing) {
+            if (!type(key, sometype.keyType)) return false;
+            if (!type(thing[key], sometype.valueType)) return false;
+        }
+        return true;
+    }
+    // Union type handling
+    if (sometype instanceof Union) {
+        for (const unionType of sometype.types) {
+            if (type(thing, unionType)) return true;
+        }
+        return false;
     }
     // Integer type check
     if (sometype === Int) {
