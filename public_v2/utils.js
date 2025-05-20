@@ -382,84 +382,63 @@ const DAY_OF_WEEK = Symbol('DAY_OF_WEEK');
 function type(thing, sometype) {
     ASSERT(exists(thing));
     ASSERT(exists(sometype));
-    // NULL type handling
     if (sometype === NULL) {
         return thing === NULL;
-    }
-    // List type handling
-    if (sometype instanceof LIST) {
+    } else if (sometype instanceof LIST) {
         if (!Array.isArray(thing)) return false;
         for (const elem of thing) {
             if (!type(elem, sometype.innertype)) return false;
         }
         return true;
-    }
-    // Dict type handling
-    if (sometype instanceof DICT) {
+    } else if (sometype instanceof DICT) {
         if (typeof thing !== 'object' || thing === null || Array.isArray(thing)) return false;
         for (const key in thing) {
             if (!type(key, sometype.keyType)) return false;
             if (!type(thing[key], sometype.valueType)) return false;
         }
         return true;
-    }
-    // Union type handling
-    if (sometype instanceof UNION) {
+    } else if (sometype instanceof UNION) {
         for (const unionType of sometype.types) {
             if (type(thing, unionType)) return true;
         }
         return false;
-    }
-    // Type meta-type handling
-    if (sometype === Type) {
+    } else if (sometype === Type) {
         return typeof thing === 'function' || typeof thing === 'symbol' || thing instanceof LIST || thing instanceof DICT || thing instanceof UNION;
-    }
-    // Integer type check
-    if (sometype === Int) {
+    } else if (sometype === Int) {
         return typeof thing === 'number' && Number.isInteger(thing);
-    }
-    // Class type checks using constructors for validation
-    if (sometype === DateField) {
+    } else if (sometype === DateField) {
         if (!exists(thing) || !exists(thing.year) || !exists(thing.month) || !exists(thing.day)) return false;
         try { new DateField(thing.year, thing.month, thing.day); return true; } catch (e) { return false; }
-    }
-    if (sometype === TimeField) {
+    } else if (sometype === TimeField) {
         if (!exists(thing) || !exists(thing.hour) || !exists(thing.minute)) return false;
         try { new TimeField(thing.hour, thing.minute); return true; } catch (e) { return false; }
-    }
-    if (sometype === EveryNDaysPattern) {
+    } else if (sometype === EveryNDaysPattern) {
         if (!exists(thing) || !exists(thing.initialDate) || !exists(thing.n)) return false;
         if (!type(thing.initialDate, DateField)) return false;
         try { new EveryNDaysPattern(thing.initialDate, thing.n); return true; } catch (e) { return false; }
-    }
-    if (sometype === MonthlyPattern) {
+    } else if (sometype === MonthlyPattern) {
         if (!exists(thing) || !exists(thing.day)) return false;
         try { new MonthlyPattern(thing.day); return true; } catch (e) { return false; }
-    }
-    if (sometype === AnnuallyPattern) {
+    } else if (sometype === AnnuallyPattern) {
         if (!exists(thing) || !exists(thing.month) || !exists(thing.day)) return false;
         try { new AnnuallyPattern(thing.month, thing.day); return true; } catch (e) { return false; }
-    }
-    if (sometype === DateRange) {
+    } else if (sometype === DateRange) {
         if (!exists(thing) || !exists(thing.startDate)) return false;
         if (!type(thing.startDate, DateField)) return false;
         const endDate = thing.endDate;
         if (endDate !== NULL && !type(endDate, DateField)) return false;
         try { new DateRange(thing.startDate, endDate); return true; } catch (e) { return false; }
-    }
-    if (sometype === RecurrenceCount) {
+    } else if (sometype === RecurrenceCount) {
         if (!exists(thing) || !exists(thing.count)) return false;
         try { new RecurrenceCount(thing.count); return true; } catch (e) { return false; }
-    }
-    if (sometype === NonRecurringTaskInstance) {
+    } else if (sometype === NonRecurringTaskInstance) {
         if (!exists(thing) || !exists(thing.date) || !exists(thing.dueTime) || !exists(thing.completion)) return false;
         if (!type(thing.date, DateField)) return false;
         const dueTime = thing.dueTime;
         if (dueTime !== NULL && !type(dueTime, TimeField)) return false;
         if (!Array.isArray(thing.completion)) return false;
         try { new NonRecurringTaskInstance(thing.date, dueTime, thing.completion); return true; } catch (e) { return false; }
-    }
-    if (sometype === RecurringTaskInstance) {
+    } else if (sometype === RecurringTaskInstance) {
         if (!exists(thing) || !exists(thing.datePattern) || !exists(thing.dueTime) || !exists(thing.range) || !exists(thing.completion)) return false;
         if (!type(thing.datePattern, EveryNDaysPattern) && !type(thing.datePattern, MonthlyPattern) && !type(thing.datePattern, AnnuallyPattern)) return false;
         const dueTime2 = thing.dueTime;
@@ -467,8 +446,7 @@ function type(thing, sometype) {
         if (!type(thing.range, DateRange) && !type(thing.range, RecurrenceCount)) return false;
         if (!Array.isArray(thing.completion)) return false;
         try { new RecurringTaskInstance(thing.datePattern, dueTime2, thing.range, thing.completion); return true; } catch (e) { return false; }
-    }
-    if (sometype === NonRecurringEventInstance) {
+    } else if (sometype === NonRecurringEventInstance) {
         if (!exists(thing) || !exists(thing.startDate) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.differentEndDate)) return false;
         if (!type(thing.startDate, DateField)) return false;
         const startTime = thing.startTime;
@@ -478,8 +456,7 @@ function type(thing, sometype) {
         const diffEndDate = thing.differentEndDate;
         if (diffEndDate !== NULL && !type(diffEndDate, DateField)) return false;
         try { new NonRecurringEventInstance(thing.startDate, startTime, endTime, diffEndDate); return true; } catch (e) { return false; }
-    }
-    if (sometype === RecurringEventInstance) {
+    } else if (sometype === RecurringEventInstance) {
         if (!exists(thing) || !exists(thing.startDatePattern) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.range) || !exists(thing.differentEndDatePattern)) return false;
         if (!type(thing.startDatePattern, EveryNDaysPattern) && !type(thing.startDatePattern, MonthlyPattern) && !type(thing.startDatePattern, AnnuallyPattern)) return false;
         const startTime2 = thing.startTime;
@@ -490,8 +467,7 @@ function type(thing, sometype) {
         const dep = thing.differentEndDatePattern;
         if (dep !== NULL && !(typeof dep === 'number' && Number.isInteger(dep) && dep > 0)) return false;
         try { new RecurringEventInstance(thing.startDatePattern, startTime2, endTime2, thing.range, dep); return true; } catch (e) { return false; }
-    }
-    if (sometype === TaskData) {
+    } else if (sometype === TaskData) {
         if (!exists(thing.instances) || !Array.isArray(thing.instances)) return false;
         const hideUntil = thing.hideUntil;
         const workSessions = thing.workSessions;
@@ -499,23 +475,21 @@ function type(thing, sometype) {
         if (hideUntil !== NULL && (!exists(hideUntil) || !exists(hideUntil.kind))) return false;
         if (workSessions !== NULL && !Array.isArray(workSessions)) return false;
         try { new TaskData(thing.instances, hideUntil, thing.showOverdue, workSessions); return true; } catch (e) { return false; }
-    }
-    if (sometype === EventData) {
+    } else if (sometype === EventData) {
         if (!exists(thing) || !exists(thing.instances) || !Array.isArray(thing.instances)) return false;
         try { new EventData(thing.instances); return true; } catch (e) { return false; }
-    }
-    if (sometype === TaskOrEvent) {
+    } else if (sometype === TaskOrEvent) {
         if (!exists(thing) || !exists(thing.id) || !exists(thing.name) || !exists(thing.data)) return false;
         try { new TaskOrEvent(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     }
     // Primitive type checks
-    if (sometype === Number) return typeof thing === 'number';
-    if (sometype === String) return typeof thing === 'string';
-    if (sometype === Boolean) return typeof thing === 'boolean';
-    if (sometype === Symbol) return typeof thing === 'symbol';
-    if (sometype === BigInt) return typeof thing === 'bigint';
+    else if (sometype === Number) return typeof thing === 'number';
+    else if (sometype === String) return typeof thing === 'string';
+    else if (sometype === Boolean) return typeof thing === 'boolean';
+    else if (sometype === Symbol) return typeof thing === 'symbol';
+    else if (sometype === BigInt) return typeof thing === 'bigint';
     // String format symbols for date components
-    if (sometype === YYYY_MM_DD) {
+    else if (sometype === YYYY_MM_DD) {
         if (typeof thing !== 'string') return false;
         const parts = thing.split('-');
         if (parts.length !== 3) return false;
@@ -529,31 +503,27 @@ function type(thing, sometype) {
         } catch (e) {
             return false;
         }
-    }
-    if (sometype === YYYY) {
+    } else if (sometype === YYYY) {
         if (typeof thing !== 'string' || thing.length !== 4) return false;
         const y = Number(thing);
         if (!Number.isInteger(y)) return false;
         return true;
-    }
-    if (sometype === MM) {
+    } else if (sometype === MM) {
         if (typeof thing !== 'string' || thing.length !== 2) return false;
         const m = Number(thing);
         if (!Number.isInteger(m) || m < 1 || m > 12) return false;
         return true;
-    }
-    if (sometype === DD) {
+    } else if (sometype === DD) {
         if (typeof thing !== 'string' || thing.length !== 2) return false;
         const d = Number(thing);
         if (!Number.isInteger(d) || d < 1 || d > 31) return false;
         return true;
-    }
-    if (sometype === DAY_OF_WEEK) {
+    } else if (sometype === DAY_OF_WEEK) {
         if (typeof thing !== 'string') return false;
         const dow = thing;
         const valid = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         return valid.includes(dow);
+    } else {
+        return thing instanceof sometype;
     }
-    // Default object instance check
-    return thing instanceof sometype;
 }
