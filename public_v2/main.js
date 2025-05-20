@@ -497,18 +497,18 @@ function nthHourText(n) {
 // code written by AI
 // needs to be audited!!!
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
-    ASSERT(type(instance, RecurringTaskInstance) || type(instance, RecurringEventInstance));
-    ASSERT(type(startUnix, Int) || type(startUnix, NULL));
-    ASSERT(type(endUnix, Int) || type(endUnix, NULL));
+    ASSERT(type(instance, Union(RecurringTaskInstance, RecurringEventInstance)));
+    ASSERT(type(startUnix, Union(Int, NULL)));
+    ASSERT(type(endUnix, Union(Int, NULL)));
     // Identify whether this is a task (dueTime + datePattern) or an event (startTime + startDatePattern)
     let pattern;
     let timeKey;
     if (type(instance, RecurringTaskInstance)) {
-        ASSERT(type(instance.datePattern, EveryNDaysPattern) || type(instance.datePattern, MonthlyPattern) || type(instance.datePattern, AnnuallyPattern));
+        ASSERT(type(instance.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         pattern = instance.datePattern;
         timeKey = 'dueTime';
     } else {
-        ASSERT(type(instance.startDatePattern, EveryNDaysPattern) || type(instance.startDatePattern, MonthlyPattern) || type(instance.startDatePattern, AnnuallyPattern));
+        ASSERT(type(instance.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         pattern = instance.startDatePattern;
         timeKey = 'startTime';
     }
@@ -599,7 +599,7 @@ function isTaskComplete(task) {
                 return false;
             }
         } else if (type(inst, RecurringTaskInstance)) {
-            ASSERT(type(inst.range, DateRange) || type(inst.range, RecurrenceCount));
+            ASSERT(type(inst.range, Union(DateRange, RecurrenceCount)));
             let patternDates;
             if (type(inst.range, DateRange)) {
                 ASSERT(type(inst.range.startDate, DateField));
@@ -765,7 +765,7 @@ function renderDay(day, element, index) {
             // Handle task work times
             if (exists(obj.data.workSessions)) {
                 for (let workTime of obj.data.workSessions) {
-                    ASSERT(type(workTime, NonRecurringEventInstance) || type(workTime, RecurringEventInstance));
+                    ASSERT(type(workTime, Union(NonRecurringEventInstance, RecurringEventInstance)));
                     if (!exists(workTime.startTime)) {
                         // handle all-day session by type
                         if (type(workTime, NonRecurringEventInstance)) {
@@ -886,7 +886,7 @@ function renderDay(day, element, index) {
             // THIS BLOCK REQUIRES AUDIT OF AI CODE
             // Handle events similar to task work times but with some differences
             for (let instance of obj.data.instances) {
-                ASSERT(type(instance, NonRecurringEventInstance) || type(instance, RecurringEventInstance));
+                ASSERT(type(instance, Union(NonRecurringEventInstance, RecurringEventInstance)));
                 if (!exists(instance.startTime)) {
                     // handle all-day event by type
                     if (type(instance, NonRecurringEventInstance)) {
