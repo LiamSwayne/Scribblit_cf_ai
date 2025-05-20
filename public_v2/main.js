@@ -274,7 +274,7 @@ function currentDays() {
         days.push(dateField);
     }
     // ensure days array contains DateField objects
-    ASSERT(type(days, LIST(DateField)));
+    ASSERT(type(days, List(DateField)));
     return days;
 }
 
@@ -589,7 +589,7 @@ function isTaskComplete(task) {
     for (let inst of task.instances) {
         if (type(inst, NonRecurringTaskInstance)) {
             ASSERT(type(inst.date, DateField));
-            ASSERT(type(inst.completion, LIST(Int)));
+            ASSERT(type(inst.completion, List(Int)));
             let dt = DateTime.local(inst.date.year, inst.date.month, inst.date.day);
             ASSERT(dt.isValid);
             let targetTs = dt.startOf('day').toMillis();
@@ -618,7 +618,7 @@ function isTaskComplete(task) {
                 patternDates = generateInstancesFromPattern(inst);
                 ASSERT(patternDates.length === inst.range.count);
             }
-            ASSERT(type(inst.completion, LIST(Int)));
+            ASSERT(type(inst.completion, List(Int)));
             for (let pd of patternDates) {
                 if (!inst.completion.some(ct => DateTime.fromMillis(ct).hasSame(DateTime.fromMillis(pd).startOf('day'), 'day'))) {
                     return false;
@@ -1110,7 +1110,7 @@ function renderDay(day, element, index) {
 let topOfCalendarDay = 20; // px
 
 function renderCalendar(days) {
-    ASSERT(type(days, LIST(DateField)));
+    ASSERT(type(days, List(DateField)));
     ASSERT(exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
     ASSERT(type(user.settings.stacking, Boolean));
     for (let i = 0; i < 7; i++) {

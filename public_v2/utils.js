@@ -27,40 +27,40 @@ function sleep(seconds) {
 }
 
 // List type for homogeneous arrays
-class List {
+class LIST {
     constructor(innerType) {
         ASSERT(exists(innerType));
         // innerType can be a constructor or another List
-        ASSERT(typeof innerType === 'function' || innerType instanceof List);
+        ASSERT(typeof innerType === 'function' || innerType instanceof LIST);
         this.innertype = innerType;
     }
 }
 
 // Convenience alias for creating list type without 'new'
-function LIST(innerType) {
-    return new List(innerType);
+function List(innerType) {
+    return new LIST(innerType);
 }
 
 // Dict type for heterogeneous key-value collections
-class Dict {
+class DICT {
     constructor(keyType, valueType) {
         ASSERT(exists(keyType));
         ASSERT(exists(valueType));
         // keyType and valueType can be a constructor or another List/Dict
-        ASSERT(typeof keyType === 'function' || keyType instanceof List || keyType instanceof Dict);
-        ASSERT(typeof valueType === 'function' || valueType instanceof List || valueType instanceof Dict);
+        ASSERT(typeof keyType === 'function' || keyType instanceof LIST || keyType instanceof DICT);
+        ASSERT(typeof valueType === 'function' || valueType instanceof LIST || valueType instanceof DICT);
         this.keyType = keyType;
         this.valueType = valueType;
     }
 }
 
 // Convenience alias for creating dict type without 'new'
-function DICT(keyType, valueType) {
-    return new Dict(keyType, valueType);
+function Dict(keyType, valueType) {
+    return new DICT(keyType, valueType);
 }
 
 // Union type for supporting type1 OR type2 OR ...
-class Union {
+class UNION {
     constructor(...types) {
         ASSERT(types.length >= 2);
         types.forEach(t => ASSERT(exists(t)));
@@ -69,8 +69,8 @@ class Union {
 }
 
 // Convenience alias for creating union type without 'new'
-function UNION(...types) {
-    return new Union(...types);
+function Union(...types) {
+    return new UNION(...types);
 }
 
 function log(message) {
@@ -202,7 +202,7 @@ class NonRecurringTaskInstance {
             ASSERT(type(dueTime, TimeField));
         }
         
-        ASSERT(type(completion, LIST(Int)));
+        ASSERT(type(completion, List(Int)));
         
         this.date = date;
         this.dueTime = dueTime;
@@ -212,16 +212,16 @@ class NonRecurringTaskInstance {
 
 class RecurringTaskInstance {
     constructor(datePattern, dueTime, range, completion) {
-        ASSERT(type(datePattern, UNION(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         
         // dueTime can be NULL (optional)
         if (dueTime !== NULL) {
             ASSERT(type(dueTime, TimeField));
         }
         
-                ASSERT(type(range, UNION(DateRange, RecurrenceCount)));
+                ASSERT(type(range, Union(DateRange, RecurrenceCount)));
         
-        ASSERT(type(completion, LIST(Int)));
+        ASSERT(type(completion, List(Int)));
         
         this.datePattern = datePattern;
         this.dueTime = dueTime;
@@ -270,7 +270,7 @@ class NonRecurringEventInstance {
 
 class RecurringEventInstance {
     constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern = NULL) {
-        ASSERT(type(startDatePattern, UNION(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        ASSERT(type(startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         
         // startTime and endTime can be NULL (optional)
         if (startTime !== NULL) {
@@ -288,7 +288,7 @@ class RecurringEventInstance {
             }
         }
         
-        ASSERT(type(range, UNION(DateRange, RecurrenceCount)));
+        ASSERT(type(range, Union(DateRange, RecurrenceCount)));
         
         // differentEndDatePattern is optional
         if (differentEndDatePattern !== NULL) {
@@ -308,7 +308,7 @@ class RecurringEventInstance {
 class TaskData {
     constructor(instances, hideUntil, showOverdue, workSessions) {
         // Check instances is a list of either NonRecurringTaskInstance or RecurringTaskInstance
-        ASSERT(type(instances, LIST(UNION(NonRecurringTaskInstance, RecurringTaskInstance))));
+        ASSERT(type(instances, List(Union(NonRecurringTaskInstance, RecurringTaskInstance))));
         
         // hideUntil is optional
         if (hideUntil !== NULL) {
@@ -326,7 +326,7 @@ class TaskData {
         
         // workSessions is optional
         if (workSessions !== NULL) {
-            ASSERT(type(workSessions, LIST(UNION(NonRecurringEventInstance, RecurringEventInstance))));
+            ASSERT(type(workSessions, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
         }
         
         this.instances = instances;
@@ -338,7 +338,7 @@ class TaskData {
 
 class EventData {
     constructor(instances) {
-        ASSERT(type(instances, LIST(UNION(NonRecurringEventInstance, RecurringEventInstance))));
+        ASSERT(type(instances, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
         
         this.instances = instances;
     }
@@ -358,7 +358,7 @@ class TaskOrEvent {
             ASSERT(type(description, String));
         }
         
-        ASSERT(type(data, UNION(TaskData, EventData)));
+        ASSERT(type(data, Union(TaskData, EventData)));
         
         this.id = id;
         this.name = name;
@@ -383,7 +383,7 @@ function type(thing, sometype) {
         return thing === NULL;
     }
     // List type handling
-    if (sometype instanceof List) {
+    if (sometype instanceof LIST) {
         if (!Array.isArray(thing)) return false;
         for (const elem of thing) {
             if (!type(elem, sometype.innertype)) return false;
@@ -391,7 +391,7 @@ function type(thing, sometype) {
         return true;
     }
     // Dict type handling
-    if (sometype instanceof Dict) {
+    if (sometype instanceof DICT) {
         if (typeof thing !== 'object' || thing === null || Array.isArray(thing)) return false;
         for (const key in thing) {
             if (!type(key, sometype.keyType)) return false;
@@ -400,7 +400,7 @@ function type(thing, sometype) {
         return true;
     }
     // Union type handling
-    if (sometype instanceof Union) {
+    if (sometype instanceof UNION) {
         for (const unionType of sometype.types) {
             if (type(thing, unionType)) return true;
         }
