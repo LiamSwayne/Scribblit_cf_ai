@@ -300,37 +300,34 @@ function dayOfWeekOrRelativeDay(day) {
 
 let HTML = new class HTMLroot {    
     get(id) {
-        ASSERT(typeof(id) == "string", "HTML.get id must be a string");
+        ASSERT(type(id, String));
         let element = document.getElementById(id);
         ASSERT(exists(element), `HTML.get element with id ${id} DNE`);
         
         // Check if multiple elements share the same ID
-        let allWithId = document.querySelectorAll(`#${id}`);
-        ASSERT(allWithId.length === 1, `HTML.get found ${allWithId.length} elements with id ${id}, should be exactly 1`);
+        ASSERT(document.querySelectorAll(`#${id}`).length === 1, `HTML.get found ${document.querySelectorAll(`#${id}`).length} elements with id ${id}, should be exactly 1`);
         
         return element;
     }
 
     // get but it may not exist
     getUnsafely(id) {
-        ASSERT(typeof(id) == "string", "HTML.getUnsafely id must be a string");
+        ASSERT(type(id, String));
         
         // If there's an element at all, verify it's the only one
         let element = document.getElementById(id);
-        if (element !== null) {
-            let allWithId = document.querySelectorAll(`#${id}`);
-            ASSERT(allWithId.length === 1, `HTML.getUnsafely found ${allWithId.length} elements with id ${id}, should be at most 1`);
+        if (exists(element)) {
+            ASSERT(document.querySelectorAll(`#${id}`).length === 1, `HTML.getUnsafely found ${document.querySelectorAll(`#${id}`).length} elements with id ${id}, should be at most 1`);
         }
         
         return element;
     }
 
     setId(element, id) {
-        ASSERT(exists(element) && typeof(id) == "string", "HTML.setId element must exist and id must be a string");
+        ASSERT(exists(element) && type(id, String));
 
         // Check if id is already in use
-        let existingElement = document.getElementById(id);
-        ASSERT(existingElement === null, `HTML.setId id ${id} is already in use`);
+        ASSERT(document.getElementById(id) === NULL, `HTML.setId id ${id} is already in use`);
         element.id = id;
     }
 
@@ -338,18 +335,19 @@ let HTML = new class HTMLroot {
     head = document.head;
 
     make(tag) {
-        ASSERT(typeof(tag) == "string", "HTML.make tag must be a string");
+        ASSERT(type(tag, String));
         return document.createElement(tag);
     }
 
     setData(element, key, value) {
-        ASSERT(element != null, "HTML.setData element is null");
-        ASSERT(typeof(key) == "string", "HTML.setData key must be a string");
-        let data = element.dataset.data;
-        if (data == undefined || data == null) {
+        ASSERT(exists(element));
+        ASSERT(type(key, String));
+        
+        let data;
+        if (!exists(element.dataset.data)) {
             data = {};
         } else {
-            data = JSON.parse(data);
+            data = JSON.parse(element.dataset.data);
         }
 
         // add or update key
@@ -358,86 +356,78 @@ let HTML = new class HTMLroot {
     }
 
     getData(element, key) {
-        ASSERT(element != null, "HTML.getData element is null");
-        ASSERT(typeof(key) == "string", "HTML.getData key must be a string");
-        let data = element.dataset.data;
-        
-        ASSERT(data != undefined && data != null, "HTML.getData data is undefined or null");
+        ASSERT(exists(element));
+        ASSERT(type(key, String));
+        ASSERT(exists(element.dataset.data), "HTML.getData data is undefined or null");
 
-        data = JSON.parse(data);
-        return data[key];
+        return JSON.parse(element.dataset.data)[key];
     }
 
     getDataUnsafely(element, key) {
-        ASSERT(element != null, "HTML.getDataUnsafely element is null");
-        ASSERT(typeof(key) == "string", "HTML.getDataUnsafely key must be a string");
-        let data = element.dataset.data;
-        if (data == undefined || data == null) {
-            return null;
-        } else {
-            data = JSON.parse(data);
-            return data[key];
+        ASSERT(exists(element));
+        ASSERT(type(key, String));
+        
+        if (!exists(element.dataset.data)) {
+            return NULL;
         }
+        
+        return JSON.parse(element.dataset.data)[key];
     }
 
     // function to cleanly apply styles to an element
     setStyle(element, styles) {
-        ASSERT(element != null && element != undefined && styles != undefined && styles != null);
+        ASSERT(exists(element) && exists(styles));
         ASSERT(Object.keys(styles).length > 0);
+        
         for (let key of Object.keys(styles)) {
-            ASSERT(typeof(key) == "string", `Property "${key}" must be a string`);
+            ASSERT(type(key, String));
             ASSERT(exists(styles[key]), `Value for property "${key}" must be a non-null string`);
 
             // camelcase to hyphenated css property
-            let cssKey = key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
-
-            element.style[cssKey] = styles[key];
+            element.style[key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()] = styles[key];
         }
     }
 
     resetHoverStyle(element, styles) {
-        ASSERT(element != null && element != undefined && styles != undefined && styles != null);
+        ASSERT(exists(element) && exists(styles));
         ASSERT(Object.keys(styles).length > 0);
         
         // Check if element has an ID
-        const elementId = element.id;
-        ASSERT(elementId && elementId.length > 0, "Element must have an ID to use setHoverStyle");
+        ASSERT(exists(element.id) && element.id.length > 0, "Element must have an ID to use setHoverStyle");
 
         // remove existing style element
-        let existingStyleElement = document.getElementById(`style-${elementId}`);
-        if (existingStyleElement != null) {
+        let existingStyleElement = document.getElementById(`style-${element.id}`);
+        if (exists(existingStyleElement)) {
             existingStyleElement.remove();
         }
         
         // Build CSS string
-        let cssRules = `#${elementId}:hover {`;
+        let cssRules = `#${element.id}:hover {`;
         for (let key of Object.keys(styles)) {
-            ASSERT(typeof(key) == "string");
+            ASSERT(type(key, String));
             ASSERT(exists(styles[key]));
     
-            // camelcase to hyphenated css property
-            let cssKey = key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
-            cssRules += `${cssKey}: ${styles[key]}; `;
+            cssRules += `${key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()}: ${styles[key]}; `;
         }
         cssRules += `}`;
         
         // Add a transition property to enable animations if desired
-        cssRules += `#${elementId} { transition: all 0.3s ease; }`;
+        cssRules += `#${element.id} { transition: all 0.3s ease; }`;
         
         // Create and append style element
-        const styleElement = HTML.make('style');
-        HTML.setId(styleElement, `style-${elementId}`);
+        const styleElement = this.make('style');
+        this.setId(styleElement, `style-${element.id}`);
         styleElement.textContent = cssRules;
-        HTML.head.appendChild(styleElement);
+        this.head.appendChild(styleElement);
     }
 
     hasStyle(element, property) {
-        ASSERT(element != null && element != undefined && property != null && property != undefined && typeof(property) == "string");
-        return element.style[property] != null && element.style[property] != undefined && element.style[property] != "";
+        ASSERT(exists(element) && exists(property) && type(property, String));
+        return exists(element.style[property]) && element.style[property] !== "";
     }
 
     getStyle(element, property) {
-        ASSERT(element != null && element != undefined && property != null && property != undefined && typeof(property) == "string");
+        ASSERT(exists(element) && exists(property) && type(property, String));
         ASSERT(this.hasStyle(element, property), `Element does not have property "${property}"`);
         return element.style[property];
     }
