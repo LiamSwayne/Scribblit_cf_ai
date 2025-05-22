@@ -384,7 +384,7 @@ let HTML = new class HTMLroot {
         }
     }
 
-    resetHoverStyle(element, styles) {
+    setHoverStyle(element, styles) {
         ASSERT(exists(element) && type(styles, Dict(String, String)));
         ASSERT(Object.keys(styles).length > 0);
         
