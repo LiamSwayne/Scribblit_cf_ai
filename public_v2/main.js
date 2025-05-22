@@ -374,9 +374,8 @@ let HTML = new class HTMLroot {
 
     // function to cleanly apply styles to an element
     setStyle(element, styles) {
-        ASSERT(exists(element) && exists(styles));
+        ASSERT(exists(element) && type(styles, Dict(String, String)));
         ASSERT(Object.keys(styles).length > 0);
-        ASSERT(type(styles, Dict(String, String)));
         
         for (let key of Object.keys(styles)) {
             // camelcase to hyphenated css property
@@ -446,9 +445,13 @@ HTML.setStyle(HTML.body, {
     backgroundColor: user.palette.shades[0],
 });
 
-let logo = HTML.make('img');
-logo.src = './scribblit_logo_2.svg';
-HTML.setId(logo, 'logo');
+let logo = HTML.getUnsafely('logo');
+if (!exists(logo)) {
+    logo = HTML.make('img');
+    HTML.setId(logo, 'logo');
+    logo.src = './scribblit_logo_2.svg';
+    HTML.body.appendChild(logo);
+}
 HTML.setStyle(logo, {
     position: 'fixed',
     width: '100px',
@@ -456,7 +459,6 @@ HTML.setStyle(logo, {
     top: String(windowBorderMargin) + 'px',
     left: String(windowBorderMargin) + 'px'
 });
-HTML.body.appendChild(logo);
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
@@ -664,7 +666,7 @@ function renderDay(day, element, index) {
                     top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
                     left: String(dayElementHorizontalPos + 1) + 'px',
                     backgroundColor: user.palette.shades[3],
-                    zIndex: 400
+                    zIndex: '400'
                 });
                 
                 HTML.body.appendChild(hourMarker);
@@ -688,7 +690,7 @@ function renderDay(day, element, index) {
                 color: user.palette.shades[3],
                 fontFamily: 'JetBrains Mono',
                 fontSize: fontSize,
-                zIndex: 400
+                zIndex: '400'
             });
             
             HTML.setData(hourMarkerText, 'leadingWhitespace', true);
@@ -1084,9 +1086,9 @@ function renderDay(day, element, index) {
             top: String(allDayEventTop) + 'px',
             left: String(parseInt(HTML.getStyle(element, 'left').slice(0, -2)) + 4.5) + 'px',
             backgroundColor: user.palette.shades[2],
-            opacity: allDayEvent.faded ? 0.5 : 1,
+            opacity: String(allDayEvent.faded ? 0.5 : 1),
             borderRadius: '3px',
-            zIndex: 350
+            zIndex: '350'
         });
         HTML.setHoverStyle(allDayEventElement, {
             opacity: 1
@@ -1182,7 +1184,7 @@ function renderCalendar(days) {
             border: '1px solid ' + user.palette.shades[3],
             borderRadius: '5px',
             backgroundColor: user.palette.shades[0],
-            zIndex: 300 // below hour markers
+            zIndex: '300' // below hour markers
         });
         HTML.body.appendChild(dayElement);
 
@@ -1207,7 +1209,7 @@ function renderCalendar(days) {
             backgroundColor: user.palette.shades[1],
             border: '1px solid ' + user.palette.shades[3],
             borderRadius: '5px',
-            zIndex: 200, // below dayElement
+            zIndex: '200', // below dayElement
         });
         HTML.body.appendChild(backgroundElement);
 
@@ -1227,7 +1229,7 @@ function renderCalendar(days) {
             color: user.palette.shades[3],
             fontFamily: 'Inter',
             fontWeight: 'bold',
-            zIndex: 400
+            zIndex: '400'
         });
         
         // Create DateField from the ISO string
@@ -1259,7 +1261,7 @@ function renderCalendar(days) {
             color: user.palette.shades[3],
             fontFamily: 'Inter',
             fontWeight: 'bold',
-            zIndex: 400
+            zIndex: '400'
         });
         dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(days[i]);
         if (dayOfWeekOrRelativeDay(days[i]) == 'Today') {
@@ -1291,27 +1293,28 @@ function toggleNumberOfCalendarDays() {
     }
     localStorage.setItem("userData", JSON.stringify(user));
 
-    let buttonNumberCalendarDays = HTML.get('buttonNumberCalendarDays');
+    let buttonNumberCalendarDays = HTML.getUnsafely('buttonNumberCalendarDays');
+    if (!exists(buttonNumberCalendarDays)) {
+        buttonNumberCalendarDays = HTML.make('div');
+        HTML.setId(buttonNumberCalendarDays, 'buttonNumberCalendarDays');
+        HTML.body.appendChild(buttonNumberCalendarDays);
+    }
+    HTML.setStyle(buttonNumberCalendarDays, {
+        position: 'fixed',
+        top: windowBorderMargin + 'px',
+        // logo width + window border margin*2
+        left: String(100 + windowBorderMargin*2) + 'px',
+        backgroundColor: user.palette.shades[1],
+        fontSize: '12px',
+        color: user.palette.shades[3],
+    });
+    ASSERT(type(user.settings.numberOfCalendarDays, Int));
+    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
     buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
+    buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
+
     resizeListener();
 }
-
-let buttonNumberCalendarDays = HTML.make('div');
-HTML.setId(buttonNumberCalendarDays, 'buttonNumberCalendarDays');
-HTML.setStyle(buttonNumberCalendarDays, {
-    position: 'fixed',
-    top: windowBorderMargin + 'px',
-    // logo width + window border margin*2
-    left: String(100 + windowBorderMargin*2) + 'px',
-    backgroundColor: user.palette.shades[1],
-    fontSize: '12px',
-    color: user.palette.shades[3],
-});
-ASSERT(type(user.settings.numberOfCalendarDays, Int));
-ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
-buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
-buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
-HTML.body.appendChild(buttonNumberCalendarDays);
 
 function toggleAmPmOr24() {
     ASSERT(type(user.settings.ampmOr24, String));
@@ -1323,9 +1326,24 @@ function toggleAmPmOr24() {
     }
     localStorage.setItem("userData", JSON.stringify(user));
 
-    let buttonAmPmOr24 = HTML.get('buttonAmPmOr24');
+    let buttonAmPmOr24 = HTML.getUnsafely('buttonAmPmOr24');
+    if (!exists(buttonAmPmOr24)) {
+        buttonAmPmOr24 = HTML.make('div');
+        HTML.setId(buttonAmPmOr24, 'buttonAmPmOr24');
+        HTML.body.appendChild(buttonAmPmOr24);
+    }
+    HTML.setStyle(buttonAmPmOr24, {
+        position: 'fixed',
+        top: windowBorderMargin + 'px',
+        // logo width + window border margin*2
+        left: String(100 + windowBorderMargin*2 + 250) + 'px',
+        backgroundColor: user.palette.shades[1],
+        fontSize: '12px',
+        color: user.palette.shades[3],
+    });
+    buttonAmPmOr24.onclick = toggleAmPmOr24;
     buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
-    
+
     // update all hour markers
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         for (let j = 0; j < 24; j++) {
@@ -1342,8 +1360,12 @@ function toggleAmPmOr24() {
     }
 }
 
-let buttonAmPmOr24 = HTML.make('div');
-HTML.setId(buttonAmPmOr24, 'buttonAmPmOr24');
+let buttonAmPmOr24 = HTML.getUnsafely('buttonAmPmOr24');
+if (!exists(buttonAmPmOr24)) {
+    buttonAmPmOr24 = HTML.make('div');
+    HTML.setId(buttonAmPmOr24, 'buttonAmPmOr24');
+    HTML.body.appendChild(buttonAmPmOr24);
+}
 HTML.setStyle(buttonAmPmOr24, {
     position: 'fixed',
     top: windowBorderMargin + 'px',
@@ -1355,7 +1377,6 @@ HTML.setStyle(buttonAmPmOr24, {
 });
 buttonAmPmOr24.onclick = toggleAmPmOr24;
 buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
-HTML.body.appendChild(buttonAmPmOr24);
 
 function toggleStacking() {
     ASSERT(type(user.settings.stacking, Boolean));
@@ -1364,8 +1385,12 @@ function toggleStacking() {
     resizeListener();
 }
 
-let buttonStacking = HTML.make('div');
-HTML.setId(buttonStacking, 'buttonStacking');
+let buttonStacking = HTML.getUnsafely('buttonStacking');
+if (!exists(buttonStacking)) {
+    buttonStacking = HTML.make('div');
+    HTML.setId(buttonStacking, 'buttonStacking');
+    HTML.body.appendChild(buttonStacking);
+}
 HTML.setStyle(buttonStacking, {
     position: 'fixed',
     top: windowBorderMargin + 'px',
@@ -1377,7 +1402,6 @@ HTML.setStyle(buttonStacking, {
 });
 buttonStacking.onclick = toggleStacking;
 buttonStacking.innerHTML = 'Toggle Stacking';
-HTML.body.appendChild(buttonStacking);
 
 window.onresize = resizeListener;
 
