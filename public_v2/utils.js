@@ -444,12 +444,10 @@ function type(thing, sometype) {
         if (!exists(thing.count)) return false;
         try { new RecurrenceCount(thing.count); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringTaskInstance) {
-        if (!exists(thing.date) || !exists(thing.dueTime) || !exists(thing.completion)) return false;
         if (!type(thing.date, DateField)) return false;
-        const dueTime = thing.dueTime;
-        if (dueTime !== NULL && !type(dueTime, TimeField)) return false;
-        if (!Array.isArray(thing.completion)) return false;
-        try { new NonRecurringTaskInstance(thing.date, dueTime, thing.completion); return true; } catch (e) { return false; }
+        if (!type(thing.dueTime, Union(NULL, TimeField))) return false;
+        if (!type(thing.completion, List(Int))) return false;
+        try { new NonRecurringTaskInstance(thing.date, thing.dueTime, thing.completion); return true; } catch (e) { return false; }
     } else if (sometype === RecurringTaskInstance) {
         if (!exists(thing.datePattern) || !exists(thing.dueTime) || !exists(thing.range) || !exists(thing.completion)) return false;
         if (!type(thing.datePattern, EveryNDaysPattern) && !type(thing.datePattern, MonthlyPattern) && !type(thing.datePattern, AnnuallyPattern)) return false;
@@ -479,7 +477,7 @@ function type(thing, sometype) {
         if (!type(thing.instances, List(Union(NonRecurringTaskInstance, RecurringTaskInstance)))) return false;
         if (!type(thing.hideUntil, Union(NULL, HideUntilRelative, HideUntilDate, HideUntilDayOf))) return false;
         if (!type(thing.showOverdue, Boolean)) return false;
-        if (type(thing.workSessions, List(Union(NULL, NonRecurringEventInstance, RecurringEventInstance)))) return false;
+        if (!type(thing.workSessions, Union(NULL, List(Union(NonRecurringEventInstance, RecurringEventInstance))))) return false;
         try { new TaskData(thing.instances, thing.hideUntil, thing.showOverdue, thing.workSessions); return true; } catch (e) { return false; }
     } else if (sometype === EventData) {
         if (!type(thing.instances, List(Union(NonRecurringEventInstance, RecurringEventInstance)))) return false;
