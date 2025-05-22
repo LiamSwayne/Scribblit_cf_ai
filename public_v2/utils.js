@@ -17,6 +17,7 @@ function ASSERT(condition, message="") {
 const NULL = Symbol('NULL');
 const Int = Symbol('Int'); // Symbol for integer type checking
 const Type = Symbol('Type'); // Meta type to represent valid types
+const NonEmptyString = Symbol('NonEmptyString'); // Symbol for non-empty string type checking
 
 function exists(obj) {
     return obj != null && obj != undefined;
@@ -105,8 +106,7 @@ class DateField {
 
     static fromYYYY_MM_DD(dateString) {
         // assertions
-        ASSERT(exists(dateString));
-        ASSERT(typeof dateString === "string");
+        ASSERT(type(dateString, NonEmptyString));
         ASSERT(dateString.length === 10);
         ASSERT(dateString[4] === '-' && dateString[7] === '-');
         const parts = dateString.split('-');
@@ -363,11 +363,9 @@ class EventData {
 // Task or Event container, the uppermost level of the data structure
 class TaskOrEvent {
     constructor(id, name, description, data) {
-        ASSERT(type(id, String));
-        ASSERT(id.length > 0);
+        ASSERT(type(id, NonEmptyString));
         
-        ASSERT(type(name, String));
-        ASSERT(name.length > 0);
+        ASSERT(type(name, NonEmptyString));
         
         // description is optional
         if (description !== NULL) {
@@ -418,6 +416,8 @@ function type(thing, sometype) {
         return typeof thing === 'function' || typeof thing === 'symbol' || thing instanceof LIST || thing instanceof DICT || thing instanceof UNION;
     } else if (sometype === Int) {
         return typeof thing === 'number' && Number.isInteger(thing);
+    } else if (sometype === NonEmptyString) {
+        return typeof thing === 'string' && thing.length > 0;
     } else if (sometype === DateField) {
         try { new DateField(thing.year, thing.month, thing.day); return true; } catch (e) { return false; }
     } else if (sometype === TimeField) {

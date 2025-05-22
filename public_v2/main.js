@@ -389,7 +389,7 @@ let HTML = new class HTMLroot {
         ASSERT(Object.keys(styles).length > 0);
         
         // Check if element has an ID
-        ASSERT(exists(element.id) && element.id.length > 0, "Element must have an ID to use setHoverStyle");
+        ASSERT(type(element.id, NonEmptyString), "Element must have an ID to use setHoverStyle");
 
         // remove existing style element
         let existingStyleElement = document.getElementById(`style-${element.id}`);
