@@ -419,65 +419,32 @@ function type(thing, sometype) {
     } else if (sometype === Int) {
         return typeof thing === 'number' && Number.isInteger(thing);
     } else if (sometype === DateField) {
-        if (!exists(thing.year) || !exists(thing.month) || !exists(thing.day)) return false;
         try { new DateField(thing.year, thing.month, thing.day); return true; } catch (e) { return false; }
     } else if (sometype === TimeField) {
-        if (!exists(thing.hour) || !exists(thing.minute)) return false;
         try { new TimeField(thing.hour, thing.minute); return true; } catch (e) { return false; }
     } else if (sometype === EveryNDaysPattern) {
-        if (!exists(thing.initialDate) || !exists(thing.n)) return false;
-        if (!type(thing.initialDate, DateField)) return false;
         try { new EveryNDaysPattern(thing.initialDate, thing.n); return true; } catch (e) { return false; }
     } else if (sometype === MonthlyPattern) {
-        if (!exists(thing.day)) return false;
         try { new MonthlyPattern(thing.day); return true; } catch (e) { return false; }
     } else if (sometype === AnnuallyPattern) {
-        if (!exists(thing.month) || !exists(thing.day)) return false;
         try { new AnnuallyPattern(thing.month, thing.day); return true; } catch (e) { return false; }
     } else if (sometype === DateRange) {
-        if (!exists(thing.startDate)) return false;
-        if (!type(thing.startDate, DateField)) return false;
-        const endDate = thing.endDate;
-        if (endDate !== NULL && !type(endDate, DateField)) return false;
-        try { new DateRange(thing.startDate, endDate); return true; } catch (e) { return false; }
+        try { new DateRange(thing.startDate, thing.endDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurrenceCount) {
-        if (!exists(thing.count)) return false;
         try { new RecurrenceCount(thing.count); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringTaskInstance) {
-        if (!type(thing.date, DateField)) return false;
-        if (!type(thing.dueTime, Union(NULL, TimeField))) return false;
-        if (!type(thing.completion, List(Int))) return false;
         try { new NonRecurringTaskInstance(thing.date, thing.dueTime, thing.completion); return true; } catch (e) { return false; }
     } else if (sometype === RecurringTaskInstance) {
-        if (!type(thing.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern))) return false;
-        if (!type(thing.dueTime, Union(NULL, TimeField))) return false;
-        if (!type(thing.range, Union(DateRange, RecurrenceCount))) return false;
-        if (!type(thing.completion, List(Int))) return false;
         try { new RecurringTaskInstance(thing.datePattern, thing.dueTime, thing.range, thing.completion); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringEventInstance) {
-        if (!type(thing.startDate, DateField)) return false;
-        if (!type(thing.startTime, Union(NULL, TimeField))) return false;
-        if (!type(thing.endTime, Union(NULL, TimeField))) return false;
-        if (!type(thing.differentEndDate, Union(NULL, DateField))) return false;
         try { new NonRecurringEventInstance(thing.startDate, thing.startTime, thing.endTime, thing.differentEndDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurringEventInstance) {
-        if (!type(thing.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern))) return false;
-        if (!type(thing.startTime, Union(NULL, TimeField))) return false;
-        if (!type(thing.endTime, Union(NULL, TimeField))) return false;
-        if (!type(thing.range, Union(DateRange, RecurrenceCount))) return false;
-        if (!type(thing.differentEndDatePattern, Union(NULL, Int))) return false;
         try { new RecurringEventInstance(thing.startDatePattern, thing.startTime, thing.endTime, thing.range, thing.differentEndDatePattern); return true; } catch (e) { return false; }
     } else if (sometype === TaskData) {
-        if (!type(thing.instances, List(Union(NonRecurringTaskInstance, RecurringTaskInstance)))) return false;
-        if (!type(thing.hideUntil, Union(NULL, HideUntilRelative, HideUntilDate, HideUntilDayOf))) return false;
-        if (!type(thing.showOverdue, Boolean)) return false;
-        if (!type(thing.workSessions, Union(NULL, List(Union(NonRecurringEventInstance, RecurringEventInstance))))) return false;
         try { new TaskData(thing.instances, thing.hideUntil, thing.showOverdue, thing.workSessions); return true; } catch (e) { return false; }
     } else if (sometype === EventData) {
-        if (!type(thing.instances, List(Union(NonRecurringEventInstance, RecurringEventInstance)))) return false;
         try { new EventData(thing.instances); return true; } catch (e) { return false; }
     } else if (sometype === TaskOrEvent) {
-        if (!exists(thing.id) || !exists(thing.name) || !exists(thing.data)) return false;
         try { new TaskOrEvent(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     }
     // Primitive type checks
@@ -487,6 +454,7 @@ function type(thing, sometype) {
     else if (sometype === Symbol) return typeof thing === 'symbol';
     else if (sometype === BigInt) return typeof thing === 'bigint';
     // String format symbols for date components
+    // these are just symbols, so the validation is done in the type checking function
     else if (sometype === YYYY_MM_DD) {
         if (typeof thing !== 'string') return false;
         const parts = thing.split('-');
