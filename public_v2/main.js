@@ -328,7 +328,8 @@ let HTML = new class HTMLroot {
         ASSERT(exists(element) && type(id, String));
 
         // Check if id is already in use
-        ASSERT(document.getElementById(id) === NULL, `HTML.setId id ${id} is already in use`);
+        // this is part of our interface with the DOM, so regular null is allowed in code
+        ASSERT(document.getElementById(id) === null, `HTML.setId id ${id} is already in use`);
         element.id = id;
     }
 
@@ -384,9 +385,8 @@ let HTML = new class HTMLroot {
     }
 
     resetHoverStyle(element, styles) {
-        ASSERT(exists(element) && exists(styles));
+        ASSERT(exists(element) && type(styles, Dict(String, String)));
         ASSERT(Object.keys(styles).length > 0);
-        ASSERT(type(styles, Dict(String, String)));
         
         // Check if element has an ID
         ASSERT(exists(element.id) && element.id.length > 0, "Element must have an ID to use setHoverStyle");
@@ -445,13 +445,9 @@ HTML.setStyle(HTML.body, {
     backgroundColor: user.palette.shades[0],
 });
 
-let logo = HTML.getUnsafely('logo');
-if (!exists(logo)) {
-    logo = HTML.make('img');
-    HTML.setId(logo, 'logo');
-    logo.src = './scribblit_logo_2.svg';
-    HTML.body.appendChild(logo);
-}
+let logo = HTML.make('img');
+logo.src = './scribblit_logo_2.svg';
+HTML.setId(logo, 'logo');
 HTML.setStyle(logo, {
     position: 'fixed',
     width: '100px',
@@ -459,6 +455,7 @@ HTML.setStyle(logo, {
     top: String(windowBorderMargin) + 'px',
     left: String(windowBorderMargin) + 'px'
 });
+HTML.body.appendChild(logo);
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
@@ -1293,28 +1290,27 @@ function toggleNumberOfCalendarDays() {
     }
     localStorage.setItem("userData", JSON.stringify(user));
 
-    let buttonNumberCalendarDays = HTML.getUnsafely('buttonNumberCalendarDays');
-    if (!exists(buttonNumberCalendarDays)) {
-        buttonNumberCalendarDays = HTML.make('div');
-        HTML.setId(buttonNumberCalendarDays, 'buttonNumberCalendarDays');
-        HTML.body.appendChild(buttonNumberCalendarDays);
-    }
-    HTML.setStyle(buttonNumberCalendarDays, {
-        position: 'fixed',
-        top: windowBorderMargin + 'px',
-        // logo width + window border margin*2
-        left: String(100 + windowBorderMargin*2) + 'px',
-        backgroundColor: user.palette.shades[1],
-        fontSize: '12px',
-        color: user.palette.shades[3],
-    });
-    ASSERT(type(user.settings.numberOfCalendarDays, Int));
-    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
+    let buttonNumberCalendarDays = HTML.get('buttonNumberCalendarDays');
     buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
-    buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
-
     resizeListener();
 }
+
+let buttonNumberCalendarDays = HTML.make('div');
+HTML.setId(buttonNumberCalendarDays, 'buttonNumberCalendarDays');
+HTML.setStyle(buttonNumberCalendarDays, {
+    position: 'fixed',
+    top: windowBorderMargin + 'px',
+    // logo width + window border margin*2
+    left: String(100 + windowBorderMargin*2) + 'px',
+    backgroundColor: user.palette.shades[1],
+    fontSize: '12px',
+    color: user.palette.shades[3],
+});
+ASSERT(type(user.settings.numberOfCalendarDays, Int));
+ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
+buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
+buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
+HTML.body.appendChild(buttonNumberCalendarDays);
 
 function toggleAmPmOr24() {
     ASSERT(type(user.settings.ampmOr24, String));
@@ -1326,24 +1322,9 @@ function toggleAmPmOr24() {
     }
     localStorage.setItem("userData", JSON.stringify(user));
 
-    let buttonAmPmOr24 = HTML.getUnsafely('buttonAmPmOr24');
-    if (!exists(buttonAmPmOr24)) {
-        buttonAmPmOr24 = HTML.make('div');
-        HTML.setId(buttonAmPmOr24, 'buttonAmPmOr24');
-        HTML.body.appendChild(buttonAmPmOr24);
-    }
-    HTML.setStyle(buttonAmPmOr24, {
-        position: 'fixed',
-        top: windowBorderMargin + 'px',
-        // logo width + window border margin*2
-        left: String(100 + windowBorderMargin*2 + 250) + 'px',
-        backgroundColor: user.palette.shades[1],
-        fontSize: '12px',
-        color: user.palette.shades[3],
-    });
-    buttonAmPmOr24.onclick = toggleAmPmOr24;
+    let buttonAmPmOr24 = HTML.get('buttonAmPmOr24');
     buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
-
+    
     // update all hour markers
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         for (let j = 0; j < 24; j++) {
@@ -1360,12 +1341,8 @@ function toggleAmPmOr24() {
     }
 }
 
-let buttonAmPmOr24 = HTML.getUnsafely('buttonAmPmOr24');
-if (!exists(buttonAmPmOr24)) {
-    buttonAmPmOr24 = HTML.make('div');
-    HTML.setId(buttonAmPmOr24, 'buttonAmPmOr24');
-    HTML.body.appendChild(buttonAmPmOr24);
-}
+let buttonAmPmOr24 = HTML.make('div');
+HTML.setId(buttonAmPmOr24, 'buttonAmPmOr24');
 HTML.setStyle(buttonAmPmOr24, {
     position: 'fixed',
     top: windowBorderMargin + 'px',
@@ -1377,6 +1354,7 @@ HTML.setStyle(buttonAmPmOr24, {
 });
 buttonAmPmOr24.onclick = toggleAmPmOr24;
 buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
+HTML.body.appendChild(buttonAmPmOr24);
 
 function toggleStacking() {
     ASSERT(type(user.settings.stacking, Boolean));
@@ -1385,12 +1363,8 @@ function toggleStacking() {
     resizeListener();
 }
 
-let buttonStacking = HTML.getUnsafely('buttonStacking');
-if (!exists(buttonStacking)) {
-    buttonStacking = HTML.make('div');
-    HTML.setId(buttonStacking, 'buttonStacking');
-    HTML.body.appendChild(buttonStacking);
-}
+let buttonStacking = HTML.make('div');
+HTML.setId(buttonStacking, 'buttonStacking');
 HTML.setStyle(buttonStacking, {
     position: 'fixed',
     top: windowBorderMargin + 'px',
@@ -1402,6 +1376,7 @@ HTML.setStyle(buttonStacking, {
 });
 buttonStacking.onclick = toggleStacking;
 buttonStacking.innerHTML = 'Toggle Stacking';
+HTML.body.appendChild(buttonStacking);
 
 window.onresize = resizeListener;
 
