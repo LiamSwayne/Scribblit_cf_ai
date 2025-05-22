@@ -449,23 +449,17 @@ function type(thing, sometype) {
         if (!type(thing.completion, List(Int))) return false;
         try { new NonRecurringTaskInstance(thing.date, thing.dueTime, thing.completion); return true; } catch (e) { return false; }
     } else if (sometype === RecurringTaskInstance) {
-        if (!exists(thing.datePattern) || !exists(thing.dueTime) || !exists(thing.range) || !exists(thing.completion)) return false;
-        if (!type(thing.datePattern, EveryNDaysPattern) && !type(thing.datePattern, MonthlyPattern) && !type(thing.datePattern, AnnuallyPattern)) return false;
-        const dueTime2 = thing.dueTime;
-        if (dueTime2 !== NULL && !type(dueTime2, TimeField)) return false;
-        if (!type(thing.range, DateRange) && !type(thing.range, RecurrenceCount)) return false;
-        if (!Array.isArray(thing.completion)) return false;
-        try { new RecurringTaskInstance(thing.datePattern, dueTime2, thing.range, thing.completion); return true; } catch (e) { return false; }
+        if (!type(thing.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern))) return false;
+        if (!type(thing.dueTime, Union(NULL, TimeField))) return false;
+        if (!type(thing.range, Union(DateRange, RecurrenceCount))) return false;
+        if (!type(thing.completion, List(Int))) return false;
+        try { new RecurringTaskInstance(thing.datePattern, thing.dueTime, thing.range, thing.completion); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringEventInstance) {
-        if (!exists(thing.startDate) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.differentEndDate)) return false;
         if (!type(thing.startDate, DateField)) return false;
-        const startTime = thing.startTime;
-        if (startTime !== NULL && !type(startTime, TimeField)) return false;
-        const endTime = thing.endTime;
-        if (endTime !== NULL && !type(endTime, TimeField)) return false;
-        const diffEndDate = thing.differentEndDate;
-        if (diffEndDate !== NULL && !type(diffEndDate, DateField)) return false;
-        try { new NonRecurringEventInstance(thing.startDate, startTime, endTime, diffEndDate); return true; } catch (e) { return false; }
+        if (!type(thing.startTime, Union(NULL, TimeField))) return false;
+        if (!type(thing.endTime, Union(NULL, TimeField))) return false;
+        if (!type(thing.differentEndDate, Union(NULL, DateField))) return false;
+        try { new NonRecurringEventInstance(thing.startDate, thing.startTime, thing.endTime, thing.differentEndDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurringEventInstance) {
         if (!type(thing.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern))) return false;
         if (!type(thing.startTime, Union(NULL, TimeField))) return false;
