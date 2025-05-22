@@ -469,7 +469,6 @@ function type(thing, sometype) {
         if (diffEndDate !== NULL && !type(diffEndDate, DateField)) return false;
         try { new NonRecurringEventInstance(thing.startDate, startTime, endTime, diffEndDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurringEventInstance) {
-        if (!exists(thing.startDatePattern) || !exists(thing.startTime) || !exists(thing.endTime) || !exists(thing.range) || !exists(thing.differentEndDatePattern)) return false;
         if (!type(thing.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern))) return false;
         if (!type(thing.startTime, Union(NULL, TimeField))) return false;
         if (!type(thing.endTime, Union(NULL, TimeField))) return false;
