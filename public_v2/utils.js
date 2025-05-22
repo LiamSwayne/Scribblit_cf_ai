@@ -236,7 +236,7 @@ class RecurringTaskInstance {
 
 // Event instances
 class NonRecurringEventInstance {
-    constructor(startDate, startTime, endTime, differentEndDate = NULL) {
+    constructor(startDate, startTime, endTime, differentEndDate) {
         ASSERT(type(startDate, DateField));
         
         // startTime and endTime can be NULL (optional)
@@ -273,7 +273,7 @@ class NonRecurringEventInstance {
 }
 
 class RecurringEventInstance {
-    constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern = NULL) {
+    constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern) {
         ASSERT(type(startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         
         // startTime and endTime can be NULL (optional)
@@ -294,7 +294,7 @@ class RecurringEventInstance {
         
         ASSERT(type(range, Union(DateRange, RecurrenceCount)));
         
-        // differentEndDatePattern is optional
+        // differentEndDatePattern (optional) is the number of days after each start date to end the event
         if (differentEndDatePattern !== NULL) {
             ASSERT(type(differentEndDatePattern, Int));
             ASSERT(differentEndDatePattern > 0);
