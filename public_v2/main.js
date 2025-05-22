@@ -428,7 +428,6 @@ let HTML = new class HTMLroot {
 }();
 
 // the only use of stylesheet because "body *" in JS is not efficient to select
-// Create a style element
 let styleElement = HTML.make('style');
 styleElement.textContent = `
     body * {
@@ -798,8 +797,8 @@ function renderDay(day, element, index) {
                         let workStart = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
                         
                         workStart = workStart.plus({
-                            hours: parseInt(workTime.startTime.split(':')[0]),
-                            minutes: parseInt(workTime.startTime.split(':')[1])
+                            hours: workTime.startTime.hour,
+                            minutes: workTime.startTime.minute
                         });
                         
                         let workEnd;
@@ -813,8 +812,8 @@ function renderDay(day, element, index) {
                         }
                         
                         workEnd = workEnd.plus({
-                            hours: parseInt(workTime.endTime.split(':')[0]),
-                            minutes: parseInt(workTime.endTime.split(':')[1])
+                            hours: workTime.endTime.hour,
+                            minutes: workTime.endTime.minute
                         });
                         
                         // Convert to milliseconds for comparison
@@ -860,8 +859,8 @@ function renderDay(day, element, index) {
                             
                             // Add the end time hours and minutes
                             endTime = endTime.plus({
-                                hours: parseInt(workTime.endTime.split(':')[0]),
-                                minutes: parseInt(workTime.endTime.split(':')[1])
+                                hours: workTime.endTime.hour,
+                                minutes: workTime.endTime.minute
                             });
                             
                             let endMs = endTime.toMillis();
@@ -919,8 +918,8 @@ function renderDay(day, element, index) {
                     let eventStart = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
                     
                     eventStart = eventStart.plus({
-                        hours: parseInt(instance.startTime.split(':')[0]), 
-                        minutes: parseInt(instance.startTime.split(':')[1])
+                        hours: instance.startTime.hour, 
+                        minutes: instance.startTime.minute
                     }).toMillis();
 
                     let eventEnd;
@@ -936,8 +935,8 @@ function renderDay(day, element, index) {
                         }
                         
                         eventEnd = eventEnd.plus({
-                            hours: parseInt(instance.endTime.split(':')[0]), 
-                            minutes: parseInt(instance.endTime.split(':')[1])
+                            hours: instance.endTime.hour, 
+                            minutes: instance.endTime.minute
                         }).toMillis();
                     } else {
                         // Default to 1 hour if no end time specified
@@ -972,10 +971,10 @@ function renderDay(day, element, index) {
                         
                         if (exists(instance.endTime)) {
                             // Calculate hours/minutes difference between start and end times
-                            let startHours = parseInt(instance.startTime.split(':')[0]);
-                            let startMinutes = parseInt(instance.startTime.split(':')[1]);
-                            let endHours = parseInt(instance.endTime.split(':')[0]);
-                            let endMinutes = parseInt(instance.endTime.split(':')[1]);
+                            let startHours = instance.startTime.hour;
+                            let startMinutes = instance.startTime.minute;
+                            let endHours = instance.endTime.hour;
+                            let endMinutes = instance.endTime.minute;
                             
                             // Calculate duration
                             let durationHours = endHours - startHours;
@@ -997,8 +996,8 @@ function renderDay(day, element, index) {
                             patternEnd = DateTime.fromMillis(patternStart)
                                 .plus({days: instance.differentEndDatePattern})
                                 .set({
-                                    hour: parseInt(instance.endTime.split(':')[0]),
-                                    minute: parseInt(instance.endTime.split(':')[1])
+                                    hour: instance.endTime.hour,
+                                    minute: instance.endTime.minute
                                 }).toMillis();
                         }
                         
