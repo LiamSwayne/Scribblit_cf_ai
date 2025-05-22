@@ -542,7 +542,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     const dates = [];
     let currentDateTime = startDateTime;
     let count = 0;
-    // max of 10000 instances
+    // max of 10000 instances if it's a recurring pattern that doesn't have a count
     const maxCount = type(instance.range, RecurrenceCount) ? instance.range.count : 10000;
     while ((endDateTime === NULL || currentDateTime <= endDateTime) && count < maxCount) {
         // build timestamp (start of day + optional time)
@@ -567,6 +567,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     ASSERT(dates.length <= maxCount);
 
     if (dates.length === 10000) {
+        // this is allowed, but we want to know about it
         log("hit 10000 instance limit for: " + instance.name);
     }
 
