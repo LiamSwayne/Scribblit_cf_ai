@@ -175,7 +175,7 @@ class EveryNDaysPattern {
     toJson() {
         ASSERT(type(this, EveryNDaysPattern));
         return {
-            initialDate: this.initialDate.toJson(), // Assuming DateField has toJson
+            initialDate: this.initialDate.toJson(),
             n: this.n,
             _type: this._type
         };
@@ -195,6 +195,20 @@ class HideUntilRelative {
         ASSERT(type(value, Int), "HideUntilRelative: value must be an Integer.");
         ASSERT(value > 0, "HideUntilRelative: value must be greater than 0.");
         this.value = value;
+        this._type = 'HideUntilRelative';
+    }
+
+    toJson() {
+        ASSERT(type(this, HideUntilRelative));
+        return {
+            value: this.value,
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new HideUntilRelative(json.value);
     }
 }
 
