@@ -102,6 +102,22 @@ class DateField {
         this.year = year;
         this.month = month;
         this.day = day;
+        this._type = 'DateField';
+    }
+
+    toJson() {
+        ASSERT(type(this, DateField));
+        return {
+            year: this.year,
+            month: this.month,
+            day: this.day,
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new DateField(json.year, json.month, json.day);
     }
 
     static fromYYYY_MM_DD(dateString) {
@@ -125,6 +141,21 @@ class TimeField {
         
         this.hour = hour;
         this.minute = minute;
+        this._type = 'TimeField';
+    }
+
+    toJson() {
+        ASSERT(type(this, TimeField));
+        return {
+            hour: this.hour,
+            minute: this.minute,
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new TimeField(json.hour, json.minute);
     }
 }
 
