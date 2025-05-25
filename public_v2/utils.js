@@ -169,6 +169,21 @@ class EveryNDaysPattern {
         
         this.initialDate = initialDate;
         this.n = n;
+        this._type = 'EveryNDaysPattern';
+    }
+
+    toJson() {
+        ASSERT(type(this, EveryNDaysPattern));
+        return {
+            initialDate: this.initialDate.toJson(), // Assuming DateField has toJson
+            n: this.n,
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new EveryNDaysPattern(DateField.fromJson(json.initialDate), json.n);
     }
 }
 
