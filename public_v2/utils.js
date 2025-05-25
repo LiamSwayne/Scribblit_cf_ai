@@ -217,6 +217,20 @@ class HideUntilDate {
     constructor(date) {
         ASSERT(type(date, DateField), "HideUntilDate: value must be a DateField.");
         this.date = date;
+        this._type = 'HideUntilDate';
+    }
+
+    toJson() {
+        ASSERT(type(this, HideUntilDate));
+        return {
+            date: this.date.toJson(),
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new HideUntilDate(DateField.fromJson(json.date));
     }
 }
 
@@ -229,6 +243,20 @@ class MonthlyPattern {
         ASSERT(day >= 1 && day <= 31);
         
         this.day = day;
+        this._type = 'MonthlyPattern';
+    }
+
+    toJson() {
+        ASSERT(type(this, MonthlyPattern));
+        return {
+            day: this.day,
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new MonthlyPattern(json.day);
     }
 }
 
@@ -246,6 +274,21 @@ class AnnuallyPattern {
         
         this.month = month;
         this.day = day;
+        this._type = 'AnnuallyPattern';
+    }
+
+    toJson() {
+        ASSERT(type(this, AnnuallyPattern));
+        return {
+            month: this.month,
+            day: this.day,
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new AnnuallyPattern(json.month, json.day);
     }
 }
 
@@ -266,6 +309,21 @@ class DateRange {
         
         this.startDate = startDate;
         this.endDate = endDate;
+        this._type = 'DateRange';
+    }
+
+    toJson() {
+        ASSERT(type(this, DateRange));
+        return {
+            startDate: this.startDate.toJson(),
+            endDate: this.endDate === NULL ? NULL : this.endDate.toJson(),
+            _type: this._type
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new DateRange(DateField.fromJson(json.startDate), json.endDate === NULL ? NULL : DateField.fromJson(json.endDate));
     }
 }
 
