@@ -102,7 +102,6 @@ class DateField {
         this.year = year;
         this.month = month;
         this.day = day;
-        this._type = 'DateField';
     }
 
     toJson() {
@@ -111,7 +110,7 @@ class DateField {
             year: this.year,
             month: this.month,
             day: this.day,
-            _type: this._type
+            _type: 'DateField'
         };
     }
 
@@ -141,7 +140,6 @@ class TimeField {
         
         this.hour = hour;
         this.minute = minute;
-        this._type = 'TimeField';
     }
 
     toJson() {
@@ -149,7 +147,7 @@ class TimeField {
         return {
             hour: this.hour,
             minute: this.minute,
-            _type: this._type
+            _type: 'TimeField'
         };
     }
 
@@ -169,7 +167,6 @@ class EveryNDaysPattern {
         
         this.initialDate = initialDate;
         this.n = n;
-        this._type = 'EveryNDaysPattern';
     }
 
     toJson() {
@@ -177,7 +174,7 @@ class EveryNDaysPattern {
         return {
             initialDate: this.initialDate.toJson(),
             n: this.n,
-            _type: this._type
+            _type: 'EveryNDaysPattern'
         };
     }
 
@@ -195,14 +192,13 @@ class HideUntilRelative {
         ASSERT(type(value, Int), "HideUntilRelative: value must be an Integer.");
         ASSERT(value > 0, "HideUntilRelative: value must be greater than 0.");
         this.value = value;
-        this._type = 'HideUntilRelative';
     }
 
     toJson() {
         ASSERT(type(this, HideUntilRelative));
         return {
             value: this.value,
-            _type: this._type
+            _type: 'HideUntilRelative'
         };
     }
 
@@ -217,14 +213,13 @@ class HideUntilDate {
     constructor(date) {
         ASSERT(type(date, DateField), "HideUntilDate: value must be a DateField.");
         this.date = date;
-        this._type = 'HideUntilDate';
     }
 
     toJson() {
         ASSERT(type(this, HideUntilDate));
         return {
             date: this.date.toJson(),
-            _type: this._type
+            _type: 'HideUntilDate'
         };
     }
 
@@ -243,14 +238,13 @@ class MonthlyPattern {
         ASSERT(day >= 1 && day <= 31);
         
         this.day = day;
-        this._type = 'MonthlyPattern';
     }
 
     toJson() {
         ASSERT(type(this, MonthlyPattern));
         return {
             day: this.day,
-            _type: this._type
+            _type: 'MonthlyPattern'
         };
     }
 
@@ -274,7 +268,6 @@ class AnnuallyPattern {
         
         this.month = month;
         this.day = day;
-        this._type = 'AnnuallyPattern';
     }
 
     toJson() {
@@ -282,7 +275,7 @@ class AnnuallyPattern {
         return {
             month: this.month,
             day: this.day,
-            _type: this._type
+            _type: 'AnnuallyPattern'
         };
     }
 
@@ -309,21 +302,32 @@ class DateRange {
         
         this.startDate = startDate;
         this.endDate = endDate;
-        this._type = 'DateRange';
     }
 
     toJson() {
         ASSERT(type(this, DateRange));
+        let endDateJson;
+        if (this.endDate === NULL) {
+            endDateJson = NULL;
+        } else {
+            endDateJson = this.endDate.toJson();
+        }
         return {
             startDate: this.startDate.toJson(),
-            endDate: this.endDate === NULL ? NULL : this.endDate.toJson(),
-            _type: this._type
+            endDate: endDateJson,
+            _type: 'DateRange'
         };
     }
 
     static fromJson(json) {
         ASSERT(exists(json));
-        return new DateRange(DateField.fromJson(json.startDate), json.endDate === NULL ? NULL : DateField.fromJson(json.endDate));
+        let endDate;
+        if (json.endDate === NULL) {
+            endDate = NULL;
+        } else {
+            endDate = DateField.fromJson(json.endDate);
+        }
+        return new DateRange(DateField.fromJson(json.startDate), endDate);
     }
 }
 
@@ -333,6 +337,19 @@ class RecurrenceCount {
         ASSERT(count > 0);
         
         this.count = count;
+    }
+
+    toJson() {
+        ASSERT(type(this, RecurrenceCount));
+        return {
+            count: this.count,
+            _type: 'RecurrenceCount'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new RecurrenceCount(json.count);
     }
 }
 
@@ -351,6 +368,33 @@ class NonRecurringTaskInstance {
         this.date = date;
         this.dueTime = dueTime;
         this.completion = completion;
+    }
+
+    toJson() {
+        ASSERT(type(this, NonRecurringTaskInstance));
+        let dueTimeJson;
+        if (this.dueTime === NULL) {
+            dueTimeJson = NULL;
+        } else {
+            dueTimeJson = this.dueTime.toJson();
+        }
+        return {
+            date: this.date.toJson(),
+            dueTime: dueTimeJson,
+            completion: this.completion,
+            _type: 'NonRecurringTaskInstance'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let dueTime;
+        if (json.dueTime === NULL) {
+            dueTime = NULL;
+        } else {
+            dueTime = TimeField.fromJson(json.dueTime);
+        }
+        return new NonRecurringTaskInstance(DateField.fromJson(json.date), dueTime, json.completion);
     }
 }
 
@@ -371,6 +415,55 @@ class RecurringTaskInstance {
         this.dueTime = dueTime;
         this.range = range;
         this.completion = completion;
+    }
+
+    toJson() {
+        ASSERT(type(this, RecurringTaskInstance));
+        let dueTimeJson;
+        if (this.dueTime === NULL) {
+            dueTimeJson = NULL;
+        } else {
+            dueTimeJson = this.dueTime.toJson();
+        }
+        return {
+            datePattern: this.datePattern.toJson(),
+            dueTime: dueTimeJson,
+            range: this.range.toJson(),
+            completion: this.completion,
+            _type: 'RecurringTaskInstance'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let dueTime;
+        if (json.dueTime === NULL) {
+            dueTime = NULL;
+        } else {
+            dueTime = TimeField.fromJson(json.dueTime);
+        }
+        
+        let datePattern;
+        if (json.datePattern._type === 'EveryNDaysPattern') {
+            datePattern = EveryNDaysPattern.fromJson(json.datePattern);
+        } else if (json.datePattern._type === 'MonthlyPattern') {
+            datePattern = MonthlyPattern.fromJson(json.datePattern);
+        } else if (json.datePattern._type === 'AnnuallyPattern') {
+            datePattern = AnnuallyPattern.fromJson(json.datePattern);
+        } else {
+            ASSERT(false, 'Unknown datePattern type in RecurringTaskInstance.fromJson');
+        }
+
+        let range;
+        if (json.range._type === 'DateRange') {
+            range = DateRange.fromJson(json.range);
+        } else if (json.range._type === 'RecurrenceCount') {
+            range = RecurrenceCount.fromJson(json.range);
+        } else {
+            ASSERT(false, 'Unknown range type in RecurringTaskInstance.fromJson');
+        }
+
+        return new RecurringTaskInstance(datePattern, dueTime, range, json.completion);
     }
 }
 
@@ -410,6 +503,58 @@ class NonRecurringEventInstance {
         this.endTime = endTime;
         this.differentEndDate = differentEndDate;
     }
+
+    toJson() {
+        ASSERT(type(this, NonRecurringEventInstance));
+        let startTimeJson;
+        if (this.startTime === NULL) {
+            startTimeJson = NULL;
+        } else {
+            startTimeJson = this.startTime.toJson();
+        }
+        let endTimeJson;
+        if (this.endTime === NULL) {
+            endTimeJson = NULL;
+        } else {
+            endTimeJson = this.endTime.toJson();
+        }
+        let differentEndDateJson;
+        if (this.differentEndDate === NULL) {
+            differentEndDateJson = NULL;
+        } else {
+            differentEndDateJson = this.differentEndDate.toJson();
+        }
+        return {
+            startDate: this.startDate.toJson(),
+            startTime: startTimeJson,
+            endTime: endTimeJson,
+            differentEndDate: differentEndDateJson,
+            _type: 'NonRecurringEventInstance'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let startTime;
+        if (json.startTime === NULL) {
+            startTime = NULL;
+        } else {
+            startTime = TimeField.fromJson(json.startTime);
+        }
+        let endTime;
+        if (json.endTime === NULL) {
+            endTime = NULL;
+        } else {
+            endTime = TimeField.fromJson(json.endTime);
+        }
+        let differentEndDate;
+        if (json.differentEndDate === NULL) {
+            differentEndDate = NULL;
+        } else {
+            differentEndDate = DateField.fromJson(json.differentEndDate);
+        }
+        return new NonRecurringEventInstance(DateField.fromJson(json.startDate), startTime, endTime, differentEndDate);
+    }
 }
 
 class RecurringEventInstance {
@@ -446,6 +591,75 @@ class RecurringEventInstance {
         this.range = range;
         this.differentEndDatePattern = differentEndDatePattern;
     }
+
+    toJson() {
+        ASSERT(type(this, RecurringEventInstance));
+        let startTimeJson;
+        if (this.startTime === NULL) {
+            startTimeJson = NULL;
+        } else {
+            startTimeJson = this.startTime.toJson();
+        }
+        let endTimeJson;
+        if (this.endTime === NULL) {
+            endTimeJson = NULL;
+        } else {
+            endTimeJson = this.endTime.toJson();
+        }
+        return {
+            startDatePattern: this.startDatePattern.toJson(),
+            startTime: startTimeJson,
+            endTime: endTimeJson,
+            range: this.range.toJson(),
+            differentEndDatePattern: this.differentEndDatePattern,
+            _type: 'RecurringEventInstance'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let startDatePattern;
+        if (json.startDatePattern._type === 'EveryNDaysPattern') {
+            startDatePattern = EveryNDaysPattern.fromJson(json.startDatePattern);
+        } else if (json.startDatePattern._type === 'MonthlyPattern') {
+            startDatePattern = MonthlyPattern.fromJson(json.startDatePattern);
+        } else if (json.startDatePattern._type === 'AnnuallyPattern') {
+            startDatePattern = AnnuallyPattern.fromJson(json.startDatePattern);
+        } else {
+            ASSERT(false, 'Unknown startDatePattern type in RecurringEventInstance.fromJson');
+        }
+
+        let startTime;
+        if (json.startTime === NULL) {
+            startTime = NULL;
+        } else {
+            startTime = TimeField.fromJson(json.startTime);
+        }
+
+        let endTime;
+        if (json.endTime === NULL) {
+            endTime = NULL;
+        } else {
+            endTime = TimeField.fromJson(json.endTime);
+        }
+
+        let range;
+        if (json.range._type === 'DateRange') {
+            range = DateRange.fromJson(json.range);
+        } else if (json.range._type === 'RecurrenceCount') {
+            range = RecurrenceCount.fromJson(json.range);
+        } else {
+            ASSERT(false, 'Unknown range type in RecurringEventInstance.fromJson');
+        }
+        
+        // differentEndDatePattern can be NULL
+        let differentEndDatePattern = NULL;
+        if (json.differentEndDatePattern !== NULL) {
+            differentEndDatePattern = json.differentEndDatePattern; 
+        }
+
+        return new RecurringEventInstance(startDatePattern, startTime, endTime, range, differentEndDatePattern);
+    }
 }
 
 // TaskData and EventData
@@ -467,6 +681,72 @@ class TaskData {
         this.showOverdue = showOverdue;
         this.workSessions = workSessions;
     }
+
+    toJson() {
+        ASSERT(type(this, TaskData));
+        let instancesJson = [];
+        for (const instance of this.instances) {
+            instancesJson.push(instance.toJson());
+        }
+        let hideUntilJson;
+        if (this.hideUntil === NULL || this.hideUntil === HideUntilDayOf) { // HideUntilDayOf is a Symbol, doesn't have toJson
+            hideUntilJson = this.hideUntil;
+        } else {
+            hideUntilJson = this.hideUntil.toJson();
+        }
+        let workSessionsJson = NULL;
+        if (this.workSessions !== NULL) {
+            workSessionsJson = [];
+            for (const session of this.workSessions) {
+                workSessionsJson.push(session.toJson());
+            }
+        }
+        return {
+            instances: instancesJson,
+            hideUntil: hideUntilJson,
+            showOverdue: this.showOverdue,
+            workSessions: workSessionsJson,
+            _type: 'TaskData'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let instances = [];
+        for (const instanceJson of json.instances) {
+            if (instanceJson._type === 'NonRecurringTaskInstance') {
+                instances.push(NonRecurringTaskInstance.fromJson(instanceJson));
+            } else if (instanceJson._type === 'RecurringTaskInstance') {
+                instances.push(RecurringTaskInstance.fromJson(instanceJson));
+            } else {
+                ASSERT(false, 'Unknown instance type in TaskData.fromJson');
+            }
+        }
+        let hideUntil;
+        if (json.hideUntil === NULL || json.hideUntil === HideUntilDayOf) { // HideUntilDayOf is a Symbol
+             hideUntil = json.hideUntil;
+        } else if (json.hideUntil._type === 'HideUntilRelative') {
+            hideUntil = HideUntilRelative.fromJson(json.hideUntil);
+        } else if (json.hideUntil._type === 'HideUntilDate') {
+            hideUntil = HideUntilDate.fromJson(json.hideUntil);
+        } else {
+            ASSERT(false, 'Unknown hideUntil type in TaskData.fromJson');
+        }
+        let workSessions = NULL;
+        if (json.workSessions !== NULL) {
+            workSessions = [];
+            for (const sessionJson of json.workSessions) {
+                if (sessionJson._type === 'NonRecurringEventInstance') {
+                    workSessions.push(NonRecurringEventInstance.fromJson(sessionJson));
+                } else if (sessionJson._type === 'RecurringEventInstance') {
+                    workSessions.push(RecurringEventInstance.fromJson(sessionJson));
+                } else {
+                    ASSERT(false, 'Unknown workSession type in TaskData.fromJson');
+                }
+            }
+        }
+        return new TaskData(instances, hideUntil, json.showOverdue, workSessions);
+    }
 }
 
 class EventData {
@@ -475,6 +755,33 @@ class EventData {
         ASSERT(type(instances, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
         
         this.instances = instances;
+    }
+
+    toJson() {
+        ASSERT(type(this, EventData));
+        let instancesJson = [];
+        for (const instance of this.instances) {
+            instancesJson.push(instance.toJson());
+        }
+        return {
+            instances: instancesJson,
+            _type: 'EventData'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let instances = [];
+        for (const instanceJson of json.instances) {
+            if (instanceJson._type === 'NonRecurringEventInstance') {
+                instances.push(NonRecurringEventInstance.fromJson(instanceJson));
+            } else if (instanceJson._type === 'RecurringEventInstance') {
+                instances.push(RecurringEventInstance.fromJson(instanceJson));
+            } else {
+                ASSERT(false, 'Unknown instance type in EventData.fromJson');
+            }
+        }
+        return new EventData(instances);
     }
 }
 
@@ -496,6 +803,30 @@ class TaskOrEvent {
         this.name = name;
         this.description = description;
         this.data = data;
+    }
+
+    toJson() {
+        ASSERT(type(this, TaskOrEvent));
+        return {
+            id: this.id,
+            name: this.name,
+            description: this.description,
+            data: this.data.toJson(),
+            _type: 'TaskOrEvent'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let data;
+        if (json.data._type === 'TaskData') {
+            data = TaskData.fromJson(json.data);
+        } else if (json.data._type === 'EventData') {
+            data = EventData.fromJson(json.data);
+        } else {
+            ASSERT(false, 'Unknown data type in TaskOrEvent.fromJson');
+        }
+        return new TaskOrEvent(json.id, json.name, json.description, data);
     }
 }
 
