@@ -300,13 +300,20 @@ class AnnuallyPattern {
 
 // Nth Weekday of Months Pattern
 class NthWeekdayOfMonthsPattern {
-    constructor(dayOfWeek, n, months) {
+    constructor(dayOfWeek, nthWeekdays, months) {
         ASSERT(type(dayOfWeek, DAY_OF_WEEK), "NthWeekdayOfMonthsPattern: dayOfWeek must be a DAY_OF_WEEK value (e.g. 'monday').");
-        ASSERT(type(n, Int) && n >= 1 && n <= 4, "NthWeekdayOfMonthsPattern: n must be an integer between 1 and 4.");
+        ASSERT(type(nthWeekdays, Dict(Int, Boolean)), "NthWeekdayOfMonthsPattern: nthWeekdays must be a dictionary mapping integers to booleans.");
+        const validNKeys = [1, 2, 3, 4, -1];
+        for (const key in nthWeekdays) {
+            ASSERT(validNKeys.includes(Number(key)), `NthWeekdayOfMonthsPattern: invalid key ${key} in nthWeekdays. Valid keys are 1, 2, 3, 4, -1.`);
+        }
+        ASSERT(Object.keys(nthWeekdays).length > 0 && Object.values(nthWeekdays).some(val => val === true), "NthWeekdayOfMonthsPattern: nthWeekdays must not be empty and at least one value must be true.");
+
         ASSERT(type(months, List(Boolean)) && months.length === 12, "NthWeekdayOfMonthsPattern: months must be an array of 12 booleans.");
+        ASSERT(months.some(month => month), "NthWeekdayOfMonthsPattern: at least one month must be true.");
 
         this.dayOfWeek = dayOfWeek;
-        this.n = n;
+        this.nthWeekdays = nthWeekdays;
         this.months = months;
     }
 
@@ -314,7 +321,7 @@ class NthWeekdayOfMonthsPattern {
         ASSERT(type(this, NthWeekdayOfMonthsPattern));
         return {
             dayOfWeek: this.dayOfWeek,
-            n: this.n,
+            nthWeekdays: this.nthWeekdays,
             months: this.months,
             _type: 'NthWeekdayOfMonthsPattern'
         };
@@ -322,7 +329,9 @@ class NthWeekdayOfMonthsPattern {
 
     static fromJson(json) {
         ASSERT(exists(json));
-        return new NthWeekdayOfMonthsPattern(json.dayOfWeek, json.n, json.months);
+        ASSERT(exists(json.nthWeekdays), "NthWeekdayOfMonthsPattern.fromJson: nthWeekdays property is missing.");
+        ASSERT(exists(json.months), "NthWeekdayOfMonthsPattern.fromJson: months property is missing.");
+        return new NthWeekdayOfMonthsPattern(json.dayOfWeek, nthWeekdays, json.months);
     }
 }
 
@@ -1144,7 +1153,7 @@ function type(thing, sometype) {
         try { new AnnuallyPattern(thing.month, thing.day); return true; } catch (e) { return false; }
     } else if (sometype === NthWeekdayOfMonthsPattern) {
         if (!(thing instanceof NthWeekdayOfMonthsPattern)) return false;
-        try { new NthWeekdayOfMonthsPattern(thing.dayOfWeek, thing.n, thing.months); return true; } catch (e) { return false; }
+        try { new NthWeekdayOfMonthsPattern(thing.dayOfWeek, thing.nthWeekdays, thing.months); return true; } catch (e) { return false; }
     } else if (sometype === DateRange) {
         if (!(thing instanceof DateRange)) return false;
         try { new DateRange(thing.startDate, thing.endDate); return true; } catch (e) { return false; }
