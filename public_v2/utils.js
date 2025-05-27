@@ -723,7 +723,7 @@ class TaskData {
 
 class EventData {
     constructor(instances) {
-        console.log("EventData constructor received instances:", instances);
+        // log("EventData constructor received instances:", instances);
         ASSERT(type(instances, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
         
         this.instances = instances;
