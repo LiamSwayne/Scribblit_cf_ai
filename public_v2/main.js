@@ -131,7 +131,7 @@ if (TESTING) {
             new TaskData( // data
                 [
                     new RecurringTaskInstance(
-                        new MonthlyPattern(1), // datePattern
+                        new MonthlyPattern(1, [true, true, true, true, true, true, true, true, true, true, true, true]), // datePattern
                         new TimeField(10, 0), // dueTime
                         new RecurrenceCount(6), // range
                         [] // completion
@@ -541,7 +541,6 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     
     let pattern;
     if (type(instance, RecurringTaskInstance)) {
-        ASSERT(type(instance.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         pattern = instance.datePattern;
     } else if (type(instance, RecurringEventInstance)) {
         ASSERT(type(instance.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
@@ -612,7 +611,18 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
         if (type(pattern, EveryNDaysPattern)) {
             currentDateTime = currentDateTime.plus({days: pattern.n});
         } else if (type(pattern, MonthlyPattern)) {
-            currentDateTime = currentDateTime.plus({months: 1}).set({day: pattern.day});
+            let nextDateTime = currentDateTime.plus({months: 1}).set({day: pattern.day});
+            // Find the next valid month
+            // array of booleans, true if the pattern is active in that month
+            while (!pattern.months[nextDateTime.month - 1]) {
+                nextDateTime = nextDateTime.plus({months: 1}).set({day: pattern.day});
+                if (nextDateTime.year > currentDateTime.year + 5) { // Arbitrary limit to prevent runaway loops
+                    log("Warning: Potential infinite loop in MonthlyPattern processing. No valid month found within 5 years.");
+                    currentDateTime = endDateTime.plus({days: 1}); // Force exit
+                    break;
+                }
+            }
+            currentDateTime = nextDateTime;
         } else if (type(pattern, AnnuallyPattern)) {
             currentDateTime = currentDateTime.plus({years: 1}).set({month: pattern.month, day: pattern.day});
         } else {

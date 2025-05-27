@@ -239,24 +239,31 @@ class HideUntilDate {
 const HideUntilDayOf = Symbol('HideUntilDayOf');
 
 class MonthlyPattern {
-    constructor(day) {
+    constructor(day, months) {
         ASSERT(type(day, Int));
         ASSERT(day >= 1 && day <= 31);
+        ASSERT(type(months, List(Boolean)) && months.length === 12, "MonthlyPattern: months must be an array of 12 booleans.");
+
+        // check that at least one month is true
+        ASSERT(months.some(month => month), "MonthlyPattern: at least one month must be true.");
         
         this.day = day;
+        this.months = months;
     }
 
     toJson() {
         ASSERT(type(this, MonthlyPattern));
         return {
             day: this.day,
+            months: this.months,
             _type: 'MonthlyPattern'
         };
     }
 
     static fromJson(json) {
         ASSERT(exists(json));
-        return new MonthlyPattern(json.day);
+        ASSERT(exists(json.months), "MonthlyPattern.fromJson: months property is missing.");
+        return new MonthlyPattern(json.day, json.months);
     }
 }
 
@@ -288,6 +295,34 @@ class AnnuallyPattern {
     static fromJson(json) {
         ASSERT(exists(json));
         return new AnnuallyPattern(json.month, json.day);
+    }
+}
+
+// Nth Weekday of Months Pattern
+class NthWeekdayOfMonthsPattern {
+    constructor(dayOfWeek, n, months) {
+        ASSERT(type(dayOfWeek, DAY_OF_WEEK), "NthWeekdayOfMonthsPattern: dayOfWeek must be a DAY_OF_WEEK value (e.g. 'monday').");
+        ASSERT(type(n, Int) && n >= 1 && n <= 4, "NthWeekdayOfMonthsPattern: n must be an integer between 1 and 4.");
+        ASSERT(type(months, List(Boolean)) && months.length === 12, "NthWeekdayOfMonthsPattern: months must be an array of 12 booleans.");
+
+        this.dayOfWeek = dayOfWeek;
+        this.n = n;
+        this.months = months;
+    }
+
+    toJson() {
+        ASSERT(type(this, NthWeekdayOfMonthsPattern));
+        return {
+            dayOfWeek: this.dayOfWeek,
+            n: this.n,
+            months: this.months,
+            _type: 'NthWeekdayOfMonthsPattern'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        return new NthWeekdayOfMonthsPattern(json.dayOfWeek, json.n, json.months);
     }
 }
 
@@ -402,7 +437,7 @@ class NonRecurringTaskInstance {
 
 class RecurringTaskInstance {
     constructor(datePattern, dueTime, range, completion) {
-        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)));
         ASSERT(type(dueTime, Union(TimeField, NULL)));
         ASSERT(type(range, Union(DateRange, RecurrenceCount)));
         ASSERT(type(completion, List(Int)));
@@ -446,6 +481,8 @@ class RecurringTaskInstance {
             datePattern = MonthlyPattern.fromJson(json.datePattern);
         } else if (json.datePattern._type === 'AnnuallyPattern') {
             datePattern = AnnuallyPattern.fromJson(json.datePattern);
+        } else if (json.datePattern._type === 'NthWeekdayOfMonthsPattern') {
+            datePattern = NthWeekdayOfMonthsPattern.fromJson(json.datePattern);
         } else {
             ASSERT(false, 'Unknown datePattern type in RecurringTaskInstance.fromJson');
         }
@@ -556,7 +593,7 @@ class NonRecurringEventInstance {
 
 class RecurringEventInstance {
     constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern) {
-        ASSERT(type(startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        ASSERT(type(startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)));
         ASSERT(type(startTime, Union(TimeField, NULL)));
         ASSERT(type(endTime, Union(TimeField, NULL)));
         ASSERT(type(range, Union(DateRange, RecurrenceCount)));
@@ -625,6 +662,8 @@ class RecurringEventInstance {
             startDatePattern = MonthlyPattern.fromJson(json.startDatePattern);
         } else if (json.startDatePattern._type === 'AnnuallyPattern') {
             startDatePattern = AnnuallyPattern.fromJson(json.startDatePattern);
+        } else if (json.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
+            startDatePattern = NthWeekdayOfMonthsPattern.fromJson(json.startDatePattern);
         } else {
             ASSERT(false, 'Unknown startDatePattern type in RecurringEventInstance.fromJson');
         }
@@ -824,7 +863,7 @@ class NonRecurringReminderInstance {
 
 class RecurringReminderInstance {
     constructor(datePattern, time, range) {
-        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)));
 
         ASSERT(type(time, Union(TimeField, NULL)));
 
@@ -860,6 +899,8 @@ class RecurringReminderInstance {
             datePattern = MonthlyPattern.fromJson(json.datePattern);
         } else if (json.datePattern._type === 'AnnuallyPattern') {
             datePattern = AnnuallyPattern.fromJson(json.datePattern);
+        } else if (json.datePattern._type === 'NthWeekdayOfMonthsPattern') {
+            datePattern = NthWeekdayOfMonthsPattern.fromJson(json.datePattern);
         } else {
             ASSERT(false, 'Unknown datePattern type in RecurringReminderInstance.fromJson');
         }
@@ -1071,12 +1112,10 @@ function type(thing, sometype) {
                 otherTypes.push(t);
             }
         }
-
         // Check symbol types first
         for (const unionType of symbolTypes) {
             if (type(thing, unionType)) return true;
         }
-
         // Then check other types (classes, primitive constructors, other LIST/DICT/UNION)
         for (const unionType of otherTypes) {
             if (type(thing, unionType)) return true;
@@ -1099,10 +1138,13 @@ function type(thing, sometype) {
         try { new EveryNDaysPattern(thing.initialDate, thing.n); return true; } catch (e) { return false; }
     } else if (sometype === MonthlyPattern) {
         if (!(thing instanceof MonthlyPattern)) return false;
-        try { new MonthlyPattern(thing.day); return true; } catch (e) { return false; }
+        try { new MonthlyPattern(thing.day, thing.months); return true; } catch (e) { return false; }
     } else if (sometype === AnnuallyPattern) {
         if (!(thing instanceof AnnuallyPattern)) return false;
         try { new AnnuallyPattern(thing.month, thing.day); return true; } catch (e) { return false; }
+    } else if (sometype === NthWeekdayOfMonthsPattern) {
+        if (!(thing instanceof NthWeekdayOfMonthsPattern)) return false;
+        try { new NthWeekdayOfMonthsPattern(thing.dayOfWeek, thing.n, thing.months); return true; } catch (e) { return false; }
     } else if (sometype === DateRange) {
         if (!(thing instanceof DateRange)) return false;
         try { new DateRange(thing.startDate, thing.endDate); return true; } catch (e) { return false; }
@@ -1149,7 +1191,6 @@ function type(thing, sometype) {
     else if (sometype === Boolean) return typeof thing === 'boolean';
     else if (sometype === Symbol) return typeof thing === 'symbol';
     else if (sometype === BigInt) return typeof thing === 'bigint';
-    // String format symbols for date components
     // these are just symbols, so the validation is done in the type checking function
     else if (sometype === YYYY_MM_DD) {
         if (typeof thing !== 'string') return false;
