@@ -11,7 +11,7 @@ function getDay(offset) {
     // Create a DateField object instead of string
     return new DateField(dt.year, dt.month, dt.day);
 }
-let taskEventArray = [];
+let entityArray = [];
 
 let palettes = {
     'dark': { // default
@@ -31,7 +31,7 @@ if (TESTING) {
     
     // AUDIT OF AI CODE NEEDED
     // Create sample tasks and events
-    let taskEventArray = [
+    let entityArray = [
         // one-time task with work time
         new TaskOrEvent(
             'task-001', // id
@@ -200,7 +200,7 @@ if (TESTING) {
 
     // Create user object with the sample data
     let user = {
-        taskEventArray: taskEventArray,
+        entityArray: entityArray,
         settings: {
             stacking: false,
             numberOfCalendarDays: 2,
@@ -223,7 +223,7 @@ let user; // user data / all the stuff they can change
 if (!exists(localStorage.getItem("userData"))) {
     // create a user with the default settings
     user = {
-        taskEventArray: taskEventArray,
+        entityArray: entityArray,
         settings: {
             stacking: false,
             numberOfCalendarDays: 2,
@@ -239,12 +239,12 @@ if (!exists(localStorage.getItem("userData"))) {
     localStorage.setItem("userData", JSON.stringify(user));
 } else {
     user = JSON.parse(localStorage.getItem("userData"));
-    ASSERT(exists(user.taskEventArray) && exists(user.settings));
+    ASSERT(exists(user.entityArray) && exists(user.settings));
     ASSERT(type(user.settings.stacking, Boolean));
     ASSERT(type(user.settings.numberOfCalendarDays, Int));
     ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7, "userData.settings.numberOfCalendarDays out of range 1-7");
     ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
-    ASSERT(Array.isArray(user.taskEventArray));
+    ASSERT(Array.isArray(user.entityArray));
     ASSERT(type(user.firstDayInCalendar, DateField));
 }
 
@@ -758,7 +758,7 @@ function renderDay(day, element, index) {
 
     let filteredInstances = [];
     let filteredAllDayInstances = [];
-    for (let obj of user.taskEventArray) {
+    for (let obj of user.entityArray) {
         ASSERT(type(obj, TaskOrEvent));
         if (type(obj.data, TaskData)) {
             // AUDIT OF AI NEEDED
