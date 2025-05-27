@@ -959,7 +959,26 @@ function type(thing, sometype) {
         }
         return true;
     } else if (sometype instanceof UNION) {
-        for (const unionType of sometype.types) {
+        // Separate types into symbols and others
+        const symbolTypes = [];
+        const otherTypes = [];
+        for (const t of sometype.types) {
+            ASSERT(type(t, Type));
+            // Custom symbols (NULL, Int, etc.) are typeof 'symbol'
+            if (typeof t === 'symbol') {
+                symbolTypes.push(t);
+            } else {
+                otherTypes.push(t);
+            }
+        }
+
+        // Check symbol types first
+        for (const unionType of symbolTypes) {
+            if (type(thing, unionType)) return true;
+        }
+
+        // Then check other types (classes, primitive constructors, other LIST/DICT/UNION)
+        for (const unionType of otherTypes) {
             if (type(thing, unionType)) return true;
         }
         return false;
@@ -970,6 +989,7 @@ function type(thing, sometype) {
     } else if (sometype === NonEmptyString) {
         return typeof thing === 'string' && thing.length > 0;
     } else if (sometype === DateField) {
+        if (!thing instanceof DateField) return false;
         try { new DateField(thing.year, thing.month, thing.day); return true; } catch (e) { return false; }
     } else if (sometype === TimeField) {
         try { new TimeField(thing.hour, thing.minute); return true; } catch (e) { return false; }
