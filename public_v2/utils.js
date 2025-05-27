@@ -989,39 +989,55 @@ function type(thing, sometype) {
     } else if (sometype === NonEmptyString) {
         return typeof thing === 'string' && thing.length > 0;
     } else if (sometype === DateField) {
-        if (!thing instanceof DateField) return false;
+        if (!(thing instanceof DateField)) return false;
         try { new DateField(thing.year, thing.month, thing.day); return true; } catch (e) { return false; }
     } else if (sometype === TimeField) {
+        if (!(thing instanceof TimeField)) return false;
         try { new TimeField(thing.hour, thing.minute); return true; } catch (e) { return false; }
     } else if (sometype === EveryNDaysPattern) {
+        if (!(thing instanceof EveryNDaysPattern)) return false;
         try { new EveryNDaysPattern(thing.initialDate, thing.n); return true; } catch (e) { return false; }
     } else if (sometype === MonthlyPattern) {
+        if (!(thing instanceof MonthlyPattern)) return false;
         try { new MonthlyPattern(thing.day); return true; } catch (e) { return false; }
     } else if (sometype === AnnuallyPattern) {
+        if (!(thing instanceof AnnuallyPattern)) return false;
         try { new AnnuallyPattern(thing.month, thing.day); return true; } catch (e) { return false; }
     } else if (sometype === DateRange) {
+        if (!(thing instanceof DateRange)) return false;
         try { new DateRange(thing.startDate, thing.endDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurrenceCount) {
+        if (!(thing instanceof RecurrenceCount)) return false;
         try { new RecurrenceCount(thing.count); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringTaskInstance) {
+        if (!(thing instanceof NonRecurringTaskInstance)) return false;
         try { new NonRecurringTaskInstance(thing.date, thing.dueTime, thing.completion); return true; } catch (e) { return false; }
     } else if (sometype === RecurringTaskInstance) {
+        if (!(thing instanceof RecurringTaskInstance)) return false;
         try { new RecurringTaskInstance(thing.datePattern, thing.dueTime, thing.range, thing.completion); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringEventInstance) {
+        if (!(thing instanceof NonRecurringEventInstance)) return false;
         try { new NonRecurringEventInstance(thing.startDate, thing.startTime, thing.endTime, thing.differentEndDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurringEventInstance) {
+        if (!(thing instanceof RecurringEventInstance)) return false;
         try { new RecurringEventInstance(thing.startDatePattern, thing.startTime, thing.endTime, thing.range, thing.differentEndDatePattern); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringReminderInstance) {
+        if (!(thing instanceof NonRecurringReminderInstance)) return false;
         try { new NonRecurringReminderInstance(thing.date, thing.time); return true; } catch (e) { return false; }
     } else if (sometype === RecurringReminderInstance) {
+        if (!(thing instanceof RecurringReminderInstance)) return false;
         try { new RecurringReminderInstance(thing.datePattern, thing.time, thing.range); return true; } catch (e) { return false; }
     } else if (sometype === TaskData) {
+        if (!(thing instanceof TaskData)) return false;
         try { new TaskData(thing.instances, thing.hideUntil, thing.showOverdue, thing.workSessions); return true; } catch (e) { return false; }
     } else if (sometype === EventData) {
+        if (!(thing instanceof EventData)) return false;
         try { new EventData(thing.instances); return true; } catch (e) { return false; }
     } else if (sometype === ReminderData) {
+        if (!(thing instanceof ReminderData)) return false;
         try { new ReminderData(thing.instances); return true; } catch (e) { return false; }
     } else if (sometype === Entity) {
+        if (!(thing instanceof Entity)) return false;
         try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     }
     // Primitive type checks
