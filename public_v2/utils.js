@@ -327,7 +327,7 @@ class DateRange {
     static fromJson(json) {
         ASSERT(exists(json));
         let endDate;
-        if (json.endDate === NULL) {
+        if (json.endDate === symbolToJson(NULL)) {
             endDate = NULL;
         } else {
             endDate = DateField.fromJson(json.endDate);
@@ -391,7 +391,7 @@ class NonRecurringTaskInstance {
     static fromJson(json) {
         ASSERT(exists(json));
         let dueTime;
-        if (json.dueTime === NULL) {
+        if (json.dueTime === symbolToJson(NULL)) {
             dueTime = NULL;
         } else {
             dueTime = TimeField.fromJson(json.dueTime);
@@ -433,7 +433,7 @@ class RecurringTaskInstance {
     static fromJson(json) {
         ASSERT(exists(json));
         let dueTime;
-        if (json.dueTime === NULL) {
+        if (json.dueTime === symbolToJson(NULL)) {
             dueTime = NULL;
         } else {
             dueTime = TimeField.fromJson(json.dueTime);
@@ -526,21 +526,21 @@ class NonRecurringEventInstance {
     static fromJson(json) {
         ASSERT(exists(json));
         let startTime;
-        if (json.startTime === NULL) {
+        if (json.startTime === symbolToJson(NULL)) {
             startTime = NULL;
         } else {
             startTime = TimeField.fromJson(json.startTime);
         }
 
         let endTime;
-        if (json.endTime === NULL) {
+        if (json.endTime === symbolToJson(NULL)) {
             endTime = NULL;
         } else {
             endTime = TimeField.fromJson(json.endTime);
         }
 
         let differentEndDate;
-        if (json.differentEndDate === NULL) {
+        if (json.differentEndDate === symbolToJson(NULL)) {
             differentEndDate = NULL;
         } else {
             differentEndDate = DateField.fromJson(json.differentEndDate);
@@ -620,14 +620,14 @@ class RecurringEventInstance {
         }
 
         let startTime;
-        if (json.startTime === NULL) {
+        if (json.startTime === symbolToJson(NULL)) {
             startTime = NULL;
         } else {
             startTime = TimeField.fromJson(json.startTime);
         }
 
         let endTime;
-        if (json.endTime === NULL) {
+        if (json.endTime === symbolToJson(NULL)) {
             endTime = NULL;
         } else {
             endTime = TimeField.fromJson(json.endTime);
@@ -643,11 +643,12 @@ class RecurringEventInstance {
         }
         
         // differentEndDatePattern can be NULL
-        let differentEndDatePattern = NULL;
-        if (json.differentEndDatePattern !== jsonNullValue) { // Check against jsonNullValue
-            differentEndDatePattern = json.differentEndDatePattern; 
-        } else { // If it is jsonNullValue, set to NULL
+        let differentEndDatePattern;
+        if (json.differentEndDatePattern === symbolToJson(NULL)) {
             differentEndDatePattern = NULL;
+        } else {
+            ASSERT(type(json.differentEndDatePattern, Int));
+            differentEndDatePattern = json.differentEndDatePattern;
         }
 
         return new RecurringEventInstance(startDatePattern, startTime, endTime, range, differentEndDatePattern);
@@ -663,7 +664,7 @@ class TaskData {
         
         ASSERT(type(showOverdue, Boolean));
         
-        ASSERT(type(workSessions, Union(List(Union(NonRecurringEventInstance, RecurringEventInstance)), NULL)));
+        ASSERT(type(workSessions, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
         
         this.instances = instances;
         this.hideUntil = hideUntil;
@@ -685,14 +686,9 @@ class TaskData {
         } else {
             hideUntilJson = this.hideUntil.toJson();
         }
-        let workSessionsJson = NULL;
-        if (this.workSessions === NULL) {
-            workSessionsJson = symbolToJson(NULL);
-        } else {
-            workSessionsJson = [];
-            for (const session of this.workSessions) {
-                workSessionsJson.push(session.toJson());
-            }
+        let workSessionsJson = [];
+        for (const session of this.workSessions) {
+            workSessionsJson.push(session.toJson());
         }
         return {
             instances: instancesJson,
@@ -716,8 +712,10 @@ class TaskData {
             }
         }
         let hideUntil;
-        if (json.hideUntil === NULL || json.hideUntil === HideUntilDayOf) { // HideUntilDayOf is a Symbol
-             hideUntil = json.hideUntil;
+        if (json.hideUntil === symbolToJson(NULL)) {
+            hideUntil = NULL;
+        } else if (json.hideUntil === symbolToJson(HideUntilDayOf)) {
+            hideUntil = HideUntilDayOf;
         } else if (json.hideUntil._type === 'HideUntilRelative') {
             hideUntil = HideUntilRelative.fromJson(json.hideUntil);
         } else if (json.hideUntil._type === 'HideUntilDate') {
@@ -725,17 +723,16 @@ class TaskData {
         } else {
             ASSERT(false, 'Unknown hideUntil type in TaskData.fromJson');
         }
-        let workSessions = NULL;
-        if (json.workSessions !== NULL) {
-            workSessions = [];
-            for (const sessionJson of json.workSessions) {
-                if (sessionJson._type === 'NonRecurringEventInstance') {
-                    workSessions.push(NonRecurringEventInstance.fromJson(sessionJson));
-                } else if (sessionJson._type === 'RecurringEventInstance') {
-                    workSessions.push(RecurringEventInstance.fromJson(sessionJson));
-                } else {
-                    ASSERT(false, 'Unknown workSession type in TaskData.fromJson');
-                }
+        let workSessions = [];
+        ASSERT(Array.isArray(json.workSessions));
+        for (const sessionJson of json.workSessions) {
+            ASSERT(exists(sessionJson));
+            if (sessionJson._type === 'NonRecurringEventInstance') {
+                workSessions.push(NonRecurringEventInstance.fromJson(sessionJson));
+            } else if (sessionJson._type === 'RecurringEventInstance') {
+                workSessions.push(RecurringEventInstance.fromJson(sessionJson));
+            } else {
+                ASSERT(false, 'Unknown workSession type in TaskData.fromJson');
             }
         }
         return new TaskData(instances, hideUntil, json.showOverdue, workSessions);
@@ -806,7 +803,7 @@ class NonRecurringReminderInstance {
     static fromJson(json) {
         ASSERT(exists(json));
         let time;
-        if (json.time === NULL) {
+        if (json.time === symbolToJson(NULL)) {
             time = NULL;
         } else {
             time = TimeField.fromJson(json.time);
@@ -858,7 +855,7 @@ class RecurringReminderInstance {
         }
 
         let time;
-        if (json.time === NULL) {
+        if (json.time === symbolToJson(NULL)) {
             time = NULL;
         } else {
             time = TimeField.fromJson(json.time);
