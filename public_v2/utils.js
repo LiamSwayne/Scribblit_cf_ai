@@ -786,7 +786,7 @@ class EventData {
 }
 
 // Task or Event container, the uppermost level of the data structure
-class TaskOrEvent {
+class Entity {
     constructor(id, name, description, data) {
         ASSERT(type(id, NonEmptyString));
         
@@ -806,7 +806,7 @@ class TaskOrEvent {
     }
 
     toJson() {
-        ASSERT(type(this, TaskOrEvent));
+        ASSERT(type(this, Entity));
         return {
             id: this.id,
             name: this.name,
@@ -826,7 +826,7 @@ class TaskOrEvent {
         } else {
             ASSERT(false, 'Unknown data type in TaskOrEvent.fromJson');
         }
-        return new TaskOrEvent(json.id, json.name, json.description, data);
+        return new Entity(json.id, json.name, json.description, data);
     }
 }
 
@@ -893,8 +893,8 @@ function type(thing, sometype) {
         try { new TaskData(thing.instances, thing.hideUntil, thing.showOverdue, thing.workSessions); return true; } catch (e) { return false; }
     } else if (sometype === EventData) {
         try { new EventData(thing.instances); return true; } catch (e) { return false; }
-    } else if (sometype === TaskOrEvent) {
-        try { new TaskOrEvent(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
+    } else if (sometype === Entity) {
+        try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';
