@@ -930,7 +930,7 @@ class Entity {
             name: this.name,
             description: this.description,
             data: this.data.toJson(),
-            _type: 'TaskOrEvent'
+            _type: 'Entity'
         };
     }
 
@@ -944,7 +944,7 @@ class Entity {
         } else if (json.data._type === 'ReminderData') {
             data = ReminderData.fromJson(json.data);
         } else {
-            ASSERT(false, 'Unknown data type in TaskOrEvent.fromJson');
+            ASSERT(false, 'Unknown data type in Entity.fromJson.');
         }
         return new Entity(json.id, json.name, json.description, data);
     }
