@@ -478,6 +478,11 @@ class NonRecurringEventInstance {
             const endMinutes = endTime.hour * 60 + endTime.minute;
             ASSERT(endMinutes > startMinutes);
         }
+
+        // If endTime is NULL, differentEndDate must also be NULL
+        if (endTime === NULL) {
+            ASSERT(differentEndDate === NULL, "If endTime is NULL, differentEndDate must also be NULL for NonRecurringEventInstance.");
+        }
         
         ASSERT(type(differentEndDate, Union(DateField, NULL)));
             
@@ -562,6 +567,11 @@ class RecurringEventInstance {
             const startMinutes = startTime.hour * 60 + startTime.minute;
             const endMinutes = endTime.hour * 60 + endTime.minute;
             ASSERT(endMinutes > startMinutes);
+        }
+
+        // If endTime is NULL, differentEndDatePattern must also be NULL
+        if (endTime === NULL) {
+            ASSERT(differentEndDatePattern === NULL, "If endTime is NULL, differentEndDatePattern must also be NULL for RecurringEventInstance.");
         }
 
         if (differentEndDatePattern !== NULL) {
@@ -950,6 +960,78 @@ class Entity {
     }
 }
 
+
+// User class to encapsulate all user data
+class User {
+    constructor(entityArray, settings, palette) {
+        ASSERT(type(entityArray, List(Entity)));
+        ASSERT(type(settings, Dict(String, Union(Boolean, Int, String))));
+        ASSERT(type(palette, Dict(String, List(String))));
+        
+        // Validate settings structure
+        ASSERT(type(settings.stacking, Boolean));
+        ASSERT(type(settings.numberOfCalendarDays, Int));
+        ASSERT(1 <= settings.numberOfCalendarDays && settings.numberOfCalendarDays <= 7, "numberOfCalendarDays out of range 1-7");
+        ASSERT(settings.ampmOr24 === 'ampm' || settings.ampmOr24 === '24');
+        ASSERT(type(settings.startOfDayOffset, Int));
+        ASSERT(type(settings.endOfDayOffset, Int));
+        
+        // Validate palette structure
+        ASSERT(type(palette.accent, List(String)));
+        ASSERT(type(palette.shades, List(String)));
+        ASSERT(palette.accent.length === 2);
+        ASSERT(palette.shades.length === 5);
+        
+        this.entityArray = entityArray;
+        this.settings = settings;
+        this.palette = palette;
+    }
+
+    toJson() {
+        ASSERT(type(this, User));
+        let entityArrayJson = [];
+        for (const entity of this.entityArray) {
+            entityArrayJson.push(entity.toJson());
+        }
+        return {
+            entityArray: entityArrayJson,
+            settings: this.settings,
+            palette: this.palette,
+            _type: 'User'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let entityArray = [];
+        for (const entityJson of json.entityArray) {
+            entityArray.push(Entity.fromJson(entityJson));
+        }
+        return new User(
+            entityArray,
+            json.settings,
+            json.palette
+        );
+    }
+
+    static createDefault() {
+        return new User(
+            [], // empty entityArray
+            {
+                stacking: false,
+                numberOfCalendarDays: 2,
+                ampmOr24: 'ampm',
+                startOfDayOffset: 0,
+                endOfDayOffset: 0,
+            },
+            {
+                accent: ['#47b6ff', '#b547ff'],
+                shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
+            }
+        );
+    }
+}
+
 // String format symbols for date components
 const YYYY_MM_DD = Symbol('YYYY_MM_DD');
 const YYYY = Symbol('YYYY');
@@ -1057,6 +1139,9 @@ function type(thing, sometype) {
     } else if (sometype === Entity) {
         if (!(thing instanceof Entity)) return false;
         try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
+    } else if (sometype === User) {
+        if (!(thing instanceof User)) return false;
+        try { new User(thing.entityArray, thing.settings, thing.palette); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';

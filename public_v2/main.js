@@ -1,7 +1,34 @@
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
+// the first day shown in calendar
+let firstDayInCalendar;
+
+// Save user data to localStorage
+function saveUserData(user) {
+    ASSERT(type(user, User));
+    const userJson = user.toJson();
+    localStorage.setItem("userData", JSON.stringify(userJson));
+}
+
+// Load user data from localStorage, returns a User object
+function loadUserData() {
+    const userData = localStorage.getItem("userData");
+    if (!exists(userData)) {
+        // Create default user if no data exists
+        return User.createDefault();
+    } else {
+        try {
+            const userJson = JSON.parse(userData);
+            return User.fromJson(userJson);
+        } catch (error) {
+            log("Error parsing user data, creating default user: " + error.message);
+            return User.createDefault();
+        }
+    }
+}
+
 // returns today's ISO date or the date offset from today by the given number of days
-function getDay(offset) {
+function getDayNDaysFromToday(offset) {
     ASSERT(type(offset, Int) && offset >= 0 && offset < 7);
     let dt = DateTime.local();
     if (offset > 0) {
@@ -112,7 +139,7 @@ if (TESTING) {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                NULL // workSessions
+                [] // workSessions
             ) // data
         ),
     
@@ -237,55 +264,29 @@ if (TESTING) {
     ];      
 
     // Create user object with the sample data
-    let user = {
-        entityArray: entityArray,
-        settings: {
+    let user = new User(
+        entityArray,
+        {
             stacking: false,
             numberOfCalendarDays: 2,
             ampmOr24: 'ampm',
             startOfDayOffset: 0,
             endOfDayOffset: 0,
         },
-        palette: {
+        {
             accent: ['#47b6ff', '#b547ff'],
             shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
-        },
-        firstDayInCalendar: getDay(0) // set to today as DateField
-    };
+        }
+    );
     
-    // Store in localStorage and it will be discovered later
-    localStorage.setItem("userData", JSON.stringify(user));
+    // Store using saveUserData function
+    saveUserData(user);
 }
 
-let user; // user data / all the stuff they can change
-if (!exists(localStorage.getItem("userData"))) {
-    // create a user with the default settings
-    user = {
-        entityArray: entityArray,
-        settings: {
-            stacking: false,
-            numberOfCalendarDays: 2,
-            ampmOr24: 'ampm',
-            // make a day span at a different time
-            // for example if you wake up at 9 and go to bed at 3, you could make march 1st start at march 1st 9am and end at march 2nd at 3am
-            startOfDayOffset: 0,
-            endOfDayOffset: 0,
-        },
-        palette: palettes['dark'],
-        firstDayInCalendar: getDay(0) // set to today as DateField
-    };
-    localStorage.setItem("userData", JSON.stringify(user));
-} else {
-    user = JSON.parse(localStorage.getItem("userData"));
-    user.entityArray = user.entityArray.map(entity => Entity.fromJson(entity));
-    ASSERT(exists(user.entityArray) && exists(user.settings));
-    ASSERT(type(user.settings.stacking, Boolean));
-    ASSERT(type(user.settings.numberOfCalendarDays, Int));
-    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7, "userData.settings.numberOfCalendarDays out of range 1-7");
-    ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
-    ASSERT(Array.isArray(user.entityArray));
-    ASSERT(type(user.firstDayInCalendar, DateField));
-}
+let user = loadUserData();
+// Set firstDayInCalendar to today on page load
+firstDayInCalendar = getDayNDaysFromToday(0);
+ASSERT(type(user, User));
 
 let gapBetweenColumns = 6;
 let windowBorderMargin = 6;
@@ -302,13 +303,13 @@ if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
 // the current days to display
 function currentDays() {
     // firstDayInCalendar must be DateField
-    ASSERT(type(user.firstDayInCalendar, DateField));
+    ASSERT(type(firstDayInCalendar, DateField));
     // numberOfCalendarDays must be Int between 1 and 7
     ASSERT(type(user.settings.numberOfCalendarDays, Int) && user.settings.numberOfCalendarDays >= 1 && user.settings.numberOfCalendarDays <= 7);
     let days = [];
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         // Convert DateField to DateTime, add days, then create a new DateField
-        let dt = DateTime.local(user.firstDayInCalendar.year, user.firstDayInCalendar.month, user.firstDayInCalendar.day);
+        let dt = DateTime.local(firstDayInCalendar.year, firstDayInCalendar.month, firstDayInCalendar.day);
         let dtWithOffset = dt.plus({days: i});
         let dateField = new DateField(dtWithOffset.year, dtWithOffset.month, dtWithOffset.day);
         days.push(dateField);
@@ -508,7 +509,8 @@ function numberOfColumns() {
 function nthHourText(n) {
     ASSERT(type(n, Int));
     ASSERT(0 <= n && n < 24, "nthHourText n out of range 0-23");
-    ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24', "user.settings.ampmOr24 must be 'ampm' or '24'");
+    ASSERT(type(user, User));
+    ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24');
     if (user.settings.ampmOr24 == '24') {
         if (n < 10) {
             return " " + String(n) + ":00";
@@ -587,6 +589,8 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     while ((endDateTime === NULL || currentDateTime <= endDateTime) && count < maxCount) {
         // build timestamp (start of day + optional time)
         let timestamp = currentDateTime.startOf('day').toMillis();
+        let hour;
+        let minute;
         if (type(instance, RecurringTaskInstance) && type(instance.dueTime, TimeField)) {
             hour = instance.dueTime.hour;
             minute = instance.dueTime.minute;
@@ -597,6 +601,10 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
             hour = instance.time.hour;
             minute = instance.time.minute;
         }
+        ASSERT(type(hour, Int));
+        ASSERT(type(minute, Int));
+        ASSERT(0 <= hour && hour < 24);
+        ASSERT(0 <= minute && minute < 60);
         timestamp = currentDateTime.set({hour: hour, minute: minute}).toMillis();
         dates.push(timestamp);
         count++;
@@ -806,7 +814,6 @@ function renderDay(day, element, index) {
     let filteredInstances = [];
     let filteredAllDayInstances = [];
     for (let obj of user.entityArray) {
-        console.log(user.entityArray);
         ASSERT(type(obj, Entity));
         if (type(obj.data, TaskData)) {
             // Handle task work times
@@ -896,12 +903,12 @@ function renderDay(day, element, index) {
                             // Calculate end time based on startTime and endTime fields
                             let endTime;
                             
-                            if (exists(workTime.differentEndDatePattern) && workTime.differentEndDatePattern > 0) {
-                                // Multi-day event using pattern
-                                endTime = startTime.plus({days: workTime.differentEndDatePattern});
+                            if (workTime.differentEndDatePattern === NULL) {
+                                // ends on same day
+                                endTime = startTime.plus({hours: workTime.endTime.hour, minutes: workTime.endTime.minute});
                             } else {
-                                // Same day event
-                                endTime = startTime;
+                                // ends on different day
+                                endTime = startTime.plus({days: workTime.differentEndDatePattern, hours: workTime.endTime.hour, minutes: workTime.endTime.minute});
                             }
                             
                             // Add the end time hours and minutes
@@ -971,8 +978,12 @@ function renderDay(day, element, index) {
                     let eventEnd;
                     
                     // Handle event end time
-                    if (exists(instance.endTime)) {
-                        if (exists(instance.differentEndDate)) {
+                    if (instance.endTime === NULL) {
+                        // Default to 100 minutes if no end time specified. differentEndDate must be NULL here.
+                        eventEnd = DateTime.fromMillis(eventStart).plus({minutes: 100}).toMillis();
+                    } else {
+                        ASSERT(type(instance.endTime, TimeField));
+                        if (instance.differentEndDate !== NULL) {
                             // Multi-day event
                             eventEnd = DateTime.local(instance.differentEndDate.year, instance.differentEndDate.month, instance.differentEndDate.day);
                         } else {
@@ -984,9 +995,6 @@ function renderDay(day, element, index) {
                             hours: instance.endTime.hour, 
                             minutes: instance.endTime.minute
                         }).toMillis();
-                    } else {
-                        // Default to 1 hour if no end time specified
-                        eventEnd = DateTime.fromMillis(eventStart).plus({hours: 1}).toMillis();
                     }
                     
                     // Check if event overlaps with this day
@@ -1031,20 +1039,25 @@ function renderDay(day, element, index) {
                             }
                             
                             patternEnd = DateTime.fromMillis(patternStart)
-                                .plus({hours: durationHours, minutes: durationMinutes}).toMillis();
+                                .plus({hours: durationHours, minutes: durationMinutes});
+
+                            // If there's a differentEndDatePattern, adjust the end date
+                            // This check is now inside the `exists(instance.endTime)` block
+                            // because if endTime is NULL, differentEndDatePattern must also be NULL.
+                            if (instance.differentEndDatePattern !== NULL) {
+                                ASSERT(type(instance.differentEndDatePattern, Int));
+                                ASSERT(instance.differentEndDatePattern > 0);
+                                patternEnd = patternEnd.plus({days: instance.differentEndDatePattern})
+                                    .set({
+                                        hour: instance.endTime.hour, // endTime must exist if differentEndDatePattern exists
+                                        minute: instance.endTime.minute // endTime must exist if differentEndDatePattern exists
+                                    });
+                            }
+                            patternEnd = patternEnd.toMillis();
                         } else {
-                            // Default 1 hour duration
+                            // Default 1 hour duration if no endTime.
+                            // differentEndDatePattern must be NULL here.
                             patternEnd = DateTime.fromMillis(patternStart).plus({hours: 1}).toMillis();
-                        }
-                        
-                        // If there's a differentEndDatePattern, adjust the end date
-                        if (exists(instance.differentEndDatePattern)) {
-                            patternEnd = DateTime.fromMillis(patternStart)
-                                .plus({days: instance.differentEndDatePattern})
-                                .set({
-                                    hour: instance.endTime.hour,
-                                    minute: instance.endTime.minute
-                                }).toMillis();
                         }
                         
                         // Check if this event instance overlaps with current day
@@ -1397,7 +1410,7 @@ function renderCalendar(days) {
     }
 }
 
-function resizeListener() {
+function render() {
     columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
     renderCalendar(currentDays());
@@ -1407,17 +1420,17 @@ function toggleNumberOfCalendarDays() {
     ASSERT(type(user.settings.numberOfCalendarDays, Int));
     ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
     
-    // looping from 2 to 8 incrementing by 1
-    if (user.settings.numberOfCalendarDays >= 7) {
+    // looping from 1 to 7 incrementing by 1
+    if (user.settings.numberOfCalendarDays === 7) {
         user.settings.numberOfCalendarDays = 1;
     } else {
         user.settings.numberOfCalendarDays++;
     }
-    localStorage.setItem("userData", JSON.stringify(user));
+    saveUserData(user);
 
     let buttonNumberCalendarDays = HTML.get('buttonNumberCalendarDays');
     buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
-    resizeListener();
+    render();
 }
 
 let buttonNumberCalendarDays = HTML.make('div');
@@ -1445,7 +1458,7 @@ function toggleAmPmOr24() {
     } else {
         user.settings.ampmOr24 = 'ampm';
     }
-    localStorage.setItem("userData", JSON.stringify(user));
+    saveUserData(user);
 
     let buttonAmPmOr24 = HTML.get('buttonAmPmOr24');
     buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
@@ -1484,8 +1497,8 @@ HTML.body.appendChild(buttonAmPmOr24);
 function toggleStacking() {
     ASSERT(type(user.settings.stacking, Boolean));
     user.settings.stacking = !user.settings.stacking;
-    localStorage.setItem("userData", JSON.stringify(user));
-    resizeListener();
+    saveUserData(user);
+    render();
 }
 
 let buttonStacking = HTML.make('div');
@@ -1503,8 +1516,7 @@ buttonStacking.onclick = toggleStacking;
 buttonStacking.innerHTML = 'Toggle Stacking';
 HTML.body.appendChild(buttonStacking);
 
-window.onresize = resizeListener;
+window.onresize = render;
 
 // init call
-user.settings.firstDayInCalendar = getDay(0); // on page load we want to start with today
-resizeListener();
+render();

@@ -1,4 +1,9 @@
 async function testContinously() {
+    // Wait for user to be initialized
+    while (typeof user === 'undefined') {
+        await sleep(0.01);
+    }
+    
     while (true) {
         await sleep(0.1);
 
