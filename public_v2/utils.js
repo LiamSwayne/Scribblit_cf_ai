@@ -785,7 +785,148 @@ class EventData {
     }
 }
 
-// Task or Event container, the uppermost level of the data structure
+// Reminder Instances
+class NonRecurringReminderInstance {
+    constructor(date, time) {
+        ASSERT(type(date, DateField));
+
+        // time can be NULL (optional)
+        if (time !== NULL) {
+            ASSERT(type(time, TimeField));
+        }
+
+        this.date = date;
+        this.time = time;
+    }
+
+    toJson() {
+        ASSERT(type(this, NonRecurringReminderInstance));
+        let timeJson;
+        if (this.time === NULL) {
+            timeJson = NULL;
+        } else {
+            timeJson = this.time.toJson();
+        }
+        return {
+            date: this.date.toJson(),
+            time: timeJson,
+            _type: 'NonRecurringReminderInstance'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let time;
+        if (json.time === NULL) {
+            time = NULL;
+        } else {
+            time = TimeField.fromJson(json.time);
+        }
+        return new NonRecurringReminderInstance(DateField.fromJson(json.date), time);
+    }
+}
+
+class RecurringReminderInstance {
+    constructor(datePattern, time, range) {
+        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+
+        // time can be NULL (optional)
+        if (time !== NULL) {
+            ASSERT(type(time, TimeField));
+        }
+
+        ASSERT(type(range, Union(DateRange, RecurrenceCount)));
+
+        this.datePattern = datePattern;
+        this.time = time;
+        this.range = range;
+    }
+
+    toJson() {
+        ASSERT(type(this, RecurringReminderInstance));
+        let timeJson;
+        if (this.time === NULL) {
+            timeJson = NULL;
+        } else {
+            timeJson = this.time.toJson();
+        }
+        return {
+            datePattern: this.datePattern.toJson(),
+            time: timeJson,
+            range: this.range.toJson(),
+            _type: 'RecurringReminderInstance'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json) && exists(json.datePattern));
+        let datePattern;
+        if (json.datePattern._type === 'EveryNDaysPattern') {
+            datePattern = EveryNDaysPattern.fromJson(json.datePattern);
+        } else if (json.datePattern._type === 'MonthlyPattern') {
+            datePattern = MonthlyPattern.fromJson(json.datePattern);
+        } else if (json.datePattern._type === 'AnnuallyPattern') {
+            datePattern = AnnuallyPattern.fromJson(json.datePattern);
+        } else {
+            ASSERT(false, 'Unknown datePattern type in RecurringReminderInstance.fromJson');
+        }
+
+        let time;
+        if (json.time === NULL) {
+            time = NULL;
+        } else {
+            time = TimeField.fromJson(json.time);
+        }
+
+        let range;
+        if (json.range._type === 'DateRange') {
+            range = DateRange.fromJson(json.range);
+        } else if (json.range._type === 'RecurrenceCount') {
+            range = RecurrenceCount.fromJson(json.range);
+        } else {
+            ASSERT(false, 'Unknown range type in RecurringReminderInstance.fromJson');
+        }
+
+        return new RecurringReminderInstance(datePattern, time, range);
+    }
+}
+
+class ReminderData {
+    constructor(instances) {
+        ASSERT(type(instances, List(Union(NonRecurringReminderInstance, RecurringReminderInstance))));
+        this.instances = instances;
+    }
+
+    toJson() {
+        ASSERT(type(this, ReminderData));
+        let instancesJson = [];
+        for (const instance of this.instances) {
+            instancesJson.push(instance.toJson());
+        }
+        return {
+            instances: instancesJson,
+            _type: 'ReminderData'
+        };
+    }
+
+    static fromJson(json) {
+        ASSERT(exists(json));
+        let instances = [];
+        for (const instanceJson of json.instances) {
+            if (instanceJson._type === 'NonRecurringReminderInstance') {
+                instances.push(NonRecurringReminderInstance.fromJson(instanceJson));
+            } else if (instanceJson._type === 'RecurringReminderInstance') {
+                instances.push(RecurringReminderInstance.fromJson(instanceJson));
+            } else {
+                ASSERT(false, 'Unknown instance type in ReminderData.fromJson');
+            }
+        }
+        return new ReminderData(instances);
+    }
+}
+
+// The uppermost level of the data structure
+// Contains a task, event, or reminder
 class Entity {
     constructor(id, name, description, data) {
         ASSERT(type(id, NonEmptyString));
@@ -797,7 +938,7 @@ class Entity {
             ASSERT(type(description, String));
         }
         
-        ASSERT(type(data, Union(TaskData, EventData)));
+        ASSERT(type(data, Union(TaskData, EventData, ReminderData)));
         
         this.id = id;
         this.name = name;
@@ -817,12 +958,14 @@ class Entity {
     }
 
     static fromJson(json) {
-        ASSERT(exists(json));
+        ASSERT(exists(json) && exists(json.data));
         let data;
         if (json.data._type === 'TaskData') {
             data = TaskData.fromJson(json.data);
         } else if (json.data._type === 'EventData') {
             data = EventData.fromJson(json.data);
+        } else if (json.data._type === 'ReminderData') {
+            data = ReminderData.fromJson(json.data);
         } else {
             ASSERT(false, 'Unknown data type in TaskOrEvent.fromJson');
         }
@@ -889,10 +1032,16 @@ function type(thing, sometype) {
         try { new NonRecurringEventInstance(thing.startDate, thing.startTime, thing.endTime, thing.differentEndDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurringEventInstance) {
         try { new RecurringEventInstance(thing.startDatePattern, thing.startTime, thing.endTime, thing.range, thing.differentEndDatePattern); return true; } catch (e) { return false; }
+    } else if (sometype === NonRecurringReminderInstance) {
+        try { new NonRecurringReminderInstance(thing.date, thing.time); return true; } catch (e) { return false; }
+    } else if (sometype === RecurringReminderInstance) {
+        try { new RecurringReminderInstance(thing.datePattern, thing.time, thing.range); return true; } catch (e) { return false; }
     } else if (sometype === TaskData) {
         try { new TaskData(thing.instances, thing.hideUntil, thing.showOverdue, thing.workSessions); return true; } catch (e) { return false; }
     } else if (sometype === EventData) {
         try { new EventData(thing.instances); return true; } catch (e) { return false; }
+    } else if (sometype === ReminderData) {
+        try { new ReminderData(thing.instances); return true; } catch (e) { return false; }
     } else if (sometype === Entity) {
         try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     }
