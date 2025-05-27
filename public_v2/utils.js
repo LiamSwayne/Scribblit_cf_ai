@@ -290,11 +290,10 @@ class DateRange {
     constructor(startDate, endDate) {
         ASSERT(type(startDate, DateField));
         
-        // endDate can be NULL (optional)
-        if (endDate !== NULL) {
-            ASSERT(type(endDate, DateField));
+        ASSERT(type(endDate, Union(DateField, NULL)));
             
-            // Convert to Date objects for comparison
+        // Convert to Date objects for comparison
+        if (endDate !== NULL) {
             const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
             const endDateObj = new Date(endDate.year, endDate.month - 1, endDate.day);
             ASSERT(endDateObj >= startDateObj);
@@ -358,10 +357,7 @@ class NonRecurringTaskInstance {
     constructor(date, dueTime, completion) {
         ASSERT(type(date, DateField));
         
-        // dueTime can be NULL (optional)
-        if (dueTime !== NULL) {
-            ASSERT(type(dueTime, TimeField));
-        }
+        ASSERT(type(dueTime, Union(TimeField, NULL)));
         
         ASSERT(type(completion, List(Int)));
         
@@ -401,14 +397,8 @@ class NonRecurringTaskInstance {
 class RecurringTaskInstance {
     constructor(datePattern, dueTime, range, completion) {
         ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
-        
-        // dueTime can be NULL (optional)
-        if (dueTime !== NULL) {
-            ASSERT(type(dueTime, TimeField));
-        }
-        
-                ASSERT(type(range, Union(DateRange, RecurrenceCount)));
-        
+        ASSERT(type(dueTime, Union(TimeField, NULL)));
+        ASSERT(type(range, Union(DateRange, RecurrenceCount)));
         ASSERT(type(completion, List(Int)));
         
         this.datePattern = datePattern;
@@ -472,27 +462,21 @@ class NonRecurringEventInstance {
     constructor(startDate, startTime, endTime, differentEndDate) {
         ASSERT(type(startDate, DateField));
         
-        // startTime and endTime can be NULL (optional)
-        if (startTime !== NULL) {
-            ASSERT(type(startTime, TimeField));
-        }
-        
-        if (endTime !== NULL) {
-            ASSERT(type(endTime, TimeField));
-            
+        ASSERT(type(startTime, Union(TimeField, NULL)));
+        ASSERT(type(endTime, Union(TimeField, NULL)));
+        ASSERT(type(differentEndDate, Union(DateField, NULL)));
+
             // If both start and end times are provided, validate end is after start on same day
-            if (startTime !== NULL && differentEndDate === NULL) {
-                const startMinutes = startTime.hour * 60 + startTime.minute;
-                const endMinutes = endTime.hour * 60 + endTime.minute;
-                ASSERT(endMinutes > startMinutes);
-            }
+        if (startTime !== NULL && endTime !== NULL && differentEndDate === NULL) {
+            const startMinutes = startTime.hour * 60 + startTime.minute;
+            const endMinutes = endTime.hour * 60 + endTime.minute;
+            ASSERT(endMinutes > startMinutes);
         }
         
-        // differentEndDate is optional
-        if (differentEndDate !== NULL) {
-            ASSERT(type(differentEndDate, DateField));
+        ASSERT(type(differentEndDate, Union(DateField, NULL)));
             
-            // Convert to Date objects for comparison
+        // Convert to Date objects for comparison
+        if (differentEndDate !== NULL) {
             const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
             const endDateObj = new Date(differentEndDate.year, differentEndDate.month - 1, differentEndDate.day);
             ASSERT(endDateObj > startDateObj);
@@ -560,28 +544,19 @@ class NonRecurringEventInstance {
 class RecurringEventInstance {
     constructor(startDatePattern, startTime, endTime, range, differentEndDatePattern) {
         ASSERT(type(startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
-        
-        // startTime and endTime can be NULL (optional)
-        if (startTime !== NULL) {
-            ASSERT(type(startTime, TimeField));
-        }
-        
-        if (endTime !== NULL) {
-            ASSERT(type(endTime, TimeField));
+        ASSERT(type(startTime, Union(TimeField, NULL)));
+        ASSERT(type(endTime, Union(TimeField, NULL)));
+        ASSERT(type(range, Union(DateRange, RecurrenceCount)));
+        ASSERT(type(differentEndDatePattern, Union(Int, NULL)));
             
             // If both start and end times are provided, validate end is after start on same day (if not multi-day)
-            if (startTime !== NULL && differentEndDatePattern === NULL) {
-                const startMinutes = startTime.hour * 60 + startTime.minute;
-                const endMinutes = endTime.hour * 60 + endTime.minute;
-                ASSERT(endMinutes > startMinutes);
-            }
+        if (startTime !== NULL && endTime !== NULL && differentEndDatePattern === NULL) {
+            const startMinutes = startTime.hour * 60 + startTime.minute;
+            const endMinutes = endTime.hour * 60 + endTime.minute;
+            ASSERT(endMinutes > startMinutes);
         }
-        
-        ASSERT(type(range, Union(DateRange, RecurrenceCount)));
-        
-        // differentEndDatePattern (optional) is the number of days after each start date to end the event
+
         if (differentEndDatePattern !== NULL) {
-            ASSERT(type(differentEndDatePattern, Int));
             ASSERT(differentEndDatePattern > 0);
         }
         
@@ -671,10 +646,7 @@ class TaskData {
         
         ASSERT(type(showOverdue, Boolean));
         
-        // workSessions is optional
-        if (workSessions !== NULL) {
-            ASSERT(type(workSessions, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
-        }
+        ASSERT(type(workSessions, Union(List(Union(NonRecurringEventInstance, RecurringEventInstance)), NULL)));
         
         this.instances = instances;
         this.hideUntil = hideUntil;
@@ -789,11 +761,7 @@ class EventData {
 class NonRecurringReminderInstance {
     constructor(date, time) {
         ASSERT(type(date, DateField));
-
-        // time can be NULL (optional)
-        if (time !== NULL) {
-            ASSERT(type(time, TimeField));
-        }
+        ASSERT(type(time, Union(TimeField, NULL)));
 
         this.date = date;
         this.time = time;
@@ -830,10 +798,7 @@ class RecurringReminderInstance {
     constructor(datePattern, time, range) {
         ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
 
-        // time can be NULL (optional)
-        if (time !== NULL) {
-            ASSERT(type(time, TimeField));
-        }
+        ASSERT(type(time, Union(TimeField, NULL)));
 
         ASSERT(type(range, Union(DateRange, RecurrenceCount)));
 
@@ -930,14 +895,8 @@ class ReminderData {
 class Entity {
     constructor(id, name, description, data) {
         ASSERT(type(id, NonEmptyString));
-        
         ASSERT(type(name, NonEmptyString));
-        
-        // description is optional
-        if (description !== NULL) {
-            ASSERT(type(description, String));
-        }
-        
+        ASSERT(type(description, String));
         ASSERT(type(data, Union(TaskData, EventData, ReminderData)));
         
         this.id = id;
