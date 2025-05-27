@@ -28,8 +28,6 @@ let palettes = {
 // load sample data
 if (TESTING) {
     localStorage.clear();
-    
-    // AUDIT OF AI CODE NEEDED
     // Create sample tasks and events
     let entityArray = [
         // one-time task with work time
@@ -122,7 +120,7 @@ if (TESTING) {
         new Entity(
             'event-001', // id
             'Company Holiday', // name
-            'Annual company holiday', // description
+            '', // description
             new EventData( // data
                 [
                     new NonRecurringEventInstance(
@@ -533,8 +531,6 @@ function nthHourText(n) {
     }
 }
 
-// code written by AI
-// needs to be audited!!!
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
     ASSERT(type(instance, Union(RecurringTaskInstance, RecurringEventInstance, RecurringReminderInstance)));
     ASSERT(type(startUnix, Union(Int, NULL)));
@@ -625,7 +621,6 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     return dates;
 }
 
-// AI AUDIT NEEDED
 // check if all of a task is complete
 function isTaskComplete(task) {
     ASSERT(type(task, TaskData));
@@ -933,7 +928,6 @@ function renderDay(day, element, index) {
                 }
             }
         } else if (type(obj.data, EventData)) {
-            // THIS BLOCK REQUIRES AUDIT OF AI CODE
             // Handle events similar to task work times but with some differences
             for (let instance of obj.data.instances) {
                 ASSERT(type(instance, Union(NonRecurringEventInstance, RecurringEventInstance)));
