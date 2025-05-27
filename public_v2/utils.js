@@ -14,44 +14,15 @@ function ASSERT(condition, message="") {
     }
 }
 
-const NULL = Symbol('NULL');
-registerSymbol(NULL);
+const NULL = Symbol('NULL'); // custom null because js null and undefined are off-limits
 const Int = Symbol('Int'); // Symbol for integer type checking
-registerSymbol(Int);
 const Type = Symbol('Type'); // Meta type to represent valid types
-registerSymbol(Type);
 const NonEmptyString = Symbol('NonEmptyString'); // Symbol for non-empty string type checking
-registerSymbol(NonEmptyString);
-
-// Central registry for symbols
-const definedSymbols = {};
-
-function registerSymbol(symbol) {
-    ASSERT(typeof symbol === 'symbol', "registerSymbol expects a symbol");
-    ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for registration must have a description");
-    ASSERT(!definedSymbols.hasOwnProperty(symbol.description), "Symbol with description '" + symbol.description + "' already registered.");
-    definedSymbols[symbol.description] = symbol;
-}
-
-// Initialize the registry with existing global symbols
-// Note: Symbols are unique, so we're storing the original symbols here.
-// The 'key' for lookup will be the symbol's description.
 
 function symbolToJson(symbol) {
     ASSERT(typeof symbol === 'symbol', "symbolToJson expects a symbol.");
     ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for JSONification must have a description.");
     return '$(' + symbol.description + ')';
-}
-
-function symbolFromJson(jsonString) {
-    ASSERT(typeof jsonString === 'string', "symbolFromJson expects a string.");
-    if (jsonString.startsWith('$(') && jsonString.endsWith(')')) {
-        const description = jsonString.substring(2, jsonString.length - 1);
-        if (definedSymbols.hasOwnProperty(description)) {
-            return definedSymbols[description];
-        }
-    }
-    return false; // Return false if no symbol matches or format is incorrect
 }
 
 function exists(obj) {
@@ -266,7 +237,6 @@ class HideUntilDate {
 
 // hide until the day the task is due
 const HideUntilDayOf = Symbol('HideUntilDayOf');
-registerSymbol(HideUntilDayOf);
 
 class MonthlyPattern {
     constructor(day) {
@@ -985,15 +955,10 @@ class Entity {
 
 // String format symbols for date components
 const YYYY_MM_DD = Symbol('YYYY_MM_DD');
-registerSymbol(YYYY_MM_DD);
 const YYYY = Symbol('YYYY');
-registerSymbol(YYYY);
 const MM = Symbol('MM');
-registerSymbol(MM);
 const DD = Symbol('DD');
-registerSymbol(DD);
 const DAY_OF_WEEK = Symbol('DAY_OF_WEEK');
-registerSymbol(DAY_OF_WEEK);
 
 // type checking function
 function type(thing, sometype) {
