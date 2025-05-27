@@ -277,6 +277,7 @@ if (!exists(localStorage.getItem("userData"))) {
     localStorage.setItem("userData", JSON.stringify(user));
 } else {
     user = JSON.parse(localStorage.getItem("userData"));
+    user.entityArray = user.entityArray.map(entity => Entity.fromJson(entity));
     ASSERT(exists(user.entityArray) && exists(user.settings));
     ASSERT(type(user.settings.stacking, Boolean));
     ASSERT(type(user.settings.numberOfCalendarDays, Int));
@@ -805,6 +806,7 @@ function renderDay(day, element, index) {
     let filteredInstances = [];
     let filteredAllDayInstances = [];
     for (let obj of user.entityArray) {
+        console.log(user.entityArray);
         ASSERT(type(obj, Entity));
         if (type(obj.data, TaskData)) {
             // Handle task work times
