@@ -33,7 +33,7 @@ if (TESTING) {
     // Create sample tasks and events
     let entityArray = [
         // one-time task with work time
-        new TaskOrEvent(
+        new Entity(
             'task-001', // id
             'Submit Final Project', // name
             'Complete and submit the final project for CS401', // description
@@ -59,7 +59,7 @@ if (TESTING) {
         ),
     
         // recurring weekly task with completion
-        new TaskOrEvent(
+        new Entity(
             'task-002', // id
             'Weekly Report', // name
             'Submit weekly status report to manager', // description
@@ -99,7 +99,7 @@ if (TESTING) {
         ),
     
         // monthly recurring task
-        new TaskOrEvent(
+        new Entity(
             'task-003', // id
             'Monthly Budget Review', // name
             'Review and update monthly budget', // description
@@ -119,7 +119,7 @@ if (TESTING) {
         ),
     
         // one-time all-day event
-        new TaskOrEvent(
+        new Entity(
             'event-001', // id
             'Company Holiday', // name
             'Annual company holiday', // description
@@ -136,7 +136,7 @@ if (TESTING) {
         ),
     
         // recurring daily meeting
-        new TaskOrEvent(
+        new Entity(
             'event-002', // id
             'Team Standup', // name
             'Daily team standup meeting', // description
@@ -160,7 +160,7 @@ if (TESTING) {
         ),
     
         // one-time multi-day event
-        new TaskOrEvent(
+        new Entity(
             'event-003', // id
             'Annual Conference', // name
             'Industry annual conference', // description
@@ -177,7 +177,7 @@ if (TESTING) {
         ),
     
         // recurring weekend workshop with multi-day span
-        new TaskOrEvent(
+        new Entity(
             'event-004', // id
             'Weekend Workshop', // name
             'Weekend coding workshop', // description
@@ -195,6 +195,46 @@ if (TESTING) {
                     )
                 ] // instances
             ) // data
+        ),
+
+        // Non-recurring timed reminder
+        new Entity(
+            'reminder-001',
+            'Call Alex re: Project X',
+            'Follow up on Project X deliverables',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    new DateField(2025, 3, 9),
+                    new TimeField(14, 30)
+                )
+            ])
+        ),
+
+        // Recurring daily reminder (all-day) for 3 occurrences
+        new Entity(
+            'reminder-002',
+            'Water Plants',
+            'Daily reminder for indoor plants',
+            new ReminderData([
+                new RecurringReminderInstance(
+                    new EveryNDaysPattern(new DateField(2025, 3, 8), 1), // Daily starting 2025-03-08
+                    NULL, // All-day
+                    new RecurrenceCount(3) // For 3 days
+                )
+            ])
+        ),
+
+        // Non-recurring all-day reminder
+        new Entity(
+            'reminder-003',
+            "Sarah's Birthday",
+            "Don't forget to send wishes!",
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    new DateField(2025, 3, 12),
+                    NULL // All-day
+                )
+            ])
         )
     ];      
 
@@ -496,21 +536,24 @@ function nthHourText(n) {
 // code written by AI
 // needs to be audited!!!
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
-    ASSERT(type(instance, Union(RecurringTaskInstance, RecurringEventInstance)));
+    ASSERT(type(instance, Union(RecurringTaskInstance, RecurringEventInstance, RecurringReminderInstance)));
     ASSERT(type(startUnix, Union(Int, NULL)));
     ASSERT(type(endUnix, Union(Int, NULL)));
-    // Identify whether this is a task (dueTime + datePattern) or an event (startTime + startDatePattern)
+    
     let pattern;
-    let timeKey;
     if (type(instance, RecurringTaskInstance)) {
         ASSERT(type(instance.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         pattern = instance.datePattern;
-        timeKey = 'dueTime';
-    } else {
+    } else if (type(instance, RecurringEventInstance)) {
         ASSERT(type(instance.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
         pattern = instance.startDatePattern;
-        timeKey = 'startTime';
+    } else if (type(instance, RecurringReminderInstance)) { // RecurringReminderInstance
+        ASSERT(type(instance.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        pattern = instance.datePattern;
+    } else {
+        ASSERT(false, "Unknown instance type in generateInstancesFromPattern");
     }
+
     // Determine start date
     let startDateTime;
     if (type(startUnix, Int)) {
@@ -547,9 +590,17 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     while ((endDateTime === NULL || currentDateTime <= endDateTime) && count < maxCount) {
         // build timestamp (start of day + optional time)
         let timestamp = currentDateTime.startOf('day').toMillis();
-        if (type(instance[timeKey], TimeField)) {
-            timestamp = currentDateTime.set({hour: instance[timeKey].hour, minute: instance[timeKey].minute}).toMillis();
+        if (type(instance, RecurringTaskInstance) && type(instance.dueTime, TimeField)) {
+            hour = instance.dueTime.hour;
+            minute = instance.dueTime.minute;
+        } else if (type(instance, RecurringEventInstance) && type(instance.startTime, TimeField)) {
+            hour = instance.startTime.hour;
+            minute = instance.startTime.minute;
+        } else if (type(instance, RecurringReminderInstance) && type(instance.time, TimeField)) {
+            hour = instance.time.hour;
+            minute = instance.time.minute;
         }
+        timestamp = currentDateTime.set({hour: hour, minute: minute}).toMillis();
         dates.push(timestamp);
         count++;
         // step to next
@@ -759,9 +810,8 @@ function renderDay(day, element, index) {
     let filteredInstances = [];
     let filteredAllDayInstances = [];
     for (let obj of user.entityArray) {
-        ASSERT(type(obj, TaskOrEvent));
+        ASSERT(type(obj, Entity));
         if (type(obj.data, TaskData)) {
-            // AUDIT OF AI NEEDED
             // Handle task work times
             if (exists(obj.data.workSessions)) {
                 for (let workTime of obj.data.workSessions) {
@@ -1017,8 +1067,86 @@ function renderDay(day, element, index) {
                     }
                 }
             }
+        } else if (type(obj.data, ReminderData)) {
+            // Handle reminders
+            for (let instance of obj.data.instances) {
+                ASSERT(type(instance, Union(NonRecurringReminderInstance, RecurringReminderInstance)));
+
+                if (!exists(instance.time)) { // All-day reminder
+                    if (type(instance, NonRecurringReminderInstance)) {
+                        ASSERT(type(instance.date, DateField));
+                        let reminderDate = DateTime.local(instance.date.year, instance.date.month, instance.date.day);
+                        if (reminderDate.hasSame(dayTime, 'day')) {
+                            filteredAllDayInstances.push({ 
+                                startDate: day, 
+                                faded: false, 
+                                isReminder: true, 
+                                name: obj.name // Store name for display
+                            });
+                        }
+                    } else { // Recurring all-day reminder
+                        let reminderDayStart = dayTime.startOf('day').toMillis();
+                        let reminderDayEnd = dayTime.endOf('day').toMillis();
+                        let patternInstances = generateInstancesFromPattern(instance, reminderDayStart, reminderDayEnd);
+                        if (patternInstances.length > 0) {
+                            filteredAllDayInstances.push({
+                                startDate: day,
+                                faded: false,
+                                isReminder: true,
+                                name: obj.name // Store name for display
+                            });
+                        }
+                    }
+                } else { // Timed reminder
+                    if (type(instance, NonRecurringReminderInstance)) {
+                        ASSERT(type(instance.date, DateField));
+                        let reminderDateTime = DateTime.local(instance.date.year, instance.date.month, instance.date.day)
+                                                    .set({ hour: instance.time.hour, minute: instance.time.minute });
+                        let reminderStartMs = reminderDateTime.toMillis();
+                        // Reminders are points in time, let's give them a 1-hour visual duration for now
+                        let reminderEndMs = reminderDateTime.plus({ hours: 1 }).toMillis(); 
+
+                        if ((reminderStartMs >= startOfDay && reminderStartMs <= endOfDay) ||
+                            (reminderEndMs >= startOfDay && reminderEndMs <= endOfDay) ||
+                            (reminderStartMs <= startOfDay && reminderEndMs >= endOfDay)) {
+                            filteredInstances.push({
+                                startDate: reminderStartMs,
+                                differentEndDate: reminderEndMs, // Treat as 1hr block for vis
+                                wrapToPreviousDay: reminderStartMs < startOfDay,
+                                wrapToNextDay: reminderEndMs > endOfDay,
+                                completeTask: false, // Not applicable
+                                isReminder: true,
+                                name: obj.name // Store name for display
+                            });
+                        }
+                    } else { // Recurring timed reminder
+                        let dayBefore = dayTime.minus({ days: 1 }).startOf('day').toMillis();
+                        let dayAfter = dayTime.plus({ days: 1 }).endOf('day').toMillis();
+                        let patternInstances = generateInstancesFromPattern(instance, dayBefore, dayAfter);
+
+                        for (let patternStart of patternInstances) {
+                            // Reminders are points in time, give 1-hour visual duration
+                            let patternEnd = DateTime.fromMillis(patternStart).plus({ hours: 1 }).toMillis();
+
+                            if ((patternStart >= startOfDay && patternStart <= endOfDay) ||
+                                (patternEnd >= startOfDay && patternEnd <= endOfDay) ||
+                                (patternStart <= startOfDay && patternEnd >= endOfDay)) {
+                                filteredInstances.push({
+                                    startDate: patternStart,
+                                    differentEndDate: patternEnd,
+                                    wrapToPreviousDay: patternStart < startOfDay,
+                                    wrapToNextDay: patternEnd > endOfDay,
+                                    completeTask: false, // Not applicable
+                                    isReminder: true,
+                                    name: obj.name // Store name for display
+                                });
+                            }
+                        }
+                    }
+                }
+            }
         } else {
-            ASSERT(false, "Unknown kind of task/event");
+            ASSERT(false, "Unknown kind of task/event/reminder");
         }
     }
 
@@ -1083,7 +1211,7 @@ function renderDay(day, element, index) {
             height: String(allDayEventHeight - 2) + 'px', // Slight vertical margin
             top: String(allDayEventTop) + 'px',
             left: String(parseInt(HTML.getStyle(element, 'left').slice(0, -2)) + 4.5) + 'px',
-            backgroundColor: user.palette.shades[2],
+            backgroundColor: allDayEvent.isReminder ? user.palette.accent[0] : user.palette.shades[2], // Different color for reminders
             opacity: String(allDayEvent.faded ? 0.5 : 1),
             borderRadius: '3px',
             zIndex: '350'
