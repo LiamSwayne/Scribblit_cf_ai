@@ -15,9 +15,44 @@ function ASSERT(condition, message="") {
 }
 
 const NULL = Symbol('NULL');
+registerSymbol(NULL);
 const Int = Symbol('Int'); // Symbol for integer type checking
+registerSymbol(Int);
 const Type = Symbol('Type'); // Meta type to represent valid types
+registerSymbol(Type);
 const NonEmptyString = Symbol('NonEmptyString'); // Symbol for non-empty string type checking
+registerSymbol(NonEmptyString);
+
+// Central registry for symbols
+const definedSymbols = {};
+
+function registerSymbol(symbol) {
+    ASSERT(typeof symbol === 'symbol', "registerSymbol expects a symbol");
+    ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for registration must have a description");
+    ASSERT(!definedSymbols.hasOwnProperty(symbol.description), "Symbol with description '" + symbol.description + "' already registered.");
+    definedSymbols[symbol.description] = symbol;
+}
+
+// Initialize the registry with existing global symbols
+// Note: Symbols are unique, so we're storing the original symbols here.
+// The 'key' for lookup will be the symbol's description.
+
+function symbolToJson(symbol) {
+    ASSERT(typeof symbol === 'symbol', "symbolToJson expects a symbol.");
+    ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for JSONification must have a description.");
+    return '$(' + symbol.description + ')';
+}
+
+function symbolFromJson(jsonString) {
+    ASSERT(typeof jsonString === 'string', "symbolFromJson expects a string.");
+    if (jsonString.startsWith('$(') && jsonString.endsWith(')')) {
+        const description = jsonString.substring(2, jsonString.length - 1);
+        if (definedSymbols.hasOwnProperty(description)) {
+            return definedSymbols[description];
+        }
+    }
+    return false; // Return false if no symbol matches or format is incorrect
+}
 
 function exists(obj) {
     return obj != null && obj != undefined;
@@ -231,6 +266,7 @@ class HideUntilDate {
 
 // hide until the day the task is due
 const HideUntilDayOf = Symbol('HideUntilDayOf');
+registerSymbol(HideUntilDayOf);
 
 class MonthlyPattern {
     constructor(day) {
@@ -370,7 +406,7 @@ class NonRecurringTaskInstance {
         ASSERT(type(this, NonRecurringTaskInstance));
         let dueTimeJson;
         if (this.dueTime === NULL) {
-            dueTimeJson = NULL;
+            dueTimeJson = symbolToJson(NULL);
         } else {
             dueTimeJson = this.dueTime.toJson();
         }
@@ -411,7 +447,7 @@ class RecurringTaskInstance {
         ASSERT(type(this, RecurringTaskInstance));
         let dueTimeJson;
         if (this.dueTime === NULL) {
-            dueTimeJson = NULL;
+            dueTimeJson = symbolToJson(NULL);
         } else {
             dueTimeJson = this.dueTime.toJson();
         }
@@ -492,19 +528,19 @@ class NonRecurringEventInstance {
         ASSERT(type(this, NonRecurringEventInstance));
         let startTimeJson;
         if (this.startTime === NULL) {
-            startTimeJson = NULL;
+            startTimeJson = symbolToJson(NULL);
         } else {
             startTimeJson = this.startTime.toJson();
         }
         let endTimeJson;
         if (this.endTime === NULL) {
-            endTimeJson = NULL;
+            endTimeJson = symbolToJson(NULL);
         } else {
             endTimeJson = this.endTime.toJson();
         }
         let differentEndDateJson;
         if (this.differentEndDate === NULL) {
-            differentEndDateJson = NULL;
+            differentEndDateJson = symbolToJson(NULL);
         } else {
             differentEndDateJson = this.differentEndDate.toJson();
         }
@@ -525,12 +561,14 @@ class NonRecurringEventInstance {
         } else {
             startTime = TimeField.fromJson(json.startTime);
         }
+
         let endTime;
         if (json.endTime === NULL) {
             endTime = NULL;
         } else {
             endTime = TimeField.fromJson(json.endTime);
         }
+
         let differentEndDate;
         if (json.differentEndDate === NULL) {
             differentEndDate = NULL;
@@ -571,22 +609,29 @@ class RecurringEventInstance {
         ASSERT(type(this, RecurringEventInstance));
         let startTimeJson;
         if (this.startTime === NULL) {
-            startTimeJson = NULL;
+            startTimeJson = symbolToJson(NULL);
         } else {
             startTimeJson = this.startTime.toJson();
         }
         let endTimeJson;
         if (this.endTime === NULL) {
-            endTimeJson = NULL;
+            endTimeJson = symbolToJson(NULL);
         } else {
             endTimeJson = this.endTime.toJson();
         }
+        let differentEndDatePatternJson;
+        if (this.differentEndDatePattern === NULL) {
+            differentEndDatePatternJson = symbolToJson(NULL);
+        } else {
+            differentEndDatePatternJson = this.differentEndDatePattern;
+        }
+
         return {
             startDatePattern: this.startDatePattern.toJson(),
             startTime: startTimeJson,
             endTime: endTimeJson,
             range: this.range.toJson(),
-            differentEndDatePattern: this.differentEndDatePattern,
+            differentEndDatePattern: differentEndDatePatternJson,
             _type: 'RecurringEventInstance'
         };
     }
@@ -629,8 +674,10 @@ class RecurringEventInstance {
         
         // differentEndDatePattern can be NULL
         let differentEndDatePattern = NULL;
-        if (json.differentEndDatePattern !== NULL) {
+        if (json.differentEndDatePattern !== jsonNullValue) { // Check against jsonNullValue
             differentEndDatePattern = json.differentEndDatePattern; 
+        } else { // If it is jsonNullValue, set to NULL
+            differentEndDatePattern = NULL;
         }
 
         return new RecurringEventInstance(startDatePattern, startTime, endTime, range, differentEndDatePattern);
@@ -661,13 +708,17 @@ class TaskData {
             instancesJson.push(instance.toJson());
         }
         let hideUntilJson;
-        if (this.hideUntil === NULL || this.hideUntil === HideUntilDayOf) { // HideUntilDayOf is a Symbol, doesn't have toJson
-            hideUntilJson = this.hideUntil;
+        if (this.hideUntil === NULL) {
+            hideUntilJson = symbolToJson(NULL);
+        } else if (this.hideUntil === HideUntilDayOf) {
+            hideUntilJson = symbolToJson(HideUntilDayOf);
         } else {
             hideUntilJson = this.hideUntil.toJson();
         }
         let workSessionsJson = NULL;
-        if (this.workSessions !== NULL) {
+        if (this.workSessions === NULL) {
+            workSessionsJson = symbolToJson(NULL);
+        } else {
             workSessionsJson = [];
             for (const session of this.workSessions) {
                 workSessionsJson.push(session.toJson());
@@ -771,7 +822,7 @@ class NonRecurringReminderInstance {
         ASSERT(type(this, NonRecurringReminderInstance));
         let timeJson;
         if (this.time === NULL) {
-            timeJson = NULL;
+            timeJson = symbolToJson(NULL);
         } else {
             timeJson = this.time.toJson();
         }
@@ -811,7 +862,7 @@ class RecurringReminderInstance {
         ASSERT(type(this, RecurringReminderInstance));
         let timeJson;
         if (this.time === NULL) {
-            timeJson = NULL;
+            timeJson = symbolToJson(NULL);
         } else {
             timeJson = this.time.toJson();
         }
@@ -934,10 +985,15 @@ class Entity {
 
 // String format symbols for date components
 const YYYY_MM_DD = Symbol('YYYY_MM_DD');
+registerSymbol(YYYY_MM_DD);
 const YYYY = Symbol('YYYY');
+registerSymbol(YYYY);
 const MM = Symbol('MM');
+registerSymbol(MM);
 const DD = Symbol('DD');
+registerSymbol(DD);
 const DAY_OF_WEEK = Symbol('DAY_OF_WEEK');
+registerSymbol(DAY_OF_WEEK);
 
 // type checking function
 function type(thing, sometype) {
