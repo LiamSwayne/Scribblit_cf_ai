@@ -3,6 +3,7 @@ const API_PROVIDERS = {
     CEREBRAS: 'cerebras',
 }
 
+// cheaper and faster, both by more than 10x
 const API_PROVIDER = API_PROVIDERS.CEREBRAS;
 
 function SEND(data, status = 200, contentType = 'json', headers = {}) {
