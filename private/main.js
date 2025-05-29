@@ -1,3 +1,10 @@
+const API_PROVIDERS = {
+    ANTHROPIC: 'anthropic',
+    CEREBRAS: 'cerebras',
+}
+
+const API_PROVIDER = API_PROVIDERS.CEREBRAS;
+
 function SEND(data, status = 200, contentType = 'json', headers = {}) {
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
@@ -94,48 +101,90 @@ Task example: Fill out daily progress by 9pm. I only want to see this task 3 hrs
 
 Give me a JSON response and nothing else.`;
 
-        const requestBody = {
-            model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 8192,
-            system: [
-                {
-                    type: "text",
-                    text: systemPrompt,
-                    cache_control: { type: "ephemeral" }
-                }
-            ],
-            messages: [
-                {
-                    role: "user",
-                    content: `Today is ${dayOfWeek}, ${date} and the time is ${time}.\n\n${actualInput}`
-                }
-            ]
-        };
+        if (API_PROVIDER === API_PROVIDERS.ANTHROPIC) {
+            const requestBody = {
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 8192,
+                system: [
+                    {
+                        type: "text",
+                        text: systemPrompt,
+                        cache_control: { type: "ephemeral" }
+                    }
+                ],
+                messages: [
+                    {
+                        role: "user",
+                        content: `Today is ${dayOfWeek}, ${date} and the time is ${time}.\n\n${actualInput}`
+                    }
+                ]
+            };
 
-        try {
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': env.ANTHROPIC_API_KEY,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-beta': 'prompt-caching-2024-07-31'
-                },
-                body: JSON.stringify(requestBody)
-            });
+            try {
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': env.ANTHROPIC_API_KEY,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-beta': 'prompt-caching-2024-07-31'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
 
-            if (!response.ok) {
-                const errorBody = await response.text();
-                console.error(`Error in anthropic API! status: ${response.status}, body: ${errorBody}`);
-                return SEND({ error: errorBody }, 562);
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error(`Error in anthropic API! status: ${response.status}, body: ${errorBody}`);
+                    return SEND({ error: errorBody }, 562);
+                }
+
+                const result = await response.json();
+                console.log(result);
+                return SEND(result.content[0].text, 200, 'text-no-content-type');
+            } catch (error) {
+                console.error('Error processing input:', error);
+                return SEND({ error: 'Failed to process input' }, 563);
             }
-
-            const result = await response.json();
-            console.log(result);
-            return SEND(result.content[0].text, 200, 'text-no-content-type');
-        } catch (error) {
-            console.error('Error processing input:', error);
-            return SEND({ error: 'Failed to process input' }, 563);
+        } else if (API_PROVIDER === API_PROVIDERS.CEREBRAS) {
+            const requestBody = {
+                model: 'qwen3-32b',
+                messages: [
+                    {
+                        role: "system",
+                        content: systemPrompt
+                    },
+                    {
+                        role: "user",
+                        content: `Today is ${dayOfWeek}, ${date} and the time is ${time}.\n\n${actualInput}`
+                    }
+                ],
+                max_tokens: 8192,
+                temperature: 0.6
+            };
+        
+            try {
+                const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${env.CEREBRAS_API_KEY}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+        
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error(`Error in Cerebras API! status: ${response.status}, body: ${errorBody}`);
+                    return SEND({ error: errorBody }, 562);
+                }
+        
+                const result = await response.json();
+                console.log(result);
+                return SEND(result.choices[0].message.content, 200, 'text-no-content-type');
+            } catch (error) {
+                console.error('Error processing input:', error);
+                return SEND({ error: 'Failed to process input' }, 563);
+            }
         }
     }
 }
