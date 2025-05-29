@@ -534,6 +534,22 @@ function nthHourText(n) {
     }
 }
 
+// Helper function to convert day of week string to Luxon weekday index (1-7, Mon-Sun)
+function dayOfWeekStringToIndex(dayOfWeekString) {
+    ASSERT(type(dayOfWeekString, DAY_OF_WEEK));
+    switch (dayOfWeekString) {
+        case 'monday': return 1;
+        case 'tuesday': return 2;
+        case 'wednesday': return 3;
+        case 'thursday': return 4;
+        case 'friday': return 5;
+        case 'saturday': return 6;
+        case 'sunday': return 7;
+        default:
+            ASSERT(false, `Invalid dayOfWeekString: ${dayOfWeekString}`);
+    }
+}
+
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
     ASSERT(type(instance, Union(RecurringTaskInstance, RecurringEventInstance, RecurringReminderInstance)));
     ASSERT(type(startUnix, Union(Int, NULL)));
@@ -543,10 +559,10 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     if (type(instance, RecurringTaskInstance)) {
         pattern = instance.datePattern;
     } else if (type(instance, RecurringEventInstance)) {
-        ASSERT(type(instance.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        ASSERT(type(instance.startDatePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)));
         pattern = instance.startDatePattern;
     } else if (type(instance, RecurringReminderInstance)) { // RecurringReminderInstance
-        ASSERT(type(instance.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern)));
+        ASSERT(type(instance.datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)));
         pattern = instance.datePattern;
     } else {
         ASSERT(false, "Unknown instance type in generateInstancesFromPattern");
@@ -625,6 +641,68 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
             currentDateTime = nextDateTime;
         } else if (type(pattern, AnnuallyPattern)) {
             currentDateTime = currentDateTime.plus({years: 1}).set({month: pattern.month, day: pattern.day});
+        } else if (type(pattern, NthWeekdayOfMonthsPattern)) {
+            // Logic for NthWeekdayOfMonthsPattern
+            // This will be more complex as it involves finding specific weekdays within months.
+            // We need to iterate through months, find the Nth occurrences of dayOfWeek.
+
+            let foundNext = false;
+            while (!foundNext && (endDateTime === NULL || currentDateTime <= endDateTime)) {
+                currentDateTime = currentDateTime.plus({ days: 1 }); // Increment day by day to find the next match
+
+                if (endDateTime !== NULL && currentDateTime > endDateTime) {
+                    break; // Exceeded end date
+                }
+
+                const currentMonthIndex = currentDateTime.month - 1; // 0-indexed
+                if (!pattern.months[currentMonthIndex]) {
+                    // If current month is not active, skip to the next month
+                    // Ensure day of month does not cause issues (e.g. Jan 31 to Feb)
+                    currentDateTime = currentDateTime.plus({ months: 1 }).set({ day: 1 });
+                    continue;
+                }
+
+                // Check if currentDateTime's day of week matches pattern.dayOfWeek
+                // Luxon's weekday is 1 (Mon) to 7 (Sun)
+                const luxonWeekday = currentDateTime.weekday;
+                const patternWeekdayStr = pattern.dayOfWeek; // 'monday', 'tuesday', etc.
+                let patternLuxonWeekday = dayOfWeekStringToIndex(patternWeekdayStr);
+
+                if (luxonWeekday === patternLuxonWeekday) {
+                    // It's the correct day of the week, now check if it's the Nth occurrence
+                    const dayOfMonth = currentDateTime.day;
+                    const weekNumberInMonth = Math.ceil(dayOfMonth / 7); // 1st, 2nd, 3rd, 4th, 5th week
+
+                    // Check for last weekday of month (-1)
+                    if (pattern.nthWeekdays[-1]) {
+                        const nextSameWeekdayInMonth = currentDateTime.plus({ weeks: 1 });
+                        if (nextSameWeekdayInMonth.month !== currentDateTime.month) { // currentDateTime is the last one
+                             // Check if this date is after the original startDateTime of the loop to avoid double counting
+                            if (currentDateTime > DateTime.fromMillis(dates[dates.length-1])) {
+                                foundNext = true;
+                            }
+                        }
+                    }
+
+                    // Check for specific nth weekdays (1, 2, 3, 4)
+                    if (pattern.nthWeekdays[weekNumberInMonth]) {
+                         if (currentDateTime > DateTime.fromMillis(dates[dates.length-1])) {
+                            foundNext = true;
+                        }
+                    }
+                }
+                if (currentDateTime.year > startDateTime.year + 10 && dates.length < 2) { // Prevent excessively long searches if pattern is sparse
+                     log("Warning: NthWeekdayOfMonthsPattern might be too sparse or never occur. Breaking search.");
+                     currentDateTime = endDateTime ? endDateTime.plus({days: 1}) : currentDateTime.plus({years: 10}); // force exit
+                     break;
+                }
+            }
+            if (!foundNext) {
+                 // If no next date found within limits, effectively end the loop for this pattern
+                 if (endDateTime) currentDateTime = endDateTime.plus({days: 1});
+                 // else, if no endDateTime, we might have hit maxCount or an arbitrary break
+            }
+
         } else {
             ASSERT(false);
         }
@@ -694,27 +772,27 @@ function isTaskComplete(task) {
 }
 
 function renderDay(day, element, index) {
-    ASSERT(type(day, DateField));
+    ASSERT(type(day, DateField) && type(index, Int));
     // get existing element
     
-    ASSERT(element != undefined && element != null, "renderDay element is undefined or null");
+    ASSERT(exists(element));
     ASSERT(parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2) == columnWidth.toFixed(2), `renderDay element width (${parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2)}) is not ${columnWidth.toFixed(2)}`);
-    ASSERT(!isNaN(columnWidth), "columnWidth must be a number");
+    ASSERT(type(columnWidth, Number));
     ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length)}`);
-    ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'height').slice(0, -2))), "element height is not a number");
+    ASSERT(type(parseFloat(HTML.getStyle(element, 'height').slice(0, -2)), Number));
 
     // look for hour markers
     if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
         // if one is missing, all 24 must be missing
         for (let j = 0; j < 24; j++) {
-            ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'top').slice(0, -2)), "element top is not a number"));
-            let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
+            ASSERT(type(parseInt(HTML.getStyle(element, 'top').slice(0, -2), 10), Int));
+            let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2), 10);
             ASSERT(HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length) == 'px', `element style 'left' last 2 chars aren't 'px': ${HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length)}`);
-            ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'left').slice(0, -2))), "element height is not a number");
-            let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
+            ASSERT(type(parseInt(HTML.getStyle(element, 'left').slice(0, -2), 10), Int));
+            let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2), 10);
 
-            ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length, HTML.getStyle(element, 'height').length-2)}`);
-            ASSERT(!isNaN(parseFloat(HTML.getStyle(element, 'height').slice(0, -2))), "element height is not a number");
+            ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length)}`);
+            ASSERT(type(parseFloat(HTML.getStyle(element, 'height').slice(0, -2)), Number));
             let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
 
             if (j > 0) { // on the first hour, we only need the text
@@ -1168,6 +1246,12 @@ function renderDay(day, element, index) {
             ASSERT(false, "Unknown kind of task/event/reminder");
         }
     }
+
+    // Log filtered instances
+    log("Filtered Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
+    log(filteredInstances);
+    log("Filtered All-Day Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
+    log(filteredAllDayInstances);
 
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const allDayEventHeight = 18; // height in px for each all-day event
