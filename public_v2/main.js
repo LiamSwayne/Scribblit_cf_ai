@@ -55,6 +55,44 @@ let palettes = {
 // load sample data
 if (TESTING) {
     localStorage.clear();
+
+    // --- Start of relative date definitions for sample data ---
+    const baseDate = DateTime.local(); // Use a single base for all calculations
+
+    const today = new DateField(baseDate.year, baseDate.month, baseDate.day);
+
+    const tomorrowDate = baseDate.plus({days: 1});
+    const tomorrow = new DateField(tomorrowDate.year, tomorrowDate.month, tomorrowDate.day);
+
+    const in3DaysDate = baseDate.plus({days: 3});
+    const in3Days = new DateField(in3DaysDate.year, in3DaysDate.month, in3DaysDate.day);
+    
+    const in5DaysDate = baseDate.plus({days: 5});
+    const in5Days = new DateField(in5DaysDate.year, in5DaysDate.month, in5DaysDate.day);
+
+    const in1WeekDate = baseDate.plus({days: 7});
+    const in1Week = new DateField(in1WeekDate.year, in1WeekDate.month, in1WeekDate.day);
+
+    const in1WeekPlus2DaysDate = in1WeekDate.plus({days: 2});
+    const in1WeekPlus2Days = new DateField(in1WeekPlus2DaysDate.year, in1WeekPlus2DaysDate.month, in1WeekPlus2DaysDate.day);
+
+    const in2WeeksDate = baseDate.plus({days: 14});
+    const in2Weeks = new DateField(in2WeeksDate.year, in2WeeksDate.month, in2WeeksDate.day);
+    
+    const in1MonthDate = baseDate.plus({months: 1});
+    const in1Month = new DateField(in1MonthDate.year, in1MonthDate.month, in1MonthDate.day);
+    
+    const in2MonthsDate = baseDate.plus({months: 2});
+    const in2Months = new DateField(in2MonthsDate.year, in2MonthsDate.month, in2MonthsDate.day);
+
+    // Calculate next Saturday for event-004
+    let nextSaturdayDateCalc = baseDate;
+    while(nextSaturdayDateCalc.weekday !== 6) { // Luxon: Saturday is 6
+        nextSaturdayDateCalc = nextSaturdayDateCalc.plus({days: 1});
+    }
+    const nextSaturday = new DateField(nextSaturdayDateCalc.year, nextSaturdayDateCalc.month, nextSaturdayDateCalc.day);
+    // --- End of relative date definitions ---
+
     // Create sample tasks and events
     let entityArray = [
         // one-time task with work time
@@ -65,7 +103,7 @@ if (TESTING) {
             new TaskData( // data
                 [
                     new NonRecurringTaskInstance(
-                        new DateField(2025, 3, 10), // date
+                        in1Week, // date
                         new TimeField(23, 59), // dueTime
                         [] // completion
                     )
@@ -74,7 +112,7 @@ if (TESTING) {
                 true, // showOverdue
                 [
                     new NonRecurringEventInstance(
-                        new DateField(2025, 3, 7), // startDate
+                        in5Days, // startDate
                         new TimeField(14, 30), // startTime
                         new TimeField(16, 30), // endTime
                         NULL // differentEndDate
@@ -92,15 +130,15 @@ if (TESTING) {
                 [
                     new RecurringTaskInstance(
                         new EveryNDaysPattern(
-                            new DateField(2025, 3, 7), // initialDate
+                            today, // initialDate
                             7 // n
                         ), // datePattern
                         new TimeField(17, 0), // dueTime
                         new DateRange(
-                            new DateField(2025, 3, 7), // startDate
-                            new DateField(2025, 5, 30) // endDate
+                            today, // startDate
+                            in2Months // endDate
                         ), // range
-                        [1709913600000] // completion
+                        [] // completion
                     )
                 ], // instances
                 NULL, // hideUntil
@@ -108,14 +146,14 @@ if (TESTING) {
                 [
                     new RecurringEventInstance(
                         new EveryNDaysPattern(
-                            new DateField(2025, 3, 7), // initialDate
+                            today, // initialDate
                             7 // n
                         ), // startDatePattern
                         new TimeField(14, 0), // startTime
                         new TimeField(15, 0), // endTime
                         new DateRange(
-                            new DateField(2025, 3, 7), // startDate
-                            new DateField(2025, 5, 30) // endDate
+                            today, // startDate
+                            in2Months // endDate
                         ), // range
                         NULL // differentEndDatePattern
                     )
@@ -131,7 +169,7 @@ if (TESTING) {
             new TaskData( // data
                 [
                     new RecurringTaskInstance(
-                        new MonthlyPattern(1, [true, true, true, true, true, true, true, true, true, true, true, true]), // datePattern
+                        new MonthlyPattern(1, [true, true, true, true, true, true, true, true, true, true, true, true]), // datePattern (1st of every month)
                         new TimeField(10, 0), // dueTime
                         new RecurrenceCount(6), // range
                         [] // completion
@@ -151,7 +189,7 @@ if (TESTING) {
             new EventData( // data
                 [
                     new NonRecurringEventInstance(
-                        new DateField(2025, 3, 8), // startDate
+                        tomorrow, // startDate
                         NULL, // startTime
                         NULL, // endTime
                         NULL // differentEndDate
@@ -169,14 +207,14 @@ if (TESTING) {
                 [
                     new RecurringEventInstance(
                         new EveryNDaysPattern(
-                            new DateField(2025, 3, 6), // initialDate
+                            today, // initialDate
                             1 // n
                         ), // startDatePattern
                         new TimeField(9, 30), // startTime
                         new TimeField(10, 0), // endTime
                         new DateRange(
-                            new DateField(2025, 3, 6), // startDate
-                            new DateField(2025, 3, 20) // endDate
+                            today, // startDate
+                            in2Weeks // endDate
                         ), // range
                         NULL // differentEndDatePattern
                     )
@@ -192,10 +230,10 @@ if (TESTING) {
             new EventData( // data
                 [
                     new NonRecurringEventInstance(
-                        new DateField(2025, 3, 15), // startDate
+                        in1Week, // startDate
                         new TimeField(9, 0), // startTime
                         new TimeField(17, 0), // endTime
-                        new DateField(2025, 3, 17) // differentEndDate
+                        in1WeekPlus2Days // differentEndDate
                     )
                 ] // instances
             ) // data
@@ -210,13 +248,13 @@ if (TESTING) {
                 [
                     new RecurringEventInstance(
                         new EveryNDaysPattern(
-                            new DateField(2025, 3, 8), // initialDate
+                            nextSaturday, // initialDate
                             7 // n
                         ), // startDatePattern
                         new TimeField(10, 0), // startTime
                         new TimeField(16, 0), // endTime
                         new RecurrenceCount(4), // range
-                        1 // differentEndDatePattern
+                        1 // differentEndDatePattern (e.g. workshop lasts 2 days, so end is start + 1 day)
                     )
                 ] // instances
             ) // data
@@ -229,7 +267,7 @@ if (TESTING) {
             'Follow up on Project X deliverables',
             new ReminderData([
                 new NonRecurringReminderInstance(
-                    new DateField(2025, 3, 9),
+                    tomorrow, // date
                     new TimeField(14, 30)
                 )
             ])
@@ -242,7 +280,7 @@ if (TESTING) {
             'Daily reminder for indoor plants',
             new ReminderData([
                 new RecurringReminderInstance(
-                    new EveryNDaysPattern(new DateField(2025, 3, 8), 1), // Daily starting 2025-03-08
+                    new EveryNDaysPattern(today, 1), // Daily starting today
                     NULL, // All-day
                     new RecurrenceCount(3) // For 3 days
                 )
@@ -256,7 +294,7 @@ if (TESTING) {
             "Don't forget to send wishes!",
             new ReminderData([
                 new NonRecurringReminderInstance(
-                    new DateField(2025, 3, 12),
+                    in3Days, // date
                     NULL // All-day
                 )
             ])
