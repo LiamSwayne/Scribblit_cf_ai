@@ -642,18 +642,28 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     while ((endDateTime === NULL || currentDateTime <= endDateTime) && count < maxCount) {
         // build timestamp (start of day + optional time)
         let timestamp = currentDateTime.startOf('day').toMillis();
-        let hour;
-        let minute;
-        if (type(instance, RecurringTaskInstance) && type(instance.dueTime, TimeField)) {
-            hour = instance.dueTime.hour;
-            minute = instance.dueTime.minute;
-        } else if (type(instance, RecurringEventInstance) && type(instance.startTime, TimeField)) {
-            hour = instance.startTime.hour;
-            minute = instance.startTime.minute;
-        } else if (type(instance, RecurringReminderInstance) && type(instance.time, TimeField)) {
-            hour = instance.time.hour;
-            minute = instance.time.minute;
+        
+        // default to midnight
+        let hour = 0;
+        let minute = 0;
+
+        if (type(instance, RecurringTaskInstance)) {
+            if (type(instance.dueTime, TimeField)) {
+                hour = instance.dueTime.hour;
+                minute = instance.dueTime.minute;
+            }
+        } else if (type(instance, RecurringEventInstance)) {
+            if (type(instance.startTime, TimeField)) {
+                hour = instance.startTime.hour;
+                minute = instance.startTime.minute;
+            }
+        } else if (type(instance, RecurringReminderInstance)) {
+            if (type(instance.time, TimeField)) {
+                hour = instance.time.hour;
+                minute = instance.time.minute;
+            }
         }
+
         ASSERT(type(hour, Int));
         ASSERT(type(minute, Int));
         ASSERT(0 <= hour && hour < 24);
@@ -982,7 +992,7 @@ function renderDay(day, element, index) {
                         });
                         
                         let workEnd;
-                        if (exists(workTime.differentEndDate)) {
+                        if (workTime.differentEndDate !== NULL) {
                             ASSERT(type(workTime.differentEndDate, DateField));
                             // Different end date
                             workEnd = DateTime.local(workTime.differentEndDate.year, workTime.differentEndDate.month, workTime.differentEndDate.day);
