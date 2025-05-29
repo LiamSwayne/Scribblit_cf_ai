@@ -147,7 +147,7 @@ Give me a JSON response and nothing else.`;
             }
         } else if (API_PROVIDER === API_PROVIDERS.CEREBRAS) {
             const requestBody = {
-                model: 'qwen3-32b',
+                model: 'qwen-3-32b',
                 messages: [
                     {
                         role: "system",
