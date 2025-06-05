@@ -263,7 +263,7 @@ if (TESTING) {
         // Non-recurring timed reminder
         new Entity(
             'reminder-001',
-            'Call Alex re: Project X',
+            'Call Alex re: Project Super Super Long Long Long Name',
             'Follow up on Project X deliverables',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -281,13 +281,13 @@ if (TESTING) {
             new ReminderData([
                 new RecurringReminderInstance(
                     new EveryNDaysPattern(today, 1), // Daily starting today
-                    NULL, // All-day
+                    new TimeField(9, 0),
                     new RecurrenceCount(3) // For 3 days
                 )
             ])
         ),
 
-        // Non-recurring all-day reminder
+        // Non-recurring all-day reminder -> now timed
         new Entity(
             'reminder-003',
             "Sarah's Birthday",
@@ -295,7 +295,7 @@ if (TESTING) {
             new ReminderData([
                 new NonRecurringReminderInstance(
                     in3Days, // date
-                    NULL // All-day
+                    new TimeField(10, 0)
                 )
             ])
         )
@@ -515,6 +515,7 @@ styleElement.textContent = `
         font-family: 'Inter';
         white-space: pre; /* This preserves whitespace leading */
         color: #ff00aa; /* make sure that default colors are never used */
+        user-select: none; /* make text not highlightable */
     }
 `;
 HTML.head.appendChild(styleElement);
@@ -819,6 +820,299 @@ function isTaskComplete(task) {
     return true;
 }
 
+const FilteredInstancesFactory = {
+    // Processes a single work session instance from a TaskEntity
+    fromTaskWorkSession: function(taskEntity, workSessionInstance, workSessionPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
+        const results = [];
+        const entityId = taskEntity.id;
+        const entityName = taskEntity.name; // Or specific name for work session if available/different
+        const taskIsComplete = isTaskComplete(taskEntity.data);
+
+        // Common properties for the instances derived from this workSessionInstance
+        const originalStartDate = workSessionInstance.startDatePattern ? workSessionInstance.startDatePattern.initialDate : workSessionInstance.startDate;
+        const originalStartTime = workSessionInstance.startTime;
+
+        if (!exists(workSessionInstance.startTime)) { // All-day work session
+            if (type(workSessionInstance, NonRecurringEventInstance)) {
+                ASSERT(type(workSessionInstance.startDate, DateField));
+                let workDate = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day);
+                if (workDate.hasSame(DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day), 'day')) {
+                    results.push(new FilteredAllDayInstance(
+                        entityId,
+                        entityName,
+                        dayDateField,
+                        TaskWorkSessionKind,
+                        taskIsComplete,
+                        false, // ignore
+                        workSessionPatternIndex
+                    ));
+                }
+            } else { // Recurring all-day work session
+                let dayPatternStartMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).startOf('day').toMillis();
+                let dayPatternEndMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).endOf('day').toMillis();
+                let patternDates = generateInstancesFromPattern(workSessionInstance, dayPatternStartMs, dayPatternEndMs);
+                if (patternDates.length > 0) {
+                    results.push(new FilteredAllDayInstance(
+                        entityId,
+                        entityName,
+                        dayDateField,
+                        TaskWorkSessionKind,
+                        taskIsComplete,
+                        false, // ignore
+                        workSessionPatternIndex
+                    ));
+                }
+            }
+        } else { // Timed work session
+            if (type(workSessionInstance, NonRecurringEventInstance)) {
+                ASSERT(type(workSessionInstance.startDate, DateField));
+                let workStartDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day)
+                    .set({ hour: workSessionInstance.startTime.hour, minute: workSessionInstance.startTime.minute });
+
+                let workEndDateTime;
+                if (workSessionInstance.differentEndDate !== NULL) {
+                    ASSERT(type(workSessionInstance.differentEndDate, DateField));
+                    workEndDateTime = DateTime.local(workSessionInstance.differentEndDate.year, workSessionInstance.differentEndDate.month, workSessionInstance.differentEndDate.day)
+                        .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                } else {
+                    workEndDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day)
+                        .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                }
+
+                let workStartMs = workStartDateTime.toMillis();
+                let workEndMs = workEndDateTime.toMillis();
+
+                if ((workStartMs < dayEndUnix && workEndMs > dayStartUnix)) {
+                    results.push(new FilteredSegmentOfDayInstance(
+                        entityId,
+                        entityName,
+                        Math.max(workStartMs, dayStartUnix),
+                        Math.min(workEndMs, dayEndUnix),
+                        originalStartDate,
+                        originalStartTime,
+                        workStartMs < dayStartUnix,
+                        workEndMs > dayEndUnix,
+                        TaskWorkSessionKind,
+                        taskIsComplete,
+                        workSessionPatternIndex
+                    ));
+                }
+            } else { // Recurring timed work session
+                let dayBeforeMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).minus({ days: 1 }).startOf('day').toMillis();
+                let dayAfterMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).plus({ days: 1 }).endOf('day').toMillis();
+                let patternStartTimes = generateInstancesFromPattern(workSessionInstance, dayBeforeMs, dayAfterMs);
+
+                for (let startMs of patternStartTimes) {
+                    let instanceStartDateTime = DateTime.fromMillis(startMs);
+                    let instanceEndDateTime;
+
+                    if (workSessionInstance.differentEndDatePattern === NULL) {
+                        instanceEndDateTime = instanceStartDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    } else {
+                        instanceEndDateTime = instanceStartDateTime.plus({ days: workSessionInstance.differentEndDatePattern })
+                            .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    }
+                    let endMs = instanceEndDateTime.toMillis();
+
+                    if (startMs < dayEndUnix && endMs > dayStartUnix) {
+                         results.push(new FilteredSegmentOfDayInstance(
+                            entityId,
+                            entityName,
+                            Math.max(startMs, dayStartUnix),
+                            Math.min(endMs, dayEndUnix),
+                            originalStartDate, // This is the pattern's initial date
+                            originalStartTime, // This is the pattern's start time
+                            startMs < dayStartUnix,
+                            endMs > dayEndUnix,
+                            TaskWorkSessionKind,
+                            taskIsComplete,
+                            workSessionPatternIndex
+                        ));
+                    }
+                }
+            }
+        }
+        return results;
+    },
+
+    fromEvent: function(eventEntity, eventInstance, eventPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
+        const results = [];
+        const entityId = eventEntity.id;
+        const entityName = eventEntity.name;
+
+        const originalStartDate = eventInstance.startDatePattern ? eventInstance.startDatePattern.initialDate : eventInstance.startDate;
+        const originalStartTime = eventInstance.startTime;
+
+        if (!exists(eventInstance.startTime)) { // All-day event
+            if (type(eventInstance, NonRecurringEventInstance)) {
+                ASSERT(type(eventInstance.startDate, DateField));
+                let eventDate = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day);
+                if (eventDate.hasSame(DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day), 'day')) {
+                    results.push(new FilteredAllDayInstance(
+                        entityId,
+                        entityName,
+                        dayDateField,
+                        EventInstanceKind,
+                        NULL, // taskIsComplete
+                        false, // ignore
+                        eventPatternIndex
+                    ));
+                }
+            } else { // Recurring all-day event
+                let dayPatternStartMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).startOf('day').toMillis();
+                let dayPatternEndMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).endOf('day').toMillis();
+                let patternDates = generateInstancesFromPattern(eventInstance, dayPatternStartMs, dayPatternEndMs);
+                if (patternDates.length > 0) {
+                    results.push(new FilteredAllDayInstance(
+                        entityId,
+                        entityName,
+                        dayDateField,
+                        EventInstanceKind,
+                        NULL, // taskIsComplete
+                        false, // ignore
+                        eventPatternIndex
+                    ));
+                }
+            }
+        } else { // Timed event
+            if (type(eventInstance, NonRecurringEventInstance)) {
+                ASSERT(type(eventInstance.startDate, DateField));
+                let eventStartDateTime = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day)
+                    .set({ hour: eventInstance.startTime.hour, minute: eventInstance.startTime.minute });
+
+                let eventEndDateTime;
+                if (eventInstance.endTime === NULL) {
+                    eventEndDateTime = eventStartDateTime.plus({ minutes: 100 }); // Default duration
+                } else {
+                    if (eventInstance.differentEndDate !== NULL) {
+                        ASSERT(type(eventInstance.differentEndDate, DateField));
+                        eventEndDateTime = DateTime.local(eventInstance.differentEndDate.year, eventInstance.differentEndDate.month, eventInstance.differentEndDate.day)
+                            .set({ hour: eventInstance.endTime.hour, minute: eventInstance.endTime.minute });
+                    } else {
+                        eventEndDateTime = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day)
+                            .set({ hour: eventInstance.endTime.hour, minute: eventInstance.endTime.minute });
+                    }
+                }
+                let eventStartMs = eventStartDateTime.toMillis();
+                let eventEndMs = eventEndDateTime.toMillis();
+
+                if (eventStartMs < dayEndUnix && eventEndMs > dayStartUnix) {
+                    results.push(new FilteredSegmentOfDayInstance(
+                        entityId,
+                        entityName,
+                        Math.max(eventStartMs, dayStartUnix),
+                        Math.min(eventEndMs, dayEndUnix),
+                        originalStartDate,
+                        originalStartTime,
+                        eventStartMs < dayStartUnix,
+                        eventEndMs > dayEndUnix,
+                        EventInstanceKind,
+                        NULL, // taskIsComplete
+                        eventPatternIndex
+                    ));
+                }
+            } else { // Recurring timed event
+                let dayBeforeMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).minus({ days: 1 }).startOf('day').toMillis();
+                let dayAfterMs = DateTime.local(dayDateField.year, dayDateField.month, dayDateField.day).plus({ days: 1 }).endOf('day').toMillis();
+                let patternStartTimes = generateInstancesFromPattern(eventInstance, dayBeforeMs, dayAfterMs);
+
+                for (let startMs of patternStartTimes) {
+                    let instanceStartDateTime = DateTime.fromMillis(startMs);
+                    let instanceEndDateTime;
+
+                    if (exists(eventInstance.endTime)) {
+                        let durationHours = eventInstance.endTime.hour - eventInstance.startTime.hour;
+                        let durationMinutes = eventInstance.endTime.minute - eventInstance.startTime.minute;
+                        if (durationMinutes < 0) {
+                            durationHours--;
+                            durationMinutes += 60;
+                        }
+                        instanceEndDateTime = instanceStartDateTime.plus({ hours: durationHours, minutes: durationMinutes });
+
+                        if (eventInstance.differentEndDatePattern !== NULL) {
+                            ASSERT(type(eventInstance.differentEndDatePattern, Int) && eventInstance.differentEndDatePattern >= 0);
+                             instanceEndDateTime = instanceStartDateTime.plus({days: eventInstance.differentEndDatePattern})
+                                .set({
+                                    hour: eventInstance.endTime.hour,
+                                    minute: eventInstance.endTime.minute
+                                });
+                        }
+                    } else {
+                        instanceEndDateTime = instanceStartDateTime.plus({ hours: 1 }); // Default 1 hour duration
+                    }
+                    let endMs = instanceEndDateTime.toMillis();
+                    
+                    if (startMs < dayEndUnix && endMs > dayStartUnix) {
+                        results.push(new FilteredSegmentOfDayInstance(
+                            entityId,
+                            entityName,
+                            Math.max(startMs, dayStartUnix),
+                            Math.min(endMs, dayEndUnix),
+                            originalStartDate, // Pattern's initial date
+                            originalStartTime, // Pattern's start time
+                            startMs < dayStartUnix,
+                            endMs > dayEndUnix,
+                            EventInstanceKind,
+                            NULL, // taskIsComplete
+                            eventPatternIndex
+                        ));
+                    }
+                }
+            }
+        }
+        return results;
+    },
+
+    fromReminder: function(reminderEntity, reminderInstance, reminderPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
+        const results = [];
+        const entityId = reminderEntity.id;
+        const entityName = reminderEntity.name;
+
+        const originalDate = reminderInstance.datePattern ? reminderInstance.datePattern.initialDate : reminderInstance.date;
+        // reminderInstance.time is now guaranteed to be a TimeField
+        const originalTime = reminderInstance.time;
+
+        if (type(reminderInstance, NonRecurringReminderInstance)) {
+            ASSERT(type(reminderInstance.date, DateField));
+            let reminderDateTime = DateTime.local(reminderInstance.date.year, reminderInstance.date.month, reminderInstance.date.day)
+                .set({ hour: reminderInstance.time.hour, minute: reminderInstance.time.minute });
+            let reminderStartMs = reminderDateTime.toMillis();
+
+            // Check if the reminder falls within the current day
+            if (reminderStartMs >= dayStartUnix && reminderStartMs < dayEndUnix) {
+                 results.push(new FilteredReminderInstance(
+                    entityId,
+                    entityName,
+                    reminderStartMs,
+                    originalDate,
+                    originalTime,
+                    // false, // isAllDay - removed
+                    reminderPatternIndex
+                ));
+            }
+        } else { // RecurringReminderInstance
+            // For recurring timed reminders, generateInstancesFromPattern gives the exact time.
+            // We only care about instances that fall exactly on dayDateField.
+            let patternStartTimes = generateInstancesFromPattern(reminderInstance, dayStartUnix, dayEndUnix);
+
+            for (let startMs of patternStartTimes) {
+                // Ensure the generated instance is indeed for the current day being rendered.
+                results.push(new FilteredReminderInstance(
+                    entityId,
+                    entityName,
+                    startMs,
+                    originalDate, // Pattern's initial date
+                    originalTime, // Pattern's time
+                    // false, // isAllDay - removed
+                    reminderPatternIndex
+                ));
+            }
+        }
+        return results;
+    }
+};
+
+
 function renderDay(day, element, index) {
     ASSERT(type(day, DateField) && type(index, Int));
     // get existing element
@@ -925,20 +1219,7 @@ function renderDay(day, element, index) {
     // get all event instances and task work time instances
     // task due dates don't go on the calendar but work times do
     // filter by not on this day and expand recurring into what's on this day
-    /*
-        filtered instance {
-            start: int unix time,
-            end: int unix time,
-            wrapToPreviousDay: true/false, // optional, is this a multi-day event that wraps to the previous 
-            day
-            wrapToNextDay: true/false, // optional, is this a multi-day event that wraps to the next day
-            completeTask: true/false, // is this work time on a task that's been completed
-        }
-        filtered all day instance {
-            startDate: 'YYYY-MM-DD',
-            faded: true/false
-        }
-    */
+    // reminders also go on the calendar
     // get unix start and end of day with user's offsets
     // Create DateTime from DateField
     let dayTime = DateTime.local(day.year, day.month, day.day);
@@ -947,384 +1228,96 @@ function renderDay(day, element, index) {
     let endOfDay = dayTime.endOf('day').plus({hours: user.settings.endOfDayOffset});
     endOfDay = endOfDay.toMillis() + 1; // +1 to include the end of the day
 
-    let filteredInstances = [];
-    let filteredAllDayInstances = [];
-    for (let obj of user.entityArray) {
-        ASSERT(type(obj, Entity));
-        if (type(obj.data, TaskData)) {
-            // Handle task work times
-            if (exists(obj.data.workSessions)) {
-                for (let workTime of obj.data.workSessions) {
-                    ASSERT(type(workTime, Union(NonRecurringEventInstance, RecurringEventInstance)));
-                    if (!exists(workTime.startTime)) {
-                        // handle all-day session by type
-                        if (type(workTime, NonRecurringEventInstance)) {
-                            ASSERT(type(workTime.startDate, DateField));
-                            let workDate = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
-                            if (workDate.hasSame(dayTime, 'day')) {
-                                filteredAllDayInstances.push({startDate: day, faded: false});
-                            }
+    let G_filteredSegmentOfDayInstances = [];
+    let G_filteredAllDayInstances = [];
+    let G_filteredReminderInstances = [];
+
+    for (let entityIndex = 0; entityIndex < user.entityArray.length; entityIndex++) {
+        const entity = user.entityArray[entityIndex];
+        ASSERT(type(entity, Entity));
+
+        if (type(entity.data, TaskData)) {
+            if (entity.data.workSessions > 0) {
+                for (let patternIndex = 0; patternIndex < entity.data.workSessions.length; patternIndex++) {
+                    const workSession = entity.data.workSessions[patternIndex];
+                    const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, patternIndex, day, startOfDay, endOfDay);
+                    factoryResults.forEach(res => {
+                        if (type(res, FilteredAllDayInstance)) {
+                            G_filteredAllDayInstances.push(res);
+                        } else if (type(res, FilteredSegmentOfDayInstance)) {
+                            G_filteredSegmentOfDayInstances.push(res);
                         } else {
-                            // Recurring all-day work session
-                            // Calculate day boundaries for pattern matching
-                            let dayStartMs = dayTime.startOf('day').toMillis();
-                            let dayEndMs = dayTime.endOf('day').toMillis();
-                            
-                            // Generate all instances for this day using the helper
-                            let patternDates = generateInstancesFromPattern(workTime, dayStartMs, dayEndMs);
-                            
-                            if (patternDates.length > 0) {
-                                filteredAllDayInstances.push({startDate: day, faded: false});
-                            }
+                            ASSERT(res === NULL, "Factory method returned unexpected type or non-NULL invalid value");
                         }
-                        continue;
-                    }
-                    
-                    // Handle timed work sessions
-                    if (type(workTime, NonRecurringEventInstance)) {
-                        // Non-recurring work session - simple case
-                        ASSERT(type(workTime.startDate, DateField));
-                        let workStart = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
-                        
-                        workStart = workStart.plus({
-                            hours: workTime.startTime.hour,
-                            minutes: workTime.startTime.minute
-                        });
-                        
-                        let workEnd;
-                        if (workTime.differentEndDate !== NULL) {
-                            ASSERT(type(workTime.differentEndDate, DateField));
-                            // Different end date
-                            workEnd = DateTime.local(workTime.differentEndDate.year, workTime.differentEndDate.month, workTime.differentEndDate.day);
-                        } else {
-                            // Same end date as start
-                            workEnd = DateTime.local(workTime.startDate.year, workTime.startDate.month, workTime.startDate.day);
-                        }
-                        
-                        workEnd = workEnd.plus({
-                            hours: workTime.endTime.hour,
-                            minutes: workTime.endTime.minute
-                        });
-                        
-                        // Convert to milliseconds for comparison
-                        let workStartMs = workStart.toMillis();
-                        let workEndMs = workEnd.toMillis();
-                        
-                        // Check if this work session falls on the current day
-                        if ((workStartMs >= startOfDay && workStartMs <= endOfDay) ||
-                            (workEndMs >= startOfDay && workEndMs <= endOfDay) ||
-                            (workStartMs <= startOfDay && workEndMs >= endOfDay)) {
-                            
-                            filteredInstances.push({
-                                startDate: workStartMs,
-                                differentEndDate: workEndMs,
-                                wrapToPreviousDay: workStartMs < startOfDay,
-                                wrapToNextDay: workEndMs > endOfDay,
-                                completeTask: isTaskComplete(obj.data)
-                            });
-                        }
-                    } else {
-                        // Recurring work session - use pattern helper
-                        // Include a wider time range to catch wrap-around events
-                        let dayBeforeMs = dayTime.minus({days: 1}).startOf('day').toMillis();
-                        let dayAfterMs = dayTime.plus({days: 1}).endOf('day').toMillis();
-                        
-                        // Generate all instances from the pattern
-                        let patternStartTimes = generateInstancesFromPattern(workTime, dayBeforeMs, dayAfterMs);
-                        
-                        // Process each instance
-                        for (let startMs of patternStartTimes) {
-                            let startTime = DateTime.fromMillis(startMs);
-                            
-                            // Calculate end time based on startTime and endTime fields
-                            let endTime;
-                            
-                            if (workTime.differentEndDatePattern === NULL) {
-                                // ends on same day
-                                endTime = startTime.plus({hours: workTime.endTime.hour, minutes: workTime.endTime.minute});
-                            } else {
-                                // ends on different day
-                                endTime = startTime.plus({days: workTime.differentEndDatePattern, hours: workTime.endTime.hour, minutes: workTime.endTime.minute});
-                            }
-                            
-                            // Add the end time hours and minutes
-                            endTime = endTime.plus({
-                                hours: workTime.endTime.hour,
-                                minutes: workTime.endTime.minute
-                            });
-                            
-                            let endMs = endTime.toMillis();
-                            
-                            // Check if this instance overlaps with the current day
-                            if ((startMs >= startOfDay && startMs <= endOfDay) ||
-                                (endMs >= startOfDay && endMs <= endOfDay) ||
-                                (startMs <= startOfDay && endMs >= endOfDay)) {
-                                
-                                filteredInstances.push({
-                                    startDate: startMs,
-                                    differentEndDate: endMs,
-                                    wrapToPreviousDay: startMs < startOfDay,
-                                    wrapToNextDay: endMs > endOfDay,
-                                    completeTask: isTaskComplete(obj.data)
-                                });
-                            }
-                        }
-                    }
+                    });
                 }
             }
-        } else if (type(obj.data, EventData)) {
-            // Handle events similar to task work times but with some differences
-            for (let instance of obj.data.instances) {
-                ASSERT(type(instance, Union(NonRecurringEventInstance, RecurringEventInstance)));
-                if (!exists(instance.startTime)) {
-                    // handle all-day event by type
-                    if (type(instance, NonRecurringEventInstance)) {
-                        ASSERT(type(instance.startDate, DateField));
-                        let eventDate = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
-                        if (eventDate.hasSame(dayTime, 'day')) {
-                            filteredAllDayInstances.push({startDate: day, faded: false});
-                        }
+        } else if (type(entity.data, EventData)) {
+            for (let patternIndex = 0; patternIndex < entity.data.instances.length; patternIndex++) {
+                const eventInst = entity.data.instances[patternIndex];
+                const factoryResults = FilteredInstancesFactory.fromEvent(entity, eventInst, patternIndex, day, startOfDay, endOfDay);
+                factoryResults.forEach(res => {
+                    if (type(res, FilteredAllDayInstance)) {
+                        G_filteredAllDayInstances.push(res);
+                    } else if (type(res, FilteredSegmentOfDayInstance)) {
+                        G_filteredSegmentOfDayInstances.push(res);
                     } else {
-                        // Recurring all-day event
-                        // Generate all instances of this pattern that fall on this day
-                        let eventDayStart = dayTime.startOf('day').toMillis();
-                        let eventDayEnd = dayTime.endOf('day').toMillis();
-                        
-                        // Use our helper function to get all instances on this day
-                        let patternInstances = generateInstancesFromPattern(instance, eventDayStart, eventDayEnd);
-                        
-                        if (patternInstances.length > 0) {
-                            // If any instance falls on this day, add it
-                            filteredAllDayInstances.push({
-                                startDate: day,
-                                faded: false
-                            });
-                        }
+                        ASSERT(res === NULL, "Factory method returned unexpected type or non-NULL invalid value");
                     }
-                } else if (type(instance, NonRecurringEventInstance)) {
-                    ASSERT(type(instance.startDate, DateField));
-                    // Event with specific time
-                    let eventStart = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
-                    
-                    eventStart = eventStart.plus({
-                        hours: instance.startTime.hour, 
-                        minutes: instance.startTime.minute
-                    }).toMillis();
-
-                    let eventEnd;
-                    
-                    // Handle event end time
-                    if (instance.endTime === NULL) {
-                        // Default to 100 minutes if no end time specified. differentEndDate must be NULL here.
-                        eventEnd = DateTime.fromMillis(eventStart).plus({minutes: 100}).toMillis();
-                    } else {
-                        ASSERT(type(instance.endTime, TimeField));
-                        if (instance.differentEndDate !== NULL) {
-                            // Multi-day event
-                            eventEnd = DateTime.local(instance.differentEndDate.year, instance.differentEndDate.month, instance.differentEndDate.day);
-                        } else {
-                            // Same day event
-                            eventEnd = DateTime.local(instance.startDate.year, instance.startDate.month, instance.startDate.day);
-                        }
-                        
-                        eventEnd = eventEnd.plus({
-                            hours: instance.endTime.hour, 
-                            minutes: instance.endTime.minute
-                        }).toMillis();
-                    }
-                    
-                    // Check if event overlaps with this day
-                    if ((eventStart >= startOfDay && eventStart <= endOfDay) || 
-                        (eventEnd >= startOfDay && eventEnd <= endOfDay) ||
-                        (eventStart <= startOfDay && eventEnd >= endOfDay)) {
-                        
-                        filteredInstances.push({
-                            startDate: eventStart,
-                            differentEndDate: eventEnd,
-                            wrapToPreviousDay: eventStart < startOfDay,
-                            wrapToNextDay: eventEnd > endOfDay,
-                            completeTask: false // Events don't have complete state
-                        });
-                    }
-                } else {
-                    // Recurring event
-                    // Generate all instances that overlap with this day
-                    let dayBefore = dayTime.minus({days: 1}).startOf('day').toMillis();
-                    let dayAfter = dayTime.plus({days: 1}).endOf('day').toMillis();
-                    
-                    // We look at a wider range to catch events that wrap from previous/to next day
-                    let patternInstances = generateInstancesFromPattern(instance, dayBefore, dayAfter);
-                    
-                    for (let patternStart of patternInstances) {
-                        // Calculate event end based on start
-                        let patternEnd;
-                        
-                        if (exists(instance.endTime)) {
-                            // Calculate hours/minutes difference between start and end times
-                            let startHours = instance.startTime.hour;
-                            let startMinutes = instance.startTime.minute;
-                            let endHours = instance.endTime.hour;
-                            let endMinutes = instance.endTime.minute;
-                            
-                            // Calculate duration
-                            let durationHours = endHours - startHours;
-                            let durationMinutes = endMinutes - startMinutes;
-                            if (durationMinutes < 0) {
-                                durationHours--;
-                                durationMinutes += 60;
-                            }
-                            
-                            patternEnd = DateTime.fromMillis(patternStart)
-                                .plus({hours: durationHours, minutes: durationMinutes});
-
-                            // If there's a differentEndDatePattern, adjust the end date
-                            // This check is now inside the `exists(instance.endTime)` block
-                            // because if endTime is NULL, differentEndDatePattern must also be NULL.
-                            if (instance.differentEndDatePattern !== NULL) {
-                                ASSERT(type(instance.differentEndDatePattern, Int));
-                                ASSERT(instance.differentEndDatePattern > 0);
-                                patternEnd = patternEnd.plus({days: instance.differentEndDatePattern})
-                                    .set({
-                                        hour: instance.endTime.hour, // endTime must exist if differentEndDatePattern exists
-                                        minute: instance.endTime.minute // endTime must exist if differentEndDatePattern exists
-                                    });
-                            }
-                            patternEnd = patternEnd.toMillis();
-                        } else {
-                            // Default 1 hour duration if no endTime.
-                            // differentEndDatePattern must be NULL here.
-                            patternEnd = DateTime.fromMillis(patternStart).plus({hours: 1}).toMillis();
-                        }
-                        
-                        // Check if this event instance overlaps with current day
-                        if ((patternStart >= startOfDay && patternStart <= endOfDay) || 
-                            (patternEnd >= startOfDay && patternEnd <= endOfDay) ||
-                            (patternStart <= startOfDay && patternEnd >= endOfDay)) {
-                            
-                            filteredInstances.push({
-                                startDate: patternStart,
-                                differentEndDate: patternEnd,
-                                wrapToPreviousDay: patternStart < startOfDay,
-                                wrapToNextDay: patternEnd > endOfDay,
-                                completeTask: false // Events don't have complete state
-                            });
-                        }
-                    }
-                }
+                });
             }
-        } else if (type(obj.data, ReminderData)) {
-            // Handle reminders
-            for (let instance of obj.data.instances) {
-                ASSERT(type(instance, Union(NonRecurringReminderInstance, RecurringReminderInstance)));
-
-                if (!exists(instance.time)) { // All-day reminder
-                    if (type(instance, NonRecurringReminderInstance)) {
-                        ASSERT(type(instance.date, DateField));
-                        let reminderDate = DateTime.local(instance.date.year, instance.date.month, instance.date.day);
-                        if (reminderDate.hasSame(dayTime, 'day')) {
-                            filteredAllDayInstances.push({ 
-                                startDate: day, 
-                                faded: false, 
-                                isReminder: true, 
-                                name: obj.name // Store name for display
-                            });
-                        }
-                    } else { // Recurring all-day reminder
-                        let reminderDayStart = dayTime.startOf('day').toMillis();
-                        let reminderDayEnd = dayTime.endOf('day').toMillis();
-                        let patternInstances = generateInstancesFromPattern(instance, reminderDayStart, reminderDayEnd);
-                        if (patternInstances.length > 0) {
-                            filteredAllDayInstances.push({
-                                startDate: day,
-                                faded: false,
-                                isReminder: true,
-                                name: obj.name // Store name for display
-                            });
-                        }
+        } else if (type(entity.data, ReminderData)) {
+            for (let patternIndex = 0; patternIndex < entity.data.instances.length; patternIndex++) {
+                const reminderInst = entity.data.instances[patternIndex];
+                const factoryResults = FilteredInstancesFactory.fromReminder(entity, reminderInst, patternIndex, day, startOfDay, endOfDay);
+                factoryResults.forEach(res => {
+                    // Ensure that the factory for reminders now ONLY returns FilteredReminderInstance
+                    ASSERT(type(res, FilteredReminderInstance), "FilteredInstancesFactory.fromReminder should only return FilteredReminderInstance objects.");
+                    if (type(res, FilteredReminderInstance)) {
+                        G_filteredReminderInstances.push(res);
+                    } else {
+                        // This case should ideally not be hit if the factory is correct
+                        ASSERT(false, "Warning: Unexpected instance type from fromReminder factory: " + String(res));
                     }
-                } else { // Timed reminder
-                    if (type(instance, NonRecurringReminderInstance)) {
-                        ASSERT(type(instance.date, DateField));
-                        let reminderDateTime = DateTime.local(instance.date.year, instance.date.month, instance.date.day)
-                                                    .set({ hour: instance.time.hour, minute: instance.time.minute });
-                        let reminderStartMs = reminderDateTime.toMillis();
-                        // Reminders are points in time, let's give them a 1-hour visual duration for now
-                        let reminderEndMs = reminderDateTime.plus({ hours: 1 }).toMillis(); 
-
-                        if ((reminderStartMs >= startOfDay && reminderStartMs <= endOfDay) ||
-                            (reminderEndMs >= startOfDay && reminderEndMs <= endOfDay) ||
-                            (reminderStartMs <= startOfDay && reminderEndMs >= endOfDay)) {
-                            filteredInstances.push({
-                                startDate: reminderStartMs,
-                                differentEndDate: reminderEndMs, // Treat as 1hr block for vis
-                                wrapToPreviousDay: reminderStartMs < startOfDay,
-                                wrapToNextDay: reminderEndMs > endOfDay,
-                                completeTask: false, // Not applicable
-                                isReminder: true,
-                                name: obj.name // Store name for display
-                            });
-                        }
-                    } else { // Recurring timed reminder
-                        let dayBefore = dayTime.minus({ days: 1 }).startOf('day').toMillis();
-                        let dayAfter = dayTime.plus({ days: 1 }).endOf('day').toMillis();
-                        let patternInstances = generateInstancesFromPattern(instance, dayBefore, dayAfter);
-
-                        for (let patternStart of patternInstances) {
-                            // Reminders are points in time, give 1-hour visual duration
-                            let patternEnd = DateTime.fromMillis(patternStart).plus({ hours: 1 }).toMillis();
-
-                            if ((patternStart >= startOfDay && patternStart <= endOfDay) ||
-                                (patternEnd >= startOfDay && patternEnd <= endOfDay) ||
-                                (patternStart <= startOfDay && patternEnd >= endOfDay)) {
-                                filteredInstances.push({
-                                    startDate: patternStart,
-                                    differentEndDate: patternEnd,
-                                    wrapToPreviousDay: patternStart < startOfDay,
-                                    wrapToNextDay: patternEnd > endOfDay,
-                                    completeTask: false, // Not applicable
-                                    isReminder: true,
-                                    name: obj.name // Store name for display
-                                });
-                            }
-                        }
-                    }
-                }
+                });
             }
         } else {
-            ASSERT(false, "Unknown kind of task/event/reminder");
+            ASSERT(false, "Unknown entity data type in renderDay");
         }
     }
 
     // Log filtered instances
-    log("Filtered Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
-    log(filteredInstances);
+    log("Filtered Segment of Day Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
+    log(G_filteredSegmentOfDayInstances);
     log("Filtered All-Day Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
-    log(filteredAllDayInstances);
+    log(G_filteredAllDayInstances);
+    log("Filtered Reminder Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
+    log(G_filteredReminderInstances);
 
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const allDayEventHeight = 18; // height in px for each all-day event
-    const totalAllDayEventsHeight = filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
+    const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
     
-    // Get the current height and position
-    let currentHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
-    let currentTop = parseFloat(HTML.getStyle(element, 'top').slice(0, -2));
+    // Get the current height and position of the main day element (where timed events will go)
+    let currentDayElementHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
+    let currentDayElementTop = parseFloat(HTML.getStyle(element, 'top').slice(0, -2)); // This is the top of where all-day events start
+    let dayElementLeft = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
     
-    // Adjust the height to account for all-day events
-    let newHeight = currentHeight - totalAllDayEventsHeight;
-    let newTop = currentTop + totalAllDayEventsHeight;
+    // Calculate new top and height for the main timed event area within the day element
+    let timedEventAreaHeight = currentDayElementHeight - totalAllDayEventsHeight;
+    let timedEventAreaTop = currentDayElementTop + totalAllDayEventsHeight;
     
-    // Update the element's style
+    // Update the main day element's style to reflect the space made for all-day events
     HTML.setStyle(element, {
-        height: String(newHeight) + 'px',
-        top: String(newTop) + 'px'
+        height: String(timedEventAreaHeight) + 'px',
+        top: String(timedEventAreaTop) + 'px'
     });
     
-    // Now update all the hour markers and hour marker text
+    // Now update all the hour markers and hour marker text based on the new timedEventArea dimensions
     for (let j = 0; j < 24; j++) {
-        // Calculate new positions based on adjusted height and top
-        let hourPosition = newTop + (j * newHeight / 24);
+        let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
         
-        if (j > 0) { // Update hour marker positions (excluding first hour which doesn't have a marker)
+        if (j > 0) { 
             let hourMarker = HTML.getUnsafely(`day${index}hourMarker${j}`);
             if (exists(hourMarker)) {
                 HTML.setStyle(hourMarker, {
@@ -1342,43 +1335,238 @@ function renderDay(day, element, index) {
         }
     }
     
-    // Render the all-day events
-    for (let i = 0; i < filteredAllDayInstances.length; i++) {
-        let allDayEvent = filteredAllDayInstances[i];
-        let allDayEventTop = currentTop + (i * allDayEventHeight);
+    renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, currentDayElementTop, dayElementLeft);
+    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft);
+    renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
+}
+
+// Renders all-day instances for a given day column.
+// If there are fewer all-day events than previously rendered for this day column, 
+// the extra DOM elements are removed. For the remaining (or newly created) elements, 
+// their content/style is updated to reflect the current all-day instances.
+function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementActualTop, dayElemLeft) {
+    ASSERT(type(allDayInstances, List(FilteredAllDayInstance)));
+    ASSERT(type(dayIndex, Int));
+    ASSERT(type(colWidth, Number));
+    ASSERT(type(dayElementActualTop, Number)); // This is the original top of the day column, before shrinking for all-day items
+    ASSERT(type(dayElemLeft, Int));
+
+    const allDayEventHeight = 18; // height in px for each all-day event
+
+    for (let i = 0; i < allDayInstances.length; i++) {
+        let allDayEventData = allDayInstances[i];
+        // All-day events are positioned from the dayElementActualTop (original top of the day column)
+        let allDayEventTopPosition = dayElementActualTop + (i * allDayEventHeight);
         
-        // Create or update an all-day event element
-        let allDayEventElement = HTML.getUnsafely(`day${index}allDayEvent${i}`);
+        let allDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${i}`);
         if (!exists(allDayEventElement)) {
             allDayEventElement = HTML.make('div');
-            HTML.setId(allDayEventElement, `day${index}allDayEvent${i}`);
+            HTML.setId(allDayEventElement, `day${dayIndex}allDayEvent${i}`);
             HTML.body.appendChild(allDayEventElement);
         }
         
-        // Style the all-day event
         HTML.setStyle(allDayEventElement, {
             position: 'fixed',
-            width: String(columnWidth - 6.5) + 'px', // Slight margin from edges
-            height: String(allDayEventHeight - 2) + 'px', // Slight vertical margin
-            top: String(allDayEventTop) + 'px',
-            left: String(parseInt(HTML.getStyle(element, 'left').slice(0, -2)) + 4.5) + 'px',
-            backgroundColor: allDayEvent.isReminder ? user.palette.accent[0] : user.palette.shades[2], // Different color for reminders
-            opacity: String(allDayEvent.faded ? 0.5 : 1),
+            width: String(colWidth - 6.5) + 'px',
+            height: String(allDayEventHeight - 2) + 'px',
+            top: String(allDayEventTopPosition) + 'px',
+            left: String(dayElemLeft + 4.5) + 'px',
+            backgroundColor: allDayEventData.instanceKind === ReminderInstanceKind ? user.palette.accent[0] : user.palette.shades[2],
+            opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
-            zIndex: '350'
+            zIndex: '350',
+            // TODO: Add text for allDayEventData.name (ellipsized)
         });
         HTML.setHoverStyle(allDayEventElement, {
-            opacity: 1
+            opacity: '1' // Ensure opacity is a string for CSS
         });
     }
     
-    // Remove any extra all-day event elements if there are fewer events this time
-    let existingAllDayEventIndex = filteredAllDayInstances.length;
-    let existingAllDayEvent = HTML.getUnsafely(`day${index}allDayEvent${existingAllDayEventIndex}`);
-    while (exists(existingAllDayEvent)) {
-        existingAllDayEvent.remove();
+    let existingAllDayEventIndex = allDayInstances.length;
+    let extraAllDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
+    while (exists(extraAllDayEventElement)) {
+        extraAllDayEventElement.remove();
         existingAllDayEventIndex++;
-        existingAllDayEvent = HTML.getUnsafely(`day${index}allDayEvent${existingAllDayEventIndex}`);
+        extraAllDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
+    }
+}
+
+function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft) {
+    ASSERT(type(segmentInstances, List(FilteredSegmentOfDayInstance)));
+    ASSERT(type(dayIndex, Int));
+    ASSERT(type(colWidth, Number));
+    ASSERT(type(timedAreaTop, Number));
+    ASSERT(type(timedAreaHeight, Number));
+    ASSERT(type(dayElemLeft, Int));
+
+    // TODO: Implement rendering logic for FilteredSegmentOfDayInstance objects.
+    // This will involve:
+    // - Iterating through segmentInstances.
+    // - For each instance, calculating its vertical position and height within the timedArea.
+    //   - top = timedAreaTop + ( (instance.startDateTime - dayStartUnix) / (dayEndUnix - dayStartUnix) ) * timedAreaHeight
+    //   - height = ( (instance.endDateTime - instance.startDateTime) / (dayEndUnix - dayStartUnix) ) * timedAreaHeight
+    //   (Need dayStartUnix and dayEndUnix for the specific day, or pass percentages)
+    // - Creating/updating DOM elements for each instance.
+    // - Styling them (background color based on instanceKind, text for name, etc.).
+    // - Handling wrapToPreviousDay and wrapToNextDay (e.g., different border radius, arrows).
+    // - Removing stale DOM elements if the number of instances changes.
+}
+
+// New function to render reminder instances
+function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft, dayStartUnix, dayEndUnix) {
+    ASSERT(type(reminderInstances, List(FilteredReminderInstance)));
+    ASSERT(type(dayIndex, Int));
+    ASSERT(type(colWidth, Number));
+    ASSERT(type(timedAreaTop, Number));
+    ASSERT(type(timedAreaHeight, Number));
+    ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayStartUnix, Int));
+    ASSERT(type(dayEndUnix, Int));
+
+    const spaceForHourMarkers = 36; // px
+    const reminderLineWidthAdjustment = 1; // px
+
+    const reminderLineHeight = 2; // px height of the blue line
+    const reminderTextHeight = 14; // px, approximate height for text + small gap
+    const reminderTextFontSize = '10px';
+    const textPaddingLeft = 2; // px
+    const textPaddingRight = 2; // px
+    const quarterCircleRadius = 10; // Radius for the decorative quarter circle
+
+    for (let i = 0; i < reminderInstances.length; i++) {
+        const reminderData = reminderInstances[i];
+        let reminderTopPosition;
+
+        // All reminders are now timed, isAllDay logic is removed.
+        // Calculate position based on time
+        const totalDayDurationMs = dayEndUnix - dayStartUnix;
+        const reminderOffsetMs = reminderData.dateTime - dayStartUnix;
+        if (totalDayDurationMs <= 0) { // Avoid division by zero or negative
+            log("Warning: totalDayDurationMs is zero or negative in renderReminderInstances for day " + dayIndex);
+            reminderTopPosition = timedAreaTop; // Default to top
+        } else {
+            reminderTopPosition = timedAreaTop + (reminderOffsetMs / totalDayDurationMs) * timedAreaHeight;
+        }
+        
+        // Ensure reminder is within the visible timed area bounds
+        reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
+
+        // Create/Update Line Element
+        let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${i}`);
+        if (!exists(lineElement)) {
+            lineElement = HTML.make('div');
+            HTML.setId(lineElement, `day${dayIndex}reminderLine${i}`);
+            HTML.body.appendChild(lineElement);
+        }
+        HTML.setStyle(lineElement, {
+            position: 'fixed',
+            width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment) + 'px',
+            height: String(reminderLineHeight) + 'px',
+            top: String(reminderTopPosition) + 'px',
+            left: String(dayElemLeft + spaceForHourMarkers) + 'px',
+            backgroundColor: user.palette.accent[0], // Blue accent color
+            zIndex: '600'
+        });
+
+        // Create/Update Text Element
+        let textElement = HTML.getUnsafely(`day${dayIndex}reminderText${i}`);
+        if (!exists(textElement)) {
+            textElement = HTML.make('div');
+            HTML.setId(textElement, `day${dayIndex}reminderText${i}`);
+            HTML.body.appendChild(textElement);
+        }
+        textElement.innerHTML = reminderData.name;
+
+        // Measure text width
+        const measurer = HTML.make('span');
+        HTML.setStyle(measurer, {
+            visibility: 'hidden',
+            fontFamily: 'Inter',
+            fontSize: reminderTextFontSize,
+            whiteSpace: 'nowrap',
+            display: 'inline-block',
+            position: 'absolute'
+        });
+        measurer.innerHTML = reminderData.name;
+        HTML.body.appendChild(measurer);
+        const contentActualWidth = measurer.offsetWidth;
+        HTML.body.removeChild(measurer);
+
+        const finalWidthForTextElement = contentActualWidth + textPaddingLeft + textPaddingRight;
+
+        HTML.setStyle(textElement, {
+            position: 'fixed',
+            top: String(reminderTopPosition) + 'px',
+            left: String(dayElemLeft + spaceForHourMarkers) + 'px',
+            backgroundColor: user.palette.accent[0],
+            height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
+            paddingTop: String(reminderLineHeight - 1) + 'px',
+            paddingLeft: String(textPaddingLeft) + 'px',
+            paddingRight: String(textPaddingRight) + 'px',
+            boxSizing: 'border-box',
+            color: user.palette.shades[4],
+            fontSize: reminderTextFontSize,
+            fontFamily: 'Inter',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
+            zIndex: '601',
+            borderBottomRightRadius: '6px'
+        });
+
+        // Create/Update Quarter Circle Decorative Element
+        let qcElement = HTML.getUnsafely(`day${dayIndex}reminderQC${i}`);
+        if (!exists(qcElement)) {
+            qcElement = HTML.make('div');
+            HTML.setId(qcElement, `day${dayIndex}reminderQC${i}`);
+            HTML.body.appendChild(qcElement);
+        }
+
+        const textElementActualTop = reminderTopPosition;
+        const textElementActualLeft = dayElemLeft + spaceForHourMarkers;
+        // Use the width that was set on the textElement's style
+        const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
+
+        const qcTop = textElementActualTop;
+        const qcLeft = textElementActualLeft + textElementActualWidth;
+
+        const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
+        const maskSizeValue = `${quarterCircleRadius * 2}px ${quarterCircleRadius * 2}px`;
+
+        HTML.setStyle(qcElement, {
+            position: 'fixed',
+            width: String(quarterCircleRadius) + 'px',
+            height: String(quarterCircleRadius) + 'px',
+            top: String(qcTop + reminderLineHeight) + 'px',
+            left: String(qcLeft) + 'px',
+            backgroundColor: user.palette.accent[0], // Typically white
+            zIndex: '602', // Above the text element
+            webkitMaskImage: gradientMask,
+            maskImage: gradientMask,
+            webkitMaskSize: maskSizeValue,
+            maskSize: maskSizeValue,
+            webkitMaskPosition: 'bottom right',
+            maskPosition: 'bottom right',
+            webkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+        });
+    }
+
+    // Remove stale reminder elements (line, text, and quarter circle)
+    let existingReminderIndex = reminderInstances.length;
+    let staleLineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
+    let staleTextElement = HTML.getUnsafely(`day${dayIndex}reminderText${existingReminderIndex}`);
+    let staleQcElement = HTML.getUnsafely(`day${dayIndex}reminderQC${existingReminderIndex}`);
+
+    while (exists(staleLineElement) || exists(staleTextElement) || exists(staleQcElement)) {
+        if (exists(staleLineElement)) staleLineElement.remove();
+        if (exists(staleTextElement)) staleTextElement.remove();
+        if (exists(staleQcElement)) staleQcElement.remove();
+        existingReminderIndex++;
+        staleLineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
+        staleTextElement = HTML.getUnsafely(`day${dayIndex}reminderText${existingReminderIndex}`);
+        staleQcElement = HTML.getUnsafely(`day${dayIndex}reminderQC${existingReminderIndex}`);
     }
 }
 
