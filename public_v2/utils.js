@@ -70,6 +70,7 @@ function Dict(keyType, valueType) {
 // Union type for supporting type1 OR type2 OR ...
 class UNION {
     constructor(...types) {
+        ASSERT(Array.isArray(types), "UNION constructor requires an array of types");
         ASSERT(types.length >= 2, "UNION requires at least 2 types");
         types.forEach(t => {
             ASSERT(exists(t));
@@ -837,7 +838,7 @@ class EventData {
 class NonRecurringReminderInstance {
     constructor(date, time) {
         ASSERT(type(date, DateField));
-        ASSERT(type(time, Union(TimeField, NULL)));
+        ASSERT(type(time, TimeField));
 
         this.date = date;
         this.time = time;
@@ -845,37 +846,23 @@ class NonRecurringReminderInstance {
 
     toJson() {
         ASSERT(type(this, NonRecurringReminderInstance));
-        let timeJson;
-        if (this.time === NULL) {
-            timeJson = symbolToJson(NULL);
-        } else {
-            timeJson = this.time.toJson();
-        }
         return {
             date: this.date.toJson(),
-            time: timeJson,
+            time: this.time.toJson(),
             _type: 'NonRecurringReminderInstance'
         };
     }
 
     static fromJson(json) {
         ASSERT(exists(json));
-        let time;
-        if (json.time === symbolToJson(NULL)) {
-            time = NULL;
-        } else {
-            time = TimeField.fromJson(json.time);
-        }
-        return new NonRecurringReminderInstance(DateField.fromJson(json.date), time);
+        return new NonRecurringReminderInstance(DateField.fromJson(json.date), TimeField.fromJson(json.time));
     }
 }
 
 class RecurringReminderInstance {
     constructor(datePattern, time, range) {
         ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)));
-
-        ASSERT(type(time, Union(TimeField, NULL)));
-
+        ASSERT(type(time, TimeField));
         ASSERT(type(range, Union(DateRange, RecurrenceCount)));
 
         this.datePattern = datePattern;
@@ -885,15 +872,9 @@ class RecurringReminderInstance {
 
     toJson() {
         ASSERT(type(this, RecurringReminderInstance));
-        let timeJson;
-        if (this.time === NULL) {
-            timeJson = symbolToJson(NULL);
-        } else {
-            timeJson = this.time.toJson();
-        }
         return {
             datePattern: this.datePattern.toJson(),
-            time: timeJson,
+            time: this.time.toJson(),
             range: this.range.toJson(),
             _type: 'RecurringReminderInstance'
         };
@@ -914,12 +895,7 @@ class RecurringReminderInstance {
             ASSERT(false, 'Unknown datePattern type in RecurringReminderInstance.fromJson');
         }
 
-        let time;
-        if (json.time === symbolToJson(NULL)) {
-            time = NULL;
-        } else {
-            time = TimeField.fromJson(json.time);
-        }
+        let time = TimeField.fromJson(json.time);
 
         let range;
         if (json.range._type === 'DateRange') {
@@ -1089,6 +1065,102 @@ const MM = Symbol('MM');
 const DD = Symbol('DD');
 const DAY_OF_WEEK = Symbol('DAY_OF_WEEK');
 
+// New Symbols for the things that could generate a FilteredInstance
+const TaskWorkSessionKind = Symbol('TaskWorkSessionKind');
+const EventInstanceKind = Symbol('EventInstanceKind');
+const ReminderInstanceKind = Symbol('ReminderInstanceKind');
+
+// the Filtered data types are simplifications of the original data that are easy to render
+// they are essentially rasterizations of the patterns
+// FilteredSegmentOfDayInstance class for calendar rendering
+class FilteredSegmentOfDayInstance {
+    constructor(id, name, startDateTime, endDateTime, originalStartDate, originalStartTime, wrapToPreviousDay, wrapToNextDay, instanceKind, taskIsComplete, patternIndex, ui = {}) {
+        ASSERT(type(id, NonEmptyString));
+        ASSERT(type(name, String)); // Name can be empty for some generated items if needed
+        ASSERT(type(startDateTime, Int));
+        ASSERT(type(endDateTime, Int));
+        ASSERT(startDateTime <= endDateTime, "FilteredSegmentOfDayInstance: startDateTime must be less than or equal to endDateTime");
+        ASSERT(type(originalStartDate, DateField));
+        ASSERT(type(originalStartTime, Union(TimeField, NULL)));
+        ASSERT(type(wrapToPreviousDay, Boolean));
+        ASSERT(type(wrapToNextDay, Boolean));
+        ASSERT([TaskWorkSessionKind, EventInstanceKind].includes(instanceKind), "FilteredSegmentOfDayInstance: instanceKind must be TaskWorkSessionKind or EventInstanceKind. Received: " + String(instanceKind));
+        ASSERT(type(taskIsComplete, Union(Boolean, NULL)));
+        if (instanceKind !== TaskWorkSessionKind) {
+            ASSERT(taskIsComplete === NULL, "taskIsComplete must be NULL if not a TaskWorkSessionKind");
+        }
+        ASSERT(type(patternIndex, Int));
+        ASSERT(type(ui, Dict(String, Union(String, Int, Boolean, NULL, List(Type), Dict(String, Type)))));
+
+
+        this.id = id;
+        this.name = name;
+        this.startDateTime = startDateTime;
+        this.endDateTime = endDateTime;
+        this.originalStartDate = originalStartDate;
+        this.originalStartTime = originalStartTime;
+        this.wrapToPreviousDay = wrapToPreviousDay;
+        this.wrapToNextDay = wrapToNextDay;
+        this.instanceKind = instanceKind;
+        this.taskIsComplete = taskIsComplete;
+        this.patternIndex = patternIndex;
+        this.ui = ui;
+    }
+
+    // No toJson or fromJson because these aren't stored long-term
+}
+
+// FilteredAllDayInstance class for calendar rendering (all-day section)
+class FilteredAllDayInstance {
+    constructor(id, name, date, instanceKind, taskIsComplete, ignore, patternIndex, ui = {}) {
+        ASSERT(type(id, NonEmptyString));
+        ASSERT(type(name, String));
+        ASSERT(type(date, DateField));
+        ASSERT([TaskWorkSessionKind, EventInstanceKind].includes(instanceKind), "FilteredAllDayInstance: instanceKind must be TaskWorkSessionKind or EventInstanceKind. Received: " + String(instanceKind));
+        ASSERT(type(taskIsComplete, Union(Boolean, NULL)));
+        if (instanceKind !== TaskWorkSessionKind) {
+            ASSERT(taskIsComplete === NULL, "taskIsComplete must be NULL if not a TaskWorkSessionKind");
+        }
+        ASSERT(type(ignore, Boolean));
+        ASSERT(type(patternIndex, Int));
+        ASSERT(type(ui, Dict(String, Union(String, Int, Boolean, NULL, List(Type), Dict(String, Type)))));
+
+        this.id = id;
+        this.name = name;
+        this.date = date;
+        this.instanceKind = instanceKind;
+        this.taskIsComplete = taskIsComplete;
+        this.ignore = ignore;
+        this.patternIndex = patternIndex;
+        this.ui = ui;
+    }
+
+    // No toJson or fromJson needed
+}
+
+// FilteredReminderInstance class for calendar rendering
+class FilteredReminderInstance {
+    constructor(id, name, dateTime, originalDate, originalTime, patternIndex, ui = {}) {
+        ASSERT(type(id, NonEmptyString));
+        ASSERT(type(name, String));
+        ASSERT(type(dateTime, Int)); // Unix timestamp for the reminder's time
+        ASSERT(type(originalDate, DateField)); // The original date from the pattern or non-recurring instance
+        ASSERT(type(originalTime, TimeField));
+        ASSERT(type(patternIndex, Int));
+        ASSERT(type(ui, Dict(String, Union(String, Int, Boolean, NULL, List(Type), Dict(String, Type)))));
+
+        this.id = id;
+        this.name = name;
+        this.dateTime = dateTime;
+        this.originalDate = originalDate;
+        this.originalTime = originalTime;
+        this.patternIndex = patternIndex;
+        this.ui = ui;
+    }
+
+    // No toJson or fromJson needed
+}
+
 // type checking function
 function type(thing, sometype) {
     ASSERT(exists(thing));
@@ -1187,6 +1259,15 @@ function type(thing, sometype) {
     } else if (sometype === ReminderData) {
         if (!(thing instanceof ReminderData)) return false;
         try { new ReminderData(thing.instances); return true; } catch (e) { return false; }
+    } else if (sometype === FilteredSegmentOfDayInstance) {
+        if (!(thing instanceof FilteredSegmentOfDayInstance)) return false;
+        try { new FilteredSegmentOfDayInstance(thing.id, thing.name, thing.startDateTime, thing.endDateTime, thing.originalStartDate, thing.originalStartTime, thing.wrapToPreviousDay, thing.wrapToNextDay, thing.instanceKind, thing.taskIsComplete, thing.patternIndex, thing.ui); return true; } catch (e) { return false; }
+    } else if (sometype === FilteredAllDayInstance) {
+        if (!(thing instanceof FilteredAllDayInstance)) return false;
+        try { new FilteredAllDayInstance(thing.id, thing.name, thing.date, thing.instanceKind, thing.taskIsComplete, thing.ignore, thing.patternIndex, thing.ui); return true; } catch (e) { return false; }
+    } else if (sometype === FilteredReminderInstance) {
+        if (!(thing instanceof FilteredReminderInstance)) return false;
+        try { new FilteredReminderInstance(thing.id, thing.name, thing.dateTime, thing.originalDate, thing.originalTime, thing.patternIndex, thing.ui); return true; } catch (e) { return false; }
     } else if (sometype === Entity) {
         if (!(thing instanceof Entity)) return false;
         try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
@@ -1235,6 +1316,8 @@ function type(thing, sometype) {
         const dow = thing;
         const valid = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         return valid.includes(dow);
+    } else if (sometype === TaskWorkSessionKind || sometype === EventInstanceKind || sometype === ReminderInstanceKind) {
+        return typeof thing === 'symbol' && (thing === TaskWorkSessionKind || thing === EventInstanceKind || thing === ReminderInstanceKind);
     } else {
         return thing instanceof sometype;
     }
