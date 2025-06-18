@@ -503,7 +503,7 @@ if (TESTING) {
             ])
         ),
 
-        // Recurring daily reminder (all-day) for 3 occurrences
+        // Recurring daily reminder for 3 occurrences
         new Entity(
             'reminder-002',
             'Water Plants',
@@ -839,15 +839,15 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
 
     // Determine start date
     let startDateTime;
-    if (type(startUnix, Int)) {
-        startDateTime = DateTime.fromMillis(startUnix);
-    } else if (type(instance.range, DateRange)) {
+    if (type(instance.range, DateRange)) {
         ASSERT(type(instance.range.startDate, DateField));
         startDateTime = DateTime.local(instance.range.startDate.year, instance.range.startDate.month, instance.range.startDate.day);
     } else if (type(pattern, EveryNDaysPattern)) {
         startDateTime = DateTime.local(pattern.initialDate.year, pattern.initialDate.month, pattern.initialDate.day);
     } else {
-        startDateTime = DateTime.local();
+        // For patterns like Monthly or NthWeekday, we start from the beginning of the current day
+        // if no explicit start range is given. The loop will find the first valid date.
+        startDateTime = DateTime.local().startOf('day');
     }
     // Determine end date
     let endDateTime;
@@ -900,8 +900,18 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
         ASSERT(0 <= hour && hour < 24);
         ASSERT(0 <= minute && minute < 60);
         timestamp = currentDateTime.set({hour: hour, minute: minute}).toMillis();
-        dates.push(timestamp);
+
+        // Only add the date if it falls within the requested range (if provided)
+        if ((startUnix === NULL || timestamp >= startUnix) && (endUnix === NULL || timestamp < endUnix)) {
+            dates.push(timestamp);
+        }
+
         count++;
+        // Stop generating future dates if we have already passed the requested endUnix and we have fulfilled the count
+        if (endUnix !== NULL && currentDateTime.toMillis() > endUnix && (type(instance.range, RecurrenceCount) ? dates.length >= instance.range.count : true)) {
+            break;
+        }
+
         // step to next
         if (type(pattern, EveryNDaysPattern)) {
             currentDateTime = currentDateTime.plus({days: pattern.n});
@@ -1601,7 +1611,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             height: String(allDayEventHeight - 2) + 'px',
             top: String(allDayEventTopPosition) + 'px',
             left: String(dayElemLeft + 4.5) + 'px',
-            backgroundColor: allDayEventData.instanceKind === ReminderInstanceKind ? user.palette.accent[0] : user.palette.shades[2],
+            backgroundColor: user.palette.shades[2],
             opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
             zIndex: '350',
@@ -1611,7 +1621,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             opacity: '1' // Ensure opacity is a string for CSS
         });
     }
-    
+
     let existingAllDayEventIndex = allDayInstances.length;
     let extraAllDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
     while (exists(extraAllDayEventElement)) {
