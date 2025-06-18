@@ -1459,7 +1459,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     const textPaddingRight = 2; // px
     const quarterCircleRadius = 10; // Radius for the decorative quarter circle
     const countIndicatorSize = 11; // px, size of the count indicator circle (reduced from 12px)
-    const countIndicatorPadding = 4; // px, space between indicator and text
+    const countIndicatorPadding = 3; // px, space between indicator and text (reduced by 1px)
 
     // Group reminders by their start time
     const reminderGroups = {};
@@ -1522,10 +1522,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         }
         HTML.setStyle(lineElement, {
             position: 'absolute',
-            width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment) + 'px',
+            width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment - 5) + 'px',
             height: String(reminderLineHeight) + 'px',
             top: '0px',
-            left: '0px',
+            left: '6px',
             backgroundColor: user.palette.accent[0], // Blue accent color
             zIndex: '1'
         });
@@ -1540,7 +1540,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         textElement.innerHTML = primaryReminder.name;
 
         // Calculate text positioning with potential count indicator
-        const extraPaddingForIndicator = isGrouped ? (countIndicatorSize + countIndicatorPadding) : 0;
+        const extraPaddingForIndicator = isGrouped ? (countIndicatorSize + countIndicatorPadding) : 2; // +2px for single reminders
         const adjustedTextPaddingLeft = textPaddingLeft + extraPaddingForIndicator;
 
         // Measure text width
@@ -1578,7 +1578,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             textOverflow: 'ellipsis',
             width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
             zIndex: '100', // Main reminder gets highest z-index
-            borderBottomRightRadius: '6px'
+            borderTopLeftRadius: '6px',
+            borderBottomLeftRadius: '6px',
+            borderBottomRightRadius: '6px',
+            borderTopRightRadius: '0px' // No top-right radius for any reminders
         });
 
         // Create count indicator if grouped (positioned relative to container)
@@ -1695,10 +1698,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     textOverflow: 'ellipsis',
                     width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
                     zIndex: String(100 - stackIndex), // Higher stackIndex = lower z-index (further back)
-                    borderTopRightRadius: '6px',
-                    borderBottomRightRadius: '6px',
-                    borderTopLeftRadius: '0px',
-                    borderBottomLeftRadius: '0px',
+                    borderRadius: '6px',
                     opacity: '0'
                 });
 
@@ -1772,11 +1772,12 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         const threshold = 0.01;
                         let newTop, newCountTop, newOpacity;
                         
+                        // Interpolation speed (higher = faster, 0.15 = smooth)
+                        const speed = 0.2;
+                        
                         if (Math.abs(currentTop - targetTop) < threshold) {
                             newTop = targetTop;
                         } else {
-                            // Interpolation speed (higher = faster, 0.15 = smooth)
-                            const speed = 0.15;
                             newTop = currentTop + (targetTop - currentTop) * speed;
                             anyChanges = true;
                         }
@@ -1784,7 +1785,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         if (Math.abs(currentCountTop - targetCountTop) < threshold) {
                             newCountTop = targetCountTop;
                         } else {
-                            const speed = 0.15;
                             newCountTop = currentCountTop + (targetCountTop - currentCountTop) * speed;
                             anyChanges = true;
                         }
@@ -1792,7 +1792,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         if (Math.abs(currentOpacity - targetOpacity) < threshold) {
                             newOpacity = targetOpacity;
                         } else {
-                            const speed = 0.15;
                             newOpacity = currentOpacity + (targetOpacity - currentOpacity) * speed;
                             anyChanges = true;
                         }
@@ -1880,6 +1879,11 @@ function renderCalendar(days) {
             if (exists(dayOfWeekText)) {
                 dayOfWeekText.remove();
             }
+            // outline elements
+            let outlineElement = HTML.getUnsafely('day' + String(i) + 'Outline');
+            if (exists(outlineElement)) {
+                outlineElement.remove();
+            }
 
             continue;
         }
@@ -1924,6 +1928,13 @@ function renderCalendar(days) {
         });
         HTML.body.appendChild(dayElement);
 
+        // add outline element with very high z-index for border
+        let outlineElement = HTML.getUnsafely('day' + String(i) + 'Outline');
+        if (!exists(outlineElement)) {
+            outlineElement = HTML.make('div');
+            HTML.setId(outlineElement, 'day' + String(i) + 'Outline');
+        }
+
         // add background element which is the same but with lower z index
         let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
         if (!exists(backgroundElement)) {
@@ -1935,6 +1946,20 @@ function renderCalendar(days) {
         if (user.settings.stacking && i >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // in bottom half
             topOfBackground = top - topOfCalendarDay; // height of top half + gap
         }
+
+        HTML.setStyle(outlineElement, {
+            position: 'fixed',
+            width: String(columnWidth) + 'px',
+            height: String(height + topOfCalendarDay) + 'px',
+            top: String(topOfBackground) + 'px',
+            left: String(left) + 'px',
+            border: '1px solid ' + user.palette.shades[3],
+            borderRadius: '5px',
+            backgroundColor: 'transparent',
+            pointerEvents: 'none', // Don't interfere with interactions
+            zIndex: '1000' // Very high z-index
+        });
+        HTML.body.appendChild(outlineElement);
 
         HTML.setStyle(backgroundElement, {
             position: 'fixed',
