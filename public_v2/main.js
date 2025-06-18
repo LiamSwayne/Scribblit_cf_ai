@@ -299,6 +299,210 @@ if (TESTING) {
             ])
         ),
 
+        new Entity(
+            'reminder-101',
+            'Double reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(10, 30)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-102',
+            'Double reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(10, 30)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-103',
+            'Quadruple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(19, 30)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-104',
+            'Quadruple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(19, 30)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-105',
+            'Quadruple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(19, 30)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-106',
+            'Quadruple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(19, 30)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-107',
+            'Pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-108',
+            'pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-109',
+            'pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-110',
+            'pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-111',
+            'pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-112',
+            'sextuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(21, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-113',
+            'sextuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(21, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-114',
+            'sextuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(21, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-115',
+            'sextuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(21, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-116',
+            'sextuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(21, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-117',
+            'sextuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(21, 15)
+                )
+            ])
+        ),
+
         // Recurring daily reminder (all-day) for 3 occurrences
         new Entity(
             'reminder-002',
@@ -1656,20 +1860,20 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const stackedReminder = group[stackIndex];
                 const stackNumber = group.length - stackIndex; // Count down from top to bottom
                 
-                // Calculate desaturated color (less blue, more white)
-                // Original accent color: rgb(71, 182, 255)
-                const saturationReduction = stackIndex * 0.4; // Each level gets 40% more white mixed in
-                const originalR = 71;
-                const originalG = 182;
-                const originalB = 255;
-                const white = 255;
-                
-                // Interpolate between original color and white
-                const newR = Math.round(originalR + (white - originalR) * saturationReduction);
-                const newG = Math.round(originalG + (white - originalG) * saturationReduction);
-                const newB = Math.round(originalB + (white - originalB) * saturationReduction);
-                
-                const desaturatedColor = `rgb(${newR}, ${newG}, ${newB})`;
+                // Calculate darkened color (less blue, more black)
+                const darknessFactor = stackIndex * 0.25; // Each level gets 25% more black mixed in
+                const hexColor = user.palette.accent[0];
+                const originalR = parseInt(hexColor.slice(1, 3), 16);
+                const originalG = parseInt(hexColor.slice(3, 5), 16);
+                const originalB = parseInt(hexColor.slice(5, 7), 16);
+
+                // Interpolate between original color and black, but clamp brightness at 20%
+                const brightness = Math.max(0.2, 1 - darknessFactor);
+                const newR = Math.round(originalR * brightness);
+                const newG = Math.round(originalG * brightness);
+                const newB = Math.round(originalB * brightness);
+
+                const darkenedColor = `rgb(${newR}, ${newG}, ${newB})`;
 
                 // Create stacked text element
                 let stackedTextElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
@@ -1684,7 +1888,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     position: 'absolute',
                     top: '0px', // Start at same level as main reminder (hidden behind it)
                     left: '0px',
-                    backgroundColor: desaturatedColor,
+                    backgroundColor: darkenedColor,
                     height: String(reminderTextHeight) + 'px',
                     paddingTop: '1px', // Reduced from 2px to shift text up by 1px
                     paddingLeft: String(adjustedTextPaddingLeft) + 'px',
@@ -1718,7 +1922,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     width: String(countIndicatorSize) + 'px',
                     height: String(countIndicatorSize) + 'px',
                     backgroundColor: user.palette.shades[4], // White background
-                    color: desaturatedColor, // Number color matches the reminder's background
+                    color: darkenedColor, // Number color matches the reminder's background
                     fontSize: '8px',
                     fontFamily: 'Inter',
                     fontWeight: 'bold',
@@ -1734,12 +1938,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             const currentGroupIndex = groupIndex;
             let isHovering = false;
             
+            // make the reminder z-index +100 on hover
             containerElement.addEventListener('mouseenter', function(e) {
                 isHovering = true;
+                containerElement.style.zIndex = parseInt(containerElement.style.zIndex) + 100;
             });
-
+            
+            // -100 on hover leave
             containerElement.addEventListener('mouseleave', function(e) {
                 isHovering = false;
+                containerElement.style.zIndex = parseInt(containerElement.style.zIndex) - 100;
             });
             
             // Continuous update function
@@ -1750,7 +1958,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 for (let stackIndex = 1; stackIndex < group.length; stackIndex++) {
                     let stackedText = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                     let stackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
-                    
+
                     if (exists(stackedText) && exists(stackedCount)) {
                         // Target positions
                         const expandedTop = reminderTextHeight * stackIndex; // 14px, 28px, 42px, etc.
