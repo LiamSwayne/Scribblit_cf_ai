@@ -1804,10 +1804,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             }
         }
 
-        for (let i = 0; i < elements.length; i++) {
-            ASSERT(exists(elements[i]));
-        }
-        
         return elements;
     };
 
@@ -1853,6 +1849,30 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const currentGroupIndex = groupIndex; // Capture for closures
         let leaveTimeoutId;
 
+        const handleSingleReminderMouseEnter = function() {
+            clearTimeout(leaveTimeoutId);
+            const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
+            groupElements.forEach(el => {
+                if (el) {
+                    if (!el.dataset.originalZIndex) {
+                        el.dataset.originalZIndex = el.style.zIndex;
+                    }
+                    el.style.zIndex = parseInt(el.style.zIndex) + 100;
+                }
+            });
+        };
+        const handleSingleReminderMouseLeave = function() {
+            leaveTimeoutId = setTimeout(() => {
+                const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
+                groupElements.forEach(el => {
+                    if (el && el.dataset.originalZIndex) {
+                        el.style.zIndex = el.dataset.originalZIndex;
+                        delete el.dataset.originalZIndex;
+                    }
+                });
+            }, 50);
+        };
+
         const handleReminderMouseEnter = function() {
             clearTimeout(leaveTimeoutId);
             
@@ -1880,6 +1900,20 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             }, 50);
         };
 
+        const addReminderHoverHandlers = (element) => {
+            element.removeEventListener('mouseenter', element.mouseEnterHandler);
+            element.removeEventListener('mouseleave', element.mouseLeaveHandler);
+            if (isGrouped) {
+                element.mouseEnterHandler = handleReminderMouseEnter;
+                element.mouseLeaveHandler = handleReminderMouseLeave;
+            } else {
+                element.mouseEnterHandler = handleSingleReminderMouseEnter;
+                element.mouseLeaveHandler = handleSingleReminderMouseLeave;
+            }
+            element.addEventListener('mouseenter', element.mouseEnterHandler);
+            element.addEventListener('mouseleave', element.mouseLeaveHandler);
+        };
+
         // Create/Update Line Element (now directly on body)
         let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
         if (!exists(lineElement)) {
@@ -1887,6 +1921,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
             HTML.body.appendChild(lineElement);
         }
+        addReminderHoverHandlers(lineElement);
         HTML.setStyle(lineElement, {
             position: 'fixed',
             width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment - 5) + 'px',
@@ -1905,16 +1940,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.body.appendChild(textElement);
         }
         
-        // Remove old listeners before adding new ones to prevent memory leaks on re-render
-        textElement.removeEventListener('mouseenter', textElement.mouseEnterHandler);
-        textElement.removeEventListener('mouseleave', textElement.mouseLeaveHandler);
-
-        if (isGrouped) {
-            textElement.mouseEnterHandler = handleReminderMouseEnter;
-            textElement.mouseLeaveHandler = handleReminderMouseLeave;
-            textElement.addEventListener('mouseenter', textElement.mouseEnterHandler);
-            textElement.addEventListener('mouseleave', textElement.mouseLeaveHandler);
-        }
+        addReminderHoverHandlers(textElement);
         textElement.innerHTML = primaryReminder.name;
 
         // Calculate text positioning with potential count indicator
@@ -1960,7 +1986,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             borderBottomLeftRadius: '6px',
             borderBottomRightRadius: '6px',
             borderTopRightRadius: '0px', // No top-right radius for any reminders
-            cursor: isGrouped ? 'pointer' : 'default'
+            cursor: 'pointer'
         });
 
         // Create count indicator if grouped (now directly on body)
@@ -2013,6 +2039,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(qcElement, `day${dayIndex}reminderQC${groupIndex}`);
             HTML.body.appendChild(qcElement);
         }
+        addReminderHoverHandlers(qcElement);
 
         const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
         const qcLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
