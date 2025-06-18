@@ -513,11 +513,15 @@ if (TESTING) {
                     new EveryNDaysPattern(today, 1), // Daily starting today
                     new TimeField(9, 0),
                     new RecurrenceCount(3) // For 3 days
+                ),
+                new RecurringReminderInstance(
+                    new EveryNDaysPattern(today, 1), // Daily starting today
+                    new TimeField(21, 0),
+                    new RecurrenceCount(3) // For 3 days
                 )
             ])
         ),
 
-        // Non-recurring all-day reminder -> now timed
         new Entity(
             'reminder-003',
             "Sarah's Birthday",
@@ -526,6 +530,18 @@ if (TESTING) {
                 new NonRecurringReminderInstance(
                     in3Days, // date
                     new TimeField(10, 0)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-200',
+            "Accent 0",
+            "Don't forget to send wishes!",
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(21, 25)
                 )
             ])
         )
@@ -908,7 +924,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
 
         count++;
         // Stop generating future dates if we have already passed the requested endUnix and we have fulfilled the count
-        if (endUnix !== NULL && currentDateTime.toMillis() > endUnix && (type(instance.range, RecurrenceCount) ? dates.length >= instance.range.count : true)) {
+        if (endUnix !== NULL && currentDateTime.toMillis() > endUnix && (type(instance.range, RecurrenceCount) ? count >= instance.range.count : true)) {
             break;
         }
 
@@ -1686,7 +1702,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     }
 
     let groupIndex = 0;
-    for (let timeKey of Object.keys(reminderGroups)) {
+    let lastReminderBottom = -1; // For tracking overlaps
+    let touchingGroupColorIndex = 0; // For alternating colors
+
+    // Sort by time to process sequentially and check for overlaps
+    for (let timeKey of Object.keys(reminderGroups).sort()) {
         const group = reminderGroups[timeKey];
         const isGrouped = group.length > 1;
         const primaryReminder = group[0];
@@ -1706,50 +1726,62 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         // Ensure reminder is within the visible timed area bounds
         reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
 
-        // Create/Update Container Element
-        let containerElement = HTML.getUnsafely(`day${dayIndex}reminderContainer${groupIndex}`);
-        if (!exists(containerElement)) {
-            containerElement = HTML.make('div');
-            HTML.setId(containerElement, `day${dayIndex}reminderContainer${groupIndex}`);
-            HTML.body.appendChild(containerElement);
+        // Check for overlap with the previous reminder group to alternate colors
+        if (lastReminderBottom !== -1 && reminderTopPosition < lastReminderBottom) {
+            touchingGroupColorIndex++;
+        } else {
+            touchingGroupColorIndex = 0; // Reset because the chain is broken
+        }
+        const accentColorHex = user.palette.accent[touchingGroupColorIndex % user.palette.accent.length];
+
+        // Create/Update Hover Target Element (replaces the container)
+        let hoverTargetElement = HTML.getUnsafely(`day${dayIndex}reminderHoverTarget${groupIndex}`);
+        if (!exists(hoverTargetElement)) {
+            hoverTargetElement = HTML.make('div');
+            HTML.setId(hoverTargetElement, `day${dayIndex}reminderHoverTarget${groupIndex}`);
+            HTML.body.appendChild(hoverTargetElement);
         }
 
-        // Calculate container height (includes space for all stacked reminders if expanded)
+        // Calculate container height and update last position
         const containerHeight = reminderLineHeight + reminderTextHeight;
+        lastReminderBottom = reminderTopPosition + containerHeight;
 
-        HTML.setStyle(containerElement, {
+        const baseZIndex = 600;
+
+        HTML.setStyle(hoverTargetElement, {
             position: 'fixed',
             top: String(reminderTopPosition) + 'px',
             left: String(dayElemLeft + spaceForHourMarkers) + 'px',
             width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment) + 'px',
             height: String(containerHeight) + 'px',
-            zIndex: '600',
-            cursor: isGrouped ? 'pointer' : 'default'
+            zIndex: String(baseZIndex),
+            cursor: isGrouped ? 'pointer' : 'default',
+            backgroundColor: 'transparent' // Invisible hover area
         });
 
-        // Create/Update Line Element (positioned relative to container)
+        // Create/Update Line Element (now directly on body)
         let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
         if (!exists(lineElement)) {
             lineElement = HTML.make('div');
             HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
-            containerElement.appendChild(lineElement);
+            HTML.body.appendChild(lineElement);
         }
         HTML.setStyle(lineElement, {
-            position: 'absolute',
+            position: 'fixed',
             width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment - 5) + 'px',
             height: String(reminderLineHeight) + 'px',
-            top: '0px',
-            left: '6px',
-            backgroundColor: user.palette.accent[0], // Blue accent color
-            zIndex: '1'
+            top: String(reminderTopPosition) + 'px',
+            left: String(dayElemLeft + spaceForHourMarkers + 6) + 'px',
+            backgroundColor: accentColorHex,
+            zIndex: String(baseZIndex)
         });
 
-        // Create/Update Text Element (positioned relative to container)
+        // Create/Update Text Element (now directly on body)
         let textElement = HTML.getUnsafely(`day${dayIndex}reminderText${groupIndex}`);
         if (!exists(textElement)) {
             textElement = HTML.make('div');
             HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
-            containerElement.appendChild(textElement);
+            HTML.body.appendChild(textElement);
         }
         textElement.innerHTML = primaryReminder.name;
 
@@ -1775,10 +1807,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const finalWidthForTextElement = contentActualWidth + adjustedTextPaddingLeft + textPaddingRight;
 
         HTML.setStyle(textElement, {
-            position: 'absolute',
-            top: '0px',
-            left: '0px',
-            backgroundColor: user.palette.accent[0],
+            position: 'fixed',
+            top: String(reminderTopPosition) + 'px',
+            left: String(dayElemLeft + spaceForHourMarkers) + 'px',
+            backgroundColor: accentColorHex,
             height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
             paddingTop: String(reminderLineHeight - 1) + 'px',
             paddingLeft: String(adjustedTextPaddingLeft) + 'px',
@@ -1791,38 +1823,38 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
-            zIndex: '100', // Main reminder gets highest z-index
+            zIndex: String(baseZIndex), // Main reminder gets highest z-index
             borderTopLeftRadius: '6px',
             borderBottomLeftRadius: '6px',
             borderBottomRightRadius: '6px',
             borderTopRightRadius: '0px' // No top-right radius for any reminders
         });
 
-        // Create count indicator if grouped (positioned relative to container)
+        // Create count indicator if grouped (now directly on body)
         if (isGrouped) {
             let countElement = HTML.getUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
             if (!exists(countElement)) {
                 countElement = HTML.make('div');
                 HTML.setId(countElement, `day${dayIndex}reminderCount${groupIndex}`);
-                containerElement.appendChild(countElement);
+                HTML.body.appendChild(countElement);
             }
             countElement.innerHTML = String(group.length);
             
             HTML.setStyle(countElement, {
-                position: 'absolute',
-                top: String(reminderLineHeight - 0.5) + 'px',
-                left: String(textPaddingLeft) + 'px',
+                position: 'fixed',
+                top: String(reminderTopPosition + reminderLineHeight - 0.5) + 'px',
+                left: String(dayElemLeft + spaceForHourMarkers + textPaddingLeft) + 'px',
                 width: String(countIndicatorSize) + 'px',
                 height: String(countIndicatorSize) + 'px',
                 backgroundColor: user.palette.shades[4], // White background
-                color: user.palette.accent[0], // Original blue color for the number
+                color: accentColorHex, // Original blue color for the number
                 fontSize: '8px',
                 fontFamily: 'Inter',
                 fontWeight: 'bold',
                 textAlign: 'center',
                 lineHeight: String(countIndicatorSize) + 'px',
                 borderRadius: '50%',
-                zIndex: '101' // Main count indicator gets highest z-index
+                zIndex: String(baseZIndex)
             });
         } else {
             // Remove count indicator if it exists but shouldn't
@@ -1832,28 +1864,28 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             }
         }
 
-        // Create/Update Quarter Circle Decorative Element (positioned relative to container)
+        // Create/Update Quarter Circle Decorative Element (now directly on body)
         let qcElement = HTML.getUnsafely(`day${dayIndex}reminderQC${groupIndex}`);
         if (!exists(qcElement)) {
             qcElement = HTML.make('div');
             HTML.setId(qcElement, `day${dayIndex}reminderQC${groupIndex}`);
-            containerElement.appendChild(qcElement);
+            HTML.body.appendChild(qcElement);
         }
 
         const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
-        const qcLeft = textElementActualWidth;
+        const qcLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
 
         const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
         const maskSizeValue = `${quarterCircleRadius * 2}px ${quarterCircleRadius * 2}px`;
 
         HTML.setStyle(qcElement, {
-            position: 'absolute',
+            position: 'fixed',
             width: String(quarterCircleRadius) + 'px',
             height: String(quarterCircleRadius) + 'px',
-            top: String(reminderLineHeight) + 'px',
+            top: String(reminderTopPosition + reminderLineHeight) + 'px',
             left: String(qcLeft) + 'px',
-            backgroundColor: user.palette.accent[0],
-            zIndex: '102', // Quarter circle gets highest z-index
+            backgroundColor: accentColorHex,
+            zIndex: String(baseZIndex + 1), // Quarter circle gets highest z-index
             webkitMaskImage: gradientMask,
             maskImage: gradientMask,
             webkitMaskSize: maskSizeValue,
@@ -1872,7 +1904,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 
                 // Calculate darkened color (less blue, more black)
                 const darknessFactor = stackIndex * 0.25; // Each level gets 25% more black mixed in
-                const hexColor = user.palette.accent[0];
+                const hexColor = accentColorHex;
                 const originalR = parseInt(hexColor.slice(1, 3), 16);
                 const originalG = parseInt(hexColor.slice(3, 5), 16);
                 const originalB = parseInt(hexColor.slice(5, 7), 16);
@@ -1890,14 +1922,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 if (!exists(stackedTextElement)) {
                     stackedTextElement = HTML.make('div');
                     HTML.setId(stackedTextElement, `day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
-                    containerElement.appendChild(stackedTextElement);
+                    HTML.body.appendChild(stackedTextElement);
                 }
                 stackedTextElement.innerHTML = stackedReminder.name;
 
                 HTML.setStyle(stackedTextElement, {
-                    position: 'absolute',
-                    top: '0px', // Start at same level as main reminder (hidden behind it)
-                    left: '0px',
+                    position: 'fixed',
+                    top: String(reminderTopPosition) + 'px', // Start at same level as main reminder (hidden behind it)
+                    left: String(dayElemLeft + spaceForHourMarkers) + 'px',
                     backgroundColor: darkenedColor,
                     height: String(reminderTextHeight) + 'px',
                     paddingTop: '1px', // Reduced from 2px to shift text up by 1px
@@ -1911,7 +1943,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
-                    zIndex: String(100 - stackIndex), // Higher stackIndex = lower z-index (further back)
+                    zIndex: String(baseZIndex - stackIndex), // Higher stackIndex = lower z-index (further back)
                     borderRadius: '6px',
                     opacity: '0'
                 });
@@ -1921,14 +1953,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 if (!exists(stackCountElement)) {
                     stackCountElement = HTML.make('div');
                     HTML.setId(stackCountElement, `day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
-                    containerElement.appendChild(stackCountElement);
+                    HTML.body.appendChild(stackCountElement);
                 }
                 stackCountElement.innerHTML = String(stackNumber);
                 
                 HTML.setStyle(stackCountElement, {
-                    position: 'absolute',
-                    top: '100px', // Moved down 1px total from original 1px position
-                    left: String(textPaddingLeft) + 'px',
+                    position: 'fixed',
+                    top: String(reminderTopPosition + 1) + 'px', // Moved down 1px total from original 1px position
+                    left: String(dayElemLeft + spaceForHourMarkers + textPaddingLeft) + 'px',
                     width: String(countIndicatorSize) + 'px',
                     height: String(countIndicatorSize) + 'px',
                     backgroundColor: user.palette.shades[4], // White background
@@ -1939,25 +1971,46 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     textAlign: 'center',
                     lineHeight: String(countIndicatorSize) + 'px',
                     borderRadius: '50%',
-                    zIndex: String(101 - stackIndex), // Count indicators are 1 higher than their text
+                    zIndex: String(baseZIndex - stackIndex), // Count indicators are on the same level as their text
                     opacity: '0'
                 });
             }
+
+            // Helper to get all elements for a group
+            const getGroupElements = (dayIdx, grpIdx, stackSize) => {
+                const elements = [];
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderHoverTarget${grpIdx}`));
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderQC${grpIdx}`));
+                if (isGrouped) {
+                    elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
+                    for (let i = 1; i < stackSize; i++) {
+                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
+                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
+                    }
+                }
+                return elements.filter(exists);
+            };
 
             // Simple hover logic with JavaScript animations
             const currentGroupIndex = groupIndex;
             let isHovering = false;
             
             // make the reminder z-index +100 on hover
-            containerElement.addEventListener('mouseenter', function(e) {
+            hoverTargetElement.addEventListener('mouseenter', function(e) {
                 isHovering = true;
-                containerElement.style.zIndex = parseInt(containerElement.style.zIndex) + 100;
+                getGroupElements(dayIndex, currentGroupIndex, group.length).forEach(el => {
+                    el.style.zIndex = parseInt(el.style.zIndex) + 100;
+                });
             });
             
             // -100 on hover leave
-            containerElement.addEventListener('mouseleave', function(e) {
+            hoverTargetElement.addEventListener('mouseleave', function(e) {
                 isHovering = false;
-                containerElement.style.zIndex = parseInt(containerElement.style.zIndex) - 100;
+                getGroupElements(dayIndex, currentGroupIndex, group.length).forEach(el => {
+                    el.style.zIndex = parseInt(el.style.zIndex) - 100;
+                });
             });
             
             // Continuous update function
@@ -1970,11 +2023,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     let stackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
 
                     if (exists(stackedText) && exists(stackedCount)) {
-                        // Target positions
-                        const expandedTop = reminderTextHeight * stackIndex; // 14px, 28px, 42px, etc.
-                        const expandedCountTop = expandedTop + 1.5; // Use 1.5 as base (0.5px down from original)
-                        const hiddenTop = 0; // Same level as main reminder (hidden behind it)
-                        const hiddenCountTop = 1.5; // Start at 1.5px (0.5px down from original 1px)
+                        // Target positions (now absolute)
+                        const expandedTop = reminderTopPosition + (reminderTextHeight * stackIndex);
+                        const expandedCountTop = expandedTop + 1.5;
+                        const hiddenTop = reminderTopPosition;
+                        const hiddenCountTop = reminderTopPosition + 1.5;
                         
                         // Current positions
                         const currentTop = parseFloat(stackedText.style.top || hiddenTop);
@@ -2049,12 +2102,36 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
     // Remove stale reminder elements
     let existingReminderIndex = groupIndex;
-    let staleContainer = HTML.getUnsafely(`day${dayIndex}reminderContainer${existingReminderIndex}`);
+    while(true) {
+        const hoverTarget = HTML.getUnsafely(`day${dayIndex}reminderHoverTarget${existingReminderIndex}`);
+        if (!exists(hoverTarget)) {
+            // If the hover target is gone, we assume all other elements for this index are too.
+            break; 
+        }
 
-    while (exists(staleContainer)) {
-        staleContainer.remove(); // This will remove all child elements too
+        // Helper to remove an element by its generated ID
+        const removeElementById = (id) => {
+            const el = HTML.getUnsafely(id);
+            if(exists(el)) el.remove();
+        };
+
+        removeElementById(`day${dayIndex}reminderHoverTarget${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderQC${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
+        
+        let stackIdx = 1;
+        while(true) {
+            const stackText = HTML.getUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+            if(!exists(stackText)) break;
+            
+            removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+            removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
+            stackIdx++;
+        }
+
         existingReminderIndex++;
-        staleContainer = HTML.getUnsafely(`day${dayIndex}reminderContainer${existingReminderIndex}`);
     }
 }
 
@@ -2103,6 +2180,46 @@ function renderCalendar(days) {
                 outlineElement.remove();
             }
 
+            // Cleanup for all-day events and reminders for the removed day column
+            let j = 0;
+            while (true) {
+                let staleElement = HTML.getUnsafely(`day${i}allDayEvent${j}`);
+                if (exists(staleElement)) {
+                    staleElement.remove();
+                    j++;
+                } else {
+                    break;
+                }
+            }
+            j = 0;
+            while (true) {
+                let staleElement = HTML.getUnsafely(`day${i}reminderHoverTarget${j}`);
+                if (exists(staleElement)) {
+                    staleElement.remove(); // This should trigger removal of others in a full implementation, but direct removal is safer.
+                    // To be thorough, remove all parts of the reminder group
+                    const removeElementById = (id) => {
+                        const el = HTML.getUnsafely(id);
+                        if(exists(el)) el.remove();
+                    };
+                    removeElementById(`day${i}reminderHoverTarget${j}`);
+                    removeElementById(`day${i}reminderLine${j}`);
+                    removeElementById(`day${i}reminderText${j}`);
+                    removeElementById(`day${i}reminderQC${j}`);
+                    removeElementById(`day${i}reminderCount${j}`);
+                    let stackIdx = 1;
+                    while(true) {
+                        const stackText = HTML.getUnsafely(`day${i}reminderStackText${j}_${stackIdx}`);
+                        if(!exists(stackText)) break;
+                        removeElementById(`day${i}reminderStackText${j}_${stackIdx}`);
+                        removeElementById(`day${i}reminderStackCount${j}_${stackIdx}`);
+                        stackIdx++;
+                    }
+                    j++;
+                } else {
+                    break;
+                }
+            }
+            
             continue;
         }
 
