@@ -1668,6 +1668,92 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
     // - Removing stale DOM elements if the number of instances changes.
 }
 
+// A map to keep track of running animation frames for each reminder group
+const G_animationFrameMap = new Map();
+
+function updateStackPositions(dayIndex, groupIndex, isHovering) {
+    ASSERT(type(dayIndex, Int) && type(groupIndex, Int) && type(isHovering, Boolean));
+
+    const animationKey = `${dayIndex}-${groupIndex}`;
+
+    // Cancel any previous animation frame for this group to avoid conflicts
+    if (G_animationFrameMap.has(animationKey)) {
+        cancelAnimationFrame(G_animationFrameMap.get(animationKey));
+        G_animationFrameMap.delete(animationKey);
+    }
+    
+    const primaryTextElement = HTML.getUnsafely(`day${dayIndex}reminderText${groupIndex}`);
+    if (!exists(primaryTextElement)) {
+        // Elements might have been removed by a re-render, so we stop.
+        return; 
+    }
+    
+    // Assert that this is part of a stack.
+    const firstStackElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_1`);
+    ASSERT(exists(firstStackElement), `updateStackPositions called for a non-stacked reminder: day${dayIndex}, group${groupIndex}`);
+
+    const reminderTopPosition = parseFloat(primaryTextElement.style.top);
+    const reminderTextHeight = 14; // From renderReminderInstances
+
+    let groupLength = 1;
+    while (HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${groupLength}`)) {
+        groupLength++;
+    }
+
+    function animationLoop() {
+        let anyChanges = false;
+        
+        for (let stackIndex = 1; stackIndex < groupLength; stackIndex++) {
+            let stackedText = HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
+            let stackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
+            
+            if (exists(stackedText) && exists(stackedCount)) {
+                const expandedTop = reminderTopPosition + (reminderTextHeight * stackIndex);
+                const expandedCountTop = expandedTop + 1.5;
+                const hiddenTop = reminderTopPosition;
+                const hiddenCountTop = reminderTopPosition + 1.5;
+                
+                const currentTop = parseFloat(stackedText.style.top);
+                const currentCountTop = parseFloat(stackedCount.style.top);
+                const currentOpacity = parseFloat(stackedText.style.opacity);
+                
+                const targetTop = isHovering ? expandedTop : hiddenTop;
+                const targetCountTop = isHovering ? expandedCountTop : hiddenCountTop;
+                const targetOpacity = isHovering ? 1 : 0;
+
+                const speed = 0.2;
+                const threshold = 0.1;
+
+                let newTop = currentTop + (targetTop - currentTop) * speed;
+                let newCountTop = currentCountTop + (targetCountTop - currentCountTop) * speed;
+                let newOpacity = currentOpacity + (targetOpacity - currentOpacity) * speed;
+
+                if (Math.abs(targetTop - newTop) < threshold) newTop = targetTop;
+                if (Math.abs(targetCountTop - newCountTop) < threshold) newCountTop = targetCountTop;
+                if (Math.abs(targetOpacity - newOpacity) < threshold) newOpacity = targetOpacity;
+
+                if (newTop !== currentTop || newCountTop !== currentCountTop || newOpacity !== currentOpacity) {
+                    anyChanges = true;
+                }
+
+                stackedText.style.top = `${newTop}px`;
+                stackedText.style.opacity = newOpacity;
+                stackedCount.style.top = `${newCountTop}px`;
+                stackedCount.style.opacity = newOpacity;
+            }
+        }
+        
+        if (anyChanges) {
+            const frameId = requestAnimationFrame(animationLoop);
+            G_animationFrameMap.set(animationKey, frameId);
+        } else {
+            G_animationFrameMap.delete(animationKey);
+        }
+    }
+    
+    animationLoop();
+}
+
 // New function to render reminder instances
 function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft, dayStartUnix, dayEndUnix) {
     ASSERT(type(reminderInstances, List(FilteredReminderInstance)));
@@ -1700,6 +1786,30 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         }
         reminderGroups[timeKey].push(reminder);
     }
+
+    function getReminderElementsFromIndex(dayIdx, grpIdx, stackSize) {
+        ASSERT(type(dayIdx, Int));
+        ASSERT(type(grpIdx, Int));
+        ASSERT(type(stackSize, Int));
+
+        const elements = [];
+        elements.push(HTML.getUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
+        elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
+        elements.push(HTML.getUnsafely(`day${dayIdx}reminderQC${grpIdx}`));
+        if (stackSize > 1) {
+            elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
+            for (let i = 1; i < stackSize; i++) {
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
+            }
+        }
+
+        for (let i = 0; i < elements.length; i++) {
+            ASSERT(exists(elements[i]));
+        }
+        
+        return elements;
+    };
 
     let groupIndex = 0;
     let lastReminderBottom = -1; // For tracking overlaps
@@ -1739,6 +1849,36 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         lastReminderBottom = reminderTopPosition + containerHeight;
 
         const baseZIndex = 600;
+        // animations for sliding the stacked reminders up and down
+        const currentGroupIndex = groupIndex; // Capture for closures
+        let leaveTimeoutId;
+
+        const handleReminderMouseEnter = function() {
+            clearTimeout(leaveTimeoutId);
+            
+            const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
+            
+            groupElements.forEach(el => {
+                if (!el.dataset.originalZIndex) {
+                    el.dataset.originalZIndex = el.style.zIndex;
+                }
+                el.style.zIndex = parseInt(el.dataset.originalZIndex) + 100;
+            });
+            
+            updateStackPositions(dayIndex, currentGroupIndex, true);
+        };
+        const handleReminderMouseLeave = function() {
+            leaveTimeoutId = setTimeout(() => {
+                const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
+                groupElements.forEach(el => {
+                    if (el.dataset.originalZIndex) {
+                        el.style.zIndex = el.dataset.originalZIndex;
+                        delete el.dataset.originalZIndex;
+                    }
+                });
+                updateStackPositions(dayIndex, currentGroupIndex, false);
+            }, 50);
+        };
 
         // Create/Update Line Element (now directly on body)
         let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
@@ -1763,6 +1903,17 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             textElement = HTML.make('div');
             HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
             HTML.body.appendChild(textElement);
+        }
+        
+        // Remove old listeners before adding new ones to prevent memory leaks on re-render
+        textElement.removeEventListener('mouseenter', textElement.mouseEnterHandler);
+        textElement.removeEventListener('mouseleave', textElement.mouseLeaveHandler);
+
+        if (isGrouped) {
+            textElement.mouseEnterHandler = handleReminderMouseEnter;
+            textElement.mouseLeaveHandler = handleReminderMouseLeave;
+            textElement.addEventListener('mouseenter', textElement.mouseEnterHandler);
+            textElement.addEventListener('mouseleave', textElement.mouseLeaveHandler);
         }
         textElement.innerHTML = primaryReminder.name;
 
@@ -1820,6 +1971,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 HTML.setId(countElement, `day${dayIndex}reminderCount${groupIndex}`);
                 HTML.body.appendChild(countElement);
             }
+            // Remove old listeners
+            countElement.removeEventListener('mouseenter', countElement.mouseEnterHandler);
+            countElement.removeEventListener('mouseleave', countElement.mouseLeaveHandler);
+            
+            countElement.mouseEnterHandler = handleReminderMouseEnter;
+            countElement.mouseLeaveHandler = handleReminderMouseLeave;
+            countElement.addEventListener('mouseenter', countElement.mouseEnterHandler);
+            countElement.addEventListener('mouseleave', countElement.mouseLeaveHandler);
             countElement.innerHTML = String(group.length);
             
             HTML.setStyle(countElement, {
@@ -1907,6 +2066,15 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     HTML.setId(stackedTextElement, `day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackedTextElement);
                 }
+                
+                // Remove old listeners
+                stackedTextElement.removeEventListener('mouseenter', stackedTextElement.mouseEnterHandler);
+                stackedTextElement.removeEventListener('mouseleave', stackedTextElement.mouseLeaveHandler);
+
+                stackedTextElement.mouseEnterHandler = handleReminderMouseEnter;
+                stackedTextElement.mouseLeaveHandler = handleReminderMouseLeave;
+                stackedTextElement.addEventListener('mouseenter', stackedTextElement.mouseEnterHandler);
+                stackedTextElement.addEventListener('mouseleave', stackedTextElement.mouseLeaveHandler);
                 stackedTextElement.innerHTML = stackedReminder.name;
 
                 HTML.setStyle(stackedTextElement, {
@@ -1939,6 +2107,15 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     HTML.setId(stackCountElement, `day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackCountElement);
                 }
+                
+                // Remove old listeners
+                stackCountElement.removeEventListener('mouseenter', stackCountElement.mouseEnterHandler);
+                stackCountElement.removeEventListener('mouseleave', stackCountElement.mouseLeaveHandler);
+
+                stackCountElement.mouseEnterHandler = handleReminderMouseEnter;
+                stackCountElement.mouseLeaveHandler = handleReminderMouseLeave;
+                stackCountElement.addEventListener('mouseenter', stackCountElement.mouseEnterHandler);
+                stackCountElement.addEventListener('mouseleave', stackCountElement.mouseLeaveHandler);
                 stackCountElement.innerHTML = String(stackNumber);
                 
                 HTML.setStyle(stackCountElement, {
@@ -1960,144 +2137,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     cursor: 'pointer'
                 });
             }
-
-            // Helper to get all elements for a group
-            const getGroupElements = (dayIdx, grpIdx, stackSize) => {
-                const elements = [];
-                elements.push(HTML.getUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
-                elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
-                elements.push(HTML.getUnsafely(`day${dayIdx}reminderQC${grpIdx}`));
-                if (isGrouped) {
-                    elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
-                    for (let i = 1; i < stackSize; i++) {
-                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
-                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
-                    }
-                }
-                return elements.filter(exists);
-            };
-
-            // Helper to get interactive elements (text and count indicators, but not line)
-            const getInteractiveElements = (dayIdx, grpIdx, stackSize) => {
-                const elements = [];
-                elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
-                if (isGrouped) {
-                    elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
-                    for (let i = 1; i < stackSize; i++) {
-                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
-                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
-                    }
-                }
-                return elements.filter(exists);
-            };
-
-            // Simple hover logic with JavaScript animations
-            const currentGroupIndex = groupIndex;
-            let isHovering = false;
-            
-            // Add hover event listeners to all interactive elements
-            const interactiveElements = getInteractiveElements(dayIndex, currentGroupIndex, group.length);
-            
-            const handleMouseEnter = function(e) {
-                isHovering = true;
-                getGroupElements(dayIndex, currentGroupIndex, group.length).forEach(el => {
-                    el.style.zIndex = parseInt(el.style.zIndex) + 100;
-                });
-            };
-            
-            const handleMouseLeave = function(e) {
-                isHovering = false;
-                getGroupElements(dayIndex, currentGroupIndex, group.length).forEach(el => {
-                    el.style.zIndex = parseInt(el.style.zIndex) - 100;
-                });
-            };
-
-            // Apply event listeners to all interactive elements
-            interactiveElements.forEach(element => {
-                element.addEventListener('mouseenter', handleMouseEnter);
-                element.addEventListener('mouseleave', handleMouseLeave);
-            });
-            
-            // Continuous update function
-            function updateStackPositions() {
-                const mainReminderHeight = reminderLineHeight + reminderTextHeight - 2;
-                let anyChanges = false; // Track if any significant changes are happening
-                
-                for (let stackIndex = 1; stackIndex < group.length; stackIndex++) {
-                    let stackedText = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
-                    let stackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
-
-                    if (exists(stackedText) && exists(stackedCount)) {
-                        // Target positions (now absolute)
-                        const expandedTop = reminderTopPosition + (reminderTextHeight * stackIndex);
-                        const expandedCountTop = expandedTop + 1.5;
-                        const hiddenTop = reminderTopPosition;
-                        const hiddenCountTop = reminderTopPosition + 1.5;
-                        
-                        // Current positions
-                        const currentTop = parseFloat(stackedText.style.top || hiddenTop);
-                        const currentCountTop = parseFloat(stackedCount.style.top || hiddenCountTop);
-                        const currentOpacity = parseFloat(stackedText.style.opacity || 0);
-                        
-                        // Target values based on hover state
-                        const targetTop = isHovering ? expandedTop : hiddenTop;
-                        const targetCountTop = isHovering ? expandedCountTop : hiddenCountTop;
-                        const targetOpacity = isHovering ? 1 : 0;
-                        
-                        // Check if values are close enough to target to snap
-                        const threshold = 0.01;
-                        let newTop, newCountTop, newOpacity;
-                        
-                        // Interpolation speed (higher = faster, 0.15 = smooth)
-                        const speed = 0.2;
-                        
-                        if (Math.abs(currentTop - targetTop) < threshold) {
-                            newTop = targetTop;
-                        } else {
-                            newTop = currentTop + (targetTop - currentTop) * speed;
-                            anyChanges = true;
-                        }
-                        
-                        if (Math.abs(currentCountTop - targetCountTop) < threshold) {
-                            newCountTop = targetCountTop;
-                        } else {
-                            newCountTop = currentCountTop + (targetCountTop - currentCountTop) * speed;
-                            anyChanges = true;
-                        }
-                        
-                        if (Math.abs(currentOpacity - targetOpacity) < threshold) {
-                            newOpacity = targetOpacity;
-                        } else {
-                            newOpacity = currentOpacity + (targetOpacity - currentOpacity) * speed;
-                            anyChanges = true;
-                        }
-                        
-                        // Apply bounds limiting
-                        newTop = Math.max(hiddenTop, Math.min(expandedTop, newTop));
-                        newCountTop = Math.max(hiddenCountTop, Math.min(expandedCountTop, newCountTop));
-                        newOpacity = Math.max(0, Math.min(1, newOpacity));
-                        
-                        // Apply new positions
-                        stackedText.style.top = String(newTop) + 'px';
-                        stackedText.style.opacity = String(newOpacity);
-                        stackedCount.style.top = String(newCountTop) + 'px';
-                        stackedCount.style.opacity = String(newOpacity);
-                    }
-                }
-                
-                // Continue updating only if there are significant changes
-                if (anyChanges || isHovering) {
-                    requestAnimationFrame(updateStackPositions);
-                } else {
-                    // Restart the loop after a delay in case hover state changes
-                    setTimeout(() => {
-                        requestAnimationFrame(updateStackPositions);
-                    }, 100);
-                }
-            }
-            
-            // Start the update loop
-            updateStackPositions();
         } else {
             log("Single reminder (not grouped) for group " + groupIndex);
         }
