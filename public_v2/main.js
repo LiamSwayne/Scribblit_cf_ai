@@ -567,7 +567,19 @@ if (TESTING) {
     saveUserData(user);
 }
 
+function applyPalette(palette) {
+    ASSERT(type(palette, Dict(String, List(String))));
+    const root = document.documentElement;
+    palette.shades.forEach((shade, index) => {
+        root.style.setProperty(`--shade-${index}`, shade);
+    });
+    palette.accent.forEach((accent, index) => {
+        root.style.setProperty(`--accent-${index}`, accent);
+    });
+}
+
 let user = loadUserData();
+applyPalette(user.palette);
 // Set firstDayInCalendar to today on page load
 firstDayInCalendar = getDayNDaysFromToday(0);
 ASSERT(type(user, User));
@@ -767,7 +779,7 @@ styleElement.textContent = `
 HTML.head.appendChild(styleElement);
 
 HTML.setStyle(HTML.body, {
-    backgroundColor: user.palette.shades[0],
+    backgroundColor: 'var(--shade-0)',
 });
 
 let logo = HTML.make('img');
@@ -1404,7 +1416,7 @@ function renderDay(day, element, index) {
                     height: '1px',
                     top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
                     left: String(dayElementHorizontalPos + 1) + 'px',
-                    backgroundColor: user.palette.shades[3],
+                    backgroundColor: 'var(--shade-3)',
                     zIndex: '400'
                 });
                 
@@ -1426,7 +1438,7 @@ function renderDay(day, element, index) {
                 position: 'fixed',
                 top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
                 left: String(dayElementHorizontalPos + 4) + 'px',
-                color: user.palette.shades[3],
+                color: 'var(--shade-3)',
                 fontFamily: 'JetBrains Mono',
                 fontSize: fontSize,
                 zIndex: '400'
@@ -1627,7 +1639,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             height: String(allDayEventHeight - 2) + 'px',
             top: String(allDayEventTopPosition) + 'px',
             left: String(dayElemLeft + 4.5) + 'px',
-            backgroundColor: user.palette.shades[2],
+            backgroundColor: 'var(--shade-2)',
             opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
             zIndex: '350',
@@ -1838,7 +1850,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         } else {
             touchingGroupColorIndex = 0; // Reset because the chain is broken
         }
-        const accentColorHex = user.palette.accent[touchingGroupColorIndex % user.palette.accent.length];
+        const accentColorVarName = `--accent-${touchingGroupColorIndex % user.palette.accent.length}`;
+        const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue(accentColorVarName).trim();
+        const accentColorVar = `var(${accentColorVarName})`;
 
         // Calculate container height and update last position
         const containerHeight = reminderLineHeight + reminderTextHeight;
@@ -1921,14 +1935,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
             HTML.body.appendChild(lineElement);
         }
-        addReminderHoverHandlers(lineElement);
         HTML.setStyle(lineElement, {
             position: 'fixed',
             width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment - 5) + 'px',
             height: String(reminderLineHeight) + 'px',
             top: String(reminderTopPosition) + 'px',
             left: String(dayElemLeft + spaceForHourMarkers + 6) + 'px',
-            backgroundColor: accentColorHex,
+            backgroundColor: accentColorVar,
             zIndex: String(baseZIndex)
         });
 
@@ -1968,13 +1981,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             position: 'fixed',
             top: String(reminderTopPosition) + 'px',
             left: String(dayElemLeft + spaceForHourMarkers) + 'px',
-            backgroundColor: accentColorHex,
+            backgroundColor: accentColorVar,
             height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
             paddingTop: String(reminderLineHeight - 1) + 'px',
             paddingLeft: String(adjustedTextPaddingLeft) + 'px',
             paddingRight: String(textPaddingRight) + 'px',
             boxSizing: 'border-box',
-            color: user.palette.shades[4],
+            color: 'var(--shade-4)',
             fontSize: reminderTextFontSize,
             fontFamily: 'Inter',
             whiteSpace: 'nowrap',
@@ -2013,8 +2026,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 left: String(dayElemLeft + spaceForHourMarkers + textPaddingLeft) + 'px',
                 width: String(countIndicatorSize) + 'px',
                 height: String(countIndicatorSize) + 'px',
-                backgroundColor: user.palette.shades[4], // White background
-                color: accentColorHex, // Original blue color for the number
+                backgroundColor: 'var(--shade-4)', // White background
+                color: accentColorVar, // Original blue color for the number
                 fontSize: '8px',
                 fontFamily: 'Inter',
                 fontWeight: 'bold',
@@ -2039,7 +2052,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(qcElement, `day${dayIndex}reminderQC${groupIndex}`);
             HTML.body.appendChild(qcElement);
         }
-        addReminderHoverHandlers(qcElement);
 
         const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
         const qcLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
@@ -2053,7 +2065,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             height: String(quarterCircleRadius) + 'px',
             top: String(reminderTopPosition + reminderLineHeight) + 'px',
             left: String(qcLeft) + 'px',
-            backgroundColor: accentColorHex,
+            backgroundColor: accentColorVar,
             zIndex: String(baseZIndex + 1), // Quarter circle gets highest z-index
             webkitMaskImage: gradientMask,
             maskImage: gradientMask,
@@ -2073,10 +2085,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 
                 // Calculate darkened color (less blue, more black)
                 const darknessFactor = stackIndex * 0.25; // Each level gets 25% more black mixed in
-                const hexColor = accentColorHex;
-                const originalR = parseInt(hexColor.slice(1, 3), 16);
-                const originalG = parseInt(hexColor.slice(3, 5), 16);
-                const originalB = parseInt(hexColor.slice(5, 7), 16);
+                const originalR = parseInt(accentColorHex.slice(1, 3), 16);
+                const originalG = parseInt(accentColorHex.slice(3, 5), 16);
+                const originalB = parseInt(accentColorHex.slice(5, 7), 16);
 
                 // Interpolate between original color and black, but clamp brightness at 20%
                 const brightness = Math.max(0.2, 1 - darknessFactor);
@@ -2114,7 +2125,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     paddingLeft: String(adjustedTextPaddingLeft) + 'px',
                     paddingRight: String(textPaddingRight) + 'px',
                     boxSizing: 'border-box',
-                    color: user.palette.shades[4],
+                    color: 'var(--shade-4)',
                     fontSize: reminderTextFontSize,
                     fontFamily: 'Inter',
                     whiteSpace: 'nowrap',
@@ -2151,7 +2162,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     left: String(dayElemLeft + spaceForHourMarkers + textPaddingLeft) + 'px',
                     width: String(countIndicatorSize) + 'px',
                     height: String(countIndicatorSize) + 'px',
-                    backgroundColor: user.palette.shades[4], // White background
+                    backgroundColor: 'var(--shade-4)', // White background
                     color: darkenedColor, // Number color matches the reminder's background
                     fontSize: '8px',
                     fontFamily: 'Inter',
@@ -2324,9 +2335,9 @@ function renderCalendar(days) {
             height: String(height) + 'px',
             top: String(top) + 'px',
             left: String(left) + 'px',
-            border: '1px solid ' + user.palette.shades[3],
+            border: '1px solid ' + 'var(--shade-3)',
             borderRadius: '5px',
-            backgroundColor: user.palette.shades[0],
+            backgroundColor: 'var(--shade-0)',
             zIndex: '300' // below hour markers
         });
         HTML.body.appendChild(dayElement);
@@ -2356,7 +2367,7 @@ function renderCalendar(days) {
             height: String(height + topOfCalendarDay) + 'px',
             top: String(topOfBackground) + 'px',
             left: String(left) + 'px',
-            border: '1px solid ' + user.palette.shades[3],
+            border: '1px solid ' + 'var(--shade-3)',
             borderRadius: '5px',
             backgroundColor: 'transparent',
             pointerEvents: 'none', // Don't interfere with interactions
@@ -2370,8 +2381,8 @@ function renderCalendar(days) {
             height: String(height + topOfCalendarDay) + 'px',
             top: String(topOfBackground) + 'px',
             left: String(left) + 'px',
-            backgroundColor: user.palette.shades[1],
-            border: '1px solid ' + user.palette.shades[3],
+            backgroundColor: 'var(--shade-1)',
+            border: '1px solid ' + 'var(--shade-3)',
             borderRadius: '5px',
             zIndex: '200', // below dayElement
         });
@@ -2390,7 +2401,7 @@ function renderCalendar(days) {
             top: String(dateAndDayOfWeekVerticalPos) + 'px',
             right: String(window.innerWidth - left - columnWidth + dateAndDayOfWeekSpacing) + 'px',
             fontSize: '12px',
-            color: user.palette.shades[3],
+            color: 'var(--shade-3)',
             fontFamily: 'Inter',
             fontWeight: 'bold',
             zIndex: '400'
@@ -2422,7 +2433,7 @@ function renderCalendar(days) {
             top: String(dateAndDayOfWeekVerticalPos) + 'px',
             left: String(left + 4) + 'px',
             fontSize: '12px',
-            color: user.palette.shades[3],
+            color: 'var(--shade-3)',
             fontFamily: 'Inter',
             fontWeight: 'bold',
             zIndex: '400'
@@ -2430,8 +2441,8 @@ function renderCalendar(days) {
         dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(days[i]);
         if (dayOfWeekOrRelativeDay(days[i]) == 'Today') {
             // white text for today
-            HTML.setStyle(dateText, { color: user.palette.shades[4] });
-            HTML.setStyle(dayOfWeekText, { color: user.palette.shades[4] });
+            HTML.setStyle(dateText, { color: 'var(--shade-4)' });
+            HTML.setStyle(dayOfWeekText, { color: 'var(--shade-4)' });
         }
         HTML.body.appendChild(dayOfWeekText);
 
@@ -2469,9 +2480,9 @@ HTML.setStyle(buttonNumberCalendarDays, {
     top: windowBorderMargin + 'px',
     // logo width + window border margin*2
     left: String(100 + windowBorderMargin*2) + 'px',
-    backgroundColor: user.palette.shades[1],
+    backgroundColor: 'var(--shade-1)',
     fontSize: '12px',
-    color: user.palette.shades[3],
+    color: 'var(--shade-3)',
 });
 ASSERT(type(user.settings.numberOfCalendarDays, Int));
 ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
@@ -2515,9 +2526,9 @@ HTML.setStyle(buttonAmPmOr24, {
     top: windowBorderMargin + 'px',
     // logo width + window border margin*2
     left: String(100 + windowBorderMargin*2 + 250) + 'px',
-    backgroundColor: user.palette.shades[1],
+    backgroundColor: 'var(--shade-1)',
     fontSize: '12px',
-    color: user.palette.shades[3],
+    color: 'var(--shade-3)',
 });
 buttonAmPmOr24.onclick = toggleAmPmOr24;
 buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
@@ -2537,9 +2548,9 @@ HTML.setStyle(buttonStacking, {
     top: windowBorderMargin + 'px',
     // logo width + window border margin*2
     left: String(100 + windowBorderMargin*2 + 450) + 'px',
-    backgroundColor: user.palette.shades[1],
+    backgroundColor: 'var(--shade-1)',
     fontSize: '12px',
-    color: user.palette.shades[3],
+    color: 'var(--shade-3)',
 });
 buttonStacking.onclick = toggleStacking;
 buttonStacking.innerHTML = 'Toggle Stacking';
