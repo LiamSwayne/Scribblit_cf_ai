@@ -1734,30 +1734,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         }
         const accentColorHex = user.palette.accent[touchingGroupColorIndex % user.palette.accent.length];
 
-        // Create/Update Hover Target Element (replaces the container)
-        let hoverTargetElement = HTML.getUnsafely(`day${dayIndex}reminderHoverTarget${groupIndex}`);
-        if (!exists(hoverTargetElement)) {
-            hoverTargetElement = HTML.make('div');
-            HTML.setId(hoverTargetElement, `day${dayIndex}reminderHoverTarget${groupIndex}`);
-            HTML.body.appendChild(hoverTargetElement);
-        }
-
         // Calculate container height and update last position
         const containerHeight = reminderLineHeight + reminderTextHeight;
         lastReminderBottom = reminderTopPosition + containerHeight;
 
         const baseZIndex = 600;
-
-        HTML.setStyle(hoverTargetElement, {
-            position: 'fixed',
-            top: String(reminderTopPosition) + 'px',
-            left: String(dayElemLeft + spaceForHourMarkers) + 'px',
-            width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment) + 'px',
-            height: String(containerHeight) + 'px',
-            zIndex: String(baseZIndex),
-            cursor: isGrouped ? 'pointer' : 'default',
-            backgroundColor: 'transparent' // Invisible hover area
-        });
 
         // Create/Update Line Element (now directly on body)
         let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
@@ -1827,7 +1808,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             borderTopLeftRadius: '6px',
             borderBottomLeftRadius: '6px',
             borderBottomRightRadius: '6px',
-            borderTopRightRadius: '0px' // No top-right radius for any reminders
+            borderTopRightRadius: '0px', // No top-right radius for any reminders
+            cursor: isGrouped ? 'pointer' : 'default'
         });
 
         // Create count indicator if grouped (now directly on body)
@@ -1854,7 +1836,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 textAlign: 'center',
                 lineHeight: String(countIndicatorSize) + 'px',
                 borderRadius: '50%',
-                zIndex: String(baseZIndex)
+                zIndex: String(baseZIndex),
+                cursor: 'pointer'
             });
         } else {
             // Remove count indicator if it exists but shouldn't
@@ -1945,7 +1928,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
                     zIndex: String(baseZIndex - stackIndex), // Higher stackIndex = lower z-index (further back)
                     borderRadius: '6px',
-                    opacity: '0'
+                    opacity: '0',
+                    cursor: 'pointer'
                 });
 
                 // Create stack count indicator
@@ -1972,17 +1956,31 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     lineHeight: String(countIndicatorSize) + 'px',
                     borderRadius: '50%',
                     zIndex: String(baseZIndex - stackIndex), // Count indicators are on the same level as their text
-                    opacity: '0'
+                    opacity: '0',
+                    cursor: 'pointer'
                 });
             }
 
             // Helper to get all elements for a group
             const getGroupElements = (dayIdx, grpIdx, stackSize) => {
                 const elements = [];
-                elements.push(HTML.getUnsafely(`day${dayIdx}reminderHoverTarget${grpIdx}`));
                 elements.push(HTML.getUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
                 elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
                 elements.push(HTML.getUnsafely(`day${dayIdx}reminderQC${grpIdx}`));
+                if (isGrouped) {
+                    elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
+                    for (let i = 1; i < stackSize; i++) {
+                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
+                        elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
+                    }
+                }
+                return elements.filter(exists);
+            };
+
+            // Helper to get interactive elements (text and count indicators, but not line)
+            const getInteractiveElements = (dayIdx, grpIdx, stackSize) => {
+                const elements = [];
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
                 if (isGrouped) {
                     elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
                     for (let i = 1; i < stackSize; i++) {
@@ -1997,20 +1995,27 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             const currentGroupIndex = groupIndex;
             let isHovering = false;
             
-            // make the reminder z-index +100 on hover
-            hoverTargetElement.addEventListener('mouseenter', function(e) {
+            // Add hover event listeners to all interactive elements
+            const interactiveElements = getInteractiveElements(dayIndex, currentGroupIndex, group.length);
+            
+            const handleMouseEnter = function(e) {
                 isHovering = true;
                 getGroupElements(dayIndex, currentGroupIndex, group.length).forEach(el => {
                     el.style.zIndex = parseInt(el.style.zIndex) + 100;
                 });
-            });
+            };
             
-            // -100 on hover leave
-            hoverTargetElement.addEventListener('mouseleave', function(e) {
+            const handleMouseLeave = function(e) {
                 isHovering = false;
                 getGroupElements(dayIndex, currentGroupIndex, group.length).forEach(el => {
                     el.style.zIndex = parseInt(el.style.zIndex) - 100;
                 });
+            };
+
+            // Apply event listeners to all interactive elements
+            interactiveElements.forEach(element => {
+                element.addEventListener('mouseenter', handleMouseEnter);
+                element.addEventListener('mouseleave', handleMouseLeave);
             });
             
             // Continuous update function
@@ -2103,9 +2108,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     // Remove stale reminder elements
     let existingReminderIndex = groupIndex;
     while(true) {
-        const hoverTarget = HTML.getUnsafely(`day${dayIndex}reminderHoverTarget${existingReminderIndex}`);
-        if (!exists(hoverTarget)) {
-            // If the hover target is gone, we assume all other elements for this index are too.
+        const lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
+        if (!exists(lineElement)) {
+            // If the line element is gone, we assume all other elements for this index are too.
             break; 
         }
 
@@ -2115,7 +2120,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             if(exists(el)) el.remove();
         };
 
-        removeElementById(`day${dayIndex}reminderHoverTarget${existingReminderIndex}`);
         removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
         removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
         removeElementById(`day${dayIndex}reminderQC${existingReminderIndex}`);
@@ -2193,15 +2197,13 @@ function renderCalendar(days) {
             }
             j = 0;
             while (true) {
-                let staleElement = HTML.getUnsafely(`day${i}reminderHoverTarget${j}`);
+                let staleElement = HTML.getUnsafely(`day${i}reminderLine${j}`);
                 if (exists(staleElement)) {
-                    staleElement.remove(); // This should trigger removal of others in a full implementation, but direct removal is safer.
                     // To be thorough, remove all parts of the reminder group
                     const removeElementById = (id) => {
                         const el = HTML.getUnsafely(id);
                         if(exists(el)) el.remove();
                     };
-                    removeElementById(`day${i}reminderHoverTarget${j}`);
                     removeElementById(`day${i}reminderLine${j}`);
                     removeElementById(`day${i}reminderText${j}`);
                     removeElementById(`day${i}reminderQC${j}`);
