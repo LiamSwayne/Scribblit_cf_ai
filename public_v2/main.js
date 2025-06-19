@@ -596,6 +596,20 @@ if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
     adjustCalendarUp = 2;
 }
 
+let G_reminderDragState = {
+    isDragging: false,
+    dayIndex: -1,
+    groupIndex: -1,
+    groupElements: [],
+    initialTops: [],
+    initialY: 0,
+    timedAreaTop: 0,
+    timedAreaHeight: 0,
+    dayStartUnix: 0,
+    dayEndUnix: 0,
+    reminderGroup: [],
+};
+
 // the current days to display
 function currentDays() {
     // firstDayInCalendar must be DateField
@@ -1566,14 +1580,24 @@ function renderDay(day, element, index) {
     const allDayEventHeight = 18; // height in px for each all-day event
     const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
     
-    // Get the current height and position of the main day element (where timed events will go)
-    let currentDayElementHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
-    let currentDayElementTop = parseFloat(HTML.getStyle(element, 'top').slice(0, -2)); // This is the top of where all-day events start
+    // Get the original dimensions that were set by renderCalendar(), not the current modified ones
+    // We need to recalculate the original dimensions based on the window size and layout
+    let originalHeight = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
+    let originalTop = windowBorderMargin + headerSpace + topOfCalendarDay;
     let dayElementLeft = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
     
+    // Apply stacking adjustments if needed
+    if (user.settings.stacking) {
+        originalHeight = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns)/2 - topOfCalendarDay;
+        originalHeight -= 1; // manual adjustment
+        if (index >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
+            originalTop += originalHeight + gapBetweenColumns + topOfCalendarDay;
+        }
+    }
+    
     // Calculate new top and height for the main timed event area within the day element
-    let timedEventAreaHeight = currentDayElementHeight - totalAllDayEventsHeight;
-    let timedEventAreaTop = currentDayElementTop + totalAllDayEventsHeight;
+    let timedEventAreaHeight = originalHeight - totalAllDayEventsHeight;
+    let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
     
     // Update the main day element's style to reflect the space made for all-day events
     HTML.setStyle(element, {
@@ -1603,7 +1627,7 @@ function renderDay(day, element, index) {
         }
     }
     
-    renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, currentDayElementTop, dayElementLeft);
+    renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, originalTop, dayElementLeft);
     renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft);
     renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
 }
@@ -1766,6 +1790,111 @@ function updateStackPositions(dayIndex, groupIndex, isHovering) {
     animationLoop();
 }
 
+function handleReminderDragMove(e) {
+    if (!G_reminderDragState.isDragging) return;
+    
+    e.preventDefault();
+
+    const dy = e.clientY - G_reminderDragState.initialY;
+    
+    G_reminderDragState.groupElements.forEach((el, i) => {
+        const newTop = G_reminderDragState.initialTops[i] + dy;
+        el.style.top = `${newTop}px`;
+    });
+}
+
+function handleReminderDragEnd(e) {
+    if (!G_reminderDragState.isDragging) return;
+    
+    e.preventDefault();
+
+    // Remove listeners
+    document.removeEventListener('mousemove', handleReminderDragMove);
+    document.removeEventListener('mouseup', handleReminderDragEnd);
+
+    // Restore z-index
+    G_reminderDragState.groupElements.forEach(el => {
+        if (el.dataset.originalZIndexForDrag) {
+            el.style.zIndex = el.dataset.originalZIndexForDrag;
+            delete el.dataset.originalZIndexForDrag;
+        }
+    });
+
+    const dy = e.clientY - G_reminderDragState.initialY;
+    const finalTop = G_reminderDragState.initialTops[0] + dy;
+
+    const { timedAreaTop, timedAreaHeight, dayStartUnix, dayEndUnix, dayIndex, reminderGroup } = G_reminderDragState;
+
+    const reminderLineHeight = 2;
+    const reminderTextHeight = 14;
+
+    const clampedTop = Math.max(timedAreaTop, Math.min(finalTop, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
+
+    const proportionOfDay = (clampedTop - timedAreaTop) / timedAreaHeight;
+    const totalDayDurationMs = dayEndUnix - dayStartUnix;
+
+    if (totalDayDurationMs <= 0) {
+        log("Error: totalDayDurationMs is zero or negative");
+        G_reminderDragState.isDragging = false;
+        return;
+    }
+    
+    const newTimeOffsetMs = proportionOfDay * totalDayDurationMs;
+    const newTimestamp = dayStartUnix + newTimeOffsetMs;
+
+    const newDateTime = DateTime.fromMillis(newTimestamp);
+    
+    const snappedMinute = Math.round(newDateTime.minute / 5) * 5;
+    const finalDateTime = newDateTime.set({ minute: snappedMinute, second: 0, millisecond: 0 });
+
+    log("Drag end debug:");
+    log("finalTop:", finalTop);
+    log("clampedTop:", clampedTop);
+    log("proportionOfDay:", proportionOfDay);
+    log("newTimestamp:", newTimestamp);
+    log("finalDateTime:", finalDateTime.toISO());
+    log("reminderGroup length:", reminderGroup.length);
+
+    reminderGroup.forEach((reminder, index) => {
+        log(`Processing reminder ${index}:`, reminder.id);
+        const entity = user.entityArray.find(e => e.id === reminder.id);
+        if (entity) {
+            log("Found entity:", entity.name);
+            const reminderInstance = entity.data.instances[reminder.patternIndex];
+            log("Reminder instance type:", reminderInstance.constructor.name);
+            
+            if (type(reminderInstance, NonRecurringReminderInstance)) {
+                log("Old time:", reminderInstance.time.hour, reminderInstance.time.minute);
+                log("Old date:", reminderInstance.date.year, reminderInstance.date.month, reminderInstance.date.day);
+                reminderInstance.time = new TimeField(finalDateTime.hour, finalDateTime.minute);
+                const currentDayDateField = currentDays()[dayIndex];
+                reminderInstance.date = currentDayDateField;
+                log("New time:", reminderInstance.time.hour, reminderInstance.time.minute);
+                log("New date:", reminderInstance.date.year, reminderInstance.date.month, reminderInstance.date.day);
+
+            } else if (type(reminderInstance, RecurringReminderInstance)) {
+                log("Old time:", reminderInstance.time.hour, reminderInstance.time.minute);
+                reminderInstance.time = new TimeField(finalDateTime.hour, finalDateTime.minute);
+                log("New time:", reminderInstance.time.hour, reminderInstance.time.minute);
+            }
+        } else {
+            log("Entity not found for ID:", reminder.id);
+        }
+    });
+
+    log("Saving user data...");
+    saveUserData(user);
+    log("User data saved");
+
+    log("Re-rendering day...");
+    const dayToRender = currentDays()[dayIndex];
+    const dayElementToRender = HTML.get('day' + dayIndex);
+    renderDay(dayToRender, dayElementToRender, dayIndex);
+    log("Day re-rendered");
+
+    G_reminderDragState.isDragging = false;
+}
+
 // New function to render reminder instances
 function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft, dayStartUnix, dayEndUnix) {
     ASSERT(type(reminderInstances, List(FilteredReminderInstance)));
@@ -1870,6 +1999,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         let leaveTimeoutId;
 
         const handleSingleReminderMouseEnter = function() {
+            if (G_reminderDragState.isDragging) return;
             clearTimeout(leaveTimeoutId);
             const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
             groupElements.forEach(el => {
@@ -1882,6 +2012,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             });
         };
         const handleSingleReminderMouseLeave = function() {
+            if (G_reminderDragState.isDragging) return;
             leaveTimeoutId = setTimeout(() => {
                 const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
                 groupElements.forEach(el => {
@@ -1894,6 +2025,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         };
 
         const handleReminderMouseEnter = function() {
+            if (G_reminderDragState.isDragging) return;
             clearTimeout(leaveTimeoutId);
             
             const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
@@ -1908,6 +2040,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             updateStackPositions(dayIndex, currentGroupIndex, true);
         };
         const handleReminderMouseLeave = function() {
+            if (G_reminderDragState.isDragging) return;
             leaveTimeoutId = setTimeout(() => {
                 const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
                 groupElements.forEach(el => {
@@ -1965,6 +2098,44 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
             HTML.body.appendChild(lineElement);
         }
+        lineElement.onmousedown = (e) => {
+            e.preventDefault();
+            if (e.button !== 0) return; // only left click
+
+            G_reminderDragState.isDragging = true;
+            const animationKey = `${dayIndex}-${currentGroupIndex}`;
+            if (G_animationFrameMap.has(animationKey)) {
+                cancelAnimationFrame(G_animationFrameMap.get(animationKey));
+                G_animationFrameMap.delete(animationKey);
+            }
+
+            const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length).filter(el => exists(el));
+
+            G_reminderDragState = {
+                isDragging: true,
+                dayIndex: dayIndex,
+                groupIndex: currentGroupIndex,
+                groupElements: groupElements,
+                initialTops: groupElements.map(el => parseFloat(el.style.top)),
+                initialY: e.clientY,
+                timedAreaTop: timedAreaTop,
+                timedAreaHeight: timedAreaHeight,
+                dayStartUnix: dayStartUnix,
+                dayEndUnix: dayEndUnix,
+                reminderGroup: group,
+            };
+
+            document.addEventListener('mousemove', handleReminderDragMove);
+            document.addEventListener('mouseup', handleReminderDragEnd);
+
+            // Increase z-index while dragging
+            groupElements.forEach(el => {
+                if (!el.dataset.originalZIndexForDrag) {
+                    el.dataset.originalZIndexForDrag = el.style.zIndex;
+                }
+                el.style.zIndex = parseInt(el.style.zIndex || 0) + 2000;
+            });
+        };
         const lineWidth = (dayElemLeft + colWidth) - qcLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
         HTML.setStyle(lineElement, {
             position: 'fixed',
