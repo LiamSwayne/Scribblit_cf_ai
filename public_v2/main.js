@@ -1901,7 +1901,10 @@ function handleReminderDragMove(e) {
                         const clampedTopForOtherDay = Math.max(otherMinTop, Math.min(newTopForOtherDay, otherMaxTop));
                         
                         // Find and update reminder elements on this other day
-                        // This is a simplified approach - we'll look for reminder elements that match our entity
+                        // Use data attributes for robust matching instead of name heuristic
+                        const draggedSourceId = G_reminderDragState.reminderGroup[0].id;
+                        const draggedPatternNumber = G_reminderDragState.reminderGroup[0].patternIndex;
+                        
                         for (let groupIdx = 0; groupIdx < 20; groupIdx++) { // reasonable upper bound
                             const otherReminderLine = HTML.getUnsafely(`day${dayIdx}reminderLine${groupIdx}`);
                             const otherReminderText = HTML.getUnsafely(`day${dayIdx}reminderText${groupIdx}`);
@@ -1909,10 +1912,11 @@ function handleReminderDragMove(e) {
                             
                             if (exists(otherReminderLine) && exists(otherReminderText)) {
                                 // Check if this reminder element corresponds to our recurring reminder
-                                // We can't easily match by entity ID in the DOM, so we'll use a heuristic:
-                                // If the reminder name matches and it's roughly at the expected time
-                                const reminderName = G_reminderDragState.reminderGroup[0].name;
-                                if (otherReminderText.innerHTML === reminderName) {
+                                // Use data attributes for precise matching
+                                const otherSourceId = HTML.getDataUnsafely(otherReminderLine, 'sourceId');
+                                const otherPatternNumber = HTML.getDataUnsafely(otherReminderLine, 'patternNumber');
+                                
+                                if (otherSourceId === draggedSourceId && otherPatternNumber === draggedPatternNumber) {
                                     // Update positions with clamped values
                                     otherReminderLine.style.top = `${clampedTopForOtherDay}px`;
                                     otherReminderText.style.top = `${clampedTopForOtherDay}px`;
@@ -2269,6 +2273,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
             HTML.body.appendChild(lineElement);
         }
+        
+        // Set data attributes for robust matching during drag operations
+        HTML.setData(lineElement, 'sourceId', primaryReminder.id);
+        HTML.setData(lineElement, 'patternNumber', primaryReminder.patternIndex);
+        
         lineElement.onmousedown = (e) => {
             e.preventDefault();
             if (e.button !== 0) return; // only left click
@@ -2327,6 +2336,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
             HTML.body.appendChild(textElement);
         }
+        
+        // Set data attributes for robust matching during drag operations
+        HTML.setData(textElement, 'sourceId', primaryReminder.id);
+        HTML.setData(textElement, 'patternNumber', primaryReminder.patternIndex);
         
         addReminderHoverHandlers(textElement);
         textElement.innerHTML = primaryReminder.name;
@@ -2406,6 +2419,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setId(qcElement, `day${dayIndex}reminderQC${groupIndex}`);
             HTML.body.appendChild(qcElement);
         }
+
+        // Set data attributes for robust matching during drag operations
+        HTML.setData(qcElement, 'sourceId', primaryReminder.id);
+        HTML.setData(qcElement, 'patternNumber', primaryReminder.patternIndex);
 
         const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
         const maskSizeValue = `${quarterCircleRadius * 2}px ${quarterCircleRadius * 2}px`;
