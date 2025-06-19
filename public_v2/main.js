@@ -1858,7 +1858,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const containerHeight = reminderLineHeight + reminderTextHeight;
         lastReminderBottom = reminderTopPosition + containerHeight;
 
-        const baseZIndex = 600;
+        const baseZIndex = 2600;
+        // Calculate minutes since start of day for z-index layering
+        const reminderDateTime = DateTime.fromMillis(primaryReminder.dateTime);
+        const startOfReminderDay = reminderDateTime.startOf('day');
+        const minutesSinceStartOfDay = Math.floor((primaryReminder.dateTime - startOfReminderDay.toMillis()) / (1000 * 60));
+        const currentGroupZIndex = baseZIndex + minutesSinceStartOfDay; // Z-index based on time of day
+        const indexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
         // animations for sliding the stacked reminders up and down
         const currentGroupIndex = groupIndex; // Capture for closures
         let leaveTimeoutId;
@@ -1871,7 +1877,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     if (!el.dataset.originalZIndex) {
                         el.dataset.originalZIndex = el.style.zIndex;
                     }
-                    el.style.zIndex = parseInt(el.style.zIndex) + 100;
+                    el.style.zIndex = parseInt(el.style.zIndex) + indexIncreaseOnHover;
                 }
             });
         };
@@ -1896,7 +1902,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 if (!el.dataset.originalZIndex) {
                     el.dataset.originalZIndex = el.style.zIndex;
                 }
-                el.style.zIndex = parseInt(el.dataset.originalZIndex) + 100;
+                el.style.zIndex = parseInt(el.dataset.originalZIndex) + indexIncreaseOnHover;
             });
             
             updateStackPositions(dayIndex, currentGroupIndex, true);
@@ -1928,34 +1934,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             element.addEventListener('mouseleave', element.mouseLeaveHandler);
         };
 
-        // Create/Update Line Element (now directly on body)
-        let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
-        if (!exists(lineElement)) {
-            lineElement = HTML.make('div');
-            HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
-            HTML.body.appendChild(lineElement);
-        }
-        HTML.setStyle(lineElement, {
-            position: 'fixed',
-            width: String(colWidth - spaceForHourMarkers + reminderLineWidthAdjustment - 5) + 'px',
-            height: String(reminderLineHeight) + 'px',
-            top: String(reminderTopPosition) + 'px',
-            left: String(dayElemLeft + spaceForHourMarkers + 6) + 'px',
-            backgroundColor: accentColorVar,
-            zIndex: String(baseZIndex)
-        });
-
-        // Create/Update Text Element (now directly on body)
-        let textElement = HTML.getUnsafely(`day${dayIndex}reminderText${groupIndex}`);
-        if (!exists(textElement)) {
-            textElement = HTML.make('div');
-            HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
-            HTML.body.appendChild(textElement);
-        }
-        
-        addReminderHoverHandlers(textElement);
-        textElement.innerHTML = primaryReminder.name;
-
+        // First, measure text width to calculate positions
         // Calculate text positioning with potential count indicator
         const extraPaddingForIndicator = isGrouped ? (countIndicatorSize + countIndicatorPadding) : 2; // +2px for single reminders
         const adjustedTextPaddingLeft = textPaddingLeft + extraPaddingForIndicator;
@@ -1976,6 +1955,38 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         HTML.body.removeChild(measurer);
 
         const finalWidthForTextElement = contentActualWidth + adjustedTextPaddingLeft + textPaddingRight;
+        const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
+        const qcLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
+
+        // Create/Update Line Element (now directly on body) - positioned from QC to right edge
+        let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
+        if (!exists(lineElement)) {
+            lineElement = HTML.make('div');
+            HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
+            HTML.body.appendChild(lineElement);
+        }
+        const lineWidth = (dayElemLeft + colWidth) - qcLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
+        HTML.setStyle(lineElement, {
+            position: 'fixed',
+            width: String(lineWidth) + 'px',
+            height: String(reminderLineHeight) + 'px',
+            top: String(reminderTopPosition) + 'px',
+            left: String(qcLeft) + 'px',
+            backgroundColor: accentColorVar,
+            zIndex: String(currentGroupZIndex),
+            cursor: 'ns-resize'
+        });
+
+        // Create/Update Text Element (now directly on body)
+        let textElement = HTML.getUnsafely(`day${dayIndex}reminderText${groupIndex}`);
+        if (!exists(textElement)) {
+            textElement = HTML.make('div');
+            HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
+            HTML.body.appendChild(textElement);
+        }
+        
+        addReminderHoverHandlers(textElement);
+        textElement.innerHTML = primaryReminder.name;
 
         HTML.setStyle(textElement, {
             position: 'fixed',
@@ -1993,8 +2004,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
-            zIndex: String(baseZIndex), // Main reminder gets highest z-index
+            width: String(textElementActualWidth) + 'px',
+            zIndex: String(currentGroupZIndex), // Top reminder in stack gets highest z-index
             borderTopLeftRadius: '6px',
             borderBottomLeftRadius: '6px',
             borderBottomRightRadius: '6px',
@@ -2034,7 +2045,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 textAlign: 'center',
                 lineHeight: String(countIndicatorSize) + 'px',
                 borderRadius: '50%',
-                zIndex: String(baseZIndex),
+                zIndex: String(currentGroupZIndex),
                 cursor: 'pointer'
             });
         } else {
@@ -2053,9 +2064,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.body.appendChild(qcElement);
         }
 
-        const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
-        const qcLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
-
         const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
         const maskSizeValue = `${quarterCircleRadius * 2}px ${quarterCircleRadius * 2}px`;
 
@@ -2066,7 +2074,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             top: String(reminderTopPosition + reminderLineHeight) + 'px',
             left: String(qcLeft) + 'px',
             backgroundColor: accentColorVar,
-            zIndex: String(baseZIndex + 1), // Quarter circle gets highest z-index
+            zIndex: String(currentGroupZIndex),
             webkitMaskImage: gradientMask,
             maskImage: gradientMask,
             webkitMaskSize: maskSizeValue,
@@ -2131,8 +2139,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    width: String(Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10)) + 'px',
-                    zIndex: String(baseZIndex - stackIndex), // Higher stackIndex = lower z-index (further back)
+                    width: String(textElementActualWidth) + 'px',
+                    zIndex: String(currentGroupZIndex - stackIndex), // Higher stackIndex = lower z-index (further back)
                     borderRadius: '6px',
                     opacity: '0',
                     cursor: 'pointer'
@@ -2170,7 +2178,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     textAlign: 'center',
                     lineHeight: String(countIndicatorSize) + 'px',
                     borderRadius: '50%',
-                    zIndex: String(baseZIndex - stackIndex), // Count indicators are on the same level as their text
+                    zIndex: String(currentGroupZIndex - stackIndex),
                     opacity: '0',
                     cursor: 'pointer'
                 });
@@ -2371,7 +2379,7 @@ function renderCalendar(days) {
             borderRadius: '5px',
             backgroundColor: 'transparent',
             pointerEvents: 'none', // Don't interfere with interactions
-            zIndex: '1000' // Very high z-index
+            zIndex: '4100' // reminders occupy 2600 to 4041
         });
         HTML.body.appendChild(outlineElement);
 
