@@ -1823,11 +1823,43 @@ function handleReminderDragMove(e) {
     const maxTop = timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight;
     
     // Update the elements being dragged with bounds checking
+    const firstElementNewTop = G_reminderDragState.initialTops[0] + dy;
+    const clampedFirstTop = Math.max(minTop, Math.min(firstElementNewTop, maxTop));
+    
     G_reminderDragState.groupElements.forEach((el, i) => {
         const newTop = G_reminderDragState.initialTops[i] + dy;
         const clampedTop = Math.max(minTop, Math.min(newTop, maxTop));
         el.style.top = `${clampedTop}px`;
     });
+
+    // Update time bubble position and text
+    const timeBubble = HTML.getUnsafely('dragTimeBubble');
+    if (exists(timeBubble)) {
+        // Calculate the time based on current position
+        const proportionOfDay = (clampedFirstTop - timedAreaTop) / timedAreaHeight;
+        const totalDayDurationMs = G_reminderDragState.dayEndUnix - G_reminderDragState.dayStartUnix;
+        const newTimeOffsetMs = proportionOfDay * totalDayDurationMs;
+        const newTimestamp = G_reminderDragState.dayStartUnix + newTimeOffsetMs;
+        const newDateTime = DateTime.fromMillis(newTimestamp);
+        
+        // Snap to 5-minute intervals for display
+        const snappedMinute = Math.round(newDateTime.minute / 5) * 5;
+        const displayDateTime = newDateTime.set({ minute: snappedMinute, second: 0, millisecond: 0 });
+        
+        // Format time without AM/PM and no leading zeros
+        let timeText = displayDateTime.toFormat('h:mm');
+        
+        timeBubble.innerHTML = timeText;
+        
+        // Position bubble flush with left edge of calendar day
+        const dayElement = HTML.get('day' + G_reminderDragState.dayIndex);
+        const dayLeft = parseInt(dayElement.style.left);
+        
+        HTML.setStyle(timeBubble, {
+            top: String(clampedFirstTop) + 'px',
+            left: String(dayLeft) + 'px'
+        });
+    }
 
     // Check if this is a recurring reminder and update all other instances in real-time
     let hasRecurringReminder = false;
@@ -1962,6 +1994,12 @@ function handleReminderDragEnd(e) {
     // Remove listeners
     document.removeEventListener('mousemove', handleReminderDragMove);
     document.removeEventListener('mouseup', handleReminderDragEnd);
+
+    // Remove time bubble
+    const timeBubble = HTML.getUnsafely('dragTimeBubble');
+    if (exists(timeBubble)) {
+        timeBubble.remove();
+    }
 
     // Restore z-index
     G_reminderDragState.groupElements.forEach(el => {
@@ -2304,6 +2342,59 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 dayEndUnix: dayEndUnix,
                 reminderGroup: group,
             };
+
+            // Create time indicator bubble
+            let timeBubble = HTML.make('div');
+            HTML.setId(timeBubble, 'dragTimeBubble');
+            const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
+            const dayElement = HTML.get('day' + dayIndex);
+            const dayLeft = parseInt(dayElement.style.left);
+            
+            // Hide initially to prevent flickering
+            HTML.setStyle(timeBubble, {
+                position: 'fixed',
+                height: String(bubbleHeight) + 'px',
+                width: '34px',
+                backgroundColor: 'var(--shade-2)',
+                color: 'var(--shade-4)',
+                fontSize: '9.5px', // Bigger font
+                fontFamily: 'JetBrains Mono',
+                borderTopRightRadius: String(bubbleHeight / 2) + 'px',
+                borderBottomRightRadius: String(bubbleHeight / 2) + 'px',
+                borderTopLeftRadius: '0px',
+                borderBottomLeftRadius: '0px',
+                paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
+                boxSizing: 'border-box',
+                zIndex: '600', // higher than hour marker but below outline
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                visibility: 'hidden', // Hide initially
+                textAlign: 'center',
+                paddingRight: '1.5px'
+            });
+            
+            // Set initial position and content
+            const initialTop = reminderTopPosition;
+            HTML.setStyle(timeBubble, {
+                top: String(initialTop) + 'px',
+                left: String(dayLeft) + 'px'
+            });
+            
+            // Calculate initial time
+            const initialProportionOfDay = (initialTop - timedAreaTop) / timedAreaHeight;
+            const totalDayDurationMs = dayEndUnix - dayStartUnix;
+            const initialTimeOffsetMs = initialProportionOfDay * totalDayDurationMs;
+            const initialTimestamp = dayStartUnix + initialTimeOffsetMs;
+            const initialDateTime = DateTime.fromMillis(initialTimestamp);
+            const initialSnappedMinute = Math.round(initialDateTime.minute / 5) * 5;
+            const initialDisplayDateTime = initialDateTime.set({ minute: initialSnappedMinute, second: 0, millisecond: 0 });
+            timeBubble.innerHTML = initialDisplayDateTime.toFormat('h:mm');
+            
+            // Append to body
+            HTML.body.appendChild(timeBubble);
+            
+            // Show after everything is set up
+            HTML.setStyle(timeBubble, { visibility: 'visible' });
 
             document.addEventListener('mousemove', handleReminderDragMove);
             document.addEventListener('mouseup', handleReminderDragEnd);
