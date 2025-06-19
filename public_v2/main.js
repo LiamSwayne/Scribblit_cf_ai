@@ -524,12 +524,28 @@ if (TESTING) {
 
         new Entity(
             'reminder-003',
-            "Sarah's Birthday",
+            "Human's Birthday",
             "Don't forget to send wishes!",
             new ReminderData([
                 new NonRecurringReminderInstance(
                     in3Days, // date
                     new TimeField(10, 0)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-400',
+            "Thing that happens today and tomorrow",
+            "Don't forget to send wishes!",
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    today, // date
+                    new TimeField(5, 0)
+                ),
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(5, 0)
                 )
             ])
         ),
@@ -588,6 +604,8 @@ let gapBetweenColumns = 6;
 let windowBorderMargin = 6;
 let columnWidth; // portion of screen
 let headerSpace = 26; // px gap at top to make space for logo and buttons
+
+const indexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 
 let adjustCalendarUp; // px to adjust calendar up by based on browser
 if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
@@ -1455,7 +1473,7 @@ function renderDay(day, element, index) {
                 color: 'var(--shade-3)',
                 fontFamily: 'JetBrains Mono',
                 fontSize: fontSize,
-                zIndex: '400'
+                zIndex: '401'
             });
             
             HTML.setData(hourMarkerText, 'leadingWhitespace', true);
@@ -1797,10 +1815,139 @@ function handleReminderDragMove(e) {
 
     const dy = e.clientY - G_reminderDragState.initialY;
     
+    // Calculate bounds for the drag
+    const { timedAreaTop, timedAreaHeight } = G_reminderDragState;
+    const reminderLineHeight = 2;
+    const reminderTextHeight = 14;
+    const minTop = timedAreaTop;
+    const maxTop = timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight;
+    
+    // Update the elements being dragged with bounds checking
     G_reminderDragState.groupElements.forEach((el, i) => {
         const newTop = G_reminderDragState.initialTops[i] + dy;
-        el.style.top = `${newTop}px`;
+        const clampedTop = Math.max(minTop, Math.min(newTop, maxTop));
+        el.style.top = `${clampedTop}px`;
     });
+
+    // Check if this is a recurring reminder and update all other instances in real-time
+    let hasRecurringReminder = false;
+    G_reminderDragState.reminderGroup.forEach(reminder => {
+        const entity = user.entityArray.find(e => e.id === reminder.id);
+        if (entity) {
+            const reminderInstance = entity.data.instances[reminder.patternIndex];
+            if (type(reminderInstance, RecurringReminderInstance)) {
+                hasRecurringReminder = true;
+            }
+        }
+    });
+
+    if (hasRecurringReminder) {
+        // Calculate the new time based on the current drag position (using clamped position)
+        const finalTop = Math.max(minTop, Math.min(G_reminderDragState.initialTops[0] + dy, maxTop));
+        const clampedTop = Math.max(timedAreaTop, Math.min(finalTop, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
+        const proportionOfDay = (clampedTop - timedAreaTop) / timedAreaHeight;
+        const totalDayDurationMs = G_reminderDragState.dayEndUnix - G_reminderDragState.dayStartUnix;
+        
+        if (totalDayDurationMs > 0) {
+            const newTimeOffsetMs = proportionOfDay * totalDayDurationMs;
+            const newTimestamp = G_reminderDragState.dayStartUnix + newTimeOffsetMs;
+            const newDateTime = DateTime.fromMillis(newTimestamp);
+            
+            // Update all other instances of this recurring reminder on other days
+            const allDays = currentDays();
+            for (let dayIdx = 0; dayIdx < allDays.length; dayIdx++) {
+                if (dayIdx === G_reminderDragState.dayIndex) continue; // Skip the day being dragged
+                
+                // Find reminder elements for this recurring reminder on other days
+                const dayStartUnixOther = DateTime.local(allDays[dayIdx].year, allDays[dayIdx].month, allDays[dayIdx].day)
+                    .startOf('day').plus({hours: user.settings.startOfDayOffset}).toMillis();
+                const dayEndUnixOther = DateTime.local(allDays[dayIdx].year, allDays[dayIdx].month, allDays[dayIdx].day)
+                    .endOf('day').plus({hours: user.settings.endOfDayOffset}).toMillis() + 1;
+                
+                // Calculate where this reminder should be positioned on the other day
+                const otherDayTimestamp = dayStartUnixOther + (newDateTime.hour * 60 + newDateTime.minute) * 60 * 1000;
+                const otherDayOffsetMs = otherDayTimestamp - dayStartUnixOther;
+                const otherDayTotalDurationMs = dayEndUnixOther - dayStartUnixOther;
+                
+                if (otherDayTotalDurationMs > 0) {
+                    const otherDayProportion = otherDayOffsetMs / otherDayTotalDurationMs;
+                    
+                    // Get the timed area dimensions for this other day
+                    const otherDayElement = HTML.getUnsafely('day' + dayIdx);
+                    if (exists(otherDayElement)) {
+                        let otherDayOriginalHeight = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
+                        let otherDayOriginalTop = windowBorderMargin + headerSpace + topOfCalendarDay;
+                        
+                        if (user.settings.stacking) {
+                            otherDayOriginalHeight = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns)/2 - topOfCalendarDay;
+                            otherDayOriginalHeight -= 1;
+                            if (dayIdx >= Math.floor(user.settings.numberOfCalendarDays / 2)) {
+                                otherDayOriginalTop += otherDayOriginalHeight + gapBetweenColumns + topOfCalendarDay;
+                            }
+                        }
+                        
+                        // Assume minimal all-day events space for now (could be improved)
+                        // FIXME: this is a hack to get the correct height of the timed area
+                        const allDayEventHeight = 18;
+                        const totalAllDayEventsHeight = 2; // minimal assumption
+                        const otherTimedAreaHeight = otherDayOriginalHeight - totalAllDayEventsHeight;
+                        const otherTimedAreaTop = otherDayOriginalTop + totalAllDayEventsHeight;
+                        
+                        const newTopForOtherDay = otherTimedAreaTop + (otherDayProportion * otherTimedAreaHeight);
+                        
+                        // Clamp the position for the other day as well
+                        const otherMinTop = otherTimedAreaTop;
+                        const otherMaxTop = otherTimedAreaTop + otherTimedAreaHeight - reminderTextHeight - reminderLineHeight;
+                        const clampedTopForOtherDay = Math.max(otherMinTop, Math.min(newTopForOtherDay, otherMaxTop));
+                        
+                        // Find and update reminder elements on this other day
+                        // This is a simplified approach - we'll look for reminder elements that match our entity
+                        for (let groupIdx = 0; groupIdx < 20; groupIdx++) { // reasonable upper bound
+                            const otherReminderLine = HTML.getUnsafely(`day${dayIdx}reminderLine${groupIdx}`);
+                            const otherReminderText = HTML.getUnsafely(`day${dayIdx}reminderText${groupIdx}`);
+                            const otherReminderQC = HTML.getUnsafely(`day${dayIdx}reminderQC${groupIdx}`);
+                            
+                            if (exists(otherReminderLine) && exists(otherReminderText)) {
+                                // Check if this reminder element corresponds to our recurring reminder
+                                // We can't easily match by entity ID in the DOM, so we'll use a heuristic:
+                                // If the reminder name matches and it's roughly at the expected time
+                                const reminderName = G_reminderDragState.reminderGroup[0].name;
+                                if (otherReminderText.innerHTML === reminderName) {
+                                    // Update positions with clamped values
+                                    otherReminderLine.style.top = `${clampedTopForOtherDay}px`;
+                                    otherReminderText.style.top = `${clampedTopForOtherDay}px`;
+                                    if (exists(otherReminderQC)) {
+                                        otherReminderQC.style.top = `${clampedTopForOtherDay + reminderLineHeight}px`;
+                                    }
+                                    
+                                    // Update any count indicators and stacked reminders
+                                    const otherCount = HTML.getUnsafely(`day${dayIdx}reminderCount${groupIdx}`);
+                                    if (exists(otherCount)) {
+                                        otherCount.style.top = `${clampedTopForOtherDay + reminderLineHeight - 0.5}px`;
+                                    }
+                                    
+                                    // Update stacked elements
+                                    for (let stackIdx = 1; stackIdx < 10; stackIdx++) {
+                                        const stackText = HTML.getUnsafely(`day${dayIdx}reminderStackText${groupIdx}_${stackIdx}`);
+                                        const stackCount = HTML.getUnsafely(`day${dayIdx}reminderStackCount${groupIdx}_${stackIdx}`);
+                                        if (exists(stackText)) {
+                                            stackText.style.top = `${clampedTopForOtherDay}px`;
+                                        }
+                                        if (exists(stackCount)) {
+                                            stackCount.style.top = `${clampedTopForOtherDay + 1.5}px`;
+                                        }
+                                    }
+                                    break; // Found and updated this day's instance
+                                }
+                            } else {
+                                break; // No more reminder elements on this day
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 function handleReminderDragEnd(e) {
@@ -1886,11 +2033,35 @@ function handleReminderDragEnd(e) {
     saveUserData(user);
     log("User data saved");
 
-    log("Re-rendering day...");
-    const dayToRender = currentDays()[dayIndex];
-    const dayElementToRender = HTML.get('day' + dayIndex);
-    renderDay(dayToRender, dayElementToRender, dayIndex);
-    log("Day re-rendered");
+    // Check if any of the dragged reminders were recurring
+    let hasRecurringReminder = false;
+    reminderGroup.forEach(reminder => {
+        const entity = user.entityArray.find(e => e.id === reminder.id);
+        if (entity) {
+            const reminderInstance = entity.data.instances[reminder.patternIndex];
+            if (type(reminderInstance, RecurringReminderInstance)) {
+                hasRecurringReminder = true;
+            }
+        }
+    });
+
+    if (hasRecurringReminder) {
+        log("Re-rendering all visible days due to recurring reminder change...");
+        // Re-render all visible days since recurring reminders affect multiple days
+        const allDays = currentDays();
+        for (let i = 0; i < allDays.length; i++) {
+            const dayToRender = allDays[i];
+            const dayElementToRender = HTML.get('day' + i);
+            renderDay(dayToRender, dayElementToRender, i);
+        }
+        log("All days re-rendered");
+    } else {
+        log("Re-rendering single day...");
+        const dayToRender = currentDays()[dayIndex];
+        const dayElementToRender = HTML.get('day' + dayIndex);
+        renderDay(dayToRender, dayElementToRender, dayIndex);
+        log("Day re-rendered");
+    }
 
     G_reminderDragState.isDragging = false;
 }
@@ -1993,7 +2164,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const startOfReminderDay = reminderDateTime.startOf('day');
         const minutesSinceStartOfDay = Math.floor((primaryReminder.dateTime - startOfReminderDay.toMillis()) / (1000 * 60));
         const currentGroupZIndex = baseZIndex + minutesSinceStartOfDay; // Z-index based on time of day
-        const indexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
+
         // animations for sliding the stacked reminders up and down
         const currentGroupIndex = groupIndex; // Capture for closures
         let leaveTimeoutId;
@@ -2133,7 +2304,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 if (!el.dataset.originalZIndexForDrag) {
                     el.dataset.originalZIndexForDrag = el.style.zIndex;
                 }
-                el.style.zIndex = parseInt(el.style.zIndex || 0) + 2000;
+                ASSERT(type(el.style.zIndex, String));
+                el.style.zIndex = parseInt(el.style.zIndex) + indexIncreaseOnHover;
             });
         };
         const lineWidth = (dayElemLeft + colWidth) - qcLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
