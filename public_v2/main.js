@@ -1846,8 +1846,13 @@ function handleReminderDragMove(e) {
         const snappedMinute = Math.round(newDateTime.minute / 5) * 5;
         const displayDateTime = newDateTime.set({ minute: snappedMinute, second: 0, millisecond: 0 });
         
-        // Format time without AM/PM and no leading zeros
-        let timeText = displayDateTime.toFormat('h:mm');
+        // Format time according to user preference (no AM/PM)
+        let timeText;
+        if (user.settings.ampmOr24 === '24') {
+            timeText = displayDateTime.toFormat('HH:mm');
+        } else {
+            timeText = displayDateTime.toFormat('h:mm');
+        }
         
         timeBubble.innerHTML = timeText;
         
@@ -1861,19 +1866,22 @@ function handleReminderDragMove(e) {
         });
     }
 
-    // Check if this is a recurring reminder and update all other instances in real-time
-    let hasRecurringReminder = false;
+    // Update all recurring reminders in the stack on other days in real-time
+    const recurringReminders = [];
     G_reminderDragState.reminderGroup.forEach(reminder => {
         const entity = user.entityArray.find(e => e.id === reminder.id);
         if (entity) {
             const reminderInstance = entity.data.instances[reminder.patternIndex];
             if (type(reminderInstance, RecurringReminderInstance)) {
-                hasRecurringReminder = true;
+                recurringReminders.push({
+                    id: reminder.id,
+                    patternIndex: reminder.patternIndex
+                });
             }
         }
     });
 
-    if (hasRecurringReminder) {
+    if (recurringReminders.length > 0) {
         // Calculate the new time based on the current drag position (using clamped position)
         const finalTop = Math.max(minTop, Math.min(G_reminderDragState.initialTops[0] + dy, maxTop));
         const clampedTop = Math.max(timedAreaTop, Math.min(finalTop, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
@@ -1885,103 +1893,49 @@ function handleReminderDragMove(e) {
             const newTimestamp = G_reminderDragState.dayStartUnix + newTimeOffsetMs;
             const newDateTime = DateTime.fromMillis(newTimestamp);
             
-            // Update all other instances of this recurring reminder on other days
+            // Snap to 5-minute intervals for the time update
+            const snappedMinute = Math.round(newDateTime.minute / 5) * 5;
+            const finalDateTime = newDateTime.set({ minute: snappedMinute, second: 0, millisecond: 0 });
+            
+            // Temporarily update the recurring reminder instances' times for re-rendering
+            const originalTimes = [];
+            recurringReminders.forEach(recurringReminder => {
+                const entity = user.entityArray.find(e => e.id === recurringReminder.id);
+                if (entity) {
+                    const reminderInstance = entity.data.instances[recurringReminder.patternIndex];
+                    if (type(reminderInstance, RecurringReminderInstance)) {
+                        // Store original time
+                        originalTimes.push({
+                            id: recurringReminder.id,
+                            patternIndex: recurringReminder.patternIndex,
+                            originalTime: reminderInstance.time
+                        });
+                        // Temporarily set new time
+                        reminderInstance.time = new TimeField(finalDateTime.hour, finalDateTime.minute);
+                    }
+                }
+            });
+            
+            // Re-render all affected days (except the current drag day) to update stacking
             const allDays = currentDays();
             for (let dayIdx = 0; dayIdx < allDays.length; dayIdx++) {
                 if (dayIdx === G_reminderDragState.dayIndex) continue; // Skip the day being dragged
                 
-                // Find reminder elements for this recurring reminder on other days
-                const dayStartUnixOther = DateTime.local(allDays[dayIdx].year, allDays[dayIdx].month, allDays[dayIdx].day)
-                    .startOf('day').plus({hours: user.settings.startOfDayOffset}).toMillis();
-                const dayEndUnixOther = DateTime.local(allDays[dayIdx].year, allDays[dayIdx].month, allDays[dayIdx].day)
-                    .endOf('day').plus({hours: user.settings.endOfDayOffset}).toMillis() + 1;
-                
-                // Calculate where this reminder should be positioned on the other day
-                const otherDayTimestamp = dayStartUnixOther + (newDateTime.hour * 60 + newDateTime.minute) * 60 * 1000;
-                const otherDayOffsetMs = otherDayTimestamp - dayStartUnixOther;
-                const otherDayTotalDurationMs = dayEndUnixOther - dayStartUnixOther;
-                
-                if (otherDayTotalDurationMs > 0) {
-                    const otherDayProportion = otherDayOffsetMs / otherDayTotalDurationMs;
-                    
-                    // Get the timed area dimensions for this other day
-                    const otherDayElement = HTML.getUnsafely('day' + dayIdx);
-                    if (exists(otherDayElement)) {
-                        let otherDayOriginalHeight = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
-                        let otherDayOriginalTop = windowBorderMargin + headerSpace + topOfCalendarDay;
-                        
-                        if (user.settings.stacking) {
-                            otherDayOriginalHeight = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns)/2 - topOfCalendarDay;
-                            otherDayOriginalHeight -= 1;
-                            if (dayIdx >= Math.floor(user.settings.numberOfCalendarDays / 2)) {
-                                otherDayOriginalTop += otherDayOriginalHeight + gapBetweenColumns + topOfCalendarDay;
-                            }
-                        }
-                        
-                        // Assume minimal all-day events space for now (could be improved)
-                        // FIXME: this is a hack to get the correct height of the timed area
-                        const allDayEventHeight = 18;
-                        const totalAllDayEventsHeight = 2; // minimal assumption
-                        const otherTimedAreaHeight = otherDayOriginalHeight - totalAllDayEventsHeight;
-                        const otherTimedAreaTop = otherDayOriginalTop + totalAllDayEventsHeight;
-                        
-                        const newTopForOtherDay = otherTimedAreaTop + (otherDayProportion * otherTimedAreaHeight);
-                        
-                        // Clamp the position for the other day as well
-                        const otherMinTop = otherTimedAreaTop;
-                        const otherMaxTop = otherTimedAreaTop + otherTimedAreaHeight - reminderTextHeight - reminderLineHeight;
-                        const clampedTopForOtherDay = Math.max(otherMinTop, Math.min(newTopForOtherDay, otherMaxTop));
-                        
-                        // Find and update reminder elements on this other day
-                        // Use data attributes for robust matching instead of name heuristic
-                        const draggedSourceId = G_reminderDragState.reminderGroup[0].id;
-                        const draggedPatternNumber = G_reminderDragState.reminderGroup[0].patternIndex;
-                        
-                        for (let groupIdx = 0; groupIdx < 20; groupIdx++) { // reasonable upper bound
-                            const otherReminderLine = HTML.getUnsafely(`day${dayIdx}reminderLine${groupIdx}`);
-                            const otherReminderText = HTML.getUnsafely(`day${dayIdx}reminderText${groupIdx}`);
-                            const otherReminderQC = HTML.getUnsafely(`day${dayIdx}reminderQC${groupIdx}`);
-                            
-                            if (exists(otherReminderLine) && exists(otherReminderText)) {
-                                // Check if this reminder element corresponds to our recurring reminder
-                                // Use data attributes for precise matching
-                                const otherSourceId = HTML.getDataUnsafely(otherReminderLine, 'sourceId');
-                                const otherPatternNumber = HTML.getDataUnsafely(otherReminderLine, 'patternNumber');
-                                
-                                if (otherSourceId === draggedSourceId && otherPatternNumber === draggedPatternNumber) {
-                                    // Update positions with clamped values
-                                    otherReminderLine.style.top = `${clampedTopForOtherDay}px`;
-                                    otherReminderText.style.top = `${clampedTopForOtherDay}px`;
-                                    if (exists(otherReminderQC)) {
-                                        otherReminderQC.style.top = `${clampedTopForOtherDay + reminderLineHeight}px`;
-                                    }
-                                    
-                                    // Update any count indicators and stacked reminders
-                                    const otherCount = HTML.getUnsafely(`day${dayIdx}reminderCount${groupIdx}`);
-                                    if (exists(otherCount)) {
-                                        otherCount.style.top = `${clampedTopForOtherDay + reminderLineHeight - 0.5}px`;
-                                    }
-                                    
-                                    // Update stacked elements
-                                    for (let stackIdx = 1; stackIdx < 10; stackIdx++) {
-                                        const stackText = HTML.getUnsafely(`day${dayIdx}reminderStackText${groupIdx}_${stackIdx}`);
-                                        const stackCount = HTML.getUnsafely(`day${dayIdx}reminderStackCount${groupIdx}_${stackIdx}`);
-                                        if (exists(stackText)) {
-                                            stackText.style.top = `${clampedTopForOtherDay}px`;
-                                        }
-                                        if (exists(stackCount)) {
-                                            stackCount.style.top = `${clampedTopForOtherDay + 1.5}px`;
-                                        }
-                                    }
-                                    break; // Found and updated this day's instance
-                                }
-                            } else {
-                                break; // No more reminder elements on this day
-                            }
-                        }
+                const dayToRender = allDays[dayIdx];
+                const dayElementToRender = HTML.get('day' + dayIdx);
+                renderDay(dayToRender, dayElementToRender, dayIdx);
+            }
+            
+            // Restore original times (we only want the temporary change for rendering)
+            originalTimes.forEach(originalTime => {
+                const entity = user.entityArray.find(e => e.id === originalTime.id);
+                if (entity) {
+                    const reminderInstance = entity.data.instances[originalTime.patternIndex];
+                    if (type(reminderInstance, RecurringReminderInstance)) {
+                        reminderInstance.time = originalTime.originalTime;
                     }
                 }
-            }
+            });
         }
     }
 }
@@ -2000,6 +1954,24 @@ function handleReminderDragEnd(e) {
     if (exists(timeBubble)) {
         timeBubble.remove();
     }
+
+    // NEW: cleanup for clones
+    if (G_reminderDragState.isClone) {
+        G_reminderDragState.groupElements.forEach(el => el.remove());
+        
+        // Restore visibility of original elements and count
+        const { mainCount, stackedText, stackedCount } = G_reminderDragState.originalStackElements;
+        if (exists(mainCount)) {
+            if (mainCount.dataset.originalCount) {
+                mainCount.innerHTML = mainCount.dataset.originalCount;
+                delete mainCount.dataset.originalCount;
+            }
+            mainCount.style.visibility = 'visible';
+        }
+        if (exists(stackedText)) stackedText.style.visibility = 'visible';
+        if (exists(stackedCount)) stackedCount.style.visibility = 'visible';
+    }
+
 
     // Restore z-index
     G_reminderDragState.groupElements.forEach(el => {
@@ -2149,7 +2121,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const elements = [];
         elements.push(HTML.getUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
         elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
-        elements.push(HTML.getUnsafely(`day${dayIdx}reminderQC${grpIdx}`));
+        elements.push(HTML.getUnsafely(`day${dayIdx}reminderQuarterCircle${grpIdx}`));
         if (stackSize > 1) {
             elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
             for (let i = 1; i < stackSize; i++) {
@@ -2216,7 +2188,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             clearTimeout(leaveTimeoutId);
             const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
             groupElements.forEach(el => {
-                if (el) {
+                if (exists(el)) {
                     if (!el.dataset.originalZIndex) {
                         el.dataset.originalZIndex = el.style.zIndex;
                     }
@@ -2229,7 +2201,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             leaveTimeoutId = setTimeout(() => {
                 const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
                 groupElements.forEach(el => {
-                    if (el && el.dataset.originalZIndex) {
+                    if (exists(el) && el.dataset.originalZIndex) {
                         el.style.zIndex = el.dataset.originalZIndex;
                         delete el.dataset.originalZIndex;
                     }
@@ -2244,10 +2216,12 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
             
             groupElements.forEach(el => {
-                if (!el.dataset.originalZIndex) {
-                    el.dataset.originalZIndex = el.style.zIndex;
+                if (exists(el)) {
+                    if (!el.dataset.originalZIndex) {
+                        el.dataset.originalZIndex = el.style.zIndex;
+                    }
+                    el.style.zIndex = parseInt(el.dataset.originalZIndex) + indexIncreaseOnHover;
                 }
-                el.style.zIndex = parseInt(el.dataset.originalZIndex) + indexIncreaseOnHover;
             });
             
             updateStackPositions(dayIndex, currentGroupIndex, true);
@@ -2257,7 +2231,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             leaveTimeoutId = setTimeout(() => {
                 const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
                 groupElements.forEach(el => {
-                    if (el.dataset.originalZIndex) {
+                    if (exists(el) && el.dataset.originalZIndex) {
                         el.style.zIndex = el.dataset.originalZIndex;
                         delete el.dataset.originalZIndex;
                     }
@@ -2302,9 +2276,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         const finalWidthForTextElement = contentActualWidth + adjustedTextPaddingLeft + textPaddingRight;
         const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
-        const qcLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
+        const quarterCircleLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
 
-        // Create/Update Line Element (now directly on body) - positioned from QC to right edge
+        // Create/Update Line Element (now directly on body) - positioned from quarter circle to right edge
         let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
         if (!exists(lineElement)) {
             lineElement = HTML.make('div');
@@ -2388,7 +2362,15 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             const initialDateTime = DateTime.fromMillis(initialTimestamp);
             const initialSnappedMinute = Math.round(initialDateTime.minute / 5) * 5;
             const initialDisplayDateTime = initialDateTime.set({ minute: initialSnappedMinute, second: 0, millisecond: 0 });
-            timeBubble.innerHTML = initialDisplayDateTime.toFormat('h:mm');
+            
+            // Format time according to user preference (no AM/PM)
+            let initialTimeText;
+            if (user.settings.ampmOr24 === '24') {
+                initialTimeText = initialDisplayDateTime.toFormat('HH:mm');
+            } else {
+                initialTimeText = initialDisplayDateTime.toFormat('h:mm');
+            }
+            timeBubble.innerHTML = initialTimeText;
             
             // Append to body
             HTML.body.appendChild(timeBubble);
@@ -2408,13 +2390,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 el.style.zIndex = parseInt(el.style.zIndex) + indexIncreaseOnHover;
             });
         };
-        const lineWidth = (dayElemLeft + colWidth) - qcLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
+        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
         HTML.setStyle(lineElement, {
             position: 'fixed',
             width: String(lineWidth) + 'px',
             height: String(reminderLineHeight) + 'px',
             top: String(reminderTopPosition) + 'px',
-            left: String(qcLeft) + 'px',
+            left: String(quarterCircleLeft) + 'px',
             backgroundColor: accentColorVar,
             zIndex: String(currentGroupZIndex),
             cursor: 'ns-resize'
@@ -2504,26 +2486,26 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         }
 
         // Create/Update Quarter Circle Decorative Element (now directly on body)
-        let qcElement = HTML.getUnsafely(`day${dayIndex}reminderQC${groupIndex}`);
-        if (!exists(qcElement)) {
-            qcElement = HTML.make('div');
-            HTML.setId(qcElement, `day${dayIndex}reminderQC${groupIndex}`);
-            HTML.body.appendChild(qcElement);
+        let quarterCircleElement = HTML.getUnsafely(`day${dayIndex}reminderQuarterCircle${groupIndex}`);
+        if (!exists(quarterCircleElement)) {
+            quarterCircleElement = HTML.make('div');
+            HTML.setId(quarterCircleElement, `day${dayIndex}reminderQuarterCircle${groupIndex}`);
+            HTML.body.appendChild(quarterCircleElement);
         }
 
         // Set data attributes for robust matching during drag operations
-        HTML.setData(qcElement, 'sourceId', primaryReminder.id);
-        HTML.setData(qcElement, 'patternNumber', primaryReminder.patternIndex);
+        HTML.setData(quarterCircleElement, 'sourceId', primaryReminder.id);
+        HTML.setData(quarterCircleElement, 'patternNumber', primaryReminder.patternIndex);
 
         const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
         const maskSizeValue = `${quarterCircleRadius * 2}px ${quarterCircleRadius * 2}px`;
 
-        HTML.setStyle(qcElement, {
+        HTML.setStyle(quarterCircleElement, {
             position: 'fixed',
             width: String(quarterCircleRadius) + 'px',
             height: String(quarterCircleRadius) + 'px',
             top: String(reminderTopPosition + reminderLineHeight) + 'px',
-            left: String(qcLeft) + 'px',
+            left: String(quarterCircleLeft) + 'px',
             backgroundColor: accentColorVar,
             zIndex: String(currentGroupZIndex),
             webkitMaskImage: gradientMask,
@@ -2557,10 +2539,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const darkenedColor = `rgb(${newR}, ${newG}, ${newB})`;
 
                 // Create stacked text element
-                let stackedTextElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
+                let stackedTextElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                 if (!exists(stackedTextElement)) {
                     stackedTextElement = HTML.make('div');
-                    HTML.setId(stackedTextElement, `day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
+                    HTML.setId(stackedTextElement, `day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackedTextElement);
                 }
                 
@@ -2573,6 +2555,212 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 stackedTextElement.addEventListener('mouseenter', stackedTextElement.mouseEnterHandler);
                 stackedTextElement.addEventListener('mouseleave', stackedTextElement.mouseLeaveHandler);
                 stackedTextElement.innerHTML = stackedReminder.name;
+                
+                // Add individual drag handler for this stacked reminder
+                stackedTextElement.onmousedown = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation(); // Prevent the main stack drag from triggering
+                    if (e.button !== 0) return; // only left click
+
+                    G_reminderDragState.isDragging = true;
+                    const animationKey = `${dayIndex}-${currentGroupIndex}`;
+                    if (G_animationFrameMap.has(animationKey)) {
+                        cancelAnimationFrame(G_animationFrameMap.get(animationKey));
+                        G_animationFrameMap.delete(animationKey);
+                    }
+                    
+                    // --- Start of new logic for dragging stacked item ---
+
+                    // 1. Hide the original stacked element and its count
+                    const originalStackedText = HTML.get(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
+                    const originalStackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
+                    if(exists(originalStackedText)) originalStackedText.style.visibility = 'hidden';
+                    if(exists(originalStackedCount)) originalStackedCount.style.visibility = 'hidden';
+
+                    // 2. Update the main stack's count indicator temporarily
+                    const mainCountElement = HTML.getUnsafely(`day${dayIndex}reminderCount${currentGroupIndex}`);
+                    if(exists(mainCountElement)) {
+                        mainCountElement.dataset.originalCount = mainCountElement.innerHTML;
+                        const newCount = group.length - 1;
+                        if (newCount > 1) {
+                            mainCountElement.innerHTML = String(newCount);
+                        } else {
+                            // If only one item remains in the stack (the primary one), hide the count.
+                            mainCountElement.style.visibility = 'hidden';
+                        }
+                    }
+
+                    // 3. Create new "clone" elements for the dragged reminder
+                    const draggedElements = [];
+                    // Position the clone at the mouse cursor position (align reminder line with mouse)
+                    const mouseY = e.clientY;
+                    const reminderTopPosition = mouseY; // Position so the line is at mouse cursor
+                    
+                    const extraPaddingForIndicator = 2; // for a single reminder
+                    const adjustedTextPaddingLeft = textPaddingLeft + extraPaddingForIndicator;
+                    
+                    // Re-measure text width for the clone
+                    const measurer = HTML.make('span');
+                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'Inter', fontSize: reminderTextFontSize, whiteSpace: 'nowrap', position: 'absolute' });
+                    measurer.innerHTML = stackedReminder.name;
+                    HTML.body.appendChild(measurer);
+                    const contentActualWidth = measurer.offsetWidth;
+                    HTML.body.removeChild(measurer);
+
+                    const finalWidthForTextElement = contentActualWidth + adjustedTextPaddingLeft + textPaddingRight;
+                    const textElementActualWidth = Math.min(finalWidthForTextElement + 1, colWidth - spaceForHourMarkers - 10);
+                    const quarterCircleLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
+
+                    // Create clone text
+                    const cloneText = HTML.make('div');
+                    HTML.setId(cloneText, 'drag-clone-text');
+                    cloneText.innerHTML = stackedReminder.name;
+                    HTML.setStyle(cloneText, {
+                        position: 'fixed', top: String(reminderTopPosition) + 'px', left: String(dayElemLeft + spaceForHourMarkers) + 'px',
+                        backgroundColor: accentColorVar, height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
+                        paddingTop: String(reminderLineHeight - 1) + 'px', paddingLeft: String(adjustedTextPaddingLeft) + 'px',
+                        paddingRight: String(textPaddingRight) + 'px', boxSizing: 'border-box', color: 'var(--shade-4)',
+                        fontSize: reminderTextFontSize, fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden',
+                        textOverflow: 'ellipsis', width: String(textElementActualWidth) + 'px',
+                        zIndex: String(currentGroupZIndex + indexIncreaseOnHover), borderTopLeftRadius: '6px',
+                        borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px', borderTopRightRadius: '0px', cursor: 'ns-resize'
+                    });
+                    HTML.body.appendChild(cloneText);
+                    draggedElements.push(cloneText);
+                    
+                    // Create clone line
+                    const cloneLine = HTML.make('div');
+                    HTML.setId(cloneLine, 'drag-clone-line');
+                    const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft + 2;
+                    HTML.setStyle(cloneLine, {
+                        position: 'fixed', width: String(lineWidth) + 'px', height: String(reminderLineHeight) + 'px',
+                        top: String(reminderTopPosition) + 'px', left: String(quarterCircleLeft) + 'px',
+                        backgroundColor: accentColorVar, zIndex: String(currentGroupZIndex + indexIncreaseOnHover), cursor: 'ns-resize'
+                    });
+                    HTML.body.appendChild(cloneLine);
+                    draggedElements.push(cloneLine);
+                    
+                    // Create clone quarter circle
+                    const cloneQuarterCircle = HTML.make('div');
+                    HTML.setId(cloneQuarterCircle, 'drag-clone-quarter-circle');
+                    const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
+                    const maskSizeValue = `${quarterCircleRadius * 2}px ${quarterCircleRadius * 2}px`;
+                    HTML.setStyle(cloneQuarterCircle, {
+                        position: 'fixed', width: String(quarterCircleRadius) + 'px', height: String(quarterCircleRadius) + 'px',
+                        top: String(reminderTopPosition + reminderLineHeight) + 'px', left: String(quarterCircleLeft) + 'px',
+                        backgroundColor: accentColorVar, zIndex: String(currentGroupZIndex + indexIncreaseOnHover),
+                        webkitMaskImage: gradientMask, maskImage: gradientMask, webkitMaskSize: maskSizeValue, maskSize: maskSizeValue,
+                        webkitMaskPosition: 'bottom right', maskPosition: 'bottom right', webkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+                    });
+                    HTML.body.appendChild(cloneQuarterCircle);
+                    draggedElements.push(cloneQuarterCircle);
+
+                    // --- End of new logic ---
+                    
+                    G_reminderDragState = {
+                        isDragging: true,
+                        dayIndex: dayIndex,
+                        groupIndex: currentGroupIndex,
+                        groupElements: draggedElements, // Use the new clone elements
+                        initialTops: draggedElements.map(el => parseFloat(el.style.top)),
+                        initialY: e.clientY,
+                        timedAreaTop: timedAreaTop,
+                        timedAreaHeight: timedAreaHeight,
+                        dayStartUnix: dayStartUnix,
+                        dayEndUnix: dayEndUnix,
+                        reminderGroup: [stackedReminder], // Only this one reminder
+                        isClone: true, // Flag that we are dragging a clone
+                        originalStackElements: { // to restore on drag end
+                            mainCount: mainCountElement,
+                            stackedText: originalStackedText,
+                            stackedCount: originalStackedCount,
+                        }
+                    };
+
+                    // Temporarily remove the dragged reminder from user data for re-rendering
+                    const entity = user.entityArray.find(e => e.id === stackedReminder.id);
+                    const reminderInstance = entity.data.instances[stackedReminder.patternIndex];
+                    const originalInstances = entity.data.instances;
+                    
+                    // Create a temporary copy without the dragged instance
+                    const tempInstances = [...entity.data.instances];
+                    tempInstances.splice(stackedReminder.patternIndex, 1);
+                    entity.data.instances = tempInstances;
+
+                    // Immediately re-render the current day to update the remaining stack
+                    const dayToRender = currentDays()[dayIndex];
+                    const dayElementToRender = HTML.get('day' + dayIndex);
+                    renderDay(dayToRender, dayElementToRender, dayIndex);
+                    
+                    // Restore the original instances array
+                    entity.data.instances = originalInstances;
+
+                    // Create time indicator bubble for individual drag
+                    let timeBubble = HTML.make('div');
+                    HTML.setId(timeBubble, 'dragTimeBubble');
+                    const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
+                    const dayElement = HTML.get('day' + dayIndex);
+                    const dayLeft = parseInt(dayElement.style.left);
+                    
+                    // Hide initially to prevent flickering
+                    HTML.setStyle(timeBubble, {
+                        position: 'fixed',
+                        height: String(bubbleHeight) + 'px',
+                        width: '34px',
+                        backgroundColor: 'var(--shade-2)',
+                        color: 'var(--shade-4)',
+                        fontSize: '9.5px', // Bigger font
+                        fontFamily: 'JetBrains Mono',
+                        borderTopRightRadius: String(bubbleHeight / 2) + 'px',
+                        borderBottomRightRadius: String(bubbleHeight / 2) + 'px',
+                        borderTopLeftRadius: '0px',
+                        borderBottomLeftRadius: '0px',
+                        paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
+                        boxSizing: 'border-box',
+                        zIndex: '600', // higher than hour marker but below outline
+                        whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                        visibility: 'hidden', // Hide initially
+                        textAlign: 'center',
+                        paddingRight: '1.5px'
+                    });
+                    
+                    // Set initial position and content
+                    const initialTop = reminderTopPosition;
+                    HTML.setStyle(timeBubble, {
+                        top: String(initialTop) + 'px',
+                        left: String(dayLeft) + 'px'
+                    });
+                    
+                    // Calculate initial time based on mouse position
+                    const initialProportionOfDay = (initialTop - timedAreaTop) / timedAreaHeight;
+                    const totalDayDurationMs = dayEndUnix - dayStartUnix;
+                    const initialTimeOffsetMs = initialProportionOfDay * totalDayDurationMs;
+                    const initialTimestamp = dayStartUnix + initialTimeOffsetMs;
+                    const initialDateTime = DateTime.fromMillis(initialTimestamp);
+                    const initialSnappedMinute = Math.round(initialDateTime.minute / 5) * 5;
+                    const initialDisplayDateTime = initialDateTime.set({ minute: initialSnappedMinute, second: 0, millisecond: 0 });
+                    
+                    // Format time according to user preference (no AM/PM)
+                    let initialTimeText;
+                    if (user.settings.ampmOr24 === '24') {
+                        initialTimeText = initialDisplayDateTime.toFormat('HH:mm');
+                    } else {
+                        initialTimeText = initialDisplayDateTime.toFormat('h:mm');
+                    }
+                    timeBubble.innerHTML = initialTimeText;
+                    
+                    // Append to body
+                    HTML.body.appendChild(timeBubble);
+                    
+                    // Show after everything is set up
+                    HTML.setStyle(timeBubble, { visibility: 'visible' });
+
+                    document.addEventListener('mousemove', handleReminderDragMove);
+                    document.addEventListener('mouseup', handleReminderDragEnd);
+
+                    // No need to increase z-index here, it's set high on creation
+                };
 
                 HTML.setStyle(stackedTextElement, {
                     position: 'fixed',
@@ -2598,10 +2786,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 });
 
                 // Create stack count indicator
-                let stackCountElement = HTML.getUnsafely(`day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
+                let stackCountElement = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                 if (!exists(stackCountElement)) {
                     stackCountElement = HTML.make('div');
-                    HTML.setId(stackCountElement, `day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
+                    HTML.setId(stackCountElement, `day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackCountElement);
                 }
                 
@@ -2638,6 +2826,23 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             log("Single reminder (not grouped) for group " + groupIndex);
         }
 
+        // Cleanup stale stacked elements if the group has shrunk or is no longer a group
+        const stackCleanupStartIndex = isGrouped ? group.length : 1;
+        let stackCleanupIndex = stackCleanupStartIndex;
+        while (true) {
+            const staleStackText = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
+            const staleStackCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
+            
+            if (!exists(staleStackText) && !exists(staleStackCount)) {
+                break; // No more stale elements for this group
+            }
+            
+            if (exists(staleStackText)) staleStackText.remove();
+            if (exists(staleStackCount)) staleStackCount.remove();
+            
+            stackCleanupIndex++;
+        }
+
         groupIndex++;
     }
 
@@ -2658,7 +2863,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
         removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
-        removeElementById(`day${dayIndex}reminderQC${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderQuarterCircle${existingReminderIndex}`);
         removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
         
         let stackIdx = 1;
@@ -2742,7 +2947,7 @@ function renderCalendar(days) {
                     };
                     removeElementById(`day${i}reminderLine${j}`);
                     removeElementById(`day${i}reminderText${j}`);
-                    removeElementById(`day${i}reminderQC${j}`);
+                    removeElementById(`day${i}reminderQuarterCircle${j}`);
                     removeElementById(`day${i}reminderCount${j}`);
                     let stackIdx = 1;
                     while(true) {
