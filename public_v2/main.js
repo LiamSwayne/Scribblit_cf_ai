@@ -1296,7 +1296,7 @@ const FilteredInstancesFactory = {
                 let eventStartMs = eventStartDateTime.toMillis();
                 let eventEndMs = eventEndDateTime.toMillis();
 
-                if (eventStartMs < dayEndUnix && eventEndMs > dayStartUnix) {
+                if (eventStartMs < dayEndUnix && eventEndMs > dayEndUnix) {
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
                         entityName,
@@ -1816,27 +1816,85 @@ function handleReminderDragMove(e) {
     const dy = e.clientY - G_reminderDragState.initialY;
     
     // Calculate bounds for the drag
-    const { timedAreaTop, timedAreaHeight } = G_reminderDragState;
+    const { timedAreaTop, timedAreaHeight, dayIndex, groupIndex } = G_reminderDragState;
     const reminderLineHeight = 2;
     const reminderTextHeight = 14;
+    const quarterCircleRadius = 10;
     const minTop = timedAreaTop;
-    const maxTop = timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight;
+    const maxTop = timedAreaTop + timedAreaHeight - reminderLineHeight; // Allow line to go to the very bottom
+
+    // The new top position for the reminder LINE
+    const newLineTop = G_reminderDragState.initialTops[0] + dy;
+    const clampedLineTop = Math.max(minTop, Math.min(newLineTop, maxTop));
     
-    // Update the elements being dragged with bounds checking
-    const firstElementNewTop = G_reminderDragState.initialTops[0] + dy;
-    const clampedFirstTop = Math.max(minTop, Math.min(firstElementNewTop, maxTop));
-    
+    // Determine if the reminder should be in a "flipped" state
+    const flipThresholdProportion = (23 * 60 + 40) / (24 * 60); // approx 11:40 PM
+    const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
+    const isFlipped = clampedLineTop > flipThresholdTop;
+
+    // Animate all elements in the group based on the new line position and flip state
     G_reminderDragState.groupElements.forEach((el, i) => {
-        const newTop = G_reminderDragState.initialTops[i] + dy;
-        const clampedTop = Math.max(minTop, Math.min(newTop, maxTop));
-        el.style.top = `${clampedTop}px`;
+        // We only need to calculate the main line's position once.
+        // Other elements will be positioned relative to it.
+        if (el.id.includes('Line') || el.id.includes('line')) {
+            el.style.top = `${clampedLineTop}px`;
+        
+        } else if (el.id.includes('Text') || el.id.includes('text')) {
+            if (isFlipped) {
+                // Position text above the line
+                el.style.top = `${clampedLineTop - reminderTextHeight + 2}px`;
+                el.style.height = `${reminderTextHeight}px`;
+                el.style.paddingTop = '1px';
+                // Flip border radius for the new orientation
+                el.style.borderTopLeftRadius = '6px';
+                el.style.borderBottomLeftRadius = '6px';
+                el.style.borderTopRightRadius = '6px'; 
+                el.style.borderBottomRightRadius = '0px'; 
+            } else {
+                // Original position below the line
+                el.style.top = `${clampedLineTop}px`;
+                el.style.height = `${reminderLineHeight + reminderTextHeight - 2}px`;
+                el.style.paddingTop = `${reminderLineHeight - 1}px`;
+                // Original border radius
+                el.style.borderTopLeftRadius = '6px';
+                el.style.borderBottomLeftRadius = '6px';
+                el.style.borderTopRightRadius = '0px';
+                el.style.borderBottomRightRadius = '6px';
+            }
+        
+        } else if (el.id.includes('QuarterCircle') || el.id.includes('quarter-circle')) {
+            if (isFlipped) {
+                // Position quarter circle above the line, flipped vertically
+                el.style.top = `${clampedLineTop - quarterCircleRadius}px`;
+                const gradientMask = `radial-gradient(circle at top right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
+                el.style.webkitMaskImage = gradientMask;
+                el.style.maskImage = gradientMask;
+                el.style.webkitMaskPosition = 'top right';
+                el.style.maskPosition = 'top right';
+            } else {
+                // Original position below the line
+                el.style.top = `${clampedLineTop + reminderLineHeight}px`;
+                const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
+                el.style.webkitMaskImage = gradientMask;
+                el.style.maskImage = gradientMask;
+                el.style.webkitMaskPosition = 'bottom right';
+                el.style.maskPosition = 'bottom right';
+            }
+
+        } else if (el.id.includes('Count') || el.id.includes('count')) {
+            if (isFlipped) {
+                el.style.top = `${clampedLineTop - reminderTextHeight + 3.5}px`;
+            } else {
+                el.style.top = `${clampedLineTop + reminderLineHeight - 0.5}px`;
+            }
+        }
     });
 
     // Update time bubble position and text
     const timeBubble = HTML.getUnsafely('dragTimeBubble');
     if (exists(timeBubble)) {
         // Calculate the time based on current position
-        const proportionOfDay = (clampedFirstTop - timedAreaTop) / timedAreaHeight;
+        const proportionOfDay = (clampedLineTop - timedAreaTop) / timedAreaHeight;
         const totalDayDurationMs = G_reminderDragState.dayEndUnix - G_reminderDragState.dayStartUnix;
         const newTimeOffsetMs = proportionOfDay * totalDayDurationMs;
         const newTimestamp = G_reminderDragState.dayStartUnix + newTimeOffsetMs;
@@ -1861,8 +1919,8 @@ function handleReminderDragMove(e) {
         const dayLeft = parseInt(dayElement.style.left);
         
         HTML.setStyle(timeBubble, {
-            top: String(clampedFirstTop) + 'px',
-            left: String(dayLeft) + 'px'
+            top: String(clampedLineTop) + 'px',
+            left: String(dayLeft + 1) + 'px'
         });
     }
 
@@ -1884,7 +1942,7 @@ function handleReminderDragMove(e) {
     if (recurringReminders.length > 0) {
         // Calculate the new time based on the current drag position (using clamped position)
         const finalTop = Math.max(minTop, Math.min(G_reminderDragState.initialTops[0] + dy, maxTop));
-        const clampedTop = Math.max(timedAreaTop, Math.min(finalTop, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
+        const clampedTop = Math.max(timedAreaTop, Math.min(finalTop, timedAreaTop + timedAreaHeight - reminderLineHeight));
         const proportionOfDay = (clampedTop - timedAreaTop) / timedAreaHeight;
         const totalDayDurationMs = G_reminderDragState.dayEndUnix - G_reminderDragState.dayStartUnix;
         
@@ -1989,7 +2047,7 @@ function handleReminderDragEnd(e) {
     const reminderLineHeight = 2;
     const reminderTextHeight = 14;
 
-    const clampedTop = Math.max(timedAreaTop, Math.min(finalTop, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
+    const clampedTop = Math.max(timedAreaTop, Math.min(finalTop, timedAreaTop + timedAreaHeight - reminderLineHeight));
 
     const proportionOfDay = (clampedTop - timedAreaTop) / timedAreaHeight;
     const totalDayDurationMs = dayEndUnix - dayStartUnix;
@@ -2155,8 +2213,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             reminderTopPosition = timedAreaTop + (reminderOffsetMs / totalDayDurationMs) * timedAreaHeight;
         }
         
-        // Ensure reminder is within the visible timed area bounds
-        reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, timedAreaTop + timedAreaHeight - reminderTextHeight - reminderLineHeight));
+        // Ensure reminder is within the visible timed area bounds, allowing the line to reach the bottom
+        const maxTop = timedAreaTop + timedAreaHeight - reminderLineHeight;
+        reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, maxTop));
+        
+        // Check if the reminder should be rendered in a "flipped" state
+        const flipThresholdProportion = (23 * 60 + 40) / (24 * 60);
+        const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
+        const isFlipped = reminderTopPosition > flipThresholdTop;
 
         // Check for overlap with the previous reminder group to alternate colors
         if (lastReminderBottom !== -1 && reminderTopPosition < lastReminderBottom) {
@@ -2328,7 +2392,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             HTML.setStyle(timeBubble, {
                 position: 'fixed',
                 height: String(bubbleHeight) + 'px',
-                width: '34px',
+                width: '33px',
                 backgroundColor: 'var(--shade-2)',
                 color: 'var(--shade-4)',
                 fontSize: '9.5px', // Bigger font
@@ -2419,11 +2483,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         HTML.setStyle(textElement, {
             position: 'fixed',
-            top: String(reminderTopPosition) + 'px',
+            top: String(isFlipped ? reminderTopPosition - reminderTextHeight + 2 : reminderTopPosition) + 'px',
             left: String(dayElemLeft + spaceForHourMarkers) + 'px',
             backgroundColor: accentColorVar,
-            height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
-            paddingTop: String(reminderLineHeight - 1) + 'px',
+            height: String(isFlipped ? reminderTextHeight : (reminderLineHeight + reminderTextHeight - 2)) + 'px',
+            paddingTop: String(isFlipped ? '1px' : (reminderLineHeight - 1)) + 'px',
             paddingLeft: String(adjustedTextPaddingLeft) + 'px',
             paddingRight: String(textPaddingRight) + 'px',
             boxSizing: 'border-box',
@@ -2437,8 +2501,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             zIndex: String(currentGroupZIndex), // Top reminder in stack gets highest z-index
             borderTopLeftRadius: '6px',
             borderBottomLeftRadius: '6px',
-            borderBottomRightRadius: '6px',
-            borderTopRightRadius: '0px', // No top-right radius for any reminders
+            borderTopRightRadius: isFlipped ? '6px' : '0px',
+            borderBottomRightRadius: isFlipped ? '0px' : '6px',
             cursor: 'pointer'
         });
 
@@ -2462,7 +2526,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             
             HTML.setStyle(countElement, {
                 position: 'fixed',
-                top: String(reminderTopPosition + reminderLineHeight - 0.5) + 'px',
+                top: String(isFlipped ? (reminderTopPosition - reminderTextHeight + 3.5) : (reminderTopPosition + reminderLineHeight - 0.5)) + 'px',
                 left: String(dayElemLeft + spaceForHourMarkers + textPaddingLeft) + 'px',
                 width: String(countIndicatorSize) + 'px',
                 height: String(countIndicatorSize) + 'px',
@@ -2497,14 +2561,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         HTML.setData(quarterCircleElement, 'sourceId', primaryReminder.id);
         HTML.setData(quarterCircleElement, 'patternNumber', primaryReminder.patternIndex);
 
-        const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
+        const gradientMask = isFlipped 
+            ? `radial-gradient(circle at top right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`
+            : `radial-gradient(circle at bottom right, transparent 0, transparent ${quarterCircleRadius}px, black ${quarterCircleRadius + 1}px)`;
         const maskSizeValue = `${quarterCircleRadius * 2}px ${quarterCircleRadius * 2}px`;
 
         HTML.setStyle(quarterCircleElement, {
             position: 'fixed',
             width: String(quarterCircleRadius) + 'px',
             height: String(quarterCircleRadius) + 'px',
-            top: String(reminderTopPosition + reminderLineHeight) + 'px',
+            top: String(isFlipped ? (reminderTopPosition - quarterCircleRadius) : (reminderTopPosition + reminderLineHeight)) + 'px',
             left: String(quarterCircleLeft) + 'px',
             backgroundColor: accentColorVar,
             zIndex: String(currentGroupZIndex),
@@ -2512,8 +2578,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             maskImage: gradientMask,
             webkitMaskSize: maskSizeValue,
             maskSize: maskSizeValue,
-            webkitMaskPosition: 'bottom right',
-            maskPosition: 'bottom right',
+            webkitMaskPosition: isFlipped ? 'top right' : 'bottom right',
+            maskPosition: isFlipped ? 'top right' : 'bottom right',
             webkitMaskRepeat: 'no-repeat',
             maskRepeat: 'no-repeat',
         });
