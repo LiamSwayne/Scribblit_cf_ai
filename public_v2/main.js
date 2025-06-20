@@ -792,6 +792,18 @@ let HTML = new class HTMLroot {
         ASSERT(this.hasStyle(element, property), `Element does not have property "${property}"`);
         return element.style[property];
     }
+
+    createClass(name, styles) {
+        ASSERT(type(name, String));
+        ASSERT(type(styles, Dict(String, String)));
+    
+        let styleElement = this.make('style');
+    
+        let styleString = Object.entries(styles).map(([key, value]) => `${key}: ${value};`).join('');
+    
+        styleElement.textContent = `.${name} {${styleString}}`;
+        this.head.appendChild(styleElement);
+    }    
 }();
 
 // the only use of stylesheet because "body *" in JS is not efficient to select
