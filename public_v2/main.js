@@ -1725,8 +1725,9 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 // A map to keep track of running animation frames for each reminder group
 const G_animationFrameMap = new Map();
 
-function updateStackPositions(dayIndex, groupIndex, isHovering) {
+function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, timedAreaHeight) {
     ASSERT(type(dayIndex, Int) && type(groupIndex, Int) && type(isHovering, Boolean));
+    ASSERT(type(timedAreaTop, Number) && type(timedAreaHeight, Number));
 
     const animationKey = `${dayIndex}-${groupIndex}`;
 
@@ -1746,13 +1747,22 @@ function updateStackPositions(dayIndex, groupIndex, isHovering) {
     const firstStackElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_1`);
     ASSERT(exists(firstStackElement), `updateStackPositions called for a non-stacked reminder: day${dayIndex}, group${groupIndex}`);
 
-    const reminderTopPosition = parseFloat(primaryTextElement.style.top);
+    const reminderLineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
+    ASSERT(exists(reminderLineElement));
+    const lineTop = parseFloat(reminderLineElement.style.top);
     const reminderTextHeight = 14; // From renderReminderInstances
 
     let groupLength = 1;
     while (HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${groupLength}`)) {
         groupLength++;
     }
+
+    // Decide whether to expand upwards or downwards
+    const timedAreaBottom = timedAreaTop + timedAreaHeight;
+    const requiredHeight = groupLength * reminderTextHeight;
+    const expandUpwards = (lineTop + requiredHeight) > timedAreaBottom;
+    
+    const baseAnimationTop = parseFloat(primaryTextElement.style.top);
 
     function animationLoop() {
         let anyChanges = false;
@@ -1762,10 +1772,13 @@ function updateStackPositions(dayIndex, groupIndex, isHovering) {
             let stackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
             
             if (exists(stackedText) && exists(stackedCount)) {
-                const expandedTop = reminderTopPosition + (reminderTextHeight * stackIndex);
+                const expandedTop = expandUpwards 
+                    ? baseAnimationTop - (reminderTextHeight * stackIndex)
+                    : baseAnimationTop + (reminderTextHeight * stackIndex);
+
                 const expandedCountTop = expandedTop + 1.5;
-                const hiddenTop = reminderTopPosition;
-                const hiddenCountTop = reminderTopPosition + 1.5;
+                const hiddenTop = baseAnimationTop;
+                const hiddenCountTop = baseAnimationTop + 1.5;
                 
                 const currentTop = parseFloat(stackedText.style.top);
                 const currentCountTop = parseFloat(stackedCount.style.top);
@@ -2192,7 +2205,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     };
 
     let groupIndex = 0;
-    let lastReminderBottom = -1; // For tracking overlaps
+    let lastVisualBottom = -1; // For tracking overlaps
     let touchingGroupColorIndex = 0; // For alternating colors
 
     // Sort by time to process sequentially and check for overlaps
@@ -2223,7 +2236,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const isFlipped = reminderTopPosition > flipThresholdTop;
 
         // Check for overlap with the previous reminder group to alternate colors
-        if (lastReminderBottom !== -1 && reminderTopPosition < lastReminderBottom) {
+        const currentVisualTop = isFlipped ? (reminderTopPosition - reminderTextHeight + 2) : reminderTopPosition;
+
+        if (lastVisualBottom !== -1 && currentVisualTop < lastVisualBottom) {
             touchingGroupColorIndex++;
         } else {
             touchingGroupColorIndex = 0; // Reset because the chain is broken
@@ -2232,9 +2247,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue(accentColorVarName).trim();
         const accentColorVar = `var(${accentColorVarName})`;
 
-        // Calculate container height and update last position
-        const containerHeight = reminderLineHeight + reminderTextHeight;
-        lastReminderBottom = reminderTopPosition + containerHeight;
+        // Calculate container height and update last position for the next iteration
+        const currentVisualBottom = isFlipped 
+            ? (reminderTopPosition + reminderLineHeight) 
+            : (reminderTopPosition + reminderTextHeight);
+        lastVisualBottom = currentVisualBottom;
 
         const baseZIndex = 2600;
         // Calculate minutes since start of day for z-index layering
@@ -2288,7 +2305,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 }
             });
             
-            updateStackPositions(dayIndex, currentGroupIndex, true);
+            updateStackPositions(dayIndex, currentGroupIndex, true, timedAreaTop, timedAreaHeight);
         };
         const handleReminderMouseLeave = function() {
             if (G_reminderDragState.isDragging) return;
@@ -2300,7 +2317,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         delete el.dataset.originalZIndex;
                     }
                 });
-                updateStackPositions(dayIndex, currentGroupIndex, false);
+                updateStackPositions(dayIndex, currentGroupIndex, false, timedAreaTop, timedAreaHeight);
             }, 50);
         };
 
