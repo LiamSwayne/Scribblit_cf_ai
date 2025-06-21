@@ -1896,7 +1896,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
     ASSERT(type(colWidth, Number));
     ASSERT(type(timedAreaTop, Number));
     ASSERT(type(timedAreaHeight, Number));
-    ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayElemLeft, Number));
     ASSERT(type(dayStartUnix, Int));
     ASSERT(type(dayEndUnix, Int));
 
@@ -2549,7 +2549,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     ASSERT(type(colWidth, Number));
     ASSERT(type(timedAreaTop, Number));
     ASSERT(type(timedAreaHeight, Number));
-    ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayElemLeft, Number));
     ASSERT(type(dayStartUnix, Int));
     ASSERT(type(dayEndUnix, Int));
 
@@ -3626,11 +3626,6 @@ async function loadFonts() {
     const fontPromises = fontDefinitions.map(async (fontDef) => {
         let cachedBase64 = preservedFontCss[fontDef.key];
         if (cachedBase64) {
-            log(`Loaded ${fontDef.key} from cache.`);
-            if (TESTING) {
-                // we want the key and url to be what we're looking for
-                localStorage.setItem('font' + fontDef.key + fontDef.url, cachedBase64); // Restore after clear
-            }
             return cachedBase64;
         } else {
             try {
@@ -3647,7 +3642,6 @@ async function loadFonts() {
                 });
                 
                 localStorage.setItem('font' + fontDef.key + fontDef.url, base64Font);
-                log(`Successfully fetched and cached (${fontDef.key}, ${fontDef.url}).`);
                 return base64Font;
 
             } catch (error) {
@@ -3700,7 +3694,7 @@ async function loadFonts() {
         });
         
         await Promise.all(loadPromises);
-        log('All fonts loaded successfully');
+        // all fonts loaded successfully
     }
 
     render();
