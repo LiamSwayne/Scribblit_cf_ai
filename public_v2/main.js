@@ -849,7 +849,7 @@ styleElement.textContent = `
         padding: 0;
         display: inline-block;
         font-size: 200px; /* This is to make sure that default font sizes are never used */
-        font-family: 'Inter';
+        font-family: 'Lexend';
         white-space: pre; /* This preserves whitespace leading */
         color: #ff00aa; /* make sure that default colors are never used */
         user-select: none; /* make text not highlightable */
@@ -1732,13 +1732,13 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             zIndex: '350',
             color: 'var(--shade-4)',
             fontSize: '11px',
-            fontFamily: 'Inter',
+            fontFamily: 'Lexend',
             lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             paddingLeft: '12px',
-            paddingRight: '4px',
+            paddingRight: '2px',
             boxSizing: 'border-box',
             cursor: 'pointer',
             transition: 'background-color 0.2s ease, opacity 0.2s ease'
@@ -2498,7 +2498,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const measurer = HTML.make('span');
         HTML.setStyle(measurer, {
             visibility: 'hidden',
-            fontFamily: 'Inter',
+            fontFamily: 'Lexend',
             fontSize: reminderTextFontSize,
             whiteSpace: 'nowrap',
             display: 'inline-block',
@@ -2665,7 +2665,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             boxSizing: 'border-box',
             color: 'var(--shade-4)',
             fontSize: reminderTextFontSize,
-            fontFamily: 'Inter',
+            fontFamily: 'Lexend',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -2705,7 +2705,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-4)', // White background
                 color: accentColorVar, // Original blue color for the number
                 fontSize: '8px',
-                fontFamily: 'Inter',
+                fontFamily: 'Lexend',
                 fontWeight: 'bold',
                 textAlign: 'center',
                 lineHeight: String(countIndicatorSize) + 'px',
@@ -2839,7 +2839,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     
                     // Re-measure text width for the clone
                     const measurer = HTML.make('span');
-                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'Inter', fontSize: reminderTextFontSize, whiteSpace: 'nowrap', position: 'absolute' });
+                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'Lexend', fontSize: reminderTextFontSize, whiteSpace: 'nowrap', position: 'absolute' });
                     measurer.innerHTML = stackedReminder.name;
                     HTML.body.appendChild(measurer);
                     const contentActualWidth = measurer.offsetWidth;
@@ -2858,7 +2858,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: accentColorVar, height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', paddingLeft: String(adjustedTextPaddingLeft) + 'px',
                         paddingRight: String(textPaddingRight) + 'px', boxSizing: 'border-box', color: 'var(--shade-4)',
-                        fontSize: reminderTextFontSize, fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden',
+                        fontSize: reminderTextFontSize, fontFamily: 'Lexend', whiteSpace: 'nowrap', overflow: 'hidden',
                         textOverflow: 'ellipsis', width: String(textElementActualWidth) + 'px',
                         zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover), borderTopLeftRadius: '6px',
                         borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px', borderTopRightRadius: '0px', cursor: 'ns-resize'
@@ -3013,7 +3013,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     boxSizing: 'border-box',
                     color: 'var(--shade-4)',
                     fontSize: reminderTextFontSize,
-                    fontFamily: 'Inter',
+                    fontFamily: 'Lexend',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -3051,7 +3051,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     backgroundColor: 'var(--shade-4)', // White background
                     color: darkenedColor, // Number color matches the reminder's background
                     fontSize: '8px',
-                    fontFamily: 'Inter',
+                    fontFamily: 'Lexend',
                     fontWeight: 'bold',
                     textAlign: 'center',
                     lineHeight: String(countIndicatorSize) + 'px',
@@ -3315,7 +3315,7 @@ function renderCalendar(days) {
             right: String(window.innerWidth - left - columnWidth + dateAndDayOfWeekSpacing) + 'px',
             fontSize: '12px',
             color: 'var(--shade-3)',
-            fontFamily: 'Inter',
+            fontFamily: 'Lexend',
             fontWeight: 'bold',
             zIndex: '400'
         });
@@ -3347,7 +3347,7 @@ function renderCalendar(days) {
             left: String(left + 4) + 'px',
             fontSize: '12px',
             color: 'var(--shade-3)',
-            fontFamily: 'Inter',
+            fontFamily: 'Lexend',
             fontWeight: 'bold',
             zIndex: '400'
         });
