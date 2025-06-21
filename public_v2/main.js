@@ -184,7 +184,23 @@ if (TESTING) {
         // one-time all-day event
         new Entity(
             'event-001', // id
-            'Company Holiday', // name
+            'First all day thing tomorrow long long long', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        tomorrow, // startDate
+                        NULL, // startTime
+                        NULL, // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            ) // data
+        ),
+
+        new Entity(
+            'event-700', // id
+            'Second', // name
             '', // description
             new EventData( // data
                 [
@@ -560,6 +576,27 @@ if (TESTING) {
                     new TimeField(21, 25)
                 )
             ])
+        ),
+
+        // all day recurring event
+        new Entity(
+            'event-555', // id
+            'Daily planning', // name
+            '', // description
+            new EventData( // data
+                [
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            1 // n (daily)
+                        ), // startDatePattern
+                        NULL, // startTime (all-day)
+                        NULL, // endTime (all-day)
+                        new RecurrenceCount(2),
+                        NULL // differentEndDatePattern
+                    )
+                ] // instances
+            ) // data
         )
     ];      
 
@@ -568,7 +605,7 @@ if (TESTING) {
         entityArray,
         {
             stacking: false,
-            numberOfCalendarDays: 2,
+            numberOfCalendarDays: 3,
             ampmOr24: 'ampm',
             startOfDayOffset: 0,
             endOfDayOffset: 0,
@@ -771,10 +808,7 @@ let HTML = new class HTMLroot {
             cssRules += `${key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()}: ${styles[key]}; `;
         }
         cssRules += `}`;
-        
-        // Add a transition property to enable animations if desired
-        cssRules += `#${element.id} { transition: all 0.3s ease; }`;
-        
+
         // Create and append style element
         const styleElement = this.make('style');
         this.setId(styleElement, `style-${element.id}`);
@@ -1144,7 +1178,7 @@ const FilteredInstancesFactory = {
         const originalStartDate = workSessionInstance.startDatePattern ? workSessionInstance.startDatePattern.initialDate : workSessionInstance.startDate;
         const originalStartTime = workSessionInstance.startTime;
 
-        if (!exists(workSessionInstance.startTime)) { // All-day work session
+        if (workSessionInstance.startTime === NULL) { // All-day work session
             if (type(workSessionInstance, NonRecurringEventInstance)) {
                 ASSERT(type(workSessionInstance.startDate, DateField));
                 let workDate = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day);
@@ -1255,7 +1289,7 @@ const FilteredInstancesFactory = {
         const originalStartDate = eventInstance.startDatePattern ? eventInstance.startDatePattern.initialDate : eventInstance.startDate;
         const originalStartTime = eventInstance.startTime;
 
-        if (!exists(eventInstance.startTime)) { // All-day event
+        if (eventInstance.startTime === NULL) { // All-day event
             if (type(eventInstance, NonRecurringEventInstance)) {
                 ASSERT(type(eventInstance.startDate, DateField));
                 let eventDate = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day);
@@ -1601,10 +1635,6 @@ function renderDay(day, element, index) {
     // Log filtered instances
     log("Filtered Segment of Day Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
     log(G_filteredSegmentOfDayInstances);
-    log("Filtered All-Day Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
-    log(G_filteredAllDayInstances);
-    log("Filtered Reminder Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
-    log(G_filteredReminderInstances);
 
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const allDayEventHeight = 18; // height in px for each all-day event
@@ -1687,6 +1717,8 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             HTML.body.appendChild(allDayEventElement);
         }
         
+        allDayEventElement.innerHTML = allDayEventData.name;
+
         HTML.setStyle(allDayEventElement, {
             position: 'fixed',
             width: String(colWidth - 6.5) + 'px',
@@ -1697,7 +1729,16 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
             zIndex: '350',
-            // TODO: Add text for allDayEventData.name (ellipsized)
+            color: 'var(--shade-4)',
+            fontSize: '11px',
+            fontFamily: 'Inter',
+            lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            paddingLeft: '4px',
+            paddingRight: '4px',
+            boxSizing: 'border-box'
         });
         HTML.setHoverStyle(allDayEventElement, {
             opacity: '1' // Ensure opacity is a string for CSS
@@ -2163,6 +2204,61 @@ function handleReminderDragEnd(e) {
     G_reminderDragState.isDragging = false;
 }
 
+function handleReminderDragCancel(e) {
+    if (e.key !== 'Escape' || !G_reminderDragState.isDragging) return;
+    
+    e.preventDefault();
+    const wasClone = G_reminderDragState.isClone;
+    const dayIndex = G_reminderDragState.dayIndex;
+    const reminderGroup = G_reminderDragState.reminderGroup;
+    
+    // Cleanup must happen before re-render
+    
+    document.removeEventListener('mousemove', handleReminderDragMove);
+    document.removeEventListener('mouseup', handleReminderDragEnd);
+    document.removeEventListener('keydown', handleReminderDragCancel);
+
+    // Remove time bubble
+    const timeBubble = HTML.getUnsafely('dragTimeBubble');
+    if (exists(timeBubble)) {
+        timeBubble.remove();
+    }
+    
+    if (wasClone) {
+        G_reminderDragState.groupElements.forEach(el => el.remove());
+    }
+    
+    // Reset state object
+    G_reminderDragState.isDragging = false;
+
+    // Now decide what to re-render. Re-rendering from original data source effectively "cancels" the drag.
+    let hasRecurringReminder = false;
+    reminderGroup.forEach(reminder => {
+        const entity = user.entityArray.find(e => e.id === reminder.id);
+        if (entity) {
+            const reminderInstance = entity.data.instances[reminder.patternIndex];
+            if (type(reminderInstance, RecurringReminderInstance)) {
+                hasRecurringReminder = true;
+            }
+        }
+    });
+
+    if (hasRecurringReminder || wasClone) {
+        log("Cancelling drag and re-rendering all visible days...");
+        const allDays = currentDays();
+        for (let i = 0; i < allDays.length; i++) {
+            const dayToRender = allDays[i];
+            const dayElementToRender = HTML.get('day' + i);
+            renderDay(dayToRender, dayElementToRender, i);
+        }
+    } else {
+        log("Cancelling drag and re-rendering single day...");
+        const dayToRender = currentDays()[dayIndex];
+        const dayElementToRender = HTML.get('day' + dayIndex);
+        renderDay(dayToRender, dayElementToRender, dayIndex);
+    }
+}
+
 // New function to render reminder instances
 function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft, dayStartUnix, dayEndUnix) {
     ASSERT(type(reminderInstances, List(FilteredReminderInstance)));
@@ -2473,6 +2569,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
             document.addEventListener('mousemove', handleReminderDragMove);
             document.addEventListener('mouseup', handleReminderDragEnd);
+            document.addEventListener('keydown', handleReminderDragCancel);
 
             // Increase z-index while dragging
             groupElements.forEach(el => {
@@ -2853,6 +2950,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                     document.addEventListener('mousemove', handleReminderDragMove);
                     document.addEventListener('mouseup', handleReminderDragEnd);
+                    document.addEventListener('keydown', handleReminderDragCancel);
 
                     // No need to increase z-index here, it's set high on creation
                 };
