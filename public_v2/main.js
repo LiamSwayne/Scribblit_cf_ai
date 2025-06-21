@@ -3369,11 +3369,6 @@ function renderCalendar(days) {
     ASSERT(type(user.settings.stacking, Boolean));
     for (let i = 0; i < 7; i++) {
         if (i >= user.settings.numberOfCalendarDays) { // delete excess elements if they exist
-            // day element
-            let dayElement = HTML.getUnsafely('day' + String(i));
-            if (dayElement != null) {
-                dayElement.remove();
-            }
             // hour markers
             for (let j = 0; j < 24; j++) {
                 let hourMarker = HTML.getUnsafely(`day${i}hourMarker${j}`);
@@ -3385,11 +3380,6 @@ function renderCalendar(days) {
                     hourMarkerText.remove();
                 }
             }
-            // backgrounds
-            let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
-            if (exists(backgroundElement)) {
-                backgroundElement.remove();
-            }
             // date text
             let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
             if (exists(dateText)) {
@@ -3399,11 +3389,6 @@ function renderCalendar(days) {
             let dayOfWeekText = HTML.getUnsafely('day' + String(i) + 'DayOfWeekText');
             if (exists(dayOfWeekText)) {
                 dayOfWeekText.remove();
-            }
-            // outline elements
-            let outlineElement = HTML.getUnsafely('day' + String(i) + 'Outline');
-            if (exists(outlineElement)) {
-                outlineElement.remove();
             }
 
             // Cleanup for all-day events and reminders for the removed day column
@@ -3466,11 +3451,8 @@ function renderCalendar(days) {
             continue;
         }
 
-        let dayElement = HTML.getUnsafely('day' + String(i));
-        if (!exists(dayElement)) {
-            dayElement = HTML.make('div'); // create new element
-            HTML.setId(dayElement, 'day' + String(i));
-        }
+        let dayElement = HTML.make('div'); // create new element
+        HTML.setId(dayElement, 'day' + String(i));
 
         let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
         let top = windowBorderMargin + headerSpace + topOfCalendarDay;
@@ -3499,61 +3481,13 @@ function renderCalendar(days) {
             height: String(height) + 'px',
             top: String(top) + 'px',
             left: String(left) + 'px',
-            border: '1px solid ' + 'var(--shade-3)',
-            borderRadius: '5px',
-            backgroundColor: 'var(--shade-0)',
             zIndex: '300' // below hour markers
         });
-        HTML.body.appendChild(dayElement);
-
-        // add outline element with very high z-index for border
-        let outlineElement = HTML.getUnsafely('day' + String(i) + 'Outline');
-        if (!exists(outlineElement)) {
-            outlineElement = HTML.make('div');
-            HTML.setId(outlineElement, 'day' + String(i) + 'Outline');
-        }
-
-        // add background element which is the same but with lower z index
-        let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
-        if (!exists(backgroundElement)) {
-            backgroundElement = HTML.make('div');
-            HTML.setId(backgroundElement, 'day' + String(i) + 'Background');
-        }
 
         let topOfBackground = windowBorderMargin + headerSpace;
         if (user.settings.stacking && i >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // in bottom half
             topOfBackground = top - topOfCalendarDay; // height of top half + gap
         }
-
-        // Determine border color based on whether this day is today
-        const borderColor = dayOfWeekOrRelativeDay(days[i]) === 'Today' ? 'var(--shade-4)' : 'var(--shade-3)';
-        
-        HTML.setStyle(outlineElement, {
-            position: 'fixed',
-            width: String(columnWidth) + 'px',
-            height: String(height + topOfCalendarDay) + 'px',
-            top: String(topOfBackground) + 'px',
-            left: String(left) + 'px',
-            border: '1px solid ' + borderColor,
-            borderRadius: '5px',
-            backgroundColor: 'transparent',
-            pointerEvents: 'none', // Don't interfere with interactions
-            zIndex: '4100' // reminders occupy 2600 to 4041
-        });
-        HTML.body.appendChild(outlineElement);
-
-        HTML.setStyle(backgroundElement, {
-            position: 'fixed',
-            width: String(columnWidth) + 'px',
-            height: String(height + topOfCalendarDay) + 'px',
-            top: String(topOfBackground) + 'px',
-            left: String(left) + 'px',
-            backgroundColor: 'var(--shade-1)',
-            border: '1px solid ' + 'var(--shade-3)',
-            borderRadius: '5px',
-            zIndex: '200', // below dayElement
-        });
-        HTML.body.appendChild(backgroundElement);
 
         // add MM-DD text to top right of background element
         let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
@@ -3725,8 +3659,6 @@ window.onresize = render;
 
 // load fonts (hoping to cache them)
 async function loadFonts() {
-    let fontsLoaded = false;
-
     const fontPromises = fontDefinitions.map(async (fontDef) => {
         let cachedBase64 = preservedFontCss[fontDef.key];
         if (cachedBase64) {
@@ -3757,7 +3689,6 @@ async function loadFonts() {
             } catch (error) {
                 log(`Failed to fetch ${fontDef.key}.`);
                 log(error.message);
-                return null;
             }
         }
     });
