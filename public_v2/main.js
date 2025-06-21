@@ -642,7 +642,10 @@ let windowBorderMargin = 6;
 let columnWidth; // portion of screen
 let headerSpace = 26; // px gap at top to make space for logo and buttons
 
+const reminderBaseZIndex = 2600;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
+const timedEventsBaseZIndex = 500;
+const timedEventsZIndexIncreaseOnHover = 1441;
 
 let adjustCalendarUp; // px to adjust calendar up by based on browser
 if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
@@ -2406,7 +2409,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const currentVisualBottom = isFlipped ? (reminderTopPosition + reminderLineHeight) : (reminderTopPosition + reminderTextHeight);
         lastVisualBottom = currentVisualBottom;
 
-        const reminderBaseZIndex = 2600;
         // Calculate minutes since start of day for z-index layering
         const reminderDateTime = DateTime.fromMillis(primaryReminder.dateTime);
         const startOfReminderDay = reminderDateTime.startOf('day');
