@@ -642,7 +642,7 @@ let windowBorderMargin = 6;
 let columnWidth; // portion of screen
 let headerSpace = 26; // px gap at top to make space for logo and buttons
 
-const indexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
+const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 
 let adjustCalendarUp; // px to adjust calendar up by based on browser
 if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
@@ -2426,7 +2426,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     if (!el.dataset.originalZIndex) {
                         el.dataset.originalZIndex = el.style.zIndex;
                     }
-                    el.style.zIndex = parseInt(el.style.zIndex) + indexIncreaseOnHover;
+                    el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
                 }
             });
         };
@@ -2455,7 +2455,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     if (!el.dataset.originalZIndex) {
                         el.dataset.originalZIndex = el.style.zIndex;
                     }
-                    el.style.zIndex = parseInt(el.dataset.originalZIndex) + indexIncreaseOnHover;
+                    el.style.zIndex = parseInt(el.dataset.originalZIndex) + reminderIndexIncreaseOnHover;
                 }
             });
             
@@ -2623,7 +2623,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     el.dataset.originalZIndexForDrag = el.style.zIndex;
                 }
                 ASSERT(type(el.style.zIndex, String));
-                el.style.zIndex = parseInt(el.style.zIndex) + indexIncreaseOnHover;
+                el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
             });
         };
         const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
@@ -2860,7 +2860,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         paddingRight: String(textPaddingRight) + 'px', boxSizing: 'border-box', color: 'var(--shade-4)',
                         fontSize: reminderTextFontSize, fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden',
                         textOverflow: 'ellipsis', width: String(textElementActualWidth) + 'px',
-                        zIndex: String(currentGroupZIndex + indexIncreaseOnHover), borderTopLeftRadius: '6px',
+                        zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover), borderTopLeftRadius: '6px',
                         borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px', borderTopRightRadius: '0px', cursor: 'ns-resize'
                     });
                     HTML.body.appendChild(cloneText);
@@ -2873,7 +2873,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     HTML.setStyle(cloneLine, {
                         position: 'fixed', width: String(lineWidth) + 'px', height: String(reminderLineHeight) + 'px',
                         top: String(reminderTopPosition) + 'px', left: String(quarterCircleLeft) + 'px',
-                        backgroundColor: accentColorVar, zIndex: String(currentGroupZIndex + indexIncreaseOnHover), cursor: 'ns-resize'
+                        backgroundColor: accentColorVar, zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover), cursor: 'ns-resize'
                     });
                     HTML.body.appendChild(cloneLine);
                     draggedElements.push(cloneLine);
@@ -2886,7 +2886,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     HTML.setStyle(cloneQuarterCircle, {
                         position: 'fixed', width: String(quarterCircleRadius) + 'px', height: String(quarterCircleRadius) + 'px',
                         top: String(reminderTopPosition + reminderLineHeight) + 'px', left: String(quarterCircleLeft) + 'px',
-                        backgroundColor: accentColorVar, zIndex: String(currentGroupZIndex + indexIncreaseOnHover),
+                        backgroundColor: accentColorVar, zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover),
                         webkitMaskImage: gradientMask, maskImage: gradientMask, webkitMaskSize: maskSizeValue, maskSize: maskSizeValue,
                         webkitMaskPosition: 'bottom right', maskPosition: 'bottom right', webkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
                     });
