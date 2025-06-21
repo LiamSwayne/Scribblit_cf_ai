@@ -1749,10 +1749,6 @@ function renderDay(day, index) {
         }
     }
 
-    // Log filtered instances
-    log("Filtered Segment of Day Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
-    log(G_filteredSegmentOfDayInstances);
-
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const allDayEventHeight = 18; // height in px for each all-day event
     const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
@@ -1760,7 +1756,6 @@ function renderDay(day, index) {
     // Get the original dimensions that were set by renderCalendar(), not the current modified ones
     // We need to recalculate the original dimensions based on the window size and layout
     let { top: originalTop, left: dayElementLeft, height: originalHeight } = getDayElementDimensions(index);
-    log("left: " + dayElementLeft);
     
     // Calculate new top and height for the main timed event area within the day element
     let timedEventAreaHeight = originalHeight - totalAllDayEventsHeight;
@@ -1802,7 +1797,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     ASSERT(type(dayIndex, Int));
     ASSERT(type(colWidth, Number));
     ASSERT(type(dayElementActualTop, Number)); // This is the original top of the day column, before shrinking for all-day items
-    ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayElemLeft, Number));
 
     const allDayEventHeight = 18; // height in px for each all-day event
 
@@ -2859,7 +2854,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
             });
         };
-        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
+        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
         HTML.setStyle(lineElement, {
             position: 'fixed',
             width: String(lineWidth) + 'px',
