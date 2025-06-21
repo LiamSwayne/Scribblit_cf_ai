@@ -1725,7 +1725,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             height: String(allDayEventHeight - 2) + 'px',
             top: String(allDayEventTopPosition) + 'px',
             left: String(dayElemLeft + 4.5) + 'px',
-            backgroundColor: 'var(--shade-2)',
+            backgroundColor: 'transparent',
             opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
             zIndex: '350',
@@ -1736,12 +1736,47 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            paddingLeft: '4px',
+            paddingLeft: '12px',
             paddingRight: '4px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease, opacity 0.2s ease'
         });
-        HTML.setHoverStyle(allDayEventElement, {
-            opacity: '1' // Ensure opacity is a string for CSS
+        
+        // Add hover effects using event listeners instead of CSS hover
+        allDayEventElement.addEventListener('mouseenter', function() {
+            allDayEventElement.style.backgroundColor = 'var(--shade-2)';
+            if (allDayEventData.ignore) {
+                allDayEventElement.style.opacity = '1';
+            }
+        });
+        
+        allDayEventElement.addEventListener('mouseleave', function() {
+            allDayEventElement.style.backgroundColor = 'transparent';
+            if (allDayEventData.ignore) {
+                allDayEventElement.style.opacity = '0.5';
+            }
+        });
+
+        // Create/Update asterisk indicator
+        let asteriskElement = HTML.getUnsafely(`day${dayIndex}allDayEventAsterisk${i}`);
+        if (!exists(asteriskElement)) {
+            asteriskElement = HTML.make('div');
+            HTML.setId(asteriskElement, `day${dayIndex}allDayEventAsterisk${i}`);
+            HTML.body.appendChild(asteriskElement);
+        }
+        
+        asteriskElement.innerHTML = '*';
+        HTML.setStyle(asteriskElement, {
+            position: 'fixed',
+            top: String(allDayEventTopPosition + 1.5) + 'px', // move it down a bit so it's at the center of the event
+            left: String(dayElemLeft + 7) + 'px', // Position to the left of the text
+            color: 'var(--shade-3)',
+            fontSize: '11px',
+            fontFamily: 'Inter',
+            lineHeight: String(allDayEventHeight - 2) + 'px',
+            zIndex: '351',
+            pointerEvents: 'none' // Don't interfere with event interactions
         });
     }
 
@@ -1749,6 +1784,13 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     let extraAllDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
     while (exists(extraAllDayEventElement)) {
         extraAllDayEventElement.remove();
+        
+        // Also remove the corresponding asterisk element
+        let extraAsteriskElement = HTML.getUnsafely(`day${dayIndex}allDayEventAsterisk${existingAllDayEventIndex}`);
+        if (exists(extraAsteriskElement)) {
+            extraAsteriskElement.remove();
+        }
+        
         existingAllDayEventIndex++;
         extraAllDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
     }
@@ -1984,8 +2026,13 @@ function handleReminderDragMove(e) {
         const dayElement = HTML.get('day' + G_reminderDragState.dayIndex);
         const dayLeft = parseInt(dayElement.style.left);
         
+        // Constrain bubble position to maintain 10px minimum distance from bottom
+        const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
+        const maxBubbleTop = timedAreaTop + timedAreaHeight - bubbleHeight - 4; // must be 4px from bottom of day
+        const constrainedBubbleTop = Math.min(clampedLineTop, maxBubbleTop);
+        
         HTML.setStyle(timeBubble, {
-            top: String(clampedLineTop) + 'px',
+            top: String(constrainedBubbleTop) + 'px',
             left: String(dayLeft + 1) + 'px'
         });
     }
@@ -2356,17 +2403,15 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const accentColorVar = `var(${accentColorVarName})`;
 
         // Calculate container height and update last position for the next iteration
-        const currentVisualBottom = isFlipped 
-            ? (reminderTopPosition + reminderLineHeight) 
-            : (reminderTopPosition + reminderTextHeight);
+        const currentVisualBottom = isFlipped ? (reminderTopPosition + reminderLineHeight) : (reminderTopPosition + reminderTextHeight);
         lastVisualBottom = currentVisualBottom;
 
-        const baseZIndex = 2600;
+        const reminderBaseZIndex = 2600;
         // Calculate minutes since start of day for z-index layering
         const reminderDateTime = DateTime.fromMillis(primaryReminder.dateTime);
         const startOfReminderDay = reminderDateTime.startOf('day');
         const minutesSinceStartOfDay = Math.floor((primaryReminder.dateTime - startOfReminderDay.toMillis()) / (1000 * 60));
-        const currentGroupZIndex = baseZIndex + minutesSinceStartOfDay; // Z-index based on time of day
+        const currentGroupZIndex = reminderBaseZIndex + minutesSinceStartOfDay; // Z-index based on time of day
 
         // animations for sliding the stacked reminders up and down
         const currentGroupIndex = groupIndex; // Capture for closures
@@ -2385,6 +2430,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 }
             });
         };
+        
         const handleSingleReminderMouseLeave = function() {
             if (G_reminderDragState.isDragging) return;
             leaveTimeoutId = setTimeout(() => {
@@ -3124,6 +3170,13 @@ function renderCalendar(days) {
                 let staleElement = HTML.getUnsafely(`day${i}allDayEvent${j}`);
                 if (exists(staleElement)) {
                     staleElement.remove();
+                    
+                    // Also remove corresponding asterisk element
+                    let staleAsteriskElement = HTML.getUnsafely(`day${i}allDayEventAsterisk${j}`);
+                    if (exists(staleAsteriskElement)) {
+                        staleAsteriskElement.remove();
+                    }
+                    
                     j++;
                 } else {
                     break;
@@ -3218,13 +3271,16 @@ function renderCalendar(days) {
             topOfBackground = top - topOfCalendarDay; // height of top half + gap
         }
 
+        // Determine border color based on whether this day is today
+        const borderColor = dayOfWeekOrRelativeDay(days[i]) === 'Today' ? 'var(--shade-4)' : 'var(--shade-3)';
+        
         HTML.setStyle(outlineElement, {
             position: 'fixed',
             width: String(columnWidth) + 'px',
             height: String(height + topOfCalendarDay) + 'px',
             top: String(topOfBackground) + 'px',
             left: String(left) + 'px',
-            border: '1px solid ' + 'var(--shade-3)',
+            border: '1px solid ' + borderColor,
             borderRadius: '5px',
             backgroundColor: 'transparent',
             pointerEvents: 'none', // Don't interfere with interactions
