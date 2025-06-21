@@ -12,6 +12,7 @@ for (const font of fontDefinitions) {
 
 // the first day shown in calendar
 let firstDayInCalendar;
+let topOfCalendarDay = 20; // px
 
 function getDayElementDimensions(index) {
     ASSERT(type(index, Int));
@@ -928,7 +929,9 @@ let HTML = new class HTMLroot {
 
         // remove existing style element
         let existingStyleElement = document.getElementById(`style-${element.id}`);
-        existingStyleElement.remove();
+        if (exists(existingStyleElement)) {
+            existingStyleElement.remove();
+        }
         
         // Build CSS string
         let cssRules = `#${element.id}:hover {`;
@@ -3343,8 +3346,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         existingReminderIndex++;
     }
 }
-
-let topOfCalendarDay = 20; // px
 
 function renderCalendar(days) {
     ASSERT(type(days, List(DateField)));
