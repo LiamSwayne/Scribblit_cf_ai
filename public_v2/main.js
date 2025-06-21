@@ -1,5 +1,17 @@
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
+const PUBLIC_DOMAIN = 'https://public.joshuachen.com';
+
+const fontDefinitions = [
+    { key: 'LexendRegular', url: './fonts/Lexend-Regular.ttf' },
+    { key: 'LexendBold', url: './fonts/Lexend-Bold.ttf' },
+    { key: 'JetBrainsMonoRegular', url: './fonts/JetBrainsMono-Regular.ttf' }
+];
+let preservedFontCss = {};
+for (const font of fontDefinitions) {
+    preservedFontCss[font.key] = localStorage.getItem('font' + font.key);
+}
+
 // the first day shown in calendar
 let firstDayInCalendar;
 
@@ -65,6 +77,9 @@ if (TESTING) {
 
     const tomorrowDate = baseDate.plus({days: 1});
     const tomorrow = new DateField(tomorrowDate.year, tomorrowDate.month, tomorrowDate.day);
+
+    const in2DaysDate = baseDate.plus({days: 2});
+    const in2Days = new DateField(in2DaysDate.year, in2DaysDate.month, in2DaysDate.day);
 
     const in3DaysDate = baseDate.plus({days: 3});
     const in3Days = new DateField(in3DaysDate.year, in3DaysDate.month, in3DaysDate.day);
@@ -238,6 +253,86 @@ if (TESTING) {
                     )
                 ] // instances
             ) // data
+        ),
+
+        // one-time event from 8am to 9 45am
+        new Entity(
+            'event-111111', // id
+            'THING', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        tomorrow, // startDate
+                        new TimeField(8, 0), // startTime
+                        new TimeField(9, 45), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            )
+        ),
+
+        new Entity(
+            'event-222222', // id
+            '2 events at same time', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        in2Days, // startDate
+                        new TimeField(16, 0), // startTime
+                        new TimeField(17, 0), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            )
+        ),
+        new Entity(
+            'event-333333', // id
+            'Anoth event at same time', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        in2Days, // startDate
+                        new TimeField(16, 0), // startTime
+                        new TimeField(20, 0), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            )
+        ),
+
+        new Entity(
+            'event-444444', // id
+            'Random garbage', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        in2Days, // startDate
+                        new TimeField(16, 30), // startTime
+                        new TimeField(17, 30), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            )
+        ),
+        
+        new Entity(
+            'event-555555', // id
+            'Random garbage 2', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        in2Days, // startDate
+                        new TimeField(18, 0), // startTime
+                        new TimeField(19, 0), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            )
         ),
     
         // one-time multi-day event
@@ -648,6 +743,7 @@ let headerSpace = 26; // px gap at top to make space for logo and buttons
 
 const reminderBaseZIndex = 2600;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
+const timedEventBaseZIndex = 500;
 
 let adjustCalendarUp; // px to adjust calendar up by based on browser
 if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
@@ -1347,7 +1443,7 @@ const FilteredInstancesFactory = {
                 let eventStartMs = eventStartDateTime.toMillis();
                 let eventEndMs = eventEndDateTime.toMillis();
 
-                if (eventStartMs < dayEndUnix && eventEndMs > dayEndUnix) {
+                if (eventStartMs < dayEndUnix && eventEndMs > dayStartUnix) {
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
                         entityName,
@@ -1811,12 +1907,12 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
     ASSERT(type(dayStartUnix, Int));
     ASSERT(type(dayEndUnix, Int));
 
-    // 1. Sort instances by start time, then by end time as a tie-breaker
+    // 1. Sort instances by start time, then by duration as a tie-breaker
     segmentInstances.sort((a, b) => {
         if (a.startDateTime !== b.startDateTime) {
             return a.startDateTime - b.startDateTime;
         }
-        return b.endDateTime - a.endDateTime; // Longer events first
+        return (b.endDateTime - b.startDateTime) - (a.endDateTime - a.startDateTime);
     });
 
     // 2. Group instances that start at the same time
@@ -1834,21 +1930,19 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
         instanceGroups.push(currentGroup);
     }
     
-    // Pass 1: Determine lane for each group and find max number of lanes
+    // Pass 1: Determine lane for each group
     const layoutInfo = [];
-    const layoutLanes = []; // A simpler representation for layout calculation
-    let maxLaneIndex = 0;
+    const lanes = []; // Stores arrays of event end times for each lane
 
     for (const group of instanceGroups) {
         const groupStartTime = group[0].startDateTime;
         let laneIndex = 0;
-
         while (true) {
-            if (!layoutLanes[laneIndex]) {
-                layoutLanes[laneIndex] = [];
+            if (!lanes[laneIndex]) {
+                lanes[laneIndex] = [];
                 break;
             }
-            if (layoutLanes[laneIndex].some(eventInLane => groupStartTime < eventInLane.end)) {
+            if (lanes[laneIndex].some(endTime => groupStartTime < endTime)) {
                 laneIndex++;
             } else {
                 break;
@@ -1856,55 +1950,54 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
         }
         
         const maxEndTimeInGroup = Math.max(...group.map(inst => inst.endDateTime));
-        layoutLanes[laneIndex].push({ end: maxEndTimeInGroup });
-        
-        if (laneIndex > maxLaneIndex) {
-            maxLaneIndex = laneIndex;
-        }
+        lanes[laneIndex].push(maxEndTimeInGroup);
         
         layoutInfo.push({ group, laneIndex });
     }
 
     // Pass 2: Render instances based on layout info
-    let renderedInstanceCount = 0;
+    const indentation = 10; // px per lane
     const spaceForHourMarkers = 36;
-    const totalEventWidth = colWidth - spaceForHourMarkers; // somehow there's still a right margin, i don't kow how but it works
-    const numLanes = maxLaneIndex + 1;
-    const laneWidth = totalEventWidth / numLanes;
-    const gap = 2;
+    const totalAvailableWidth = colWidth - spaceForHourMarkers;
+    let renderedInstanceCount = 0;
 
     for (const { group, laneIndex } of layoutInfo) {
-        const itemWidthInGroup = (laneWidth - (group.length - 1) * gap) / group.length;
+        const widthForLane = totalAvailableWidth - (laneIndex * indentation);
+        const gap = 2; // gap between events in the same group
+        const itemWidth = (widthForLane - (group.length - 1) * gap) / group.length;
 
         for (const [instanceIndexInGroup, instance] of group.entries()) {
             const dayDuration = dayEndUnix - dayStartUnix;
             if (dayDuration <= 0) continue;
 
-            // Calculate vertical position and height
             const topOffset = instance.startDateTime - dayStartUnix;
             const top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
 
             const duration = instance.endDateTime - instance.startDateTime;
             let height = (duration / dayDuration) * timedAreaHeight;
             
-            // Apply constraints
-            height = Math.max(height, 3); // Minimum height
+            height = Math.max(height, 3);
             if (top + height > timedAreaTop + timedAreaHeight) {
                 height = timedAreaTop + timedAreaHeight - top;
             }
 
-            // Calculate horizontal position and width
-            const leftForLane = dayElemLeft + spaceForHourMarkers + (laneIndex * laneWidth);
-            const left = leftForLane + (instanceIndexInGroup * (itemWidthInGroup + gap));
-            const width = itemWidthInGroup - gap;
+            const leftForLane = dayElemLeft + spaceForHourMarkers + (laneIndex * indentation);
+            const left = leftForLane + (instanceIndexInGroup * (itemWidth + gap));
+            const width = itemWidth;
 
-            // Create or update DOM element
             const eventId = `day${dayIndex}segment${renderedInstanceCount}`;
             let eventElement = HTML.getUnsafely(eventId);
             if (!exists(eventElement)) {
                 eventElement = HTML.make('div');
                 HTML.setId(eventElement, eventId);
                 HTML.body.appendChild(eventElement);
+            } else {
+                if (eventElement.mouseEnterHandler) {
+                    eventElement.removeEventListener('mouseenter', eventElement.mouseEnterHandler);
+                }
+                if (eventElement.mouseLeaveHandler) {
+                    eventElement.removeEventListener('mouseleave', eventElement.mouseLeaveHandler);
+                }
             }
             eventElement.innerHTML = instance.name;
 
@@ -1917,7 +2010,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 width: `${width}px`,
                 height: `${height}px`,
                 backgroundColor: `var(${colorVar})`,
-                borderRadius: '6px',
+                borderRadius: '8px',
                 color: 'var(--shade-4)',
                 fontSize: '10px',
                 fontFamily: 'Lexend',
@@ -1926,7 +2019,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 overflow: 'hidden',
                 cursor: 'pointer',
                 boxSizing: 'border-box',
-                zIndex: '500', // Above hour markers
+                zIndex: String(timedEventBaseZIndex),
                 transition: 'box-shadow 0.15s ease-in-out'
             };
 
@@ -1942,24 +2035,17 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
             HTML.setStyle(eventElement, style);
 
-            // Add hover effect
-            const originalZIndex = style.zIndex;
             const eventColor = `var(${colorVar})`;
-
             eventElement.mouseEnterHandler = function() {
                 eventElement.style.overflow = 'visible';
-                eventElement.style.zIndex = String(parseInt(originalZIndex) + 1);
                 eventElement.style.boxShadow = 'inset 0 0 0 2px var(--shade-4)';
                 eventElement.style.textShadow = `-1px -1px 0 ${eventColor}, 1px -1px 0 ${eventColor}, -1px 1px 0 ${eventColor}, 1px 1px 0 ${eventColor}`;
             };
-
             eventElement.mouseLeaveHandler = function() {
                 eventElement.style.overflow = 'hidden';
-                eventElement.style.zIndex = originalZIndex;
                 eventElement.style.boxShadow = 'none';
                 eventElement.style.textShadow = 'none';
             };
-            
             eventElement.addEventListener('mouseenter', eventElement.mouseEnterHandler);
             eventElement.addEventListener('mouseleave', eventElement.mouseLeaveHandler);
             
@@ -2658,7 +2744,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const measurer = HTML.make('span');
         HTML.setStyle(measurer, {
             visibility: 'hidden',
-            fontFamily: 'Lexend',
+            fontFamily: 'LexendRegular',
             fontSize: reminderTextFontSize,
             whiteSpace: 'nowrap',
             display: 'inline-block',
@@ -2865,8 +2951,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-4)', // White background
                 color: accentColorVar, // Original blue color for the number
                 fontSize: '8px',
-                fontFamily: 'Lexend',
-                fontWeight: 'bold',
+                fontFamily: 'LexendBold',
                 textAlign: 'center',
                 lineHeight: String(countIndicatorSize) + 'px',
                 borderRadius: '50%',
@@ -3211,8 +3296,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     backgroundColor: 'var(--shade-4)', // White background
                     color: darkenedColor, // Number color matches the reminder's background
                     fontSize: '8px',
-                    fontFamily: 'Lexend',
-                    fontWeight: 'bold',
+                    fontFamily: 'LexendBold',
                     textAlign: 'center',
                     lineHeight: String(countIndicatorSize) + 'px',
                     borderRadius: '50%',
@@ -3487,8 +3571,7 @@ function renderCalendar(days) {
             right: String(window.innerWidth - left - columnWidth + dateAndDayOfWeekSpacing) + 'px',
             fontSize: '12px',
             color: 'var(--shade-3)',
-            fontFamily: 'Lexend',
-            fontWeight: 'bold',
+            fontFamily: 'LexendBold',
             zIndex: '400'
         });
         
@@ -3519,8 +3602,7 @@ function renderCalendar(days) {
             left: String(left + 4) + 'px',
             fontSize: '12px',
             color: 'var(--shade-3)',
-            fontFamily: 'Lexend',
-            fontWeight: 'bold',
+            fontFamily: 'LexendBold',
             zIndex: '400'
         });
         dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(days[i]);
@@ -3643,5 +3725,94 @@ HTML.body.appendChild(buttonStacking);
 
 window.onresize = render;
 
+// load fonts (hoping to cache them)
+async function loadFonts() {
+    let fontsLoaded = false;
+
+    const fontPromises = fontDefinitions.map(async (fontDef) => {
+        let fontCss = preservedFontCss[fontDef.key];
+        if (fontCss) {
+            log(`Loaded ${fontDef.key} from cache.`);
+            if (TESTING) {
+                localStorage.setItem('font' + fontDef.key, fontCss); // Restore after clear
+            }
+            return fontCss;
+        } else {
+            try {
+                log(`Fetching ${fontDef.key} from Google Fonts.`);
+                const response = await fetch(fontDef.url);
+                if (!response.ok) throw new Error(`Failed to fetch font CSS: ${fontDef.key}`);
+                
+                let cssText = await response.text();
+
+                // Find all unique font URLs in the CSS
+                const fontUrlRegex = /url\((['"]?)(https?:\/\/[^)]+)\1\)/g;
+                const matches = [...cssText.matchAll(fontUrlRegex)];
+                const uniqueFontUrls = [...new Set(matches.map(match => match[2]))];
+
+                if (uniqueFontUrls.length === 0) {
+                    log(`No font URLs found in ${fontDef.key}, caching as is.`);
+                    localStorage.setItem('font' + fontDef.key, cssText);
+                    return cssText;
+                }
+
+                // Create a map to store URL -> Base64 data
+                const urlToBase64Map = new Map();
+
+                // Fetch and encode each font file
+                const fontFetchPromises = uniqueFontUrls.map(async (url) => {
+                    const fontResponse = await fetch(url);
+                    if (!fontResponse.ok) throw new Error(`Failed to fetch font file: ${url}`);
+                    const fontBlob = await fontResponse.blob();
+                    const base64Font = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(fontBlob);
+                    });
+                    urlToBase64Map.set(url, base64Font);
+                });
+
+                await Promise.all(fontFetchPromises);
+
+                // Replace all URLs in the original CSS with their Base64 equivalent
+                let finalCss = cssText;
+                for (const [url, base64] of urlToBase64Map.entries()) {
+                    const urlToReplace = new RegExp(url.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+                    finalCss = finalCss.replace(urlToReplace, base64);
+                }
+                
+                localStorage.setItem('font' + fontDef.key, finalCss);
+                log(`Fetched and cached ${fontDef.key} with ${uniqueFontUrls.length} embedded font files.`);
+                return finalCss;
+
+            } catch (error) {
+                log(error.message);
+                return null;
+            }
+        }
+    });
+
+    const allCss = await Promise.all(fontPromises);
+
+    allCss.forEach(css => {
+        if (css) {
+            const styleElement = HTML.make('style');
+            styleElement.textContent = css;
+            HTML.head.appendChild(styleElement);
+        }
+    });
+
+    document.fonts.ready.then(function() {
+        fontsLoaded = true;
+    });
+
+    while (!fontsLoaded) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    render();
+}
+
 // init call
-render();
+loadFonts();
