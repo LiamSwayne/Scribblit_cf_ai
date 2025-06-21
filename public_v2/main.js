@@ -43,10 +43,12 @@ let entityArray = [];
 let palettes = {
     'dark': { // default
         accent: ['#47b6ff', '#b547ff'],
+        events: ['#3a506b', '#5b7553', '#6b4f4f', '#4f4f6b', '#6b5b4f'],
         shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
     },
     'midnight': {
         accent: ['#47b6ff', '#b547ff'],
+        events: ['#47b6ff', '#b547ff'],
         shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
     }
     // TODO: add more palettes
@@ -610,10 +612,7 @@ if (TESTING) {
             startOfDayOffset: 0,
             endOfDayOffset: 0,
         },
-        {
-            accent: ['#47b6ff', '#b547ff'],
-            shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
-        }
+        palettes.dark
     );
     
     // Store using saveUserData function
@@ -629,6 +628,11 @@ function applyPalette(palette) {
     palette.accent.forEach((accent, index) => {
         root.style.setProperty(`--accent-${index}`, accent);
     });
+    if (palette.events) {
+        palette.events.forEach((color, index) => {
+            root.style.setProperty(`--event-${index}`, color);
+    });
+    }
 }
 
 let user = loadUserData();
@@ -1689,7 +1693,7 @@ function renderDay(day, element, index) {
     }
     
     renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, originalTop, dayElementLeft);
-    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft);
+    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
     renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
 }
 
@@ -1797,25 +1801,183 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     }
 }
 
-function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft) {
+function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft, dayStartUnix, dayEndUnix) {
     ASSERT(type(segmentInstances, List(FilteredSegmentOfDayInstance)));
     ASSERT(type(dayIndex, Int));
     ASSERT(type(colWidth, Number));
     ASSERT(type(timedAreaTop, Number));
     ASSERT(type(timedAreaHeight, Number));
     ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayStartUnix, Int));
+    ASSERT(type(dayEndUnix, Int));
 
-    // TODO: Implement rendering logic for FilteredSegmentOfDayInstance objects.
-    // This will involve:
-    // - Iterating through segmentInstances.
-    // - For each instance, calculating its vertical position and height within the timedArea.
-    //   - top = timedAreaTop + ( (instance.startDateTime - dayStartUnix) / (dayEndUnix - dayStartUnix) ) * timedAreaHeight
-    //   - height = ( (instance.endDateTime - instance.startDateTime) / (dayEndUnix - dayStartUnix) ) * timedAreaHeight
-    //   (Need dayStartUnix and dayEndUnix for the specific day, or pass percentages)
-    // - Creating/updating DOM elements for each instance.
-    // - Styling them (background color based on instanceKind, text for name, etc.).
-    // - Handling wrapToPreviousDay and wrapToNextDay (e.g., different border radius, arrows).
-    // - Removing stale DOM elements if the number of instances changes.
+    // 1. Sort instances by start time, then by end time as a tie-breaker
+    segmentInstances.sort((a, b) => {
+        if (a.startDateTime !== b.startDateTime) {
+            return a.startDateTime - b.startDateTime;
+        }
+        return b.endDateTime - a.endDateTime; // Longer events first
+    });
+
+    // 2. Group instances that start at the same time
+    const instanceGroups = [];
+    if (segmentInstances.length > 0) {
+        let currentGroup = [segmentInstances[0]];
+        for (let i = 1; i < segmentInstances.length; i++) {
+            if (segmentInstances[i].startDateTime === currentGroup[0].startDateTime) {
+                currentGroup.push(segmentInstances[i]);
+            } else {
+                instanceGroups.push(currentGroup);
+                currentGroup = [segmentInstances[i]];
+            }
+        }
+        instanceGroups.push(currentGroup);
+    }
+    
+    // Pass 1: Determine lane for each group and find max number of lanes
+    const layoutInfo = [];
+    const layoutLanes = []; // A simpler representation for layout calculation
+    let maxLaneIndex = 0;
+
+    for (const group of instanceGroups) {
+        const groupStartTime = group[0].startDateTime;
+        let laneIndex = 0;
+
+        while (true) {
+            if (!layoutLanes[laneIndex]) {
+                layoutLanes[laneIndex] = [];
+                break;
+            }
+            if (layoutLanes[laneIndex].some(eventInLane => groupStartTime < eventInLane.end)) {
+                laneIndex++;
+            } else {
+                break;
+            }
+        }
+        
+        const maxEndTimeInGroup = Math.max(...group.map(inst => inst.endDateTime));
+        layoutLanes[laneIndex].push({ end: maxEndTimeInGroup });
+        
+        if (laneIndex > maxLaneIndex) {
+            maxLaneIndex = laneIndex;
+        }
+        
+        layoutInfo.push({ group, laneIndex });
+    }
+
+    // Pass 2: Render instances based on layout info
+    let renderedInstanceCount = 0;
+    const spaceForHourMarkers = 36;
+    const totalEventWidth = colWidth - spaceForHourMarkers; // somehow there's still a right margin, i don't kow how but it works
+    const numLanes = maxLaneIndex + 1;
+    const laneWidth = totalEventWidth / numLanes;
+    const gap = 2;
+
+    for (const { group, laneIndex } of layoutInfo) {
+        const itemWidthInGroup = (laneWidth - (group.length - 1) * gap) / group.length;
+
+        for (const [instanceIndexInGroup, instance] of group.entries()) {
+            const dayDuration = dayEndUnix - dayStartUnix;
+            if (dayDuration <= 0) continue;
+
+            // Calculate vertical position and height
+            const topOffset = instance.startDateTime - dayStartUnix;
+            const top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
+
+            const duration = instance.endDateTime - instance.startDateTime;
+            let height = (duration / dayDuration) * timedAreaHeight;
+            
+            // Apply constraints
+            height = Math.max(height, 3); // Minimum height
+            if (top + height > timedAreaTop + timedAreaHeight) {
+                height = timedAreaTop + timedAreaHeight - top;
+            }
+
+            // Calculate horizontal position and width
+            const leftForLane = dayElemLeft + spaceForHourMarkers + (laneIndex * laneWidth);
+            const left = leftForLane + (instanceIndexInGroup * (itemWidthInGroup + gap));
+            const width = itemWidthInGroup - gap;
+
+            // Create or update DOM element
+            const eventId = `day${dayIndex}segment${renderedInstanceCount}`;
+            let eventElement = HTML.getUnsafely(eventId);
+            if (!exists(eventElement)) {
+                eventElement = HTML.make('div');
+                HTML.setId(eventElement, eventId);
+                HTML.body.appendChild(eventElement);
+            }
+            eventElement.innerHTML = instance.name;
+
+            const colorVar = `--event-${laneIndex % user.palette.events.length}`;
+
+            let style = {
+                position: 'fixed',
+                top: `${top}px`,
+                left: `${left}px`,
+                width: `${width}px`,
+                height: `${height}px`,
+                backgroundColor: `var(${colorVar})`,
+                borderRadius: '6px',
+                color: 'var(--shade-4)',
+                fontSize: '10px',
+                fontFamily: 'Lexend',
+                padding: '2px 4px',
+                whiteSpace: 'normal',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                boxSizing: 'border-box',
+                zIndex: '500', // Above hour markers
+                transition: 'box-shadow 0.15s ease-in-out'
+            };
+
+            if (instance.wrapToPreviousDay) {
+                style.borderTopLeftRadius = '0px';
+                style.borderTopRightRadius = '0px';
+            }
+            if (instance.wrapToNextDay) {
+                style.borderBottomLeftRadius = '0px';
+                style.borderBottomRightRadius = '0px';
+                style.height = `${height + 2}px`;
+            }
+
+            HTML.setStyle(eventElement, style);
+
+            // Add hover effect
+            const originalZIndex = style.zIndex;
+            const eventColor = `var(${colorVar})`;
+
+            eventElement.mouseEnterHandler = function() {
+                eventElement.style.overflow = 'visible';
+                eventElement.style.zIndex = String(parseInt(originalZIndex) + 1);
+                eventElement.style.boxShadow = 'inset 0 0 0 2px var(--shade-4)';
+                eventElement.style.textShadow = `-1px -1px 0 ${eventColor}, 1px -1px 0 ${eventColor}, -1px 1px 0 ${eventColor}, 1px 1px 0 ${eventColor}`;
+            };
+
+            eventElement.mouseLeaveHandler = function() {
+                eventElement.style.overflow = 'hidden';
+                eventElement.style.zIndex = originalZIndex;
+                eventElement.style.boxShadow = 'none';
+                eventElement.style.textShadow = 'none';
+            };
+            
+            eventElement.addEventListener('mouseenter', eventElement.mouseEnterHandler);
+            eventElement.addEventListener('mouseleave', eventElement.mouseLeaveHandler);
+            
+            renderedInstanceCount++;
+        }
+    }
+
+    // Cleanup stale elements
+    let i = renderedInstanceCount;
+    while(true) {
+        const staleElement = HTML.getUnsafely(`day${dayIndex}segment${i}`);
+        if (staleElement) {
+            staleElement.remove();
+            i++;
+        } else {
+            break;
+        }
+    }
 }
 
 // A map to keep track of running animation frames for each reminder group
@@ -2319,8 +2481,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     ASSERT(type(dayEndUnix, Int));
 
     const spaceForHourMarkers = 36; // px
-    const reminderLineWidthAdjustment = 1; // px
-
     const reminderLineHeight = 2; // px height of the blue line
     const reminderTextHeight = 14; // px, approximate height for text + small gap
     const reminderTextFontSize = '10px';
@@ -3203,6 +3363,18 @@ function renderCalendar(days) {
                         removeElementById(`day${i}reminderStackCount${j}_${stackIdx}`);
                         stackIdx++;
                     }
+                    j++;
+                } else {
+                    break;
+                }
+            }
+            
+            // Cleanup for timed event segments
+            j = 0;
+            while(true) {
+                const staleElement = HTML.getUnsafely(`day${i}segment${j}`);
+                if (staleElement) {
+                    staleElement.remove();
                     j++;
                 } else {
                     break;

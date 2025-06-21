@@ -999,8 +999,8 @@ class User {
         ASSERT(type(settings.numberOfCalendarDays, Int));
         ASSERT(1 <= settings.numberOfCalendarDays && settings.numberOfCalendarDays <= 7, "numberOfCalendarDays out of range 1-7");
         ASSERT(settings.ampmOr24 === 'ampm' || settings.ampmOr24 === '24');
-        ASSERT(type(settings.startOfDayOffset, Int));
-        ASSERT(type(settings.endOfDayOffset, Int));
+        // how many hours to offset
+        ASSERT(type(settings.startOfDayOffset, Int) && -12 <= settings.startOfDayOffset && settings.startOfDayOffset <= 12);
         
         // Validate palette structure
         ASSERT(type(palette.accent, List(String)));
