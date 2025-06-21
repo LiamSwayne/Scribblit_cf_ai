@@ -644,8 +644,6 @@ let headerSpace = 26; // px gap at top to make space for logo and buttons
 
 const reminderBaseZIndex = 2600;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
-const timedEventsBaseZIndex = 500;
-const timedEventsZIndexIncreaseOnHover = 1441;
 
 let adjustCalendarUp; // px to adjust calendar up by based on browser
 if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
@@ -1772,11 +1770,11 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         asteriskElement.innerHTML = '*';
         HTML.setStyle(asteriskElement, {
             position: 'fixed',
-            top: String(allDayEventTopPosition + 1.5) + 'px', // move it down a bit so it's at the center of the event
+            top: String(allDayEventTopPosition) + 'px', // move it down a bit so it's at the center of the event
             left: String(dayElemLeft + 7) + 'px', // Position to the left of the text
             color: 'var(--shade-3)',
             fontSize: '11px',
-            fontFamily: 'Inter',
+            fontFamily: 'JetBrains Mono',
             lineHeight: String(allDayEventHeight - 2) + 'px',
             zIndex: '351',
             pointerEvents: 'none' // Don't interfere with event interactions
