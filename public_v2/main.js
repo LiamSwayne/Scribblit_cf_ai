@@ -3154,7 +3154,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                     // Immediately re-render the current day to update the remaining stack
                     const dayToRender = currentDays()[dayIndex];
-                    renderDay(dayToRender, dayIndex);
+                    renderReminderInstances(dayToRender, dayIndex);
                     
                     // Restore the original instances array
                     entity.data.instances = originalInstances;
