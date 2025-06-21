@@ -1,9 +1,9 @@
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
 const fontDefinitions = [
-    { key: 'LexendRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Regular.ttf' },
-    { key: 'LexendBold', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Bold.ttf' },
-    { key: 'JetBrainsMonoRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/JetBrainsMono-Regular.ttf' }
+    { key: 'LexendRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Regular.woff2' },
+    { key: 'LexendBold', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Bold.woff2' },
+    { key: 'JetBrainsMonoRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/JetBrainsMono-Regular.woff2' }
 ];
 let preservedFontCss = {};
 for (const font of fontDefinitions) {
@@ -53,7 +53,7 @@ let entityArray = [];
 let palettes = {
     'dark': { // default
         accent: ['#47b6ff', '#b547ff'],
-        events: ['#3a506b', '#5b7553', '#6b4f4f', '#4f4f6b', '#6b5b4f'],
+        events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
         shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
     },
     'midnight': {
@@ -936,7 +936,7 @@ let HTML = new class HTMLroot {
     
         styleElement.textContent = `.${name} {${styleString}}`;
         this.head.appendChild(styleElement);
-    }    
+    }
 }();
 
 // the only use of stylesheet because "body *" in JS is not efficient to select
@@ -947,7 +947,7 @@ styleElement.textContent = `
         padding: 0;
         display: inline-block;
         font-size: 200px; /* This is to make sure that default font sizes are never used */
-        font-family: 'Lexend';
+        font-family: 'LexendRegular';
         white-space: pre; /* This preserves whitespace leading */
         color: #ff00aa; /* make sure that default colors are never used */
         user-select: none; /* make text not highlightable */
@@ -1616,7 +1616,7 @@ function renderDay(day, element, index) {
                 top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
                 left: String(dayElementHorizontalPos + 4) + 'px',
                 color: 'var(--shade-3)',
-                fontFamily: 'JetBrains Mono',
+                fontFamily: 'JetBrainsMonoRegular',
                 fontSize: fontSize,
                 zIndex: '401'
             });
@@ -1830,7 +1830,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             zIndex: '350',
             color: 'var(--shade-4)',
             fontSize: '11px',
-            fontFamily: 'Lexend',
+            fontFamily: 'LexendRegular',
             lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -1872,7 +1872,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             left: String(dayElemLeft + 7) + 'px', // Position to the left of the text
             color: 'var(--shade-3)',
             fontSize: '11px',
-            fontFamily: 'JetBrains Mono',
+            fontFamily: 'JetBrainsMonoRegular',
             lineHeight: String(allDayEventHeight - 2) + 'px',
             zIndex: '351',
             pointerEvents: 'none' // Don't interfere with event interactions
@@ -2011,7 +2011,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 borderRadius: '8px',
                 color: 'var(--shade-4)',
                 fontSize: '10px',
-                fontFamily: 'Lexend',
+                fontFamily: 'LexendRegular',
                 padding: '2px 4px',
                 whiteSpace: 'normal',
                 overflow: 'hidden',
@@ -2811,7 +2811,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-2)',
                 color: 'var(--shade-4)',
                 fontSize: '9.5px', // Bigger font
-                fontFamily: 'JetBrains Mono',
+                fontFamily: 'JetBrainsMonoRegular',
                 borderTopRightRadius: String(bubbleHeight / 2) + 'px',
                 borderBottomRightRadius: String(bubbleHeight / 2) + 'px',
                 borderTopLeftRadius: '0px',
@@ -2909,7 +2909,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             boxSizing: 'border-box',
             color: 'var(--shade-4)',
             fontSize: reminderTextFontSize,
-            fontFamily: 'Lexend',
+            fontFamily: 'LexendRegular',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -3082,7 +3082,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     
                     // Re-measure text width for the clone
                     const measurer = HTML.make('span');
-                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'Lexend', fontSize: reminderTextFontSize, whiteSpace: 'nowrap', position: 'absolute' });
+                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'LexendRegular', fontSize: reminderTextFontSize, whiteSpace: 'nowrap', position: 'absolute' });
                     measurer.innerHTML = stackedReminder.name;
                     HTML.body.appendChild(measurer);
                     const contentActualWidth = measurer.offsetWidth;
@@ -3101,7 +3101,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: accentColorVar, height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', paddingLeft: String(adjustedTextPaddingLeft) + 'px',
                         paddingRight: String(textPaddingRight) + 'px', boxSizing: 'border-box', color: 'var(--shade-4)',
-                        fontSize: reminderTextFontSize, fontFamily: 'Lexend', whiteSpace: 'nowrap', overflow: 'hidden',
+                        fontSize: reminderTextFontSize, fontFamily: 'LexendRegular', whiteSpace: 'nowrap', overflow: 'hidden',
                         textOverflow: 'ellipsis', width: String(textElementActualWidth) + 'px',
                         zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover), borderTopLeftRadius: '6px',
                         borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px', borderTopRightRadius: '0px', cursor: 'ns-resize'
@@ -3191,7 +3191,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: 'var(--shade-2)',
                         color: 'var(--shade-4)',
                         fontSize: '9.5px', // Bigger font
-                        fontFamily: 'JetBrains Mono',
+                        fontFamily: 'JetBrainsMonoRegular',
                         borderTopRightRadius: String(bubbleHeight / 2) + 'px',
                         borderBottomRightRadius: String(bubbleHeight / 2) + 'px',
                         borderTopLeftRadius: '0px',
@@ -3256,7 +3256,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     boxSizing: 'border-box',
                     color: 'var(--shade-4)',
                     fontSize: reminderTextFontSize,
-                    fontFamily: 'Lexend',
+                    fontFamily: 'LexendRegular',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -3728,85 +3728,84 @@ async function loadFonts() {
     let fontsLoaded = false;
 
     const fontPromises = fontDefinitions.map(async (fontDef) => {
-        let fontCss = preservedFontCss[fontDef.key];
-        if (fontCss) {
+        let cachedBase64 = preservedFontCss[fontDef.key];
+        if (cachedBase64) {
             log(`Loaded ${fontDef.key} from cache.`);
             if (TESTING) {
-                localStorage.setItem('font' + fontDef.key, fontCss); // Restore after clear
+                // we want the key and url to be what we're looking for
+                localStorage.setItem('font' + fontDef.key + fontDef.url, cachedBase64); // Restore after clear
             }
-            return fontCss;
+            return cachedBase64;
         } else {
             try {
-                log(`Fetching ${fontDef.key} from Google Fonts.`);
+                log(`Fetching ${fontDef.key} font file.`);
                 const response = await fetch(fontDef.url);
-                if (!response.ok) throw new Error(`Failed to fetch font CSS: ${fontDef.key}`);
+                if (!response.ok) throw new Error(`Failed to fetch font: ${fontDef.key}`);
                 
-                let cssText = await response.text();
-
-                // Find all unique font URLs in the CSS
-                const fontUrlRegex = /url\((['"]?)(https?:\/\/[^)]+)\1\)/g;
-                const matches = [...cssText.matchAll(fontUrlRegex)];
-                const uniqueFontUrls = [...new Set(matches.map(match => match[2]))];
-
-                if (uniqueFontUrls.length === 0) {
-                    log(`No font URLs found in ${fontDef.key}, caching as is.`);
-                    localStorage.setItem('font' + fontDef.key, cssText);
-                    return cssText;
-                }
-
-                // Create a map to store URL -> Base64 data
-                const urlToBase64Map = new Map();
-
-                // Fetch and encode each font file
-                const fontFetchPromises = uniqueFontUrls.map(async (url) => {
-                    const fontResponse = await fetch(url);
-                    if (!fontResponse.ok) throw new Error(`Failed to fetch font file: ${url}`);
-                    const fontBlob = await fontResponse.blob();
-                    const base64Font = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(fontBlob);
-                    });
-                    urlToBase64Map.set(url, base64Font);
+                const fontBlob = await response.blob();
+                const base64Font = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(fontBlob);
                 });
-
-                await Promise.all(fontFetchPromises);
-
-                // Replace all URLs in the original CSS with their Base64 equivalent
-                let finalCss = cssText;
-                for (const [url, base64] of urlToBase64Map.entries()) {
-                    const urlToReplace = new RegExp(url.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
-                    finalCss = finalCss.replace(urlToReplace, base64);
-                }
                 
-                localStorage.setItem('font' + fontDef.key, finalCss);
-                log(`Fetched and cached ${fontDef.key} with ${uniqueFontUrls.length} embedded font files.`);
-                return finalCss;
+                localStorage.setItem('font' + fontDef.key + fontDef.url, base64Font);
+                log(`Successfully fetched and cached (${fontDef.key}, ${fontDef.url}).`);
+                return base64Font;
 
             } catch (error) {
+                log(`Failed to fetch ${fontDef.key}.`);
                 log(error.message);
                 return null;
             }
         }
     });
 
-    const allCss = await Promise.all(fontPromises);
+    const fontData = await Promise.all(fontPromises);
 
-    allCss.forEach(css => {
-        if (css) {
-            const styleElement = HTML.make('style');
-            styleElement.textContent = css;
-            HTML.head.appendChild(styleElement);
+    // Create clean @font-face rules - each font style is its own family
+    const fontFaceRules = [];
+    const fontFaces = [];
+    
+    fontDefinitions.forEach((fontDef, index) => {
+        const base64Data = fontData[index];
+        if (base64Data) {
+            fontFaceRules.push(`
+                @font-face {
+                    font-family: '${fontDef.key}';
+                    font-weight: normal;
+                    font-style: normal;
+                    font-display: swap;
+                    src: url('${base64Data}') format('woff2');
+                }
+            `);
+            
+            // Create FontFace object for proper loading detection
+            const fontFace = new FontFace(fontDef.key, `url('${base64Data}') format('truetype')`);
+            fontFaces.push(fontFace);
         }
     });
 
-    document.fonts.ready.then(function() {
-        fontsLoaded = true;
-    });
-
-    while (!fontsLoaded) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+    if (fontFaceRules.length > 0) {
+        const styleElement = HTML.make('style');
+        styleElement.textContent = fontFaceRules.join('');
+        HTML.head.appendChild(styleElement);
+        
+        // Load fonts properly and wait for them
+        const loadPromises = fontFaces.map(async (fontFace) => {
+            try {
+                await fontFace.load();
+                document.fonts.add(fontFace);
+                return true;
+            } catch (error) {
+                log(`Failed to load font: ${fontFace.family}`);
+                return false;
+            }
+        });
+        
+        await Promise.all(loadPromises);
+        log('All fonts loaded successfully');
     }
 
     render();
