@@ -1,11 +1,9 @@
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
-const PUBLIC_DOMAIN = 'https://public.joshuachen.com';
-
 const fontDefinitions = [
-    { key: 'LexendRegular', url: './fonts/Lexend-Regular.ttf' },
-    { key: 'LexendBold', url: './fonts/Lexend-Bold.ttf' },
-    { key: 'JetBrainsMonoRegular', url: './fonts/JetBrainsMono-Regular.ttf' }
+    { key: 'LexendRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Regular.ttf' },
+    { key: 'LexendBold', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Bold.ttf' },
+    { key: 'JetBrainsMonoRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/JetBrainsMono-Regular.ttf' }
 ];
 let preservedFontCss = {};
 for (const font of fontDefinitions) {
