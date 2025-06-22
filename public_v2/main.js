@@ -290,7 +290,7 @@ if (TESTING) {
         ),
         new Entity(
             'event-333333', // id
-            'Anoth event at same time', // name
+            'Another event at same time', // name
             '', // description
             new EventData( // data
                 [
@@ -347,6 +347,22 @@ if (TESTING) {
                         new TimeField(18, 0), // startTime
                         NULL, // endTime
                         NULL // differentEndDate
+                    )
+                ] // instances
+            )
+        ),
+
+        new Entity(
+            'event-777777', // id
+            'Event spanning 3 days', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        tomorrow, // startDate
+                        new TimeField(18, 0), // startTime
+                        new TimeField(19, 0), // endTime
+                        in3Days // differentEndDate
                     )
                 ] // instances
             )
