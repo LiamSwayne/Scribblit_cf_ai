@@ -1648,68 +1648,80 @@ function renderDay(day, index) {
     // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
     if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
         // if one is missing, all 24 must be missing
-        for (let j = 0; j < 24; j++) {
-            if (j > 0) { // on the first hour, we only need the text
-                let hourMarker = HTML.make('div');
-                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+        for (let j = 0; j < 25; j++) {
+            let hourMarker = HTML.make('div');
+            HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+            
+            HTML.setStyle(hourMarker, {
+                position: 'fixed',
+                width: String(columnWidth) + 'px',
+                height: '1px',
+                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
+                left: String(dayElementLeft) + 'px',
+                backgroundColor: 'var(--shade-3)',
+                zIndex: '400'
+            });
+            
+            HTML.body.appendChild(hourMarker);
+
+            if (j < 24) {
+                // create hour marker text
+                let hourMarkerText = HTML.make('div');
+                HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
                 
-                HTML.setStyle(hourMarker, {
+                let fontSize;
+                if (user.settings.ampmOr24 == 'ampm') {
+                    fontSize = '12px';
+                } else {
+                    fontSize = '10px'; // account for additional colon character
+                }
+                HTML.setStyle(hourMarkerText, {
                     position: 'fixed',
-                    width: String(columnWidth) + 'px',
-                    height: '1px',
-                    top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
+                    top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
                     left: String(dayElementLeft) + 'px',
+                    color: 'var(--shade-3)',
+                    fontFamily: 'JetBrainsMonoRegular',
+                    fontSize: fontSize,
+                    zIndex: '401'
+                });
+                
+                HTML.setData(hourMarkerText, 'leadingWhitespace', true);
+                hourMarkerText.innerHTML = nthHourText(j);
+                HTML.body.appendChild(hourMarkerText);
+            }
+        }
+    } else { // update hour markers
+        for (let j = 0; j < 25; j++) {
+            let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
+            
+            let hourMarker = HTML.getUnsafely(`day${index}hourMarker${j}`);
+            if (!hourMarker) {
+                hourMarker = HTML.make('div');
+                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+                HTML.body.appendChild(hourMarker);
+                 HTML.setStyle(hourMarker, {
+                    position: 'fixed',
+                    height: '1px',
                     backgroundColor: 'var(--shade-3)',
                     zIndex: '400'
                 });
-                
-                HTML.body.appendChild(hourMarker);
             }
-
-            // create hour marker text
-            let hourMarkerText = HTML.make('div');
-            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
-            let fontSize;
-            if (user.settings.ampmOr24 == 'ampm') {
-                fontSize = '12px';
-            } else {
-                fontSize = '10px'; // account for additional colon character
-            }
-            HTML.setStyle(hourMarkerText, {
-                position: 'fixed',
-                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
+            HTML.setStyle(hourMarker, {
+                top: String(hourPosition) + 'px',
                 left: String(dayElementLeft) + 'px',
-                color: 'var(--shade-3)',
-                fontFamily: 'JetBrainsMonoRegular',
-                fontSize: fontSize,
-                zIndex: '401'
+                width: String(columnWidth) + 'px'
             });
-            
-            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
-            hourMarkerText.innerHTML = nthHourText(j);
-            HTML.body.appendChild(hourMarkerText);
-        }
-    } else { // update hour markers
-        for (let j = 0; j < 24; j++) {
-            let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
-            if (j > 0) { // on the first hour, we only need the text
-                let hourMarker = HTML.get(`day${index}hourMarker${j}`);
+
+            if (j < 24) {
+                // adjust position of hour marker text
+                let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
                 
-                HTML.setStyle(hourMarker, {
-                    top: String(hourPosition) + 'px',
-                    left: String(dayElementLeft) + 'px',
-                    width: String(columnWidth) + 'px'
+                HTML.setStyle(hourMarkerText, {
+                    top: String(hourPosition + 1) + 'px',
+                    left: String(dayElementLeft) + 'px'
                 });
             }
-
-            // adjust position of hour marker text
-            let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
-            
-            HTML.setStyle(hourMarkerText, {
-                top: String(hourPosition + 1) + 'px',
-                left: String(dayElementLeft) + 'px'
-            });
         }
     }
     
@@ -1882,7 +1894,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
     // Pass 2: Render instances based on layout info
     const indentation = 10; // px per lane
-    const spaceForHourMarkers = 36;
+    const spaceForHourMarkers = 24;
     const totalAvailableWidth = colWidth - spaceForHourMarkers;
     let renderedInstanceCount = 0;
 
@@ -3323,14 +3335,16 @@ function renderCalendar(days) {
             }
             */
             // hour markers
-            for (let j = 0; j < 24; j++) {
+            for (let j = 0; j <= 24; j++) {
                 let hourMarker = HTML.getUnsafely(`day${i}hourMarker${j}`);
                 if (exists(hourMarker)) {
                     hourMarker.remove();
                 }
-                let hourMarkerText = HTML.getUnsafely(`day${i}hourMarkerText${j}`);
-                if (exists(hourMarkerText)) {
-                    hourMarkerText.remove();
+                if (j < 24) {
+                    let hourMarkerText = HTML.getUnsafely(`day${i}hourMarkerText${j}`);
+                    if (exists(hourMarkerText)) {
+                        hourMarkerText.remove();
+                    }
                 }
             }
             // date text
