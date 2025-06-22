@@ -13,6 +13,8 @@ for (const font of fontDefinitions) {
 // the first day shown in calendar
 let firstDayInCalendar;
 
+const allDayEventHeight = 18; // height in px for each all-day event
+
 // Save user data to localStorage
 function saveUserData(user) {
     ASSERT(type(user, User));
@@ -54,7 +56,7 @@ let palettes = {
     'dark': { // default
         accent: ['#7900bf', '#a82190'],
         events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
-        shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
+        shades: ['#191919', '#323232', '#484848', '#9e9e9e', '#ffffff']
     },
     'midnight': {
         accent: ['#a82190', '#003fd2'],
@@ -753,18 +755,11 @@ ASSERT(type(user, User));
 let gapBetweenColumns = 14;
 let windowBorderMargin = 6;
 let columnWidth; // portion of screen
-let headerSpace = 26; // px gap at top to make space for logo and buttons
+let headerSpace = 20; // px gap at top to make space for logo and buttons
 
 const reminderBaseZIndex = 2600;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 const timedEventBaseZIndex = 500;
-
-let adjustCalendarUp; // px to adjust calendar up by based on browser
-if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
-    adjustCalendarUp = 0;
-} else {
-    adjustCalendarUp = 2;
-}
 
 let G_reminderDragState = {
     isDragging: false,
@@ -1654,8 +1649,7 @@ function renderDay(day, index) {
     }
 
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
-    const allDayEventHeight = 18; // height in px for each all-day event
-    const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
+    const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4; // 12px margin for more space between all-day events and timed calendar
     
     // Get the original dimensions that were set by renderCalendar(), not the current modified ones
     const dayColumnDimensions = getDayColumnDimensions(index);
@@ -1763,12 +1757,10 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     ASSERT(type(dayElementActualTop, Number)); // This is the original top of the day column, before shrinking for all-day items
     ASSERT(type(dayElemLeft, Number));
 
-    const allDayEventHeight = 18; // height in px for each all-day event
-
     for (let i = 0; i < allDayInstances.length; i++) {
         let allDayEventData = allDayInstances[i];
         // All-day events are positioned from the dayElementActualTop (original top of the day column)
-        let allDayEventTopPosition = dayElementActualTop + (i * allDayEventHeight);
+        let allDayEventTopPosition = dayElementActualTop + (i * allDayEventHeight) + 2;
         
         let allDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${i}`);
         if (!exists(allDayEventElement)) {
@@ -1790,7 +1782,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             borderRadius: '3px',
             zIndex: '350',
             color: 'var(--shade-4)',
-            fontSize: '11px',
+            fontSize: '12px',
             fontFamily: 'LexendRegular',
             lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
             whiteSpace: 'nowrap',
@@ -1830,7 +1822,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         HTML.setStyle(asteriskElement, {
             position: 'fixed',
             top: String(allDayEventTopPosition) + 'px', // move it down a bit so it's at the center of the event
-            left: String(dayElemLeft + 3) + 'px', // Position to the left of the text
+            left: String(dayElemLeft + 1) + 'px', // Position to the left of the text
             color: 'var(--shade-3)',
             fontSize: '11px',
             fontFamily: 'JetBrainsMonoRegular',
@@ -3413,26 +3405,7 @@ function renderCalendar(days) {
 
         const { width, height, top, left } = getDayColumnDimensions(i);
 
-        /*
-        let dayBackgroundElement = HTML.getUnsafely('day-background-' + String(i));
-        if (!exists(dayBackgroundElement)) {
-            dayBackgroundElement = HTML.make('div'); // create new element
-            HTML.setId(dayBackgroundElement, 'day-background-' + String(i));
-        }
-
-        HTML.setStyle(dayBackgroundElement, {
-            position: 'fixed',
-            width: String(width) + 'px',
-            height: String(height) + 'px',
-            top: String(top) + 'px',
-            left: String(left) + 'px',
-            border: '1px solid ' + 'var(--shade-3)',
-            borderRadius: '5px',
-            backgroundColor: 'var(--shade-0)',
-            zIndex: '300' // below hour markers
-        });
-        HTML.body.appendChild(dayBackgroundElement);
-        */
+        let verticalSpacing = 3;
 
         // add MM-DD text to top right of background element
         let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
@@ -3440,13 +3413,12 @@ function renderCalendar(days) {
             dateText = HTML.make('div');
             HTML.setId(dateText, 'day' + String(i) + 'DateText');
         }
-        let dateAndDayOfWeekSpacing = 3.5;
-        let dateAndDayOfWeekVerticalPos = top - topOfCalendarDay + dateAndDayOfWeekSpacing;
+        let dateAndDayOfWeekVerticalPos = top - topOfCalendarDay;
         HTML.setStyle(dateText, {
             position: 'fixed',
-            top: String(dateAndDayOfWeekVerticalPos) + 'px',
-            right: String(window.innerWidth - left - columnWidth + dateAndDayOfWeekSpacing) + 'px',
-            fontSize: '12px',
+            top: String(dateAndDayOfWeekVerticalPos + verticalSpacing) + 'px',
+            right: String(window.innerWidth - left - columnWidth) + 'px',
+            fontSize: '14px',
             color: 'var(--shade-3)',
             fontFamily: 'LexendBold',
             zIndex: '400'
@@ -3475,9 +3447,9 @@ function renderCalendar(days) {
         }
         HTML.setStyle(dayOfWeekText, {
             position: 'fixed',
-            top: String(dateAndDayOfWeekVerticalPos) + 'px',
-            left: String(left + 4) + 'px',
-            fontSize: '12px',
+            top: String(dateAndDayOfWeekVerticalPos + verticalSpacing) + 'px',
+            left: String(left) + 'px',
+            fontSize: '14px',
             color: 'var(--shade-3)',
             fontFamily: 'LexendBold',
             zIndex: '400'
@@ -3510,65 +3482,87 @@ function renderDividers() {
         if (exists(vDivider)) vDivider.remove();
     }
 
-    // 2. Only show dividers in stacking mode
-    if (!user.settings.stacking) {
-        return;
-    }
-
     const numberOfDays = user.settings.numberOfCalendarDays;
 
-    // 3. Horizontal Divider (only if there are top and bottom rows)
-    if (numberOfDays >= 2 && Math.floor(numberOfDays / 2) > 0) {
-        hDivider = HTML.make('div');
-        HTML.setId(hDivider, 'horizontal-divider');
+    if (user.settings.stacking) {
+        // STACKING MODE: Both horizontal and vertical dividers
+        
+        // Horizontal Divider (only if there are top and bottom rows)
+        if (numberOfDays >= 2 && Math.floor(numberOfDays / 2) > 0) {
+            hDivider = HTML.make('div');
+            HTML.setId(hDivider, 'horizontal-divider');
 
-        const day0Dim = getDayColumnDimensions(0); // A day in the top row
-        const hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) - 0.5; // For 1px height
+            const day0Dim = getDayColumnDimensions(0); // A day in the top row
+            const hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) + 2;
 
-        // Determine the horizontal span of all calendar day columns
-        let minLeft = Infinity;
-        let maxRight = -Infinity;
-        for (let i = 0; i < numberOfDays; i++) {
-            const dim = getDayColumnDimensions(i);
-            minLeft = Math.min(minLeft, dim.left);
-            maxRight = Math.max(maxRight, dim.left + dim.width);
+            // Determine the horizontal span of all calendar day columns
+            let minLeft = Infinity;
+            let maxRight = -Infinity;
+            for (let i = 0; i < numberOfDays; i++) {
+                const dim = getDayColumnDimensions(i);
+                minLeft = Math.min(minLeft, dim.left);
+                maxRight = Math.max(maxRight, dim.left + dim.width);
+            }
+
+            const hDividerLeft = minLeft - (gapBetweenColumns / 2);
+            const hDividerWidth = maxRight - minLeft + gapBetweenColumns;
+
+            HTML.setStyle(hDivider, {
+                position: 'fixed',
+                top: `${hDividerTop}px`,
+                left: `${hDividerLeft}px`,
+                width: `${hDividerWidth}px`,
+                height: '2px',
+                backgroundColor: 'var(--shade-2)',
+                zIndex: '350'
+            });
+            HTML.body.appendChild(hDivider);
         }
 
-        const hDividerLeft = minLeft - (gapBetweenColumns / 2);
-        const hDividerWidth = maxRight - minLeft + gapBetweenColumns;
+        // Vertical Dividers for stacking mode
+        for (let i = 0; i < numberOfDays; i++) {
+            const vDivider = HTML.make('div');
+            HTML.setId(vDivider, `vertical-divider-${i}`);
 
-        HTML.setStyle(hDivider, {
-            position: 'fixed',
-            top: `${hDividerTop}px`,
-            left: `${hDividerLeft}px`,
-            width: `${hDividerWidth}px`,
-            height: '1px',
-            backgroundColor: 'var(--shade-3)',
-            zIndex: '350'
-        });
-        HTML.body.appendChild(hDivider);
-    }
+            const dim = getDayColumnDimensions(i);
+            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
+            const vDividerTop = dim.top - topOfCalendarDay + 6;
+            const vDividerHeight = dim.height + topOfCalendarDay - 6;
 
-    // 4. Vertical Dividers (one to the left of each day)
-    for (let i = 0; i < numberOfDays; i++) {
-        const vDivider = HTML.make('div');
-        HTML.setId(vDivider, `vertical-divider-${i}`);
+            HTML.setStyle(vDivider, {
+                position: 'fixed',
+                top: `${vDividerTop}px`,
+                left: `${vDividerLeft}px`,
+                width: '2px',
+                height: `${vDividerHeight}px`,
+                backgroundColor: 'var(--shade-2)',
+                zIndex: '350'
+            });
+            HTML.body.appendChild(vDivider);
+        }
+    } else {
+        // NON-STACKING MODE: Only vertical dividers
+        
+        for (let i = 0; i < numberOfDays; i++) {
+            const vDivider = HTML.make('div');
+            HTML.setId(vDivider, `vertical-divider-${i}`);
 
-        const dim = getDayColumnDimensions(i);
-        const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 0.5; // For 1px width
-        const vDividerTop = dim.top - topOfCalendarDay;
-        const vDividerHeight = dim.height + topOfCalendarDay;
+            const dim = getDayColumnDimensions(i);
+            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
+            const vDividerTop = dim.top - topOfCalendarDay + 6;
+            const vDividerHeight = dim.height + topOfCalendarDay - 6;
 
-        HTML.setStyle(vDivider, {
-            position: 'fixed',
-            top: `${vDividerTop}px`,
-            left: `${vDividerLeft}px`,
-            width: '1px',
-            height: `${vDividerHeight}px`,
-            backgroundColor: 'var(--shade-3)',
-            zIndex: '350'
-        });
-        HTML.body.appendChild(vDivider);
+            HTML.setStyle(vDivider, {
+                position: 'fixed',
+                top: `${vDividerTop}px`,
+                left: `${vDividerLeft}px`,
+                width: '2px',
+                height: `${vDividerHeight}px`,
+                backgroundColor: 'var(--shade-2)',
+                zIndex: '350'
+            });
+            HTML.body.appendChild(vDivider);
+        }
     }
 }
 
