@@ -3682,13 +3682,6 @@ function renderCalendar(days) {
     }
 }
 
-function render() {
-    columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
-    ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
-    renderCalendar(currentDays());
-    renderDividers();
-}
-
 function renderDividers() {
     // 1. Cleanup old dividers
     let hDivider = HTML.getUnsafely('horizontal-divider');
@@ -3881,6 +3874,13 @@ HTML.setStyle(buttonStacking, {
 buttonStacking.onclick = toggleStacking;
 buttonStacking.innerHTML = 'Toggle Stacking';
 HTML.body.appendChild(buttonStacking);
+
+function render() {
+    columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
+    ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
+    renderCalendar(currentDays());
+    renderDividers();
+}
 
 window.onresize = render;
 
