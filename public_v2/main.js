@@ -1655,10 +1655,10 @@ function renderDay(day, index) {
                 
                 HTML.setStyle(hourMarker, {
                     position: 'fixed',
-                    width: String(columnWidth + 1) + 'px',
+                    width: String(columnWidth) + 'px',
                     height: '1px',
                     top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
-                    left: String(dayElementLeft + 1) + 'px',
+                    left: String(dayElementLeft) + 'px',
                     backgroundColor: 'var(--shade-3)',
                     zIndex: '400'
                 });
@@ -1678,8 +1678,8 @@ function renderDay(day, index) {
             }
             HTML.setStyle(hourMarkerText, {
                 position: 'fixed',
-                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 2) + 'px',
-                left: String(dayElementLeft + 4) + 'px',
+                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
+                left: String(dayElementLeft) + 'px',
                 color: 'var(--shade-3)',
                 fontFamily: 'JetBrainsMonoRegular',
                 fontSize: fontSize,
@@ -1698,8 +1698,8 @@ function renderDay(day, index) {
                 
                 HTML.setStyle(hourMarker, {
                     top: String(hourPosition) + 'px',
-                    left: String(dayElementLeft + 1) + 'px',
-                    width: String(columnWidth + 1) + 'px'
+                    left: String(dayElementLeft) + 'px',
+                    width: String(columnWidth) + 'px'
                 });
             }
 
@@ -1707,8 +1707,8 @@ function renderDay(day, index) {
             let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
             
             HTML.setStyle(hourMarkerText, {
-                top: String(hourPosition + 2) + 'px',
-                left: String(dayElementLeft + 4) + 'px'
+                top: String(hourPosition + 1) + 'px',
+                left: String(dayElementLeft) + 'px'
             });
         }
     }
@@ -1727,7 +1727,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     ASSERT(type(dayIndex, Int));
     ASSERT(type(colWidth, Number));
     ASSERT(type(dayElementActualTop, Number)); // This is the original top of the day column, before shrinking for all-day items
-    ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayElemLeft, Number));
 
     const allDayEventHeight = 18; // height in px for each all-day event
 
@@ -1828,7 +1828,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
     ASSERT(type(colWidth, Number));
     ASSERT(type(timedAreaTop, Number));
     ASSERT(type(timedAreaHeight, Number));
-    ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayElemLeft, Number));
     ASSERT(type(dayStartUnix, Int));
     ASSERT(type(dayEndUnix, Int));
 
@@ -2481,7 +2481,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     ASSERT(type(colWidth, Number));
     ASSERT(type(timedAreaTop, Number));
     ASSERT(type(timedAreaHeight, Number));
-    ASSERT(type(dayElemLeft, Int));
+    ASSERT(type(dayElemLeft, Number));
     ASSERT(type(dayStartUnix, Int));
     ASSERT(type(dayEndUnix, Int));
 
