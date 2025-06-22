@@ -712,7 +712,7 @@ if (TESTING) {
                 ] // instances
             ) // data
         )
-    ];      
+    ];
 
     // Create user object with the sample data
     let user = new User(
@@ -2597,6 +2597,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     // Sort by time to process sequentially and check for overlaps
     for (let timeKey of Object.keys(reminderGroups).sort()) {
         const group = reminderGroups[timeKey];
+        // sort by name length, longest first
+        // not measuring because that would be expensive
+        group.sort((a, b) => b.name.length - a.name.length);
         const isGrouped = group.length > 1;
         const primaryReminder = group[0];
         
@@ -3006,6 +3009,28 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                 const darkenedColor = `rgb(${newR}, ${newG}, ${newB})`;
 
+                // ---- BEGIN: Individual width calculation for stacked reminder ----
+                const stackedExtraPadding = REMINDER_COUNT_INDICATOR_SIZE + countIndicatorPadding;
+                const stackedAdjustedPaddingLeft = textPaddingLeft + stackedExtraPadding;
+                
+                const measurer = HTML.make('span');
+                HTML.setStyle(measurer, {
+                    visibility: 'hidden',
+                    fontFamily: 'LexendRegular',
+                    fontSize: `${REMINDER_FONT_SIZE}px`,
+                    whiteSpace: 'nowrap',
+                    display: 'inline-block',
+                    position: 'absolute'
+                });
+                measurer.innerHTML = stackedReminder.name;
+                HTML.body.appendChild(measurer);
+                const stackedContentActualWidth = measurer.offsetWidth;
+                HTML.body.removeChild(measurer);
+
+                const stackedFinalWidth = stackedContentActualWidth + stackedAdjustedPaddingLeft + textPaddingRight;
+                const stackedTextElementActualWidth = Math.min(stackedFinalWidth + 1, colWidth - spaceForHourMarkers - 10);
+                // ---- END: Individual width calculation ----
+
                 // Create stacked text element
                 let stackedTextElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                 if (!exists(stackedTextElement)) {
@@ -3247,7 +3272,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    width: String(textElementActualWidth) + 'px',
+                    width: String(stackedTextElementActualWidth) + 'px',
                     zIndex: String(currentGroupZIndex - stackIndex), // Higher stackIndex = lower z-index (further back)
                     borderRadius: `${REMINDER_BORDER_RADIUS}px`,
                     opacity: '0',
