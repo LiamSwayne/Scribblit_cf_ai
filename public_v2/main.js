@@ -2790,7 +2790,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
             });
         };
-        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft + 2; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
+        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft;
         HTML.setStyle(lineElement, {
             position: 'fixed',
             width: String(lineWidth) + 'px',
