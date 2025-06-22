@@ -1074,7 +1074,7 @@ const ReminderInstanceKind = Symbol('ReminderInstanceKind');
 // they are essentially rasterizations of the patterns
 // FilteredSegmentOfDayInstance class for calendar rendering
 class FilteredSegmentOfDayInstance {
-    constructor(id, name, startDateTime, endDateTime, originalStartDate, originalStartTime, wrapToPreviousDay, wrapToNextDay, instanceKind, taskIsComplete, patternIndex, ui = {}) {
+    constructor(id, name, startDateTime, endDateTime, originalStartDate, originalStartTime, wrapToPreviousDay, wrapToNextDay, instanceKind, taskIsComplete, patternIndex, ambiguousEndTime, ui = {}) {
         ASSERT(type(id, NonEmptyString));
         ASSERT(type(name, String)); // Name can be empty for some generated items if needed
         ASSERT(type(startDateTime, Int));
@@ -1090,8 +1090,8 @@ class FilteredSegmentOfDayInstance {
             ASSERT(taskIsComplete === NULL, "taskIsComplete must be NULL if not a TaskWorkSessionKind");
         }
         ASSERT(type(patternIndex, Int));
+        ASSERT(type(ambiguousEndTime, Boolean));
         ASSERT(type(ui, Dict(String, Union(String, Int, Boolean, NULL, List(Type), Dict(String, Type)))));
-
 
         this.id = id;
         this.name = name;
@@ -1104,6 +1104,7 @@ class FilteredSegmentOfDayInstance {
         this.instanceKind = instanceKind;
         this.taskIsComplete = taskIsComplete;
         this.patternIndex = patternIndex;
+        this.ambiguousEndTime = ambiguousEndTime;
         this.ui = ui;
     }
 
@@ -1261,7 +1262,7 @@ function type(thing, sometype) {
         try { new ReminderData(thing.instances); return true; } catch (e) { return false; }
     } else if (sometype === FilteredSegmentOfDayInstance) {
         if (!(thing instanceof FilteredSegmentOfDayInstance)) return false;
-        try { new FilteredSegmentOfDayInstance(thing.id, thing.name, thing.startDateTime, thing.endDateTime, thing.originalStartDate, thing.originalStartTime, thing.wrapToPreviousDay, thing.wrapToNextDay, thing.instanceKind, thing.taskIsComplete, thing.patternIndex, thing.ui); return true; } catch (e) { return false; }
+        try { new FilteredSegmentOfDayInstance(thing.id, thing.name, thing.startDateTime, thing.endDateTime, thing.originalStartDate, thing.originalStartTime, thing.wrapToPreviousDay, thing.wrapToNextDay, thing.instanceKind, thing.taskIsComplete, thing.patternIndex, thing.ambiguousEndTime, thing.ui); return true; } catch (e) { return false; }
     } else if (sometype === FilteredAllDayInstance) {
         if (!(thing instanceof FilteredAllDayInstance)) return false;
         try { new FilteredAllDayInstance(thing.id, thing.name, thing.date, thing.instanceKind, thing.taskIsComplete, thing.ignore, thing.patternIndex, thing.ui); return true; } catch (e) { return false; }
