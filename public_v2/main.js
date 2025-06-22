@@ -2023,8 +2023,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 overflow: 'hidden',
                 cursor: 'pointer',
                 boxSizing: 'border-box',
-                zIndex: String(timedEventBaseZIndex),
-                transition: 'box-shadow 0.15s ease-in-out'
+                zIndex: String(timedEventBaseZIndex)
             };
 
             if (instance.ambiguousEndTime) {
@@ -2033,7 +2032,9 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     const r = parseInt(eventColorHex.slice(1, 3), 16);
                     const g = parseInt(eventColorHex.slice(3, 5), 16);
                     const b = parseInt(eventColorHex.slice(5, 7), 16);
-                    style.background = `linear-gradient(to bottom, rgba(${r},${g},${b},1), rgba(${r},${g},${b},0))`;
+                    style.background = `linear-gradient(rgb(${r}, ${g}, ${b}) 0%, rgb(${r}, ${g}, ${b}) 20%, rgba(${r}, ${g}, ${b}, 0.6) 60%, rgba(${r}, ${g}, ${b}, 0.4) 70%, rgba(${r}, ${g}, ${b}, 0.2) 85%, rgba(${r}, ${g}, ${b}, 0.1) 90%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+                    style.borderBottomLeftRadius = '0px';
+                    style.borderBottomRightRadius = '0px';
                 } else {
                     // Fallback for non-hex colors or parsing errors
                     style.backgroundColor = `var(${colorVar})`;
@@ -2056,7 +2057,52 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const eventColor = `var(${colorVar})`;
             eventElement.mouseEnterHandler = function() {
                 eventElement.style.overflow = 'visible';
-                eventElement.style.boxShadow = 'inset 0 0 0 2px var(--shade-4)';
+
+                // Create and show border element
+                let borderOverlay = HTML.getUnsafely(`${eventId}_borderOverlay`);
+                if (!exists(borderOverlay)) {
+                    borderOverlay = HTML.make('div');
+                    HTML.setId(borderOverlay, `${eventId}_borderOverlay`);
+                    
+                    let borderStyle = {
+                        position: 'fixed',
+                        top: `${top}px`,
+                        left: `${left}px`,
+                        width: `${width}px`,
+                        height: `${height}px`,
+                        pointerEvents: 'none',
+                        zIndex: String(timedEventBaseZIndex + 1), // Above event, below text overlay
+                        borderRadius: '8px',
+                        border: '2px solid var(--shade-4)',
+                        boxSizing: 'border-box',
+                        transition: 'opacity 0.15s ease',
+                        opacity: '0'
+                    };
+                    
+                    if (instance.ambiguousEndTime) {
+                        borderStyle.borderBottom = 'none';
+                        borderStyle.borderRadius = '8px 8px 0 0';
+                        const maskGradient = `linear-gradient(to bottom, black 20%, rgba(0, 0, 0, 0.6) 60%, rgba(0, 0, 0, 0.4) 70%, rgba(0, 0, 0, 0.2) 85%, rgba(0, 0, 0, 0.1) 90%, transparent 100%)`;
+                        borderStyle.webkitMask = maskGradient;
+                        borderStyle.mask = maskGradient;
+                    }
+                    
+                    if (instance.wrapToPreviousDay) {
+                        borderStyle.borderTopLeftRadius = '0px';
+                        borderStyle.borderTopRightRadius = '0px';
+                    }
+                    if (instance.wrapToNextDay && !instance.ambiguousEndTime) { 
+                        borderStyle.borderBottomLeftRadius = '0px';
+                        borderStyle.borderBottomRightRadius = '0px';
+                    }
+                    
+                    HTML.setStyle(borderOverlay, borderStyle);
+                    HTML.body.appendChild(borderOverlay);
+                    
+                    // Fade in
+                    setTimeout(() => { if (HTML.getUnsafely(`${eventId}_borderOverlay`)) borderOverlay.style.opacity = '1' }, 10);
+                }
+
                 eventElement.style.textShadow = `-1px -1px 0 ${eventColor}, 1px -1px 0 ${eventColor}, -1px 1px 0 ${eventColor}, 1px 1px 0 ${eventColor}`;
                 
                 // Check if text overlay already exists
@@ -2111,8 +2157,19 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             };
             eventElement.mouseLeaveHandler = function() {
                 eventElement.style.overflow = 'hidden';
-                eventElement.style.boxShadow = 'none';
                 eventElement.style.textShadow = 'none';
+
+                // Fade out and remove border overlay
+                const borderOverlay = HTML.getUnsafely(`${eventId}_borderOverlay`);
+                if (exists(borderOverlay)) {
+                    borderOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        const overlayToRemove = HTML.getUnsafely(`${eventId}_borderOverlay`);
+                        if (exists(overlayToRemove)) {
+                            overlayToRemove.remove();
+                        }
+                    }, 150); // Match transition duration
+                }
                 
                 // Fade out and remove text overlay
                 const textOverlay = HTML.getUnsafely(`${eventId}_textOverlay`);
