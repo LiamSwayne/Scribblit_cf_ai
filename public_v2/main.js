@@ -3880,6 +3880,8 @@ function render() {
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
     renderCalendar(currentDays());
     renderDividers();
+
+    // if today is one of the days rendered, show time indicator
 }
 
 window.onresize = render;
