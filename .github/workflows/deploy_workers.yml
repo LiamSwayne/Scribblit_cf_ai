@@ -15,9 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       deployments: write
+      contents: read
     name: Deploy
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy legacy worker
         uses: cloudflare/wrangler-action@v3
