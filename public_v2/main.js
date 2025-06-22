@@ -390,6 +390,27 @@ if (TESTING) {
             ) // data
         ),
 
+        // recurring weekend workshop with multi-day span
+        new Entity(
+            'event-456', // id
+            'Sleepover', // name
+            '', // description
+            new EventData( // data
+                [
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            7 // n
+                        ), // startDatePattern
+                        new TimeField(10, 0), // startTime
+                        new TimeField(16, 0), // endTime
+                        new RecurrenceCount(4), // range
+                        1 // differentEndDatePattern (e.g. workshop lasts 2 days, so end is start + 1 day)
+                    )
+                ] // instances
+            ) // data
+        ),
+
         // Non-recurring timed reminder
         new Entity(
             'reminder-001',
@@ -1347,7 +1368,8 @@ const FilteredInstancesFactory = {
                 let workStartMs = workStartDateTime.toMillis();
                 let workEndMs = workEndDateTime.toMillis();
 
-                if ((workStartMs < dayEndUnix && workEndMs > dayStartUnix)) {
+                // this logic seems weird but it's so you can have multi-day work sessions that span multiple days
+                if ((workStartMs <= dayEndUnix && workEndMs >= dayStartUnix)) {
                     const ambiguousEndTime = workSessionInstance.endTime === NULL;
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
@@ -1382,7 +1404,8 @@ const FilteredInstancesFactory = {
                     let endMs = instanceEndDateTime.toMillis();
                     const ambiguousEndTime = workSessionInstance.endTime === NULL;
 
-                    if (startMs < dayEndUnix && endMs > dayStartUnix) {
+                    // this logic seems weird but it's so you can have multi-day work sessions that span multiple days
+                    if (startMs <= dayEndUnix && endMs >= dayStartUnix) {
                          results.push(new FilteredSegmentOfDayInstance(
                             entityId,
                             entityName,
@@ -1467,7 +1490,8 @@ const FilteredInstancesFactory = {
                 let eventStartMs = eventStartDateTime.toMillis();
                 let eventEndMs = eventEndDateTime.toMillis();
 
-                if (eventStartMs < dayEndUnix && eventEndMs > dayStartUnix) {
+                // this logic seems weird but it's so you can have multi-day events that span multiple days
+                if (eventStartMs <= dayEndUnix && eventEndMs >= dayStartUnix) {
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
                         entityName,
@@ -1516,7 +1540,8 @@ const FilteredInstancesFactory = {
                     }
                     let endMs = instanceEndDateTime.toMillis();
                     
-                    if (startMs < dayEndUnix && endMs > dayStartUnix) {
+                    // this logic seems weird but it's so you can have multi-day events that span multiple days
+                    if (startMs <= dayEndUnix && endMs >= dayStartUnix) {
                         results.push(new FilteredSegmentOfDayInstance(
                             entityId,
                             entityName,
@@ -1985,6 +2010,21 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 zIndex: String(timedEventBaseZIndex),
                 transition: 'box-shadow 0.15s ease-in-out'
             };
+
+            if (instance.ambiguousEndTime) {
+                const eventColorHex = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
+                if (eventColorHex.startsWith('#') && eventColorHex.length === 7) {
+                    const r = parseInt(eventColorHex.slice(1, 3), 16);
+                    const g = parseInt(eventColorHex.slice(3, 5), 16);
+                    const b = parseInt(eventColorHex.slice(5, 7), 16);
+                    style.background = `linear-gradient(to bottom, rgba(${r},${g},${b},1), rgba(${r},${g},${b},0))`;
+                } else {
+                    // Fallback for non-hex colors or parsing errors
+                    style.backgroundColor = `var(${colorVar})`;
+                }
+            } else {
+                style.backgroundColor = `var(${colorVar})`;
+            }
 
             if (instance.wrapToPreviousDay) {
                 style.borderTopLeftRadius = '0px';
