@@ -3009,7 +3009,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                 const darkenedColor = `rgb(${newR}, ${newG}, ${newB})`;
 
-                // ---- BEGIN: Individual width calculation for stacked reminder ----
+                // measuring to know how long to make the stacked text element
                 const stackedExtraPadding = REMINDER_COUNT_INDICATOR_SIZE + countIndicatorPadding;
                 const stackedAdjustedPaddingLeft = textPaddingLeft + stackedExtraPadding;
                 
@@ -3029,7 +3029,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                 const stackedFinalWidth = stackedContentActualWidth + stackedAdjustedPaddingLeft + textPaddingRight;
                 const stackedTextElementActualWidth = Math.min(stackedFinalWidth + 1, colWidth - spaceForHourMarkers - 10);
-                // ---- END: Individual width calculation ----
 
                 // Create stacked text element
                 let stackedTextElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
