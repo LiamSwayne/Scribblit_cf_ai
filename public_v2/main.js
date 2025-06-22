@@ -12,35 +12,8 @@ for (const font of fontDefinitions) {
 
 // the first day shown in calendar
 let firstDayInCalendar;
-let topOfCalendarDay = 20; // px
 
-function getDayElementDimensions(index) {
-    ASSERT(type(index, Int));
-
-    let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
-    let top = windowBorderMargin + headerSpace + topOfCalendarDay;
-    let width = columnWidth;
-    let left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (index + 1));
-
-    if (user.settings.stacking) {
-        height = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2 - topOfCalendarDay;
-        height -= 1; // manual adjustment
-
-        if (index >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
-            top += height + gapBetweenColumns + topOfCalendarDay;
-
-            if (user.settings.numberOfCalendarDays % 2 == 0) {
-                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (index - Math.floor(user.settings.numberOfCalendarDays / 2) + 1));
-            } else {
-                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (index - Math.floor(user.settings.numberOfCalendarDays / 2)));
-            }
-        } else { // top half
-            left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (index + 1));
-        }
-    }
-
-    return { top, left, width, height };
-}
+const allDayEventHeight = 18; // height in px for each all-day event
 
 // Save user data to localStorage
 function saveUserData(user) {
@@ -52,7 +25,7 @@ function saveUserData(user) {
 // Load user data from localStorage, returns a User object
 function loadUserData() {
     const userData = localStorage.getItem("userData");
-    if (userData == NULL) {
+    if (!exists(userData)) {
         // Create default user if no data exists
         return User.createDefault();
     } else {
@@ -81,12 +54,12 @@ let entityArray = [];
 
 let palettes = {
     'dark': { // default
-        accent: ['#47b6ff', '#b547ff'],
+        accent: ['#7900bf', '#a82190'],
         events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
-        shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
+        shades: ['#191919', '#323232', '#484848', '#9e9e9e', '#ffffff']
     },
     'midnight': {
-        accent: ['#47b6ff', '#b547ff'],
+        accent: ['#a82190', '#003fd2'],
         events: ['#47b6ff', '#b547ff'],
         shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
     }
@@ -356,6 +329,22 @@ if (TESTING) {
                         in2Days, // startDate
                         new TimeField(18, 0), // startTime
                         new TimeField(19, 0), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            )
+        ),
+
+        new Entity(
+            'event-666666', // id
+            'Ambiguous ending time event', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        in2Days, // startDate
+                        new TimeField(18, 0), // startTime
+                        NULL, // endTime
                         NULL // differentEndDate
                     )
                 ] // instances
@@ -763,21 +752,14 @@ applyPalette(user.palette);
 firstDayInCalendar = getDayNDaysFromToday(0);
 ASSERT(type(user, User));
 
-let gapBetweenColumns = 6;
+let gapBetweenColumns = 14;
 let windowBorderMargin = 6;
 let columnWidth; // portion of screen
-let headerSpace = 26; // px gap at top to make space for logo and buttons
+let headerSpace = 20; // px gap at top to make space for logo and buttons
 
 const reminderBaseZIndex = 2600;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 const timedEventBaseZIndex = 500;
-
-let adjustCalendarUp; // px to adjust calendar up by based on browser
-if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
-    adjustCalendarUp = 0;
-} else {
-    adjustCalendarUp = 2;
-}
 
 let G_reminderDragState = {
     isDragging: false,
@@ -833,10 +815,10 @@ function dayOfWeekOrRelativeDay(day) {
 }
 
 let HTML = new class HTMLroot {    
-    getElement(id) {
+    get(id) {
         ASSERT(type(id, String));
         let element = document.getElementById(id);
-        ASSERT(exists(element), `HTML.get element with id "${id}" does not exist`);
+        ASSERT(exists(element), `HTML.get element with id ${id} DNE`);
         
         // Check if multiple elements share the same ID
         ASSERT(document.querySelectorAll(`#${id}`).length === 1, `HTML.get found ${document.querySelectorAll(`#${id}`).length} elements with id ${id}, should be exactly 1`);
@@ -845,17 +827,16 @@ let HTML = new class HTMLroot {
     }
 
     // get but it may not exist
-    getElementUnsafely(id) {
+    getUnsafely(id) {
         ASSERT(type(id, String));
         
         // If there's an element at all, verify it's the only one
         let element = document.getElementById(id);
         if (exists(element)) {
             ASSERT(document.querySelectorAll(`#${id}`).length === 1, `HTML.getUnsafely found ${document.querySelectorAll(`#${id}`).length} elements with id ${id}, should be at most 1`);
-            return element;
-        } else {
-            return NULL;
         }
+        
+        return element;
     }
 
     setId(element, id) {
@@ -877,7 +858,6 @@ let HTML = new class HTMLroot {
 
     setData(element, key, value) {
         ASSERT(exists(element) && type(key, String));
-        ASSERT(element != NULL, "HTML.setData element is null");
         
         let data;
         if (!exists(element.dataset.data)) {
@@ -893,7 +873,7 @@ let HTML = new class HTMLroot {
 
     getData(element, key) {
         ASSERT(exists(element) && type(key, String));
-        ASSERT(exists(element.dataset.data), "HTML.getData data does not exist");
+        ASSERT(exists(element.dataset.data), "HTML.getData data is undefined or null");
 
         return JSON.parse(element.dataset.data)[key];
     }
@@ -901,7 +881,7 @@ let HTML = new class HTMLroot {
     getDataUnsafely(element, key) {
         ASSERT(exists(element) && type(key, String));
         
-        if (element.dataset.data == NULL) {
+        if (!exists(element.dataset.data)) {
             return NULL;
         }
         
@@ -911,7 +891,6 @@ let HTML = new class HTMLroot {
     // function to cleanly apply styles to an element
     setStyle(element, styles) {
         ASSERT(exists(element) && type(styles, Dict(String, String)));
-        ASSERT(element != NULL, "HTML.setStyle element is null");
         ASSERT(Object.keys(styles).length > 0);
         
         for (let key of Object.keys(styles)) {
@@ -1360,6 +1339,7 @@ const FilteredInstancesFactory = {
                 let workEndMs = workEndDateTime.toMillis();
 
                 if ((workStartMs < dayEndUnix && workEndMs > dayStartUnix)) {
+                    const ambiguousEndTime = workSessionInstance.endTime === NULL;
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
                         entityName,
@@ -1371,7 +1351,8 @@ const FilteredInstancesFactory = {
                         workEndMs > dayEndUnix,
                         TaskWorkSessionKind,
                         taskIsComplete,
-                        workSessionPatternIndex
+                        workSessionPatternIndex,
+                        ambiguousEndTime
                     ));
                 }
             } else { // Recurring timed work session
@@ -1390,6 +1371,7 @@ const FilteredInstancesFactory = {
                             .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
                     }
                     let endMs = instanceEndDateTime.toMillis();
+                    const ambiguousEndTime = workSessionInstance.endTime === NULL;
 
                     if (startMs < dayEndUnix && endMs > dayStartUnix) {
                          results.push(new FilteredSegmentOfDayInstance(
@@ -1403,7 +1385,8 @@ const FilteredInstancesFactory = {
                             endMs > dayEndUnix,
                             TaskWorkSessionKind,
                             taskIsComplete,
-                            workSessionPatternIndex
+                            workSessionPatternIndex,
+                            ambiguousEndTime
                         ));
                     }
                 }
@@ -1458,8 +1441,10 @@ const FilteredInstancesFactory = {
                     .set({ hour: eventInstance.startTime.hour, minute: eventInstance.startTime.minute });
 
                 let eventEndDateTime;
+                let ambiguousEndTime = false;
                 if (eventInstance.endTime === NULL) {
-                    eventEndDateTime = eventStartDateTime.plus({ minutes: 100 }); // Default duration
+                    eventEndDateTime = eventStartDateTime.plus({ minutes: 100 }); // Default duration for events with no end time
+                    ambiguousEndTime = true;
                 } else {
                     if (eventInstance.differentEndDate !== NULL) {
                         ASSERT(type(eventInstance.differentEndDate, DateField));
@@ -1485,7 +1470,8 @@ const FilteredInstancesFactory = {
                         eventEndMs > dayEndUnix,
                         EventInstanceKind,
                         NULL, // taskIsComplete
-                        eventPatternIndex
+                        eventPatternIndex,
+                        ambiguousEndTime
                     ));
                 }
             } else { // Recurring timed event
@@ -1496,6 +1482,7 @@ const FilteredInstancesFactory = {
                 for (let startMs of patternStartTimes) {
                     let instanceStartDateTime = DateTime.fromMillis(startMs);
                     let instanceEndDateTime;
+                    let ambiguousEndTime = false;
 
                     if (exists(eventInstance.endTime)) {
                         let durationHours = eventInstance.endTime.hour - eventInstance.startTime.hour;
@@ -1516,6 +1503,7 @@ const FilteredInstancesFactory = {
                         }
                     } else {
                         instanceEndDateTime = instanceStartDateTime.plus({ hours: 1 }); // Default 1 hour duration
+                        ambiguousEndTime = true;
                     }
                     let endMs = instanceEndDateTime.toMillis();
                     
@@ -1531,7 +1519,8 @@ const FilteredInstancesFactory = {
                             endMs > dayEndUnix,
                             EventInstanceKind,
                             NULL, // taskIsComplete
-                            eventPatternIndex
+                            eventPatternIndex,
+                            ambiguousEndTime
                         ));
                     }
                 }
@@ -1592,100 +1581,7 @@ const FilteredInstancesFactory = {
 
 function renderDay(day, index) {
     ASSERT(type(day, DateField) && type(index, Int));
-    const { top, left, width, height } = getDayElementDimensions(index);
-    // get existing element
-
-    // look for hour markers
-    if (HTML.getElementUnsafely(`day${index}hourMarker1`) == NULL) { // create hour markers
-        // if one is missing, all 24 must be missing
-        for (let j = 0; j < 24; j++) {
-            let dayElementVerticalPos = top;
-            let dayElementHorizontalPos = left;
-            let dayHeight = height;
-
-            if (j > 0) { // on the first hour, we only need the text
-                ASSERT(HTML.getElementUnsafely(`day${index}hourMarker${j}`) == NULL, `hourMarker1 exists but hourMarker${j} doesn't`);
-                let hourMarker = HTML.make('div');
-                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
-                
-                HTML.setStyle(hourMarker, {
-                    position: 'fixed',
-                    width: String(columnWidth) + 'px',
-                    height: '1px',
-                    top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
-                    left: String(dayElementHorizontalPos) + 'px',
-                    backgroundColor: 'var(--shade-3)',
-                    zIndex: '400'
-                });
-                
-                HTML.body.appendChild(hourMarker);
-            }
-
-            // create hour marker text
-            ASSERT(HTML.getElementUnsafely(`day${index}hourMarkerText${j}`) == NULL, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
-            let hourMarkerText = HTML.make('div');
-            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
-            
-            let fontSize;
-            if (user.settings.ampmOr24 == 'ampm') {
-                fontSize = '12px';
-            } else {
-                fontSize = '10px'; // account for additional colon character
-            }
-            HTML.setStyle(hourMarkerText, {
-                position: 'fixed',
-                top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
-                left: String(dayElementHorizontalPos) + 'px',
-                color: 'var(--shade-3)',
-                fontFamily: 'JetBrainsMonoRegular',
-                fontSize: fontSize,
-                zIndex: '401'
-            });
-            
-            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
-            hourMarkerText.innerHTML = nthHourText(j);
-            HTML.body.appendChild(hourMarkerText);
-        }
-    } else { // update hour markers
-        for (let j = 0; j < 24; j++) {
-            let dayElementVerticalPos = top;
-            let dayElementHorizontalPos = left;
-            let dayHeight = height;
-            if (j > 0) { // on the first hour, we only need the text
-                // adjust position of hour markers
-                let hourMarker = HTML.getElement(`day${index}hourMarker${j}`); // will raise an error if hourMarker1 exists but hourMarker${j} doesn't`);
-                
-                HTML.setStyle(hourMarker, {
-                    top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
-                    left: String(dayElementHorizontalPos) + 'px',
-                    width: String(columnWidth) + 'px'
-                });
-            }
-
-            // adjust position of hour marker text
-            let hourMarkerText = HTML.getElement(`day${index}hourMarkerText${j}`); // will raise an error if hourMarkerText1 exists but hourMarkerText${j} doesn't`);
-            
-            HTML.setStyle(hourMarkerText, {
-                top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
-                left: String(dayElementHorizontalPos) + 'px'
-            });
-        }
-
-        // first hour (text only)
-        let hourMarkerText = HTML.getElement(`day${index}hourMarkerText0`);
-        let dayElementVerticalPos = top;
-        let dayElementHorizontalPos = left;
-        
-        HTML.setStyle(hourMarkerText, {
-            top: String(dayElementVerticalPos + 2) + 'px',
-            left: String(dayElementHorizontalPos) + 'px'
-        });
-    }
-
-    // get all event instances and task work time instances
-    // task due dates don't go on the calendar but work times do
-    // filter by not on this day and expand recurring into what's on this day
-    // reminders also go on the calendar
+    
     // get unix start and end of day with user's offsets
     // Create DateTime from DateField
     let dayTime = DateTime.local(day.year, day.month, day.day);
@@ -1753,36 +1649,95 @@ function renderDay(day, index) {
     }
 
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
-    const allDayEventHeight = 18; // height in px for each all-day event
-    const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
+    const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4; // 12px margin for more space between all-day events and timed calendar
     
     // Get the original dimensions that were set by renderCalendar(), not the current modified ones
-    // We need to recalculate the original dimensions based on the window size and layout
-    let { top: originalTop, left: dayElementLeft, height: originalHeight } = getDayElementDimensions(index);
+    const dayColumnDimensions = getDayColumnDimensions(index);
+    const originalHeight = dayColumnDimensions.height;
+    const originalTop = dayColumnDimensions.top;
+    const dayElementLeft = dayColumnDimensions.left;
     
     // Calculate new top and height for the main timed event area within the day element
     let timedEventAreaHeight = originalHeight - totalAllDayEventsHeight;
     let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
+    
+    // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
+    if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
+        // if one is missing, all 24 must be missing
+        for (let j = 0; j < 25; j++) {
+            let hourMarker = HTML.make('div');
+            HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+            
+            HTML.setStyle(hourMarker, {
+                position: 'fixed',
+                width: String(columnWidth) + 'px',
+                height: '1px',
+                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
+                left: String(dayElementLeft) + 'px',
+                backgroundColor: 'var(--shade-2)',
+                zIndex: '400'
+            });
+            
+            HTML.body.appendChild(hourMarker);
 
-    // Now update all the hour markers and hour marker text based on the new timedEventArea dimensions
-    for (let j = 0; j < 24; j++) {
-        let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
-        
-        if (j > 0) { 
-            let hourMarker = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
-            if (hourMarker != NULL) {
-                HTML.setStyle(hourMarker, {
-                    top: String(hourPosition) + 'px'
+            if (j < 24) {
+                // create hour marker text
+                let hourMarkerText = HTML.make('div');
+                HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
+                
+                let fontSize;
+                if (user.settings.ampmOr24 == 'ampm') {
+                    fontSize = '12px';
+                } else {
+                    fontSize = '10px'; // account for additional colon character
+                }
+                HTML.setStyle(hourMarkerText, {
+                    position: 'fixed',
+                    top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
+                    left: String(dayElementLeft) + 'px',
+                    color: 'var(--shade-2)',
+                    fontFamily: 'JetBrainsMonoRegular',
+                    fontSize: fontSize,
+                    zIndex: '401'
                 });
+                
+                HTML.setData(hourMarkerText, 'leadingWhitespace', true);
+                hourMarkerText.innerHTML = nthHourText(j);
+                HTML.body.appendChild(hourMarkerText);
             }
         }
-        
-        // Update hour marker text positions
-        let hourMarkerText = HTML.getElementUnsafely(`day${index}hourMarkerText${j}`);
-        if (hourMarkerText != NULL) {
-            HTML.setStyle(hourMarkerText, {
-                top: String(hourPosition + 2) + 'px'
+    } else { // update hour markers
+        for (let j = 0; j < 25; j++) {
+            let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
+            
+            let hourMarker = HTML.getUnsafely(`day${index}hourMarker${j}`);
+            if (!hourMarker) {
+                hourMarker = HTML.make('div');
+                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+                HTML.body.appendChild(hourMarker);
+                 HTML.setStyle(hourMarker, {
+                    position: 'fixed',
+                    height: '1px',
+                    backgroundColor: 'var(--shade-3)',
+                    zIndex: '400'
+                });
+            }
+            
+            HTML.setStyle(hourMarker, {
+                top: String(hourPosition) + 'px',
+                left: String(dayElementLeft) + 'px',
+                width: String(columnWidth) + 'px'
             });
+
+            if (j < 24) {
+                // adjust position of hour marker text
+                let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
+                
+                HTML.setStyle(hourMarkerText, {
+                    top: String(hourPosition + 1) + 'px',
+                    left: String(dayElementLeft) + 'px'
+                });
+            }
         }
     }
     
@@ -1802,15 +1757,13 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     ASSERT(type(dayElementActualTop, Number)); // This is the original top of the day column, before shrinking for all-day items
     ASSERT(type(dayElemLeft, Number));
 
-    const allDayEventHeight = 18; // height in px for each all-day event
-
     for (let i = 0; i < allDayInstances.length; i++) {
         let allDayEventData = allDayInstances[i];
         // All-day events are positioned from the dayElementActualTop (original top of the day column)
-        let allDayEventTopPosition = dayElementActualTop + (i * allDayEventHeight);
+        let allDayEventTopPosition = dayElementActualTop + (i * allDayEventHeight) + 2;
         
-        let allDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${i}`);
-        if (allDayEventElement == NULL) {
+        let allDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${i}`);
+        if (!exists(allDayEventElement)) {
             allDayEventElement = HTML.make('div');
             HTML.setId(allDayEventElement, `day${dayIndex}allDayEvent${i}`);
             HTML.body.appendChild(allDayEventElement);
@@ -1820,16 +1773,16 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
 
         HTML.setStyle(allDayEventElement, {
             position: 'fixed',
-            width: String(colWidth - 6.5) + 'px',
+            width: String(colWidth) + 'px',
             height: String(allDayEventHeight - 2) + 'px',
             top: String(allDayEventTopPosition) + 'px',
-            left: String(dayElemLeft + 4.5) + 'px',
+            left: String(dayElemLeft) + 'px',
             backgroundColor: 'transparent',
             opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
             zIndex: '350',
             color: 'var(--shade-4)',
-            fontSize: '11px',
+            fontSize: '12px',
             fontFamily: 'LexendRegular',
             lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
             whiteSpace: 'nowrap',
@@ -1844,7 +1797,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         
         // Add hover effects using event listeners instead of CSS hover
         allDayEventElement.addEventListener('mouseenter', function() {
-            allDayEventElement.style.backgroundColor = 'var(--shade-2)';
+            allDayEventElement.style.backgroundColor = 'var(--shade-1)';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '1';
             }
@@ -1858,8 +1811,8 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         });
 
         // Create/Update asterisk indicator
-        let asteriskElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventAsterisk${i}`);
-        if (asteriskElement == NULL) {
+        let asteriskElement = HTML.getUnsafely(`day${dayIndex}allDayEventAsterisk${i}`);
+        if (!exists(asteriskElement)) {
             asteriskElement = HTML.make('div');
             HTML.setId(asteriskElement, `day${dayIndex}allDayEventAsterisk${i}`);
             HTML.body.appendChild(asteriskElement);
@@ -1869,7 +1822,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         HTML.setStyle(asteriskElement, {
             position: 'fixed',
             top: String(allDayEventTopPosition) + 'px', // move it down a bit so it's at the center of the event
-            left: String(dayElemLeft + 7) + 'px', // Position to the left of the text
+            left: String(dayElemLeft + 1) + 'px', // Position to the left of the text
             color: 'var(--shade-3)',
             fontSize: '11px',
             fontFamily: 'JetBrainsMonoRegular',
@@ -1880,16 +1833,18 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     }
 
     let existingAllDayEventIndex = allDayInstances.length;
-    let extraAllDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
-    while (extraAllDayEventElement != NULL) {
+    let extraAllDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
+    while (exists(extraAllDayEventElement)) {
         extraAllDayEventElement.remove();
         
         // Also remove the corresponding asterisk element
-        let extraAsteriskElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventAsterisk${existingAllDayEventIndex}`);
-        extraAsteriskElement.remove();
+        let extraAsteriskElement = HTML.getUnsafely(`day${dayIndex}allDayEventAsterisk${existingAllDayEventIndex}`);
+        if (exists(extraAsteriskElement)) {
+            extraAsteriskElement.remove();
+        }
         
         existingAllDayEventIndex++;
-        extraAllDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
+        extraAllDayEventElement = HTML.getUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
     }
 }
 
@@ -1953,7 +1908,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
     // Pass 2: Render instances based on layout info
     const indentation = 10; // px per lane
-    const spaceForHourMarkers = 36;
+    const spaceForHourMarkers = 30;
     const totalAvailableWidth = colWidth - spaceForHourMarkers;
     let renderedInstanceCount = 0;
 
@@ -1982,8 +1937,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const width = itemWidth;
 
             const eventId = `day${dayIndex}segment${renderedInstanceCount}`;
-            let eventElement = HTML.getElementUnsafely(eventId);
-            if (eventElement == NULL) {
+            let eventElement = HTML.getUnsafely(eventId);
+            if (!exists(eventElement)) {
                 eventElement = HTML.make('div');
                 HTML.setId(eventElement, eventId);
                 HTML.body.appendChild(eventElement);
@@ -2026,7 +1981,6 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             if (instance.wrapToNextDay) {
                 style.borderBottomLeftRadius = '0px';
                 style.borderBottomRightRadius = '0px';
-                style.height = `${height + 2}px`;
             }
 
             HTML.setStyle(eventElement, style);
@@ -2052,8 +2006,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
     // Cleanup stale elements
     let i = renderedInstanceCount;
     while(true) {
-        const staleElement = HTML.getElementUnsafely(`day${dayIndex}segment${i}`);
-        if (staleElement != NULL) {
+        const staleElement = HTML.getUnsafely(`day${dayIndex}segment${i}`);
+        if (staleElement) {
             staleElement.remove();
             i++;
         } else {
@@ -2077,23 +2031,23 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
         G_animationFrameMap.delete(animationKey);
     }
     
-    const primaryTextElement = HTML.getElementUnsafely(`day${dayIndex}reminderText${groupIndex}`);
-    if (primaryTextElement == NULL) {
+    const primaryTextElement = HTML.getUnsafely(`day${dayIndex}reminderText${groupIndex}`);
+    if (!exists(primaryTextElement)) {
         // Elements might have been removed by a re-render, so we stop.
         return; 
     }
     
     // Assert that this is part of a stack.
-    const firstStackElement = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${groupIndex}_1`);
+    const firstStackElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_1`);
     ASSERT(exists(firstStackElement), `updateStackPositions called for a non-stacked reminder: day${dayIndex}, group${groupIndex}`);
 
-    const reminderLineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
+    const reminderLineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
     ASSERT(exists(reminderLineElement));
     const lineTop = parseFloat(reminderLineElement.style.top);
     const reminderTextHeight = 14; // From renderReminderInstances
 
     let groupLength = 1;
-    while (HTML.getElementUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${groupLength}`)) {
+    while (HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${groupLength}`)) {
         groupLength++;
     }
 
@@ -2108,10 +2062,10 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
         let anyChanges = false;
         
         for (let stackIndex = 1; stackIndex < groupLength; stackIndex++) {
-            let stackedText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
-            let stackedCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
+            let stackedText = HTML.getUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
+            let stackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
             
-            if (stackedText != NULL && stackedCount != NULL) {
+            if (exists(stackedText) && exists(stackedCount)) {
                 const expandedTop = expandUpwards 
                     ? baseAnimationTop - (reminderTextHeight * stackIndex)
                     : baseAnimationTop + (reminderTextHeight * stackIndex);
@@ -2244,8 +2198,8 @@ function handleReminderDragMove(e) {
     });
 
     // Update time bubble position and text
-    const timeBubble = HTML.getElementUnsafely('dragTimeBubble');
-    if (timeBubble != NULL) {
+    const timeBubble = HTML.getUnsafely('dragTimeBubble');
+    if (exists(timeBubble)) {
         // Calculate the time based on current position
         const proportionOfDay = (clampedLineTop - timedAreaTop) / timedAreaHeight;
         const totalDayDurationMs = G_reminderDragState.dayEndUnix - G_reminderDragState.dayStartUnix;
@@ -2268,7 +2222,7 @@ function handleReminderDragMove(e) {
         timeBubble.innerHTML = timeText;
         
         // Position bubble flush with left edge of calendar day
-        const { left: dayLeft } = getDayElementDimensions(G_reminderDragState.dayIndex);
+        const dayLeft = getDayColumnDimensions(G_reminderDragState.dayIndex).left;
         
         // Constrain bubble position to maintain 10px minimum distance from bottom
         const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
@@ -2277,7 +2231,7 @@ function handleReminderDragMove(e) {
         
         HTML.setStyle(timeBubble, {
             top: String(constrainedBubbleTop) + 'px',
-            left: String(dayLeft) + 'px'
+            left: String(dayLeft + 1) + 'px'
         });
     }
 
@@ -2364,8 +2318,8 @@ function handleReminderDragEnd(e) {
     document.removeEventListener('mouseup', handleReminderDragEnd);
 
     // Remove time bubble
-    const timeBubble = HTML.getElementUnsafely('dragTimeBubble');
-    if (timeBubble != NULL) {
+    const timeBubble = HTML.getUnsafely('dragTimeBubble');
+    if (exists(timeBubble)) {
         timeBubble.remove();
     }
 
@@ -2422,44 +2376,22 @@ function handleReminderDragEnd(e) {
     const snappedMinute = Math.round(newDateTime.minute / 5) * 5;
     const finalDateTime = newDateTime.set({ minute: snappedMinute, second: 0, millisecond: 0 });
 
-    log("Drag end debug:");
-    log("finalTop:", finalTop);
-    log("clampedTop:", clampedTop);
-    log("proportionOfDay:", proportionOfDay);
-    log("newTimestamp:", newTimestamp);
-    log("finalDateTime:", finalDateTime.toISO());
-    log("reminderGroup length:", reminderGroup.length);
-
-    reminderGroup.forEach((reminder, index) => {
-        log(`Processing reminder ${index}:`, reminder.id);
+    reminderGroup.forEach((reminder) => {
         const entity = user.entityArray.find(e => e.id === reminder.id);
         if (entity) {
-            log("Found entity:", entity.name);
             const reminderInstance = entity.data.instances[reminder.patternIndex];
-            log("Reminder instance type:", reminderInstance.constructor.name);
             
             if (type(reminderInstance, NonRecurringReminderInstance)) {
-                log("Old time:", reminderInstance.time.hour, reminderInstance.time.minute);
-                log("Old date:", reminderInstance.date.year, reminderInstance.date.month, reminderInstance.date.day);
                 reminderInstance.time = new TimeField(finalDateTime.hour, finalDateTime.minute);
                 const currentDayDateField = currentDays()[dayIndex];
                 reminderInstance.date = currentDayDateField;
-                log("New time:", reminderInstance.time.hour, reminderInstance.time.minute);
-                log("New date:", reminderInstance.date.year, reminderInstance.date.month, reminderInstance.date.day);
-
             } else if (type(reminderInstance, RecurringReminderInstance)) {
-                log("Old time:", reminderInstance.time.hour, reminderInstance.time.minute);
                 reminderInstance.time = new TimeField(finalDateTime.hour, finalDateTime.minute);
-                log("New time:", reminderInstance.time.hour, reminderInstance.time.minute);
             }
-        } else {
-            log("Entity not found for ID:", reminder.id);
         }
     });
 
-    log("Saving user data...");
     saveUserData(user);
-    log("User data saved");
 
     // Check if any of the dragged reminders were recurring
     let hasRecurringReminder = false;
@@ -2474,19 +2406,15 @@ function handleReminderDragEnd(e) {
     });
 
     if (hasRecurringReminder) {
-        log("Re-rendering all visible days due to recurring reminder change...");
         // Re-render all visible days since recurring reminders affect multiple days
         const allDays = currentDays();
         for (let i = 0; i < allDays.length; i++) {
             const dayToRender = allDays[i];
             renderDay(dayToRender, i);
         }
-        log("All days re-rendered");
     } else {
-        log("Re-rendering single day...");
         const dayToRender = currentDays()[dayIndex];
         renderDay(dayToRender, dayIndex);
-        log("Day re-rendered");
     }
 
     G_reminderDragState.isDragging = false;
@@ -2507,8 +2435,8 @@ function handleReminderDragCancel(e) {
     document.removeEventListener('keydown', handleReminderDragCancel);
 
     // Remove time bubble
-    const timeBubble = HTML.getElementUnsafely('dragTimeBubble');
-    if (timeBubble != NULL) {
+    const timeBubble = HTML.getUnsafely('dragTimeBubble');
+    if (exists(timeBubble)) {
         timeBubble.remove();
     }
     
@@ -2582,14 +2510,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         ASSERT(type(stackSize, Int));
 
         const elements = [];
-        elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
-        elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderText${grpIdx}`));
-        elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderQuarterCircle${grpIdx}`));
+        elements.push(HTML.getUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
+        elements.push(HTML.getUnsafely(`day${dayIdx}reminderText${grpIdx}`));
+        elements.push(HTML.getUnsafely(`day${dayIdx}reminderQuarterCircle${grpIdx}`));
         if (stackSize > 1) {
-            elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
+            elements.push(HTML.getUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
             for (let i = 1; i < stackSize; i++) {
-                elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
-                elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
+                elements.push(HTML.getUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
             }
         }
 
@@ -2658,7 +2586,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             clearTimeout(leaveTimeoutId);
             const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
             groupElements.forEach(el => {
-                if (el != NULL) {
+                if (exists(el)) {
                     if (!el.dataset.originalZIndex) {
                         el.dataset.originalZIndex = el.style.zIndex;
                     }
@@ -2672,7 +2600,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             leaveTimeoutId = setTimeout(() => {
                 const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, 1);
                 groupElements.forEach(el => {
-                    if (el != NULL && el.dataset.originalZIndex) {
+                    if (exists(el) && el.dataset.originalZIndex) {
                         el.style.zIndex = el.dataset.originalZIndex;
                         delete el.dataset.originalZIndex;
                     }
@@ -2687,7 +2615,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
             
             groupElements.forEach(el => {
-                if (el != NULL) {
+                if (exists(el)) {
                     if (!el.dataset.originalZIndex) {
                         el.dataset.originalZIndex = el.style.zIndex;
                     }
@@ -2702,7 +2630,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             leaveTimeoutId = setTimeout(() => {
                 const groupElements = getReminderElementsFromIndex(dayIndex, currentGroupIndex, group.length);
                 groupElements.forEach(el => {
-                    if (el != NULL && el.dataset.originalZIndex) {
+                    if (exists(el) && el.dataset.originalZIndex) {
                         el.style.zIndex = el.dataset.originalZIndex;
                         delete el.dataset.originalZIndex;
                     }
@@ -2750,8 +2678,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const quarterCircleLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
 
         // Create/Update Line Element (now directly on body) - positioned from quarter circle to right edge
-        let lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
-        if (lineElement == NULL) {
+        let lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
+        if (!exists(lineElement)) {
             lineElement = HTML.make('div');
             HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
             HTML.body.appendChild(lineElement);
@@ -2792,7 +2720,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             let timeBubble = HTML.make('div');
             HTML.setId(timeBubble, 'dragTimeBubble');
             const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
-            const { left: dayLeft } = getDayElementDimensions(dayIndex);
+            const dayLeft = getDayColumnDimensions(dayIndex).left;
             
             // Hide initially to prevent flickering
             HTML.setStyle(timeBubble, {
@@ -2803,14 +2731,18 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 color: 'var(--shade-4)',
                 fontSize: '9.5px', // Bigger font
                 fontFamily: 'JetBrainsMonoRegular',
-                borderRadius: String(bubbleHeight / 2) + 'px',
+                borderTopRightRadius: String(bubbleHeight / 2) + 'px',
+                borderBottomRightRadius: String(bubbleHeight / 2) + 'px',
+                borderTopLeftRadius: '0px',
+                borderBottomLeftRadius: '0px',
                 paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                 boxSizing: 'border-box',
                 zIndex: '600', // higher than hour marker but below outline
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
                 visibility: 'hidden', // Hide initially
-                textAlign: 'center'
+                textAlign: 'center',
+                paddingRight: '1.5px'
             });
             
             // Set initial position and content
@@ -2857,7 +2789,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
             });
         };
-        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft; // the line has to extend a little more, and then the outline goes on top of it (it doesn't extend past outer edge of the outline)
+        
+        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft;
         HTML.setStyle(lineElement, {
             position: 'fixed',
             width: String(lineWidth) + 'px',
@@ -2870,8 +2803,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         });
 
         // Create/Update Text Element (now directly on body)
-        let textElement = HTML.getElementUnsafely(`day${dayIndex}reminderText${groupIndex}`);
-        if (textElement == NULL) {
+        let textElement = HTML.getUnsafely(`day${dayIndex}reminderText${groupIndex}`);
+        if (!exists(textElement)) {
             textElement = HTML.make('div');
             HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
             HTML.body.appendChild(textElement);
@@ -2911,8 +2844,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         // Create count indicator if grouped (now directly on body)
         if (isGrouped) {
-            let countElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
-            if (countElement == NULL) {
+            let countElement = HTML.getUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
+            if (!exists(countElement)) {
                 countElement = HTML.make('div');
                 HTML.setId(countElement, `day${dayIndex}reminderCount${groupIndex}`);
                 HTML.body.appendChild(countElement);
@@ -2945,15 +2878,15 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             });
         } else {
             // Remove count indicator if it exists but shouldn't
-            let countElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
-            if (countElement != NULL) {
+            let countElement = HTML.getUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
+            if (exists(countElement)) {
                 countElement.remove();
             }
         }
 
         // Create/Update Quarter Circle Decorative Element (now directly on body)
-        let quarterCircleElement = HTML.getElementUnsafely(`day${dayIndex}reminderQuarterCircle${groupIndex}`);
-        if (quarterCircleElement == NULL) {
+        let quarterCircleElement = HTML.getUnsafely(`day${dayIndex}reminderQuarterCircle${groupIndex}`);
+        if (!exists(quarterCircleElement)) {
             quarterCircleElement = HTML.make('div');
             HTML.setId(quarterCircleElement, `day${dayIndex}reminderQuarterCircle${groupIndex}`);
             HTML.body.appendChild(quarterCircleElement);
@@ -3007,8 +2940,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const darkenedColor = `rgb(${newR}, ${newG}, ${newB})`;
 
                 // Create stacked text element
-                let stackedTextElement = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
-                if (stackedTextElement == NULL) {
+                let stackedTextElement = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
+                if (!exists(stackedTextElement)) {
                     stackedTextElement = HTML.make('div');
                     HTML.setId(stackedTextElement, `day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackedTextElement);
@@ -3040,13 +2973,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     // --- Start of new logic for dragging stacked item ---
 
                     // 1. Hide the original stacked element and its count
-                    const originalStackedText = HTML.getElement(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
-                    const originalStackedCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
+                    const originalStackedText = HTML.get(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
+                    const originalStackedCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                     if(exists(originalStackedText)) originalStackedText.style.visibility = 'hidden';
                     if(exists(originalStackedCount)) originalStackedCount.style.visibility = 'hidden';
 
                     // 2. Update the main stack's count indicator temporarily
-                    const mainCountElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${currentGroupIndex}`);
+                    const mainCountElement = HTML.getUnsafely(`day${dayIndex}reminderCount${currentGroupIndex}`);
                     if(exists(mainCountElement)) {
                         mainCountElement.dataset.originalCount = mainCountElement.innerHTML;
                         const newCount = group.length - 1;
@@ -3166,8 +3099,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     let timeBubble = HTML.make('div');
                     HTML.setId(timeBubble, 'dragTimeBubble');
                     const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
-                    const dayElement = HTML.getElement('day' + dayIndex);
-                    const dayLeft = parseInt(dayElement.style.left);
+                    const dayLeft = getDayColumnDimensions(dayIndex).left;
                     
                     // Hide initially to prevent flickering
                     HTML.setStyle(timeBubble, {
@@ -3254,8 +3186,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 });
 
                 // Create stack count indicator
-                let stackCountElement = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
-                if (stackCountElement == NULL) {
+                let stackCountElement = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
+                if (!exists(stackCountElement)) {
                     stackCountElement = HTML.make('div');
                     HTML.setId(stackCountElement, `day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackCountElement);
@@ -3289,18 +3221,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     cursor: 'pointer'
                 });
             }
-        } else {
-            log("Single reminder (not grouped) for group " + groupIndex);
         }
 
         // Cleanup stale stacked elements if the group has shrunk or is no longer a group
         const stackCleanupStartIndex = isGrouped ? group.length : 1;
         let stackCleanupIndex = stackCleanupStartIndex;
         while (true) {
-            const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
-            const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
+            const staleStackText = HTML.getUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
+            const staleStackCount = HTML.getUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
             
-            if (staleStackText == NULL && staleStackCount == NULL) {
+            if (!exists(staleStackText) && !exists(staleStackCount)) {
                 break; // No more stale elements for this group
             }
             
@@ -3316,16 +3246,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     // Remove stale reminder elements
     let existingReminderIndex = groupIndex;
     while(true) {
-        const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
-        if (lineElement == NULL) {
+        const lineElement = HTML.getUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
+        if (!exists(lineElement)) {
             // If the line element is gone, we assume all other elements for this index are too.
             break; 
         }
 
         // Helper to remove an element by its generated ID
         const removeElementById = (id) => {
-            const el = HTML.getElementUnsafely(id);
-            if(el != NULL) el.remove();
+            const el = HTML.getUnsafely(id);
+            if(exists(el)) el.remove();
         };
 
         removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
@@ -3335,8 +3265,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         
         let stackIdx = 1;
         while(true) {
-            const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
-            if(stackText == NULL) break;
+            const stackText = HTML.getUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+            if(!exists(stackText)) break;
             
             removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
             removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
@@ -3347,44 +3277,82 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     }
 }
 
+let topOfCalendarDay = 20; // px
+
+function getDayColumnDimensions(dayIndex) {
+    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < user.settings.numberOfCalendarDays);
+
+    let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
+    height -= 2; // manual adjustment, not sure why it's off by 1
+    let top = windowBorderMargin + headerSpace + topOfCalendarDay;
+    let left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex + 1));
+    const width = columnWidth; // columnWidth is a global
+
+    if (user.settings.stacking) {
+        height = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2 - topOfCalendarDay;
+        height -= 1; // manual adjustment, not sure why it's off by 1
+        if (dayIndex >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
+            top += height + gapBetweenColumns + topOfCalendarDay;
+            
+            if (user.settings.numberOfCalendarDays % 2 == 0) {
+                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - Math.floor(user.settings.numberOfCalendarDays / 2) + 1));
+            } else {
+                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - Math.floor(user.settings.numberOfCalendarDays / 2)));
+            }
+        } else { // top half
+            left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex + 1));
+        }
+    }
+
+    return { width, height, top, left };
+}
+
 function renderCalendar(days) {
     ASSERT(type(days, List(DateField)));
     ASSERT(exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
     ASSERT(type(user.settings.stacking, Boolean));
     for (let i = 0; i < 7; i++) {
         if (i >= user.settings.numberOfCalendarDays) { // delete excess elements if they exist
+            // day background element
+            /*
+            let dayBackgroundElement = HTML.getUnsafely('day-background-' + String(i));
+            if (dayBackgroundElement != null) {
+                dayBackgroundElement.remove();
+            }
+            */
             // hour markers
-            for (let j = 0; j < 24; j++) {
-                let hourMarker = HTML.getElementUnsafely(`day${i}hourMarker${j}`);
-                if (hourMarker != NULL) {
+            for (let j = 0; j <= 24; j++) {
+                let hourMarker = HTML.getUnsafely(`day${i}hourMarker${j}`);
+                if (exists(hourMarker)) {
                     hourMarker.remove();
                 }
-                let hourMarkerText = HTML.getElementUnsafely(`day${i}hourMarkerText${j}`);
-                if (hourMarkerText != NULL) {
-                    hourMarkerText.remove();
+                if (j < 24) {
+                    let hourMarkerText = HTML.getUnsafely(`day${i}hourMarkerText${j}`);
+                    if (exists(hourMarkerText)) {
+                        hourMarkerText.remove();
+                    }
                 }
             }
             // date text
-            let dateText = HTML.getElementUnsafely('day' + String(i) + 'DateText');
-            if (dateText != NULL) {
+            let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
+            if (exists(dateText)) {
                 dateText.remove();
             }
             // day of week text 
-            let dayOfWeekText = HTML.getElementUnsafely('day' + String(i) + 'DayOfWeekText');
-            if (dayOfWeekText != NULL) {
+            let dayOfWeekText = HTML.getUnsafely('day' + String(i) + 'DayOfWeekText');
+            if (exists(dayOfWeekText)) {
                 dayOfWeekText.remove();
             }
-
             // Cleanup for all-day events and reminders for the removed day column
             let j = 0;
             while (true) {
-                let staleElement = HTML.getElementUnsafely(`day${i}allDayEvent${j}`);
-                if (staleElement != NULL) {
+                let staleElement = HTML.getUnsafely(`day${i}allDayEvent${j}`);
+                if (exists(staleElement)) {
                     staleElement.remove();
                     
                     // Also remove corresponding asterisk element
-                    let staleAsteriskElement = HTML.getElementUnsafely(`day${i}allDayEventAsterisk${j}`);
-                    if (staleAsteriskElement != NULL) {
+                    let staleAsteriskElement = HTML.getUnsafely(`day${i}allDayEventAsterisk${j}`);
+                    if (exists(staleAsteriskElement)) {
                         staleAsteriskElement.remove();
                     }
                     
@@ -3395,12 +3363,12 @@ function renderCalendar(days) {
             }
             j = 0;
             while (true) {
-                let staleElement = HTML.getElementUnsafely(`day${i}reminderLine${j}`);
-                if (staleElement != NULL) {
+                let staleElement = HTML.getUnsafely(`day${i}reminderLine${j}`);
+                if (exists(staleElement)) {
                     // To be thorough, remove all parts of the reminder group
                     const removeElementById = (id) => {
-                        const el = HTML.getElementUnsafely(id);
-                        if (el != NULL) el.remove();
+                        const el = HTML.getUnsafely(id);
+                        if(exists(el)) el.remove();
                     };
                     removeElementById(`day${i}reminderLine${j}`);
                     removeElementById(`day${i}reminderText${j}`);
@@ -3408,8 +3376,8 @@ function renderCalendar(days) {
                     removeElementById(`day${i}reminderCount${j}`);
                     let stackIdx = 1;
                     while(true) {
-                        const stackText = HTML.getElementUnsafely(`day${i}reminderStackText${j}_${stackIdx}`);
-                        if (stackText == NULL) break;
+                        const stackText = HTML.getUnsafely(`day${i}reminderStackText${j}_${stackIdx}`);
+                        if(!exists(stackText)) break;
                         removeElementById(`day${i}reminderStackText${j}_${stackIdx}`);
                         removeElementById(`day${i}reminderStackCount${j}_${stackIdx}`);
                         stackIdx++;
@@ -3423,8 +3391,8 @@ function renderCalendar(days) {
             // Cleanup for timed event segments
             j = 0;
             while(true) {
-                const staleElement = HTML.getElementUnsafely(`day${i}segment${j}`);
-                if (staleElement != NULL) {
+                const staleElement = HTML.getUnsafely(`day${i}segment${j}`);
+                if (staleElement) {
                     staleElement.remove();
                     j++;
                 } else {
@@ -3435,38 +3403,22 @@ function renderCalendar(days) {
             continue;
         }
 
-        let dayElement = HTML.make('div'); // create new element
-        HTML.setId(dayElement, 'day' + String(i));
+        const { width, height, top, left } = getDayColumnDimensions(i);
 
-        const { top, left, width, height } = getDayElementDimensions(i);
-
-        HTML.setStyle(dayElement, {
-            position: 'fixed',
-            width: String(width) + 'px',
-            height: String(height) + 'px',
-            top: String(top) + 'px',
-            left: String(left) + 'px',
-            zIndex: '300' // below hour markers
-        });
-
-        let topOfBackground = windowBorderMargin + headerSpace;
-        if (user.settings.stacking && i >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // in bottom half
-            topOfBackground = top - topOfCalendarDay; // height of top half + gap
-        }
+        let verticalSpacing = 3;
 
         // add MM-DD text to top right of background element
-        let dateText = HTML.getElementUnsafely('day' + String(i) + 'DateText');
-        if (dateText == NULL) {
+        let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
+        if (!exists(dateText)) {
             dateText = HTML.make('div');
             HTML.setId(dateText, 'day' + String(i) + 'DateText');
         }
-        let dateAndDayOfWeekSpacing = 3.5;
-        let dateAndDayOfWeekVerticalPos = top - topOfCalendarDay + dateAndDayOfWeekSpacing;
+        let dateAndDayOfWeekVerticalPos = top - topOfCalendarDay;
         HTML.setStyle(dateText, {
             position: 'fixed',
-            top: String(dateAndDayOfWeekVerticalPos) + 'px',
-            right: String(window.innerWidth - left - columnWidth + dateAndDayOfWeekSpacing) + 'px',
-            fontSize: '12px',
+            top: String(dateAndDayOfWeekVerticalPos + verticalSpacing) + 'px',
+            right: String(window.innerWidth - left - columnWidth) + 'px',
+            fontSize: '14px',
             color: 'var(--shade-3)',
             fontFamily: 'LexendBold',
             zIndex: '400'
@@ -3488,16 +3440,16 @@ function renderCalendar(days) {
         HTML.body.appendChild(dateText);
 
         // add dayOfWeekOrRelativeDay text to top left of background element
-        let dayOfWeekText = HTML.getElementUnsafely('day' + String(i) + 'DayOfWeekText');
-        if (dayOfWeekText == NULL) {
+        let dayOfWeekText = HTML.getUnsafely('day' + String(i) + 'DayOfWeekText');
+        if (!exists(dayOfWeekText)) {
             dayOfWeekText = HTML.make('div');
             HTML.setId(dayOfWeekText, 'day' + String(i) + 'DayOfWeekText');
         }
         HTML.setStyle(dayOfWeekText, {
             position: 'fixed',
-            top: String(dateAndDayOfWeekVerticalPos) + 'px',
-            left: String(left + 4) + 'px',
-            fontSize: '12px',
+            top: String(dateAndDayOfWeekVerticalPos + verticalSpacing) + 'px',
+            left: String(left) + 'px',
+            fontSize: '14px',
             color: 'var(--shade-3)',
             fontFamily: 'LexendBold',
             zIndex: '400'
@@ -3518,6 +3470,100 @@ function render() {
     columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
     renderCalendar(currentDays());
+    renderDividers();
+}
+
+function renderDividers() {
+    // 1. Cleanup old dividers
+    let hDivider = HTML.getUnsafely('horizontal-divider');
+    if (exists(hDivider)) hDivider.remove();
+    for (let i = 0; i < 7; i++) { // Max 7 days, so we clean up to 7
+        let vDivider = HTML.getUnsafely(`vertical-divider-${i}`);
+        if (exists(vDivider)) vDivider.remove();
+    }
+
+    const numberOfDays = user.settings.numberOfCalendarDays;
+
+    if (user.settings.stacking) {
+        // STACKING MODE: Both horizontal and vertical dividers
+        
+        // Horizontal Divider (only if there are top and bottom rows)
+        if (numberOfDays >= 2 && Math.floor(numberOfDays / 2) > 0) {
+            hDivider = HTML.make('div');
+            HTML.setId(hDivider, 'horizontal-divider');
+
+            const day0Dim = getDayColumnDimensions(0); // A day in the top row
+            const hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) + 2;
+
+            // Determine the horizontal span of all calendar day columns
+            let minLeft = Infinity;
+            let maxRight = -Infinity;
+            for (let i = 0; i < numberOfDays; i++) {
+                const dim = getDayColumnDimensions(i);
+                minLeft = Math.min(minLeft, dim.left);
+                maxRight = Math.max(maxRight, dim.left + dim.width);
+            }
+
+            const hDividerLeft = minLeft - (gapBetweenColumns / 2);
+            const hDividerWidth = maxRight - minLeft + gapBetweenColumns;
+
+            HTML.setStyle(hDivider, {
+                position: 'fixed',
+                top: `${hDividerTop}px`,
+                left: `${hDividerLeft}px`,
+                width: `${hDividerWidth}px`,
+                height: '2px',
+                backgroundColor: 'var(--shade-2)',
+                zIndex: '350'
+            });
+            HTML.body.appendChild(hDivider);
+        }
+
+        // Vertical Dividers for stacking mode
+        for (let i = 0; i < numberOfDays; i++) {
+            const vDivider = HTML.make('div');
+            HTML.setId(vDivider, `vertical-divider-${i}`);
+
+            const dim = getDayColumnDimensions(i);
+            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
+            const vDividerTop = dim.top - topOfCalendarDay + 6;
+            const vDividerHeight = dim.height + topOfCalendarDay - 6;
+
+            HTML.setStyle(vDivider, {
+                position: 'fixed',
+                top: `${vDividerTop}px`,
+                left: `${vDividerLeft}px`,
+                width: '2px',
+                height: `${vDividerHeight}px`,
+                backgroundColor: 'var(--shade-2)',
+                zIndex: '350'
+            });
+            HTML.body.appendChild(vDivider);
+        }
+    } else {
+        // NON-STACKING MODE: Only vertical dividers
+        
+        for (let i = 0; i < numberOfDays; i++) {
+            const vDivider = HTML.make('div');
+            HTML.setId(vDivider, `vertical-divider-${i}`);
+
+            const dim = getDayColumnDimensions(i);
+            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
+            const vDividerTop = dim.top - topOfCalendarDay + 6;
+            const vDividerHeight = dim.height + topOfCalendarDay - 6;
+
+            HTML.setStyle(vDivider, {
+                position: 'fixed',
+                top: `${vDividerTop}px`,
+                left: `${vDividerLeft}px`,
+                width: '2px',
+                height: `${vDividerHeight}px`,
+                backgroundColor: 'var(--shade-2)',
+                zIndex: '350'
+            });
+            HTML.body.appendChild(vDivider);
+        }
+    }
 }
 
 function toggleNumberOfCalendarDays() {
@@ -3532,7 +3578,7 @@ function toggleNumberOfCalendarDays() {
     }
     saveUserData(user);
 
-    let buttonNumberCalendarDays = HTML.getElement('buttonNumberCalendarDays');
+    let buttonNumberCalendarDays = HTML.get('buttonNumberCalendarDays');
     buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
     render();
 }
@@ -3564,13 +3610,13 @@ function toggleAmPmOr24() {
     }
     saveUserData(user);
 
-    let buttonAmPmOr24 = HTML.getElement('buttonAmPmOr24');
+    let buttonAmPmOr24 = HTML.get('buttonAmPmOr24');
     buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
     
     // update all hour markers
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         for (let j = 0; j < 24; j++) {
-            let hourMarkerText = HTML.getElement(`day${i}hourMarkerText${j}`);
+            let hourMarkerText = HTML.get(`day${i}hourMarkerText${j}`);
             hourMarkerText.innerHTML = nthHourText(j);
             let fontSize;
             if (user.settings.ampmOr24 == 'ampm') {
@@ -3627,10 +3673,13 @@ async function loadFonts() {
     const fontPromises = fontDefinitions.map(async (fontDef) => {
         let cachedBase64 = preservedFontCss[fontDef.key];
         if (cachedBase64) {
+            if (TESTING) {
+                // we want the key and url to be what we're looking for
+                localStorage.setItem('font' + fontDef.key + fontDef.url, cachedBase64); // Restore after clear
+            }
             return cachedBase64;
         } else {
             try {
-                log(`Fetching ${fontDef.key} font file.`);
                 const response = await fetch(fontDef.url);
                 if (!response.ok) throw new Error(`Failed to fetch font: ${fontDef.key}`);
                 
@@ -3646,7 +3695,7 @@ async function loadFonts() {
                 return base64Font;
 
             } catch (error) {
-                log(`Failed to fetch ${fontDef.key}.`);
+                log('Error loading font:');
                 log(error.message);
             }
         }
@@ -3695,7 +3744,6 @@ async function loadFonts() {
         });
         
         await Promise.all(loadPromises);
-        // all fonts loaded successfully
     }
 
     render();
