@@ -750,7 +750,7 @@ applyPalette(user.palette);
 firstDayInCalendar = getDayNDaysFromToday(0);
 ASSERT(type(user, User));
 
-let gapBetweenColumns = 6;
+let gapBetweenColumns = 14;
 let windowBorderMargin = 6;
 let columnWidth; // portion of screen
 let headerSpace = 26; // px gap at top to make space for logo and buttons
@@ -1781,10 +1781,10 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
 
         HTML.setStyle(allDayEventElement, {
             position: 'fixed',
-            width: String(colWidth - 6.5) + 'px',
+            width: String(colWidth) + 'px',
             height: String(allDayEventHeight - 2) + 'px',
             top: String(allDayEventTopPosition) + 'px',
-            left: String(dayElemLeft + 4.5) + 'px',
+            left: String(dayElemLeft) + 'px',
             backgroundColor: 'transparent',
             opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
@@ -1805,7 +1805,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         
         // Add hover effects using event listeners instead of CSS hover
         allDayEventElement.addEventListener('mouseenter', function() {
-            allDayEventElement.style.backgroundColor = 'var(--shade-2)';
+            allDayEventElement.style.backgroundColor = 'var(--shade-1)';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '1';
             }
@@ -1830,7 +1830,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         HTML.setStyle(asteriskElement, {
             position: 'fixed',
             top: String(allDayEventTopPosition) + 'px', // move it down a bit so it's at the center of the event
-            left: String(dayElemLeft + 7) + 'px', // Position to the left of the text
+            left: String(dayElemLeft + 3) + 'px', // Position to the left of the text
             color: 'var(--shade-3)',
             fontSize: '11px',
             fontFamily: 'JetBrainsMonoRegular',
@@ -2399,9 +2399,7 @@ function handleReminderDragEnd(e) {
         }
     });
 
-    log("Saving user data...");
     saveUserData(user);
-    log("User data saved");
 
     // Check if any of the dragged reminders were recurring
     let hasRecurringReminder = false;
@@ -2416,19 +2414,15 @@ function handleReminderDragEnd(e) {
     });
 
     if (hasRecurringReminder) {
-        log("Re-rendering all visible days due to recurring reminder change...");
         // Re-render all visible days since recurring reminders affect multiple days
         const allDays = currentDays();
         for (let i = 0; i < allDays.length; i++) {
             const dayToRender = allDays[i];
             renderDay(dayToRender, i);
         }
-        log("All days re-rendered");
     } else {
-        log("Re-rendering single day...");
         const dayToRender = currentDays()[dayIndex];
         renderDay(dayToRender, dayIndex);
-        log("Day re-rendered");
     }
 
     G_reminderDragState.isDragging = false;
@@ -3297,6 +3291,7 @@ function getDayColumnDimensions(dayIndex) {
     ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < user.settings.numberOfCalendarDays);
 
     let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
+    height -= 2; // manual adjustment, not sure why it's off by 1
     let top = windowBorderMargin + headerSpace + topOfCalendarDay;
     let left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex + 1));
     const width = columnWidth; // columnWidth is a global
@@ -3503,6 +3498,78 @@ function render() {
     columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
     renderCalendar(currentDays());
+    renderDividers();
+}
+
+function renderDividers() {
+    // 1. Cleanup old dividers
+    let hDivider = HTML.getUnsafely('horizontal-divider');
+    if (exists(hDivider)) hDivider.remove();
+    for (let i = 0; i < 7; i++) { // Max 7 days, so we clean up to 7
+        let vDivider = HTML.getUnsafely(`vertical-divider-${i}`);
+        if (exists(vDivider)) vDivider.remove();
+    }
+
+    // 2. Only show dividers in stacking mode
+    if (!user.settings.stacking) {
+        return;
+    }
+
+    const numberOfDays = user.settings.numberOfCalendarDays;
+
+    // 3. Horizontal Divider (only if there are top and bottom rows)
+    if (numberOfDays >= 2 && Math.floor(numberOfDays / 2) > 0) {
+        hDivider = HTML.make('div');
+        HTML.setId(hDivider, 'horizontal-divider');
+
+        const day0Dim = getDayColumnDimensions(0); // A day in the top row
+        const hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) - 0.5; // For 1px height
+
+        // Determine the horizontal span of all calendar day columns
+        let minLeft = Infinity;
+        let maxRight = -Infinity;
+        for (let i = 0; i < numberOfDays; i++) {
+            const dim = getDayColumnDimensions(i);
+            minLeft = Math.min(minLeft, dim.left);
+            maxRight = Math.max(maxRight, dim.left + dim.width);
+        }
+
+        const hDividerLeft = minLeft - (gapBetweenColumns / 2);
+        const hDividerWidth = maxRight - minLeft + gapBetweenColumns;
+
+        HTML.setStyle(hDivider, {
+            position: 'fixed',
+            top: `${hDividerTop}px`,
+            left: `${hDividerLeft}px`,
+            width: `${hDividerWidth}px`,
+            height: '1px',
+            backgroundColor: 'var(--shade-3)',
+            zIndex: '350'
+        });
+        HTML.body.appendChild(hDivider);
+    }
+
+    // 4. Vertical Dividers (one to the left of each day)
+    for (let i = 0; i < numberOfDays; i++) {
+        const vDivider = HTML.make('div');
+        HTML.setId(vDivider, `vertical-divider-${i}`);
+
+        const dim = getDayColumnDimensions(i);
+        const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 0.5; // For 1px width
+        const vDividerTop = dim.top - topOfCalendarDay;
+        const vDividerHeight = dim.height + topOfCalendarDay;
+
+        HTML.setStyle(vDivider, {
+            position: 'fixed',
+            top: `${vDividerTop}px`,
+            left: `${vDividerLeft}px`,
+            width: '1px',
+            height: `${vDividerHeight}px`,
+            backgroundColor: 'var(--shade-3)',
+            zIndex: '350'
+        });
+        HTML.body.appendChild(vDivider);
+    }
 }
 
 function toggleNumberOfCalendarDays() {
