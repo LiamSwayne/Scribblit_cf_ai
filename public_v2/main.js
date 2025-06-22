@@ -52,12 +52,12 @@ let entityArray = [];
 
 let palettes = {
     'dark': { // default
-        accent: ['#47b6ff', '#b547ff'],
+        accent: ['#7900bf', '#a82190'],
         events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
         shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
     },
     'midnight': {
-        accent: ['#47b6ff', '#b547ff'],
+        accent: ['#a82190', '#003fd2'],
         events: ['#47b6ff', '#b547ff'],
         shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
     }
@@ -327,6 +327,22 @@ if (TESTING) {
                         in2Days, // startDate
                         new TimeField(18, 0), // startTime
                         new TimeField(19, 0), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // instances
+            )
+        ),
+
+        new Entity(
+            'event-666666', // id
+            'Ambiguous ending time event', // name
+            '', // description
+            new EventData( // data
+                [
+                    new NonRecurringEventInstance(
+                        in2Days, // startDate
+                        new TimeField(18, 0), // startTime
+                        NULL, // endTime
                         NULL // differentEndDate
                     )
                 ] // instances
@@ -1328,6 +1344,7 @@ const FilteredInstancesFactory = {
                 let workEndMs = workEndDateTime.toMillis();
 
                 if ((workStartMs < dayEndUnix && workEndMs > dayStartUnix)) {
+                    const ambiguousEndTime = workSessionInstance.endTime === NULL;
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
                         entityName,
@@ -1339,7 +1356,8 @@ const FilteredInstancesFactory = {
                         workEndMs > dayEndUnix,
                         TaskWorkSessionKind,
                         taskIsComplete,
-                        workSessionPatternIndex
+                        workSessionPatternIndex,
+                        ambiguousEndTime
                     ));
                 }
             } else { // Recurring timed work session
@@ -1358,6 +1376,7 @@ const FilteredInstancesFactory = {
                             .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
                     }
                     let endMs = instanceEndDateTime.toMillis();
+                    const ambiguousEndTime = workSessionInstance.endTime === NULL;
 
                     if (startMs < dayEndUnix && endMs > dayStartUnix) {
                          results.push(new FilteredSegmentOfDayInstance(
@@ -1371,7 +1390,8 @@ const FilteredInstancesFactory = {
                             endMs > dayEndUnix,
                             TaskWorkSessionKind,
                             taskIsComplete,
-                            workSessionPatternIndex
+                            workSessionPatternIndex,
+                            ambiguousEndTime
                         ));
                     }
                 }
@@ -1426,8 +1446,10 @@ const FilteredInstancesFactory = {
                     .set({ hour: eventInstance.startTime.hour, minute: eventInstance.startTime.minute });
 
                 let eventEndDateTime;
+                let ambiguousEndTime = false;
                 if (eventInstance.endTime === NULL) {
-                    eventEndDateTime = eventStartDateTime.plus({ minutes: 100 }); // Default duration
+                    eventEndDateTime = eventStartDateTime.plus({ minutes: 100 }); // Default duration for events with no end time
+                    ambiguousEndTime = true;
                 } else {
                     if (eventInstance.differentEndDate !== NULL) {
                         ASSERT(type(eventInstance.differentEndDate, DateField));
@@ -1453,7 +1475,8 @@ const FilteredInstancesFactory = {
                         eventEndMs > dayEndUnix,
                         EventInstanceKind,
                         NULL, // taskIsComplete
-                        eventPatternIndex
+                        eventPatternIndex,
+                        ambiguousEndTime
                     ));
                 }
             } else { // Recurring timed event
@@ -1464,6 +1487,7 @@ const FilteredInstancesFactory = {
                 for (let startMs of patternStartTimes) {
                     let instanceStartDateTime = DateTime.fromMillis(startMs);
                     let instanceEndDateTime;
+                    let ambiguousEndTime = false;
 
                     if (exists(eventInstance.endTime)) {
                         let durationHours = eventInstance.endTime.hour - eventInstance.startTime.hour;
@@ -1484,6 +1508,7 @@ const FilteredInstancesFactory = {
                         }
                     } else {
                         instanceEndDateTime = instanceStartDateTime.plus({ hours: 1 }); // Default 1 hour duration
+                        ambiguousEndTime = true;
                     }
                     let endMs = instanceEndDateTime.toMillis();
                     
@@ -1499,7 +1524,8 @@ const FilteredInstancesFactory = {
                             endMs > dayEndUnix,
                             EventInstanceKind,
                             NULL, // taskIsComplete
-                            eventPatternIndex
+                            eventPatternIndex,
+                            ambiguousEndTime
                         ));
                     }
                 }
@@ -1627,10 +1653,6 @@ function renderDay(day, index) {
         }
     }
 
-    // Log filtered instances
-    log("Filtered Segment of Day Instances for day " + day.year + "-" + day.month + "-" + day.day + ":");
-    log(G_filteredSegmentOfDayInstances);
-
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const allDayEventHeight = 18; // height in px for each all-day event
     const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
@@ -1658,7 +1680,7 @@ function renderDay(day, index) {
                 height: '1px',
                 top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
                 left: String(dayElementLeft) + 'px',
-                backgroundColor: 'var(--shade-3)',
+                backgroundColor: 'var(--shade-2)',
                 zIndex: '400'
             });
             
@@ -1679,7 +1701,7 @@ function renderDay(day, index) {
                     position: 'fixed',
                     top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
                     left: String(dayElementLeft) + 'px',
-                    color: 'var(--shade-3)',
+                    color: 'var(--shade-2)',
                     fontFamily: 'JetBrainsMonoRegular',
                     fontSize: fontSize,
                     zIndex: '401'
@@ -1894,7 +1916,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
     // Pass 2: Render instances based on layout info
     const indentation = 10; // px per lane
-    const spaceForHourMarkers = 24;
+    const spaceForHourMarkers = 30;
     const totalAvailableWidth = colWidth - spaceForHourMarkers;
     let renderedInstanceCount = 0;
 
@@ -1967,7 +1989,6 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             if (instance.wrapToNextDay) {
                 style.borderBottomLeftRadius = '0px';
                 style.borderBottomRightRadius = '0px';
-                style.height = `${height + 2}px`;
             }
 
             HTML.setStyle(eventElement, style);
@@ -2363,38 +2384,18 @@ function handleReminderDragEnd(e) {
     const snappedMinute = Math.round(newDateTime.minute / 5) * 5;
     const finalDateTime = newDateTime.set({ minute: snappedMinute, second: 0, millisecond: 0 });
 
-    log("Drag end debug:");
-    log("finalTop:", finalTop);
-    log("clampedTop:", clampedTop);
-    log("proportionOfDay:", proportionOfDay);
-    log("newTimestamp:", newTimestamp);
-    log("finalDateTime:", finalDateTime.toISO());
-    log("reminderGroup length:", reminderGroup.length);
-
-    reminderGroup.forEach((reminder, index) => {
-        log(`Processing reminder ${index}:`, reminder.id);
+    reminderGroup.forEach((reminder) => {
         const entity = user.entityArray.find(e => e.id === reminder.id);
         if (entity) {
-            log("Found entity:", entity.name);
             const reminderInstance = entity.data.instances[reminder.patternIndex];
-            log("Reminder instance type:", reminderInstance.constructor.name);
             
             if (type(reminderInstance, NonRecurringReminderInstance)) {
-                log("Old time:", reminderInstance.time.hour, reminderInstance.time.minute);
-                log("Old date:", reminderInstance.date.year, reminderInstance.date.month, reminderInstance.date.day);
                 reminderInstance.time = new TimeField(finalDateTime.hour, finalDateTime.minute);
                 const currentDayDateField = currentDays()[dayIndex];
                 reminderInstance.date = currentDayDateField;
-                log("New time:", reminderInstance.time.hour, reminderInstance.time.minute);
-                log("New date:", reminderInstance.date.year, reminderInstance.date.month, reminderInstance.date.day);
-
             } else if (type(reminderInstance, RecurringReminderInstance)) {
-                log("Old time:", reminderInstance.time.hour, reminderInstance.time.minute);
                 reminderInstance.time = new TimeField(finalDateTime.hour, finalDateTime.minute);
-                log("New time:", reminderInstance.time.hour, reminderInstance.time.minute);
             }
-        } else {
-            log("Entity not found for ID:", reminder.id);
         }
     });
 
@@ -3234,8 +3235,6 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     cursor: 'pointer'
                 });
             }
-        } else {
-            log("Single reminder (not grouped) for group " + groupIndex);
         }
 
         // Cleanup stale stacked elements if the group has shrunk or is no longer a group
@@ -3610,12 +3609,9 @@ window.onresize = render;
 
 // load fonts (hoping to cache them)
 async function loadFonts() {
-    let fontsLoaded = false;
-
     const fontPromises = fontDefinitions.map(async (fontDef) => {
         let cachedBase64 = preservedFontCss[fontDef.key];
         if (cachedBase64) {
-            log(`Loaded ${fontDef.key} from cache.`);
             if (TESTING) {
                 // we want the key and url to be what we're looking for
                 localStorage.setItem('font' + fontDef.key + fontDef.url, cachedBase64); // Restore after clear
@@ -3623,7 +3619,6 @@ async function loadFonts() {
             return cachedBase64;
         } else {
             try {
-                log(`Fetching ${fontDef.key} font file.`);
                 const response = await fetch(fontDef.url);
                 if (!response.ok) throw new Error(`Failed to fetch font: ${fontDef.key}`);
                 
@@ -3636,13 +3631,11 @@ async function loadFonts() {
                 });
                 
                 localStorage.setItem('font' + fontDef.key + fontDef.url, base64Font);
-                log(`Successfully fetched and cached (${fontDef.key}, ${fontDef.url}).`);
                 return base64Font;
 
             } catch (error) {
-                log(`Failed to fetch ${fontDef.key}.`);
+                log('Error loading font:');
                 log(error.message);
-                return null;
             }
         }
     });
@@ -3690,7 +3683,6 @@ async function loadFonts() {
         });
         
         await Promise.all(loadPromises);
-        log('All fonts loaded successfully');
     }
 
     render();
