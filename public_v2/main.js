@@ -795,10 +795,9 @@ let windowBorderMargin = 6;
 let columnWidth; // portion of screen
 let headerSpace = 20; // px gap at top to make space for logo and buttons
 
-const reminderBaseZIndex = 2600;
-const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 const timedEventBaseZIndex = 500;
-
+const reminderBaseZIndex = 3400;
+const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 // Reminder dimensions - all based on font size for consistency
 const REMINDER_FONT_SIZE = 12; // px
 const REMINDER_TEXT_HEIGHT = Math.round(REMINDER_FONT_SIZE * 1.4); // 17px
@@ -1986,6 +1985,11 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const left = leftForLane + (instanceIndexInGroup * (itemWidth + gap));
             const width = itemWidth;
 
+            const eventStartDateTime = DateTime.fromMillis(instance.startDateTime);
+            const minutesFromMidnight = eventStartDateTime.hour * 60 + eventStartDateTime.minute;
+            // 2 per minute since we need one per minute for event and one per minute for border
+            const instanceZIndex = timedEventBaseZIndex + minutesFromMidnight * 2;
+
             const eventId = `day${dayIndex}segment${renderedInstanceCount}`;
             let eventElement = HTML.getUnsafely(eventId);
             if (!exists(eventElement)) {
@@ -2023,7 +2027,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 overflow: 'hidden',
                 cursor: 'pointer',
                 boxSizing: 'border-box',
-                zIndex: String(timedEventBaseZIndex)
+                zIndex: String(instanceZIndex)
             };
 
             if (instance.ambiguousEndTime) {
@@ -2060,7 +2064,13 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
                 // Create and show border element
                 let borderOverlay = HTML.getUnsafely(`${eventId}_borderOverlay`);
-                if (!exists(borderOverlay)) {
+                if (exists(borderOverlay)) {
+                    if (borderOverlay.fadeOutTimeout) {
+                        clearTimeout(borderOverlay.fadeOutTimeout);
+                        delete borderOverlay.fadeOutTimeout;
+                    }
+                    borderOverlay.style.opacity = '1';
+                } else {
                     borderOverlay = HTML.make('div');
                     HTML.setId(borderOverlay, `${eventId}_borderOverlay`);
                     
@@ -2071,7 +2081,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                         width: `${width}px`,
                         height: `${height}px`,
                         pointerEvents: 'none',
-                        zIndex: String(timedEventBaseZIndex + 1), // Above event, below text overlay
+                        zIndex: String(instanceZIndex + 1), // Above event, below text overlay
                         borderRadius: '8px',
                         border: '2px solid var(--shade-4)',
                         boxSizing: 'border-box',
@@ -2138,7 +2148,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                         whiteSpace: 'normal',
                         overflow: 'visible',
                         boxSizing: 'border-box',
-                        zIndex: String(timedEventBaseZIndex + reminderBaseZIndex + reminderIndexIncreaseOnHover + 1), // above all reminders
+                        zIndex: String(instanceZIndex + reminderBaseZIndex + reminderIndexIncreaseOnHover + 1), // above all reminders
                         pointerEvents: 'none',
                         opacity: '0',
                         transition: 'opacity 0.2s ease-in-out',
@@ -2163,7 +2173,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 const borderOverlay = HTML.getUnsafely(`${eventId}_borderOverlay`);
                 if (exists(borderOverlay)) {
                     borderOverlay.style.opacity = '0';
-                    setTimeout(() => {
+                    borderOverlay.fadeOutTimeout = setTimeout(() => {
                         const overlayToRemove = HTML.getUnsafely(`${eventId}_borderOverlay`);
                         if (exists(overlayToRemove)) {
                             overlayToRemove.remove();
