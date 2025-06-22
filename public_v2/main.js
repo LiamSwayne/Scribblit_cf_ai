@@ -2790,6 +2790,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
             });
         };
+        
         const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft;
         HTML.setStyle(lineElement, {
             position: 'fixed',
