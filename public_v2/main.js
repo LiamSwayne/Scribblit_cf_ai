@@ -69,6 +69,7 @@ let palettes = {
 // load sample data
 if (TESTING) {
     localStorage.clear();
+    log("Clean slate");
 
     // --- Start of relative date definitions for sample data ---
     const baseDate = DateTime.local(); // Use a single base for all calculations
