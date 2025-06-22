@@ -985,6 +985,16 @@ let HTML = new class HTMLroot {
         return element.style[property];
     }
 
+    applyAnimation(element, trigger, keyframes, options) {
+        ASSERT(exists(element) && type(trigger, NonEmptyString));
+        ASSERT(type(keyframes, Array));
+        ASSERT(type(options, Object) && exists(options.duration) && exists(options.iterations) && exists(options.easing));
+
+        element.addEventListener(trigger, () => {
+            element.animate(keyframes, options);
+        });
+    }
+
     createClass(name, styles) {
         ASSERT(type(name, String));
         ASSERT(type(styles, Dict(String, String)));
@@ -1029,6 +1039,7 @@ HTML.setStyle(logo, {
     left: String(windowBorderMargin) + 'px'
 });
 HTML.body.appendChild(logo);
+const logoHeight = 22.15; // i measured it
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
@@ -4000,12 +4011,78 @@ function renderTimeIndicator(onSchedule) {
     HTML.body.appendChild(timeTriangle);
 }
 
+function renderInputBox() {
+    let taskInput = HTML.getUnsafely('taskInput');
+
+    if (!exists(taskInput)) {
+        taskInput = HTML.make('textarea');
+        HTML.setId(taskInput, 'taskInput');
+        taskInput.placeholder = "Scribble your tasks and events here...";
+        HTML.body.appendChild(taskInput);
+
+        // Create a class to hide the scrollbar
+        HTML.createClass('no-scrollbar', {
+            'scrollbar-width': 'none' /* For Firefox */
+        });
+        let styleElement = HTML.make('style');
+        styleElement.textContent = `.no-scrollbar::-webkit-scrollbar { display: none; }`; /* For Chrome/Safari */
+        HTML.head.appendChild(styleElement);
+        taskInput.classList.add('no-scrollbar');
+
+        // Add :focus style to remove outline
+        let focusStyle = HTML.make('style');
+        focusStyle.textContent = `#taskInput:focus { outline: none; }`;
+        HTML.head.appendChild(focusStyle);
+
+        // Animate caret color on focus
+        HTML.applyAnimation(taskInput, 'focus', [
+            { caretColor: user.palette.accent[0], offset: 0 },
+            { caretColor: user.palette.accent[1], offset: 0.5 },
+            { caretColor: user.palette.accent[0], offset: 1 }
+        ], {
+            duration: 3000,
+            iterations: Infinity,
+            easing: 'ease-in-out'
+        });
+
+        // create custom border div via custom background
+    }
+
+    // we are rendeing a custom border div, so we add 2px on each side
+    const borderThickness = 2;
+
+    // Set styles that may change on resize
+    HTML.setStyle(taskInput, {
+        position: 'fixed',
+        top: String(windowBorderMargin + logoHeight + borderThickness + 6) + 'px', // some padding from bottom of logo
+        left: String(windowBorderMargin + borderThickness) + 'px',
+        width: String(columnWidth - borderThickness*2) + 'px',
+        minHeight: '100px',
+        maxHeight: '30vh',
+        backgroundColor: 'var(--shade-1)',
+        color: 'var(--shade-4)',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '3px 6px',
+        resize: 'none',
+        fontFamily: 'JetBrainsMonoRegular',
+        fontSize: '12px',
+        whiteSpace: 'pre-wrap',
+        overflowY: 'auto',
+        boxSizing: 'border-box',
+        transition: 'border-color 0.3s ease'
+    });
+
+    // HERE
+}
+
 function render() {
     columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
     renderCalendar(currentDays());
     renderDividers();
     renderTimeIndicator(false);
+    renderInputBox();
 }
 
 window.onresize = render;
