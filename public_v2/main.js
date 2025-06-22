@@ -1558,113 +1558,9 @@ const FilteredInstancesFactory = {
 };
 
 
-function renderDay(day, element, index) {
+function renderDay(day, index) {
     ASSERT(type(day, DateField) && type(index, Int));
-    // get existing element
     
-    ASSERT(exists(element));
-    ASSERT(parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2) == columnWidth.toFixed(2), `renderDay element width (${parseFloat(HTML.getStyle(element, 'width').slice(0, -2)).toFixed(2)}) is not ${columnWidth.toFixed(2)}`);
-    ASSERT(type(columnWidth, Number));
-    ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length)}`);
-    ASSERT(type(parseFloat(HTML.getStyle(element, 'height').slice(0, -2)), Number));
-
-    // look for hour markers
-    if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
-        // if one is missing, all 24 must be missing
-        for (let j = 0; j < 24; j++) {
-            ASSERT(type(parseInt(HTML.getStyle(element, 'top').slice(0, -2), 10), Int));
-            let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2), 10);
-            ASSERT(HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length) == 'px', `element style 'left' last 2 chars aren't 'px': ${HTML.getStyle(element, 'left').slice(HTML.getStyle(element, 'left').length-2, HTML.getStyle(element, 'left').length)}`);
-            ASSERT(type(parseInt(HTML.getStyle(element, 'left').slice(0, -2), 10), Int));
-            let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2), 10);
-
-            ASSERT(HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length) == 'px', `element height last 2 chars aren't 'px': ${HTML.getStyle(element, 'height').slice(HTML.getStyle(element, 'height').length-2, HTML.getStyle(element, 'height').length)}`);
-            ASSERT(type(parseFloat(HTML.getStyle(element, 'height').slice(0, -2)), Number));
-            let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
-
-            if (j > 0) { // on the first hour, we only need the text
-                ASSERT(HTML.getUnsafely(`day${index}hourMarker${j}`) == null, `hourMarker1 exists but hourMarker${j} doesn't`);
-                let hourMarker = HTML.make('div');
-                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
-                
-                HTML.setStyle(hourMarker, {
-                    position: 'fixed',
-                    width: String(columnWidth + 1) + 'px',
-                    height: '1px',
-                    top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
-                    left: String(dayElementHorizontalPos + 1) + 'px',
-                    backgroundColor: 'var(--shade-3)',
-                    zIndex: '400'
-                });
-                
-                HTML.body.appendChild(hourMarker);
-            }
-
-            // create hour marker text
-            ASSERT(HTML.getUnsafely(`day${index}hourMarkerText${j}`) == null, `hourMarkerText1 exists but hourMarkerText${j} doesn't`);
-            let hourMarkerText = HTML.make('div');
-            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
-            
-            let fontSize;
-            if (user.settings.ampmOr24 == 'ampm') {
-                fontSize = '12px';
-            } else {
-                fontSize = '10px'; // account for additional colon character
-            }
-            HTML.setStyle(hourMarkerText, {
-                position: 'fixed',
-                top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
-                left: String(dayElementHorizontalPos + 4) + 'px',
-                color: 'var(--shade-3)',
-                fontFamily: 'JetBrainsMonoRegular',
-                fontSize: fontSize,
-                zIndex: '401'
-            });
-            
-            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
-            hourMarkerText.innerHTML = nthHourText(j);
-            HTML.body.appendChild(hourMarkerText);
-        }
-    } else { // update hour markers
-        for (let j = 0; j < 24; j++) {
-            let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
-            let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
-            let dayHeight = parseFloat(HTML.getStyle(element, 'height').slice(0, -2));
-            if (j > 0) { // on the first hour, we only need the text
-                // adjust position of hour markers
-                let hourMarker = HTML.get(`day${index}hourMarker${j}`); // will raise an error if hourMarker1 exists but hourMarker${j} doesn't`);
-                
-                HTML.setStyle(hourMarker, {
-                    top: String(dayElementVerticalPos + (j * dayHeight / 24)) + 'px',
-                    left: String(dayElementHorizontalPos + 1) + 'px',
-                    width: String(columnWidth + 1) + 'px'
-                });
-            }
-
-            // adjust position of hour marker text
-            let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`); // will raise an error if hourMarkerText1 exists but hourMarkerText${j} doesn't`);
-            
-            HTML.setStyle(hourMarkerText, {
-                top: String(dayElementVerticalPos + (j * dayHeight / 24) + 2) + 'px',
-                left: String(dayElementHorizontalPos + 4) + 'px'
-            });
-        }
-
-        // first hour (text only)
-        let hourMarkerText = HTML.get(`day${index}hourMarkerText0`);
-        let dayElementVerticalPos = parseInt(HTML.getStyle(element, 'top').slice(0, -2));
-        let dayElementHorizontalPos = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
-        
-        HTML.setStyle(hourMarkerText, {
-            top: String(dayElementVerticalPos + 2) + 'px',
-            left: String(dayElementHorizontalPos + 4) + 'px'
-        });
-    }
-
-    // get all event instances and task work time instances
-    // task due dates don't go on the calendar but work times do
-    // filter by not on this day and expand recurring into what's on this day
-    // reminders also go on the calendar
     // get unix start and end of day with user's offsets
     // Create DateTime from DateField
     let dayTime = DateTime.local(day.year, day.month, day.day);
@@ -1740,48 +1636,79 @@ function renderDay(day, element, index) {
     const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 2; // 2px margin
     
     // Get the original dimensions that were set by renderCalendar(), not the current modified ones
-    // We need to recalculate the original dimensions based on the window size and layout
-    let originalHeight = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
-    let originalTop = windowBorderMargin + headerSpace + topOfCalendarDay;
-    let dayElementLeft = parseInt(HTML.getStyle(element, 'left').slice(0, -2));
-    
-    // Apply stacking adjustments if needed
-    if (user.settings.stacking) {
-        originalHeight = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns)/2 - topOfCalendarDay;
-        originalHeight -= 1; // manual adjustment
-        if (index >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
-            originalTop += originalHeight + gapBetweenColumns + topOfCalendarDay;
-        }
-    }
+    const dayColumnDimensions = getDayColumnDimensions(index);
+    const originalHeight = dayColumnDimensions.height;
+    const originalTop = dayColumnDimensions.top;
+    const dayElementLeft = dayColumnDimensions.left;
     
     // Calculate new top and height for the main timed event area within the day element
     let timedEventAreaHeight = originalHeight - totalAllDayEventsHeight;
     let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
     
-    // Update the main day element's style to reflect the space made for all-day events
-    HTML.setStyle(element, {
-        height: String(timedEventAreaHeight) + 'px',
-        top: String(timedEventAreaTop) + 'px'
-    });
-    
-    // Now update all the hour markers and hour marker text based on the new timedEventArea dimensions
-    for (let j = 0; j < 24; j++) {
-        let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
-        
-        if (j > 0) { 
-            let hourMarker = HTML.getUnsafely(`day${index}hourMarker${j}`);
-            if (exists(hourMarker)) {
+    // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
+    if (HTML.getUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
+        // if one is missing, all 24 must be missing
+        for (let j = 0; j < 24; j++) {
+            if (j > 0) { // on the first hour, we only need the text
+                let hourMarker = HTML.make('div');
+                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+                
                 HTML.setStyle(hourMarker, {
-                    top: String(hourPosition) + 'px'
+                    position: 'fixed',
+                    width: String(columnWidth + 1) + 'px',
+                    height: '1px',
+                    top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
+                    left: String(dayElementLeft + 1) + 'px',
+                    backgroundColor: 'var(--shade-3)',
+                    zIndex: '400'
+                });
+                
+                HTML.body.appendChild(hourMarker);
+            }
+
+            // create hour marker text
+            let hourMarkerText = HTML.make('div');
+            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
+            
+            let fontSize;
+            if (user.settings.ampmOr24 == 'ampm') {
+                fontSize = '12px';
+            } else {
+                fontSize = '10px'; // account for additional colon character
+            }
+            HTML.setStyle(hourMarkerText, {
+                position: 'fixed',
+                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 2) + 'px',
+                left: String(dayElementLeft + 4) + 'px',
+                color: 'var(--shade-3)',
+                fontFamily: 'JetBrainsMonoRegular',
+                fontSize: fontSize,
+                zIndex: '401'
+            });
+            
+            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
+            hourMarkerText.innerHTML = nthHourText(j);
+            HTML.body.appendChild(hourMarkerText);
+        }
+    } else { // update hour markers
+        for (let j = 0; j < 24; j++) {
+            let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
+            if (j > 0) { // on the first hour, we only need the text
+                let hourMarker = HTML.get(`day${index}hourMarker${j}`);
+                
+                HTML.setStyle(hourMarker, {
+                    top: String(hourPosition) + 'px',
+                    left: String(dayElementLeft + 1) + 'px',
+                    width: String(columnWidth + 1) + 'px'
                 });
             }
-        }
-        
-        // Update hour marker text positions
-        let hourMarkerText = HTML.getUnsafely(`day${index}hourMarkerText${j}`);
-        if (exists(hourMarkerText)) {
+
+            // adjust position of hour marker text
+            let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
+            
             HTML.setStyle(hourMarkerText, {
-                top: String(hourPosition + 2) + 'px'
+                top: String(hourPosition + 2) + 'px',
+                left: String(dayElementLeft + 4) + 'px'
             });
         }
     }
@@ -2270,8 +2197,7 @@ function handleReminderDragMove(e) {
         timeBubble.innerHTML = timeText;
         
         // Position bubble flush with left edge of calendar day
-        const dayElement = HTML.get('day' + G_reminderDragState.dayIndex);
-        const dayLeft = parseInt(dayElement.style.left);
+        const dayLeft = getDayColumnDimensions(G_reminderDragState.dayIndex).left;
         
         // Constrain bubble position to maintain 10px minimum distance from bottom
         const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
@@ -2340,8 +2266,7 @@ function handleReminderDragMove(e) {
                 if (dayIdx === G_reminderDragState.dayIndex) continue; // Skip the day being dragged
                 
                 const dayToRender = allDays[dayIdx];
-                const dayElementToRender = HTML.get('day' + dayIdx);
-                renderDay(dayToRender, dayElementToRender, dayIdx);
+                renderDay(dayToRender, dayIdx);
             }
             
             // Restore original times (we only want the temporary change for rendering)
@@ -2483,15 +2408,13 @@ function handleReminderDragEnd(e) {
         const allDays = currentDays();
         for (let i = 0; i < allDays.length; i++) {
             const dayToRender = allDays[i];
-            const dayElementToRender = HTML.get('day' + i);
-            renderDay(dayToRender, dayElementToRender, i);
+            renderDay(dayToRender, i);
         }
         log("All days re-rendered");
     } else {
         log("Re-rendering single day...");
         const dayToRender = currentDays()[dayIndex];
-        const dayElementToRender = HTML.get('day' + dayIndex);
-        renderDay(dayToRender, dayElementToRender, dayIndex);
+        renderDay(dayToRender, dayIndex);
         log("Day re-rendered");
     }
 
@@ -2542,14 +2465,12 @@ function handleReminderDragCancel(e) {
         const allDays = currentDays();
         for (let i = 0; i < allDays.length; i++) {
             const dayToRender = allDays[i];
-            const dayElementToRender = HTML.get('day' + i);
-            renderDay(dayToRender, dayElementToRender, i);
+            renderDay(dayToRender, i);
         }
     } else {
         log("Cancelling drag and re-rendering single day...");
         const dayToRender = currentDays()[dayIndex];
-        const dayElementToRender = HTML.get('day' + dayIndex);
-        renderDay(dayToRender, dayElementToRender, dayIndex);
+        renderDay(dayToRender, dayIndex);
     }
 }
 
@@ -2800,8 +2721,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             let timeBubble = HTML.make('div');
             HTML.setId(timeBubble, 'dragTimeBubble');
             const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
-            const dayElement = HTML.get('day' + dayIndex);
-            const dayLeft = parseInt(dayElement.style.left);
+            const dayLeft = getDayColumnDimensions(dayIndex).left;
             
             // Hide initially to prevent flickering
             HTML.setStyle(timeBubble, {
@@ -3170,8 +3090,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                     // Immediately re-render the current day to update the remaining stack
                     const dayToRender = currentDays()[dayIndex];
-                    const dayElementToRender = HTML.get('day' + dayIndex);
-                    renderDay(dayToRender, dayElementToRender, dayIndex);
+                    renderDay(dayToRender, dayIndex);
                     
                     // Restore the original instances array
                     entity.data.instances = originalInstances;
@@ -3180,8 +3099,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     let timeBubble = HTML.make('div');
                     HTML.setId(timeBubble, 'dragTimeBubble');
                     const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
-                    const dayElement = HTML.get('day' + dayIndex);
-                    const dayLeft = parseInt(dayElement.style.left);
+                    const dayLeft = getDayColumnDimensions(dayIndex).left;
                     
                     // Hide initially to prevent flickering
                     HTML.setStyle(timeBubble, {
@@ -3363,17 +3281,46 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
 let topOfCalendarDay = 20; // px
 
+function getDayColumnDimensions(dayIndex) {
+    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < user.settings.numberOfCalendarDays);
+
+    let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
+    let top = windowBorderMargin + headerSpace + topOfCalendarDay;
+    let left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex + 1));
+    const width = columnWidth; // columnWidth is a global
+
+    if (user.settings.stacking) {
+        height = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2 - topOfCalendarDay;
+        height -= 1; // manual adjustment, not sure why it's off by 1
+        if (dayIndex >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
+            top += height + gapBetweenColumns + topOfCalendarDay;
+            
+            if (user.settings.numberOfCalendarDays % 2 == 0) {
+                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - Math.floor(user.settings.numberOfCalendarDays / 2) + 1));
+            } else {
+                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - Math.floor(user.settings.numberOfCalendarDays / 2)));
+            }
+        } else { // top half
+            left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex + 1));
+        }
+    }
+
+    return { width, height, top, left };
+}
+
 function renderCalendar(days) {
     ASSERT(type(days, List(DateField)));
     ASSERT(exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
     ASSERT(type(user.settings.stacking, Boolean));
     for (let i = 0; i < 7; i++) {
         if (i >= user.settings.numberOfCalendarDays) { // delete excess elements if they exist
-            // day element
-            let dayElement = HTML.getUnsafely('day' + String(i));
-            if (dayElement != null) {
-                dayElement.remove();
+            // day background element
+            /*
+            let dayBackgroundElement = HTML.getUnsafely('day-background-' + String(i));
+            if (dayBackgroundElement != null) {
+                dayBackgroundElement.remove();
             }
+            */
             // hour markers
             for (let j = 0; j < 24; j++) {
                 let hourMarker = HTML.getUnsafely(`day${i}hourMarker${j}`);
@@ -3385,11 +3332,6 @@ function renderCalendar(days) {
                     hourMarkerText.remove();
                 }
             }
-            // backgrounds
-            let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
-            if (exists(backgroundElement)) {
-                backgroundElement.remove();
-            }
             // date text
             let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
             if (exists(dateText)) {
@@ -3400,12 +3342,6 @@ function renderCalendar(days) {
             if (exists(dayOfWeekText)) {
                 dayOfWeekText.remove();
             }
-            // outline elements
-            let outlineElement = HTML.getUnsafely('day' + String(i) + 'Outline');
-            if (exists(outlineElement)) {
-                outlineElement.remove();
-            }
-
             // Cleanup for all-day events and reminders for the removed day column
             let j = 0;
             while (true) {
@@ -3466,36 +3402,18 @@ function renderCalendar(days) {
             continue;
         }
 
-        let dayElement = HTML.getUnsafely('day' + String(i));
-        if (!exists(dayElement)) {
-            dayElement = HTML.make('div'); // create new element
-            HTML.setId(dayElement, 'day' + String(i));
+        const { width, height, top, left } = getDayColumnDimensions(i);
+
+        /*
+        let dayBackgroundElement = HTML.getUnsafely('day-background-' + String(i));
+        if (!exists(dayBackgroundElement)) {
+            dayBackgroundElement = HTML.make('div'); // create new element
+            HTML.setId(dayBackgroundElement, 'day-background-' + String(i));
         }
 
-        let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
-        let top = windowBorderMargin + headerSpace + topOfCalendarDay;
-        let left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i+1));
-        if (user.settings.stacking) {
-            // half the height, then subtract margin between calendar days
-            height = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns)/2 - topOfCalendarDay;
-            height -= 1; // manual adjustment, not sure why it's off by 1
-            if (i >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
-                top += height + gapBetweenColumns + topOfCalendarDay;
-                
-                // if the number of days is even, bottom is same as top
-                if (user.settings.numberOfCalendarDays % 2 == 0) {
-                    left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i - Math.floor(user.settings.numberOfCalendarDays / 2) + 1));
-                } else {
-                    left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i - Math.floor(user.settings.numberOfCalendarDays / 2)));
-                }
-            } else { // top half
-                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (i + 1));
-            }
-        }
-
-        HTML.setStyle(dayElement, {
+        HTML.setStyle(dayBackgroundElement, {
             position: 'fixed',
-            width: String(columnWidth) + 'px',
+            width: String(width) + 'px',
             height: String(height) + 'px',
             top: String(top) + 'px',
             left: String(left) + 'px',
@@ -3504,56 +3422,8 @@ function renderCalendar(days) {
             backgroundColor: 'var(--shade-0)',
             zIndex: '300' // below hour markers
         });
-        HTML.body.appendChild(dayElement);
-
-        // add outline element with very high z-index for border
-        let outlineElement = HTML.getUnsafely('day' + String(i) + 'Outline');
-        if (!exists(outlineElement)) {
-            outlineElement = HTML.make('div');
-            HTML.setId(outlineElement, 'day' + String(i) + 'Outline');
-        }
-
-        // add background element which is the same but with lower z index
-        let backgroundElement = HTML.getUnsafely('day' + String(i) + 'Background');
-        if (!exists(backgroundElement)) {
-            backgroundElement = HTML.make('div');
-            HTML.setId(backgroundElement, 'day' + String(i) + 'Background');
-        }
-
-        let topOfBackground = windowBorderMargin + headerSpace;
-        if (user.settings.stacking && i >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // in bottom half
-            topOfBackground = top - topOfCalendarDay; // height of top half + gap
-        }
-
-        // Determine border color based on whether this day is today
-        const borderColor = dayOfWeekOrRelativeDay(days[i]) === 'Today' ? 'var(--shade-4)' : 'var(--shade-3)';
-        
-        HTML.setStyle(outlineElement, {
-            position: 'fixed',
-            width: String(columnWidth) + 'px',
-            height: String(height + topOfCalendarDay) + 'px',
-            top: String(topOfBackground) + 'px',
-            left: String(left) + 'px',
-            border: '1px solid ' + borderColor,
-            borderRadius: '5px',
-            backgroundColor: 'transparent',
-            pointerEvents: 'none', // Don't interfere with interactions
-            zIndex: '4100' // reminders occupy 2600 to 4041
-        });
-        HTML.body.appendChild(outlineElement);
-
-        HTML.setStyle(backgroundElement, {
-            position: 'fixed',
-            width: String(columnWidth) + 'px',
-            height: String(height + topOfCalendarDay) + 'px',
-            top: String(topOfBackground) + 'px',
-            left: String(left) + 'px',
-            backgroundColor: 'var(--shade-1)',
-            border: '1px solid ' + 'var(--shade-3)',
-            borderRadius: '5px',
-            zIndex: '200', // below dayElement
-        });
-        HTML.body.appendChild(backgroundElement);
+        HTML.body.appendChild(dayBackgroundElement);
+        */
 
         // add MM-DD text to top right of background element
         let dateText = HTML.getUnsafely('day' + String(i) + 'DateText');
@@ -3611,7 +3481,7 @@ function renderCalendar(days) {
         }
         HTML.body.appendChild(dayOfWeekText);
 
-        renderDay(days[i], dayElement, i);
+        renderDay(days[i], i);
     }
 }
 
