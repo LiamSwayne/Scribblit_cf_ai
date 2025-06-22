@@ -671,7 +671,7 @@ if (TESTING) {
             new ReminderData([
                 new NonRecurringReminderInstance(
                     today, // date
-                    new TimeField(5, 0)
+                    new TimeField(9, 40)
                 ),
                 new NonRecurringReminderInstance(
                     tomorrow, // date
@@ -2002,11 +2002,73 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 eventElement.style.overflow = 'visible';
                 eventElement.style.boxShadow = 'inset 0 0 0 2px var(--shade-4)';
                 eventElement.style.textShadow = `-1px -1px 0 ${eventColor}, 1px -1px 0 ${eventColor}, -1px 1px 0 ${eventColor}, 1px 1px 0 ${eventColor}`;
+                
+                // Check if text overlay already exists
+                let textOverlay = HTML.getUnsafely(`${eventId}_textOverlay`);
+                
+                if (exists(textOverlay)) {
+                    // Clear any pending removal timeout
+                    if (textOverlay.fadeOutTimeout) {
+                        clearTimeout(textOverlay.fadeOutTimeout);
+                        delete textOverlay.fadeOutTimeout;
+                    }
+                    // Just fade it in
+                    textOverlay.style.opacity = '1';
+                } else {
+                    // Create new high z-index text overlay
+                    textOverlay = HTML.make('div');
+                    HTML.setId(textOverlay, `${eventId}_textOverlay`);
+                    textOverlay.innerHTML = instance.name;
+                    
+                    HTML.setStyle(textOverlay, {
+                        position: 'fixed',
+                        top: `${top}px`,
+                        left: `${left}px`,
+                        width: `${width}px`,
+                        height: `${height}px`,
+                        color: 'var(--shade-4)',
+                        fontSize: '12px',
+                        fontFamily: 'LexendRegular',
+                        paddingTop: '2px',
+                        paddingRight: '8px',
+                        paddingBottom: '3px',
+                        paddingLeft: '6px',
+                        whiteSpace: 'normal',
+                        overflow: 'visible',
+                        boxSizing: 'border-box',
+                        zIndex: String(timedEventBaseZIndex + reminderBaseZIndex + reminderIndexIncreaseOnHover + 1), // above all reminders
+                        pointerEvents: 'none',
+                        opacity: '0',
+                        transition: 'opacity 0.2s ease-in-out',
+                        textShadow: `-1px -1px 0 ${eventColor}, 1px -1px 0 ${eventColor}, -1px 1px 0 ${eventColor}, 1px 1px 0 ${eventColor}`
+                    });
+                    
+                    HTML.body.appendChild(textOverlay);
+                    
+                    // Fade in
+                    setTimeout(() => {
+                        if (HTML.getUnsafely(`${eventId}_textOverlay`)) {
+                            textOverlay.style.opacity = '1';
+                        }
+                    }, 10);
+                }
             };
             eventElement.mouseLeaveHandler = function() {
                 eventElement.style.overflow = 'hidden';
                 eventElement.style.boxShadow = 'none';
                 eventElement.style.textShadow = 'none';
+                
+                // Fade out and remove text overlay
+                const textOverlay = HTML.getUnsafely(`${eventId}_textOverlay`);
+                if (exists(textOverlay)) {
+                    textOverlay.style.opacity = '0';
+                    textOverlay.fadeOutTimeout = setTimeout(() => {
+                        const overlayToRemove = HTML.getUnsafely(`${eventId}_textOverlay`);
+                        if (exists(overlayToRemove)) {
+                            overlayToRemove.remove();
+                        }
+                    }, 200); // Match transition duration
+                }
             };
             eventElement.addEventListener('mouseenter', eventElement.mouseEnterHandler);
             eventElement.addEventListener('mouseleave', eventElement.mouseLeaveHandler);
