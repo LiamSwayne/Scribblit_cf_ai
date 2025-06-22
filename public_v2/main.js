@@ -798,6 +798,9 @@ let headerSpace = 20; // px gap at top to make space for logo and buttons
 const timedEventBaseZIndex = 500;
 const reminderBaseZIndex = 3400;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
+const currentTimeIndicatorZIndex = 5000; // > than 3400+1441
+const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
+
 // Reminder dimensions - all based on font size for consistency
 const REMINDER_FONT_SIZE = 12; // px
 const REMINDER_TEXT_HEIGHT = Math.round(REMINDER_FONT_SIZE * 1.4); // 17px
@@ -2926,7 +2929,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 borderRadius: String(bubbleHeight / 2) + 'px',
                 paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                 boxSizing: 'border-box',
-                zIndex: '600', // higher than hour marker but below outline
+                zIndex: String(timeBubbleZIndex),
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
                 visibility: 'hidden', // Hide initially
@@ -3327,7 +3330,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         borderRadius: String(bubbleHeight / 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                         boxSizing: 'border-box',
-                        zIndex: '600', // higher than hour marker but below outline
+                        zIndex: String(timeBubbleZIndex),
                         whiteSpace: 'nowrap',
                         pointerEvents: 'none',
                         visibility: 'hidden', // Hide initially
@@ -3875,13 +3878,134 @@ buttonStacking.onclick = toggleStacking;
 buttonStacking.innerHTML = 'Toggle Stacking';
 HTML.body.appendChild(buttonStacking);
 
+let currentMin = NULL;
+function renderTimeIndicator(onSchedule) {
+    ASSERT(type(onSchedule, Boolean));
+    // if render is called it could be for any reason, so we want to update
+    // but if this is being called on a schedule (every second), we may not need to update
+    if (onSchedule && currentMin != NULL && currentMin == DateTime.local().minute) {
+        return;
+    }
+    currentMin = DateTime.local().minute;
+
+    // 1. Remove existing time indicator elements
+    let existingMarker = HTML.getUnsafely('time-marker');
+    if (exists(existingMarker)) {
+        existingMarker.remove();
+    }
+    let existingTriangle = HTML.getUnsafely('time-triangle');
+    if (exists(existingTriangle)) {
+        existingTriangle.remove();
+    }
+
+    // 2. Find if today is being rendered
+    const days = currentDays();
+    const today = getDayNDaysFromToday(0);
+    let todayIndex = -1;
+    for (let i = 0; i < days.length; i++) {
+        if (days[i].year === today.year && days[i].month === today.month && days[i].day === today.day) {
+            todayIndex = i;
+            break;
+        }
+    }
+
+    // 3. If today is not rendered, we are done.
+    if (todayIndex === -1) {
+        return;
+    }
+
+    // 4. Calculate position
+    const now = DateTime.local();
+    const day = days[todayIndex];
+    let dayTime = DateTime.local(day.year, day.month, day.day);
+
+    const startOfVisibleDay = dayTime.startOf('day').plus({ hours: user.settings.startOfDayOffset });
+    const endOfVisibleDay = dayTime.endOf('day').plus({ hours: user.settings.endOfDayOffset }).plus({milliseconds: 1});
+
+    const totalDayDuration = endOfVisibleDay.toMillis() - startOfVisibleDay.toMillis();
+    const timeSinceStart = now.toMillis() - startOfVisibleDay.toMillis();
+
+    if (timeSinceStart < 0 || timeSinceStart > totalDayDuration) {
+        return;
+    }
+
+    const timeProportion = timeSinceStart / totalDayDuration;
+
+    const dayColumnDimensions = getDayColumnDimensions(todayIndex);
+
+    // This logic is duplicated from renderDay to correctly calculate the timed area
+    let startOfDayUnix = startOfVisibleDay.toMillis();
+    let endOfDayUnix = endOfVisibleDay.toMillis();
+    let G_filteredAllDayInstances = [];
+     for (let entity of user.entityArray) {
+        if (type(entity.data, TaskData)) {
+             if (entity.data.workSessions.length > 0) { // check length not just > 0
+                for (let patternIndex = 0; patternIndex < entity.data.workSessions.length; patternIndex++) {
+                    const workSession = entity.data.workSessions[patternIndex];
+                    const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, patternIndex, day, startOfDayUnix, endOfDayUnix);
+                    factoryResults.forEach(res => {
+                        if (type(res, FilteredAllDayInstance)) G_filteredAllDayInstances.push(res);
+                    });
+                }
+            }
+        } else if (type(entity.data, EventData)) {
+            for (let patternIndex = 0; patternIndex < entity.data.instances.length; patternIndex++) {
+                const eventInst = entity.data.instances[patternIndex];
+                const factoryResults = FilteredInstancesFactory.fromEvent(entity, eventInst, patternIndex, day, startOfDayUnix, endOfDayUnix);
+                 factoryResults.forEach(res => {
+                    if (type(res, FilteredAllDayInstance)) G_filteredAllDayInstances.push(res);
+                });
+            }
+        }
+    }
+
+    const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4;
+    const timedEventAreaHeight = dayColumnDimensions.height - totalAllDayEventsHeight;
+    const timedEventAreaTop = dayColumnDimensions.top + totalAllDayEventsHeight;
+
+    const positionY = timedEventAreaTop + (timeProportion * timedEventAreaHeight);
+
+    // 5. Create elements
+    const timeMarker = HTML.make('div');
+    HTML.setId(timeMarker, 'time-marker');
+    const timeMarkerHeight = 2;
+    HTML.setStyle(timeMarker, {
+        position: 'fixed',
+        left: String(dayColumnDimensions.left) + 'px',
+        width: String(dayColumnDimensions.width) + 'px',
+        top: String(positionY) + 'px',
+        height: '2px',
+        backgroundColor: '#ff444455',
+        zIndex: '2000',
+        pointerEvents: 'none',
+    });
+    HTML.body.appendChild(timeMarker);
+
+    const timeTriangle = HTML.make('div');
+    HTML.setId(timeTriangle, 'time-triangle');
+    const timeTriangleHeight = 16;
+    const timeTriangleWidth = 10;
+    HTML.setStyle(timeTriangle, {
+        position: 'fixed',
+        left: String(dayColumnDimensions.left) + 'px',
+        top: String(positionY - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)) + 'px',
+        width: '0px',
+        height: '0px',
+        borderLeft: String(timeTriangleWidth) + 'px solid #ff4444',
+        borderTop: String(timeTriangleHeight / 2) + 'px solid transparent',
+        borderBottom: String(timeTriangleHeight / 2) + 'px solid transparent',
+        zIndex: '2000',
+        pointerEvents: 'none',
+    });
+    HTML.body.appendChild(timeTriangle);
+}
+
 function render() {
     columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
     renderCalendar(currentDays());
     renderDividers();
-
-    // if today is one of the days rendered, show time indicator
+    renderTimeIndicator(false);
 }
 
 window.onresize = render;
@@ -3965,6 +4089,8 @@ async function loadFonts() {
     }
 
     render();
+    // refresh every second, the function will exit if it isn't a new minute
+    setInterval(() => renderTimeIndicator(true), 1000);
 }
 
 // init call
