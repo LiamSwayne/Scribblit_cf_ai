@@ -4036,9 +4036,9 @@ function renderInputBox() {
 
         // Animate caret color on focus
         HTML.applyAnimation(taskInput, 'focus', [
-            { caretColor: user.palette.accent[0], offset: 0 },
-            { caretColor: user.palette.accent[1], offset: 0.5 },
-            { caretColor: user.palette.accent[0], offset: 1 }
+            { caretColor: '#61a3ff', offset: 0 },
+            { caretColor: '#d477ff', offset: 0.5 },
+            { caretColor: '#61a3ff', offset: 1 }
         ], {
             duration: 3000,
             iterations: Infinity,
