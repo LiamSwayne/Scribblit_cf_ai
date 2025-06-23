@@ -3124,6 +3124,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             maskPosition: isFlipped ? 'top right' : 'bottom right',
             webkitMaskRepeat: 'no-repeat',
             maskRepeat: 'no-repeat',
+            // clip the path so when they're hovering over the transparent part, it has no hitbox, and doesn't prevent you from hovering over what's below it
+            // I want to clip the path, but because of a bug in the browser, it removes a little off the top edge
+            // so you actually have to shift the left and top edges by 10%
+            clipPath: 'polygon(-10% -10%, 100% -10%, -10% 100%)'
         });
 
         // Create stacked reminders for groups (initially hidden, positioned relative to container)
@@ -4259,7 +4263,7 @@ async function loadFonts() {
 }
 
 async function init() {
-    loadFonts();
+    await loadFonts();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
