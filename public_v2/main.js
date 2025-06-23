@@ -4180,8 +4180,7 @@ function render() {
 
 window.onresize = render;
 
-// load fonts (hoping to cache them)
-async function init() {
+async function loadFonts() {
     const fontPromises = fontDefinitions.map(async (fontDef) => {
         let cachedBase64 = preservedFontCss[fontDef.key];
         if (cachedBase64) {
@@ -4257,7 +4256,10 @@ async function init() {
         
         await Promise.all(loadPromises);
     }
+}
 
+async function init() {
+    loadFonts();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
