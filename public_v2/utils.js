@@ -34,6 +34,12 @@ function sleep(seconds) {
     return new Promise(resolve => setTimeout(resolve, seconds * 1000)); // setTimeout works in milliseconds
 }
 
+function wait(ms, func) {
+    ASSERT(type(ms, Int), "wait: ms must be an integer");
+    ASSERT(type(func, Function), "wait: func must be a function");
+    setTimeout(func, ms);
+}
+
 // List type for homogeneous arrays
 class LIST {
     constructor(innerType) {
