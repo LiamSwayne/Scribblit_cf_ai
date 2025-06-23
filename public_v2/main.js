@@ -4046,6 +4046,9 @@ function renderInputBox() {
         });
 
         // create custom border div via custom background
+        let borderDiv = HTML.make('div');
+        HTML.setId(borderDiv, 'taskInputBorder');
+        HTML.body.appendChild(borderDiv);
     }
 
     // we are rendeing a custom border div, so we add 2px on each side
@@ -4070,10 +4073,27 @@ function renderInputBox() {
         whiteSpace: 'pre-wrap',
         overflowY: 'auto',
         boxSizing: 'border-box',
-        transition: 'border-color 0.3s ease'
+        transition: 'border-color 0.3s ease',
+        zIndex: '3'
     });
 
-    // HERE
+    // this is the background border
+    let borderDiv = HTML.getUnsafely('taskInputBorder');
+    if (exists(borderDiv)) {
+        HTML.setStyle(borderDiv, {
+            position: 'fixed',
+            top: String(windowBorderMargin + logoHeight + 6) + 'px', // some padding from bottom of logo
+            left: String(windowBorderMargin) + 'px',
+            width: String(columnWidth) + 'px',
+            height: String(100 + borderThickness*2) + 'px',
+            backgroundColor: 'var(--shade-2)',
+            borderRadius: '9px',
+            zIndex: '1',
+            boxSizing: 'border-box'
+        });
+    }
+
+    // add rainbow div here
 }
 
 function render() {
