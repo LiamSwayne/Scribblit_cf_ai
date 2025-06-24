@@ -117,6 +117,11 @@ class DateField {
         this.day = day;
     }
 
+    toUnixTimestamp() {
+        ASSERT(type(this, DateField));
+        return (new Date(this.year, this.month - 1, this.day)).getTime();
+    }
+
     toJson() {
         ASSERT(type(this, DateField));
         return {
@@ -416,11 +421,17 @@ class NonRecurringTaskInstance {
         
         ASSERT(type(dueTime, Union(TimeField, NULL)));
         
-        ASSERT(type(completion, List(Int)));
+        ASSERT(type(completion, Boolean));
         
         this.date = date;
         this.dueTime = dueTime;
         this.completion = completion;
+    }
+
+    // no unix args since it only happens once
+    isComplete() {
+        ASSERT(type(this, NonRecurringTaskInstance));
+        return this.completion;
     }
 
     toJson() {
@@ -457,11 +468,188 @@ class RecurringTaskInstance {
         ASSERT(type(dueTime, Union(TimeField, NULL)));
         ASSERT(type(range, Union(DateRange, RecurrenceCount)));
         ASSERT(type(completion, List(Int)));
-        
+
         this.datePattern = datePattern;
         this.dueTime = dueTime;
         this.range = range;
         this.completion = completion;
+    }
+
+    getDueDatesInRange(startUnix=NULL, endUnix=NULL) {
+        ASSERT(type(this, RecurringTaskInstance));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+
+        let lowerBound;
+        let upperBound;
+
+        if (type(this.range, DateRange)) {
+            lowerBound = this.range.startDate.toUnixTimestamp();
+            upperBound = this.range.endDate === NULL ? 1908500414 : this.range.endDate.toUnixTimestamp();
+        } else { // RecurrenceCount
+            lowerBound = 0; // Start from epoch
+            upperBound = 1908500414; // about 2030
+        }
+
+        if (startUnix !== NULL) {
+            lowerBound = Math.max(startUnix, lowerBound);
+        }
+        if (endUnix !== NULL) {
+            upperBound = Math.min(endUnix, upperBound);
+        }
+        
+        let dueDates = [];
+        if (type(this.datePattern, EveryNDaysPattern)) {
+            // we first need to align the lower bound to the first instance of the pattern
+            let current = this.datePattern.initialDate.toUnixTimestamp();
+            while (current < lowerBound) {
+                current += this.datePattern.n * 24 * 60 * 60 * 1000;
+            }
+
+            while (current <= upperBound) {
+                dueDates.push(current);
+                current += this.datePattern.n * 24 * 60 * 60 * 1000;
+                if (type(this.range, RecurrenceCount) && dueDates.length >= this.range.count) {
+                    break;
+                }
+            }
+        } else if (type(this.datePattern, MonthlyPattern)) {
+            let startDate = new Date(lowerBound);
+            let startYear = startDate.getUTCFullYear();
+            let startMonth = startDate.getUTCMonth(); // 0-indexed
+
+            let endDate = new Date(upperBound);
+            let endYear = endDate.getUTCFullYear();
+            let endMonth = endDate.getUTCMonth();
+
+            for (let year = startYear; year <= endYear; year++) {
+                // if the start year is the same as the end year, we can just use the start and end months
+                // otherwise, we need to iterate through all months
+                let monthStart = (year === startYear) ? startMonth : 0;
+                let monthEnd = (year === endYear) ? endMonth : 11;
+
+                for (let month = monthStart; month <= monthEnd; month++) {
+                    if (this.datePattern.months[month]) {
+                        // Use UTC to prevent timezone shifts
+                        let dueDate = new Date(Date.UTC(year, month, this.datePattern.day));
+                        
+                        // Check if the day is valid for that month
+                        if (dueDate.getUTCMonth() !== month) {
+                            continue; // e.g. day 31 in a 30-day month
+                        }
+
+                        let dueDateTime = dueDate.getTime();
+
+                        if (dueDateTime >= lowerBound && dueDateTime <= upperBound) {
+                            dueDates.push(dueDateTime);
+                            if (type(this.range, RecurrenceCount) && dueDates.length >= this.range.count) {
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (type(this.range, RecurrenceCount) && dueDates.length >= this.range.count) {
+                    break;
+                }
+            }
+        } else if (type(this.datePattern, AnnuallyPattern)) {
+            let startDate = new Date(lowerBound);
+            // Adjust to UTC to avoid timezone issues with year calculation
+            let startYear = startDate.getUTCFullYear();
+            
+            let endDate = new Date(upperBound);
+            let endYear = endDate.getUTCFullYear();
+
+            for (let year = startYear; year <= endYear; year++) {
+                // month is 1-based in AnnuallyPattern, day is 1-based.
+                // Date constructor month is 0-based.
+                // Use UTC to prevent timezone shifts from affecting the date.
+                let dueDate = new Date(Date.UTC(year, this.datePattern.month - 1, this.datePattern.day));
+                let dueDateTime = dueDate.getTime();
+
+                if (dueDateTime >= lowerBound && dueDateTime <= upperBound) {
+                    dueDates.push(dueDateTime);
+                }
+                if (type(this.range, RecurrenceCount) && dueDates.length >= this.range.count) {
+                    break;
+                }
+            }
+        } else if (type(this.datePattern, NthWeekdayOfMonthsPattern)) {
+            const dayOfWeekMap = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 };
+            const targetDayOfWeek = dayOfWeekMap[this.datePattern.dayOfWeek];
+
+            let startDate = new Date(lowerBound);
+            let startYear = startDate.getUTCFullYear();
+            let startMonth = startDate.getUTCMonth();
+
+            let endDate = new Date(upperBound);
+            let endYear = endDate.getUTCFullYear();
+            let endMonth = endDate.getUTCMonth();
+            
+            let potentialDueDates = [];
+
+            for (let year = startYear; year <= endYear; year++) {
+                let monthStart = (year === startYear) ? startMonth : 0;
+                let monthEnd = (year === endYear) ? endMonth : 11;
+
+                for (let month = monthStart; month <= monthEnd; month++) {
+                    if (this.datePattern.months[month]) {
+                        let weekdaysInMonth = [];
+                        let daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            let currentDate = new Date(Date.UTC(year, month, day));
+                            if (currentDate.getUTCDay() === targetDayOfWeek) {
+                                weekdaysInMonth.push(currentDate);
+                            }
+                        }
+
+                        for (const nStr in this.datePattern.nthWeekdays) {
+                            if (this.datePattern.nthWeekdays[nStr]) {
+                                const n = Number(nStr);
+                                let selectedDate = null;
+                                if (n > 0 && n <= weekdaysInMonth.length) {
+                                    selectedDate = weekdaysInMonth[n - 1];
+                                } else if (n === -1 && weekdaysInMonth.length > 0) {
+                                    selectedDate = weekdaysInMonth[weekdaysInMonth.length - 1];
+                                }
+
+                                if (selectedDate) {
+                                    let dueDateTime = selectedDate.getTime();
+                                    if (dueDateTime >= lowerBound && dueDateTime <= upperBound) {
+                                        potentialDueDates.push(dueDateTime);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            potentialDueDates.sort((a, b) => a - b);
+
+            if (type(this.range, RecurrenceCount)) {
+                dueDates = potentialDueDates.slice(0, this.range.count);
+            } else {
+                dueDates = potentialDueDates;
+            }
+        }
+
+        return dueDates;
+    }
+
+    isComplete(startUnix=NULL, endUnix=NULL) {
+        ASSERT(type(this, RecurringTaskInstance));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+
+        let dueDates = this.getDueDatesInRange(startUnix, endUnix);
+
+        for (const date of dueDates) {
+            if (!this.completion.includes(date)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     toJson() {
@@ -730,11 +918,33 @@ class TaskData {
         ASSERT(type(showOverdue, Boolean));
         
         ASSERT(type(workSessions, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
+
+        // TODO get the latest due date, or it is NULL if this task continues indefinitely
+
+        // TODO make sure that every work session ends before the due date of the task
         
         this.instances = instances;
         this.hideUntil = hideUntil;
         this.showOverdue = showOverdue;
         this.workSessions = workSessions;
+    }
+
+    isComplete(startUnix=NULL, endUnix=NULL) {
+        ASSERT(type(this, TaskData));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+        for (const instance of this.instances) {
+            if (type(instance, NonRecurringTaskInstance)) {
+                if (!instance.isComplete()) {
+                    return false;
+                }
+            } else if (type(instance, RecurringTaskInstance)) {
+                if (!instance.isComplete(startUnix, endUnix)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     toJson() {

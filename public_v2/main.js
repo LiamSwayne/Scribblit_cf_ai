@@ -39,6 +39,27 @@ function loadUserData() {
     }
 }
 
+function formatTaskTime(time) {
+    ASSERT(type(time, TimeField));
+    ASSERT(type(user, User));
+    ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24');
+
+    let hour = time.hour;
+    const minute = time.minute.toString().padStart(2, '0');
+
+    if (user.settings.ampmOr24 === '24') {
+        return `${hour.toString()}:${minute}`;
+    } else { // ampm
+        const period = hour >= 12 ? 'PM' : 'AM';
+        if (hour > 12) {
+            hour -= 12;
+        } else if (hour === 0) {
+            hour = 12;
+        }
+        return `${hour}:${minute}${period}`;
+    }
+}
+
 // returns today's ISO date or the date offset from today by the given number of days
 function getDayNDaysFromToday(offset) {
     ASSERT(type(offset, Int) && offset >= 0 && offset < 7);
@@ -71,9 +92,7 @@ if (TESTING) {
     localStorage.clear();
     log("Clean slate");
 
-    // --- Start of relative date definitions for sample data ---
     const baseDate = DateTime.local(); // Use a single base for all calculations
-
     const today = new DateField(baseDate.year, baseDate.month, baseDate.day);
 
     const tomorrowDate = baseDate.plus({days: 1});
@@ -109,30 +128,44 @@ if (TESTING) {
         nextSaturdayDateCalc = nextSaturdayDateCalc.plus({days: 1});
     }
     const nextSaturday = new DateField(nextSaturdayDateCalc.year, nextSaturdayDateCalc.month, nextSaturdayDateCalc.day);
-    // --- End of relative date definitions ---
 
     // Create sample tasks and events
     let entityArray = [
         // one-time task with work time
         new Entity(
             'task-001', // id
-            'Submit Final Project', // name
+            'Final Project', // name
             'Complete and submit the final project for CS401', // description
             new TaskData( // data
                 [
                     new NonRecurringTaskInstance(
-                        in1Week, // date
-                        new TimeField(23, 59), // dueTime
-                        [] // completion
+                        in3Days, // date
+                        new TimeField(22, 0), // dueTime
+                        false // completion
                     )
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
                 [
+                    // working on it every day
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            1 // n
+                        ), // startDatePattern
+                        new TimeField(6, 30), // startTime
+                        new TimeField(7, 30), // endTime
+                        new DateRange(
+                            today, // startDate
+                            in2Days // endDate
+                        ), // range
+                        NULL // differentEndDatePattern
+                    ),
+                    // submission
                     new NonRecurringEventInstance(
-                        in5Days, // startDate
+                        in2Days, // startDate
                         new TimeField(14, 30), // startTime
-                        new TimeField(16, 30), // endTime
+                        new TimeField(15, 30), // endTime
                         NULL // differentEndDate
                     )
                 ] // workSessions
@@ -1124,28 +1157,21 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
         // if no explicit start range is given. The loop will find the first valid date.
         startDateTime = DateTime.local().startOf('day');
     }
-    // Determine end date
-    let endDateTime;
-    if (type(endUnix, Int)) {
-        endDateTime = DateTime.fromMillis(endUnix);
-    } else if (type(instance.range, DateRange)) {
-        if (instance.range.endDate !== NULL) {
-            ASSERT(type(instance.range.endDate, DateField));
-            endDateTime = DateTime.local(instance.range.endDate.year, instance.range.endDate.month, instance.range.endDate.day);
-        } else {
-            endDateTime = NULL;
-        }
+    // Determine the recurrence's own end date
+    let recurrenceEndDateTime;
+    if (type(instance.range, DateRange) && instance.range.endDate !== NULL) {
+        ASSERT(type(instance.range.endDate, DateField));
+        recurrenceEndDateTime = DateTime.local(instance.range.endDate.year, instance.range.endDate.month, instance.range.endDate.day).endOf('day');
     } else if (type(instance.range, RecurrenceCount)) {
-        endDateTime = NULL;
-    } else {
-        ASSERT(false);
+        recurrenceEndDateTime = NULL;
     }
+
     const dates = [];
     let currentDateTime = startDateTime;
     let count = 0;
     // max of 10000 instances if it's a recurring pattern that doesn't have a count
     const maxCount = type(instance.range, RecurrenceCount) ? instance.range.count : 10000;
-    while ((endDateTime === NULL || currentDateTime <= endDateTime) && count < maxCount) {
+    while ((recurrenceEndDateTime === NULL || currentDateTime <= recurrenceEndDateTime) && count < maxCount) {
         // build timestamp (start of day + optional time)
         let timestamp = currentDateTime.startOf('day').toMillis();
         
@@ -1198,7 +1224,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
                 nextDateTime = nextDateTime.plus({months: 1}).set({day: pattern.day});
                 if (nextDateTime.year > currentDateTime.year + 5) { // Arbitrary limit to prevent runaway loops
                     log("Warning: Potential infinite loop in MonthlyPattern processing. No valid month found within 5 years.");
-                    currentDateTime = endDateTime.plus({days: 1}); // Force exit
+                    currentDateTime = (recurrenceEndDateTime || DateTime.local().plus({years: 5})).plus({days: 1}); // Force exit
                     break;
                 }
             }
@@ -1211,10 +1237,10 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
             // We need to iterate through months, find the Nth occurrences of dayOfWeek.
 
             let foundNext = false;
-            while (!foundNext && (endDateTime === NULL || currentDateTime <= endDateTime)) {
+            while (!foundNext && (recurrenceEndDateTime === NULL || currentDateTime <= recurrenceEndDateTime)) {
                 currentDateTime = currentDateTime.plus({ days: 1 }); // Increment day by day to find the next match
 
-                if (endDateTime !== NULL && currentDateTime > endDateTime) {
+                if (recurrenceEndDateTime !== NULL && currentDateTime > recurrenceEndDateTime) {
                     break; // Exceeded end date
                 }
 
@@ -1257,14 +1283,14 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
                 }
                 if (currentDateTime.year > startDateTime.year + 10 && dates.length < 2) { // Prevent excessively long searches if pattern is sparse
                      log("Warning: NthWeekdayOfMonthsPattern might be too sparse or never occur. Breaking search.");
-                     currentDateTime = endDateTime ? endDateTime.plus({days: 1}) : currentDateTime.plus({years: 10}); // force exit
+                     currentDateTime = recurrenceEndDateTime ? recurrenceEndDateTime.plus({days: 1}) : currentDateTime.plus({years: 10}); // force exit
                      break;
                 }
             }
             if (!foundNext) {
                  // If no next date found within limits, effectively end the loop for this pattern
-                 if (endDateTime) currentDateTime = endDateTime.plus({days: 1});
-                 // else, if no endDateTime, we might have hit maxCount or an arbitrary break
+                 if (recurrenceEndDateTime) currentDateTime = recurrenceEndDateTime.plus({days: 1});
+                 // else, if no recurrenceEndDateTime, we might have hit maxCount or an arbitrary break
             }
 
         } else {
@@ -1282,66 +1308,16 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     return dates;
 }
 
-// check if all of a task is complete
-function isTaskComplete(task) {
-    ASSERT(type(task, TaskData));
-    if (task.instances.length === 0) {
-        return false;
-    }
-
-    for (let inst of task.instances) {
-        if (type(inst, NonRecurringTaskInstance)) {
-            ASSERT(type(inst.date, DateField));
-            ASSERT(type(inst.completion, List(Int)));
-            let dt = DateTime.local(inst.date.year, inst.date.month, inst.date.day);
-            ASSERT(dt.isValid);
-            let targetTs = dt.startOf('day').toMillis();
-            if (type(inst.dueTime, TimeField)) {
-                targetTs = dt.set({hour: inst.dueTime.hour, minute: inst.dueTime.minute}).toMillis();
-            }
-            if (!inst.completion.some(ct => {
-                let cd = DateTime.fromMillis(ct);
-                return cd.hasSame(DateTime.fromMillis(targetTs).startOf('day'), 'day');
-            })) {
-                return false;
-            }
-        } else if (type(inst, RecurringTaskInstance)) {
-            ASSERT(type(inst.range, Union(DateRange, RecurrenceCount)));
-            let patternDates;
-            if (type(inst.range, DateRange)) {
-                ASSERT(type(inst.range.startDate, DateField));
-                ASSERT(type(inst.range.endDate, DateField));
-                let startMs = DateTime.local(inst.range.startDate.year, inst.range.startDate.month, inst.range.startDate.day).startOf('day').toMillis();
-                let endMs = DateTime.local(inst.range.endDate.year, inst.range.endDate.month, inst.range.endDate.day).endOf('day').toMillis();
-                patternDates = generateInstancesFromPattern(inst, startMs, endMs);
-            } else {
-                ASSERT(type(inst.range, RecurrenceCount));
-                ASSERT(type(inst.range.count, Int));
-                ASSERT(inst.range.count > 0);
-                patternDates = generateInstancesFromPattern(inst);
-                ASSERT(patternDates.length === inst.range.count);
-            }
-            ASSERT(type(inst.completion, List(Int)));
-            for (let pd of patternDates) {
-                if (!inst.completion.some(ct => DateTime.fromMillis(ct).hasSame(DateTime.fromMillis(pd).startOf('day'), 'day'))) {
-                    return false;
-                }
-            }
-        } else {
-            ASSERT(false);
-        }
-    }
-
-    return true;
-}
-
-const FilteredInstancesFactory = {
+class FilteredInstancesFactory {
     // Processes a single work session instance from a TaskEntity
-    fromTaskWorkSession: function(taskEntity, workSessionInstance, workSessionPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
+    static fromTaskWorkSession(taskEntity, workSessionInstance, workSessionPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
         const results = [];
         const entityId = taskEntity.id;
         const entityName = taskEntity.name; // Or specific name for work session if available/different
-        const taskIsComplete = isTaskComplete(taskEntity.data);
+        // we want to know if the entire task is complete
+        // even if it's complete for some days, the work sessions
+        // should still be shown because they can still make progress
+        const taskIsComplete = taskEntity.data.isComplete();
 
         // Common properties for the instances derived from this workSessionInstance
         const originalStartDate = workSessionInstance.startDatePattern ? workSessionInstance.startDatePattern.initialDate : workSessionInstance.startDate;
@@ -1454,9 +1430,9 @@ const FilteredInstancesFactory = {
             }
         }
         return results;
-    },
+    }
 
-    fromEvent: function(eventEntity, eventInstance, eventPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
+    static fromEvent(eventEntity, eventInstance, eventPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
         const results = [];
         const entityId = eventEntity.id;
         const entityName = eventEntity.name;
@@ -1520,7 +1496,7 @@ const FilteredInstancesFactory = {
                 let eventEndMs = eventEndDateTime.toMillis();
 
                 // this logic seems weird but it's so you can have multi-day events that span multiple days
-                if (eventStartMs <= dayEndUnix && eventEndMs >= dayStartUnix) {
+                if (eventStartMs <= dayEndUnix && eventEndMs >= dayEndUnix) {
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
                         entityName,
@@ -1590,9 +1566,9 @@ const FilteredInstancesFactory = {
             }
         }
         return results;
-    },
+    }
 
-    fromReminder: function(reminderEntity, reminderInstance, reminderPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
+    static fromReminder(reminderEntity, reminderInstance, reminderPatternIndex, dayDateField, dayStartUnix, dayEndUnix) {
         const results = [];
         const entityId = reminderEntity.id;
         const entityName = reminderEntity.name;
@@ -1641,7 +1617,6 @@ const FilteredInstancesFactory = {
     }
 };
 
-
 function renderDay(day, index) {
     ASSERT(type(day, DateField) && type(index, Int));
     
@@ -1662,7 +1637,7 @@ function renderDay(day, index) {
         ASSERT(type(entity, Entity));
 
         if (type(entity.data, TaskData)) {
-            if (entity.data.workSessions > 0) {
+            if (entity.data.workSessions.length > 0) {
                 for (let patternIndex = 0; patternIndex < entity.data.workSessions.length; patternIndex++) {
                     const workSession = entity.data.workSessions[patternIndex];
                     const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, patternIndex, day, startOfDay, endOfDay);
