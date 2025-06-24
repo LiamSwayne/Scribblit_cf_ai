@@ -4016,13 +4016,13 @@ function renderTimeIndicator(onSchedule) {
 }
 
 function renderInputBox() {
-    let taskInput = HTML.getElement('taskInput');
+    let inputBox = HTML.getElement('inputBox');
 
-    if (!exists(taskInput)) {
-        taskInput = HTML.make('textarea');
-        HTML.setId(taskInput, 'taskInput');
-        taskInput.placeholder = "Scribble your tasks and events here...";
-        HTML.body.appendChild(taskInput);
+    if (!exists(inputBox)) {
+        inputBox = HTML.make('textarea');
+        HTML.setId(inputBox, 'inputBox');
+        inputBox.placeholder = "Scribble your tasks and events here...";
+        HTML.body.appendChild(inputBox);
 
         // Create a class to hide the scrollbar
         HTML.createClass('no-scrollbar', {
@@ -4031,16 +4031,16 @@ function renderInputBox() {
         let styleElement = HTML.make('style');
         styleElement.textContent = `.no-scrollbar::-webkit-scrollbar { display: none; }`; /* For Chrome/Safari */
         HTML.head.appendChild(styleElement);
-        taskInput.classList.add('no-scrollbar');
+        inputBox.classList.add('no-scrollbar');
 
         // Add :focus style to remove outline
         let focusStyle = HTML.make('style');
-        focusStyle.textContent = `#taskInput:focus { outline: none; }`;
+        focusStyle.textContent = `#inputBox:focus { outline: none; }`;
         HTML.head.appendChild(focusStyle);
 
         // Animate caret color on focus
         HTML.applyAnimation(
-            taskInput,
+            inputBox,
             'focus',
             [
                 { caretColor: '#61a3ff', offset: 0 },
@@ -4056,7 +4056,7 @@ function renderInputBox() {
 
         // create custom border div via custom background
         let borderDiv = HTML.make('div');
-        HTML.setId(borderDiv, 'taskInputBorder');
+        HTML.setId(borderDiv, 'inputBoxBorder');
         HTML.body.appendChild(borderDiv);
 
         // Create the rainbow mask container
@@ -4091,14 +4091,14 @@ function renderInputBox() {
         HTML.head.appendChild(rainbowStyle);
 
         // Add focus/blur event listeners for rainbow mask fade animation
-        taskInput.addEventListener('focus', function() {
+        inputBox.addEventListener('focus', function() {
             const gradientMask = HTML.getElement('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '1';
             }
         });
 
-        taskInput.addEventListener('blur', function() {
+        inputBox.addEventListener('blur', function() {
             const gradientMask = HTML.getElement('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '0';
@@ -4106,7 +4106,7 @@ function renderInputBox() {
         });
 
         // on change, call this function
-        taskInput.oninput = () => {
+        inputBox.oninput = () => {
             renderInputBox();
         };
     }
@@ -4115,7 +4115,7 @@ function renderInputBox() {
     const borderThickness = 2;
 
     // Set styles that may change on resize
-    HTML.setStyle(taskInput, {
+    HTML.setStyle(inputBox, {
         position: 'fixed',
         top: String(windowBorderMargin + logoHeight + borderThickness + 6) + 'px', // some padding from bottom of logo
         left: String(windowBorderMargin + borderThickness) + 'px',
@@ -4136,12 +4136,12 @@ function renderInputBox() {
     });
 
     // Adjust height based on content
-    taskInput.style.height = 'auto';
-    taskInput.style.height = `${taskInput.scrollHeight}px`;
+    inputBox.style.height = 'auto';
+    inputBox.style.height = `${inputBox.scrollHeight}px`;
 
     // this is the background border
-    let borderDiv = HTML.getElement('taskInputBorder');
-    const inputHeight = taskInput.offsetHeight;
+    let borderDiv = HTML.getElement('inputBoxBorder');
+    const inputHeight = inputBox.offsetHeight;
 
     HTML.setStyle(borderDiv, {
         position: 'fixed',
