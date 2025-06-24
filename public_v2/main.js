@@ -15,6 +15,8 @@ let firstDayInCalendar;
 
 const allDayEventHeight = 18; // height in px for each all-day event
 
+const columnWidthThreshold = 300; // px
+
 // Save user data to localStorage
 function saveUserData(user) {
     ASSERT(type(user, User));
@@ -1855,7 +1857,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         allDayEventElement.innerHTML = allDayEventData.name;
 
         // Make all-day event font size responsive
-        const allDayEventFontSize = colWidth > 300 ? '14px' : '12px';
+        const allDayEventFontSize = colWidth > columnWidthThreshold ? '14px' : '12px';
         HTML.setStyle(allDayEventElement, {
             position: 'fixed',
             width: String(colWidth) + 'px',
@@ -2045,7 +2047,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const colorVar = `--event-${laneIndex % user.palette.events.length}`;
 
             // Make timed event font size responsive
-            const timedEventFontSize = colWidth > 300 ? '14px' : '12px';
+            const timedEventFontSize = colWidth > columnWidthThreshold ? '14px' : '12px';
             let style = {
                 position: 'fixed',
                 top: `${top}px`,
@@ -3673,11 +3675,12 @@ function renderCalendar(days) {
             HTML.setId(dateText, 'day' + String(i) + 'DateText');
         }
         let dateAndDayOfWeekVerticalPos = top - topOfCalendarDay;
+        const dateTextFontSize = columnWidth > columnWidthThreshold ? '16px' : '14px';
         HTML.setStyle(dateText, {
             position: 'fixed',
             top: String(dateAndDayOfWeekVerticalPos + verticalSpacing) + 'px',
             right: String(window.innerWidth - left - columnWidth) + 'px',
-            fontSize: '14px',
+            fontSize: dateTextFontSize,
             color: 'var(--shade-3)',
             fontFamily: 'LexendBold',
             zIndex: '400'
@@ -3704,11 +3707,12 @@ function renderCalendar(days) {
             dayOfWeekText = HTML.make('div');
             HTML.setId(dayOfWeekText, 'day' + String(i) + 'DayOfWeekText');
         }
+        const dayOfWeekTextFontSize = columnWidth > columnWidthThreshold ? '16px' : '14px';
         HTML.setStyle(dayOfWeekText, {
             position: 'fixed',
             top: String(dateAndDayOfWeekVerticalPos + verticalSpacing) + 'px',
             left: String(left) + 'px',
-            fontSize: '14px',
+            fontSize: dayOfWeekTextFontSize,
             color: 'var(--shade-3)',
             fontFamily: 'LexendBold',
             zIndex: '400'
@@ -4291,7 +4295,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
     }
     headerEl.innerHTML = section.name;
     // Make section header font size responsive
-    const sectionFontSize = columnWidth > 300 ? '16px' : '14px';
+    const sectionFontSize = columnWidth > columnWidthThreshold ? '16px' : '14px';
     HTML.setStyle(headerEl, {
         position: 'fixed',
         top: `${currentTop}px`,
@@ -4356,7 +4360,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 
         taskElement.innerHTML = task.name;
         // Make task font size responsive
-        const taskFontSize = columnWidth > 300 ? '14px' : '12px';
+        const taskFontSize = columnWidth > columnWidthThreshold ? '14px' : '12px';
         HTML.setStyle(taskElement, {
             position: 'fixed',
             width: String(taskListWidth) + 'px',
@@ -4526,10 +4530,10 @@ function renderTaskList() {
 
     let currentTop = taskListTop;
     // Make sectionHeaderHeight responsive based on column width for larger fonts
-    const sectionHeaderHeight = columnWidth > 300 ? 22 : 20;
+    const sectionHeaderHeight = columnWidth > columnWidthThreshold ? 22 : 20;
     const separatorHeight = 3;
     // Make taskHeight responsive based on column width
-    const taskHeight = columnWidth > 300 ? 22 : 18; // Give more space for larger font
+    const taskHeight = columnWidth > columnWidthThreshold ? 22 : 18; // Give more space for larger font
 
     const sections = [
         { name: 'Today', active: isTodayActive, start: DateTime.fromMillis(0), end: endOfToday },
