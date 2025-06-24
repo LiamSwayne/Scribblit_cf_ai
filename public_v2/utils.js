@@ -40,6 +40,8 @@ function wait(ms, func) {
     setTimeout(func, ms);
 }
 
+const defaultCutoffUnix = 1947483647; // about the year 2031
+
 // List type for homogeneous arrays
 class LIST {
     constructor(innerType) {
@@ -429,8 +431,19 @@ class NonRecurringTaskInstance {
     }
 
     // no unix args since it only happens once
-    isComplete() {
+    isComplete(startUnix=NULL, endUnix=NULL) {
         ASSERT(type(this, NonRecurringTaskInstance));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+
+        if (startUnix !== NULL && endUnix !== NULL) {
+            const dueDate = this.date.toUnixTimestamp();
+            if (dueDate < startUnix || dueDate > endUnix) {
+                // outside the range, so it's complete in that range
+                return true;
+            }
+        }
+
         return this.completion;
     }
 
@@ -485,10 +498,10 @@ class RecurringTaskInstance {
 
         if (type(this.range, DateRange)) {
             lowerBound = this.range.startDate.toUnixTimestamp();
-            upperBound = this.range.endDate === NULL ? 1908500414 : this.range.endDate.toUnixTimestamp();
+            upperBound = this.range.endDate === NULL ? defaultCutoffUnix : this.range.endDate.toUnixTimestamp();
         } else { // RecurrenceCount
             lowerBound = 0; // Start from epoch
-            upperBound = 1908500414; // about 2030
+            upperBound = defaultCutoffUnix;
         }
 
         if (startUnix !== NULL) {
@@ -935,7 +948,7 @@ class TaskData {
         ASSERT(type(endUnix, Union(Int, NULL)));
         for (const instance of this.instances) {
             if (type(instance, NonRecurringTaskInstance)) {
-                if (!instance.isComplete()) {
+                if (!instance.isComplete(startUnix, endUnix)) {
                     return false;
                 }
             } else if (type(instance, RecurringTaskInstance)) {
