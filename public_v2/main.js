@@ -77,7 +77,7 @@ let palettes = {
     'dark': { // default
         accent: ['#7900bf', '#a82190'],
         events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
-        shades: ['#191919', '#323232', '#484848', '#9e9e9e', '#ffffff']
+        shades: ['#191919', '#383838', '#464646', '#9e9e9e', '#ffffff']
     },
     'midnight': {
         accent: ['#a82190', '#003fd2'],
@@ -4231,7 +4231,7 @@ function getTasksInRange(startUnix, endUnix) {
 
 let totalRenderedTaskCount = 0;
 
-function renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight) {
+function renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, numberOfSections) {
     const headerId = `taskListHeader-${section.name}`;
     let headerEl = HTML.getElement(headerId);
     if (!exists(headerEl)) {
@@ -4247,7 +4247,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         width: `${taskListWidth}px`,
         fontFamily: 'LexendBold',
         fontSize: '14px',
-        color: section.active ? 'var(--shade-4)' : 'var(--shade-2)'
+        color: section.active ? 'var(--shade-4)' : 'var(--shade-3)'
     });
     currentTop += sectionHeaderHeight;
 
@@ -4334,7 +4334,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             opacity: String(task.isComplete ? 0.5 : 1),
             transition: 'opacity 0.2s ease'
         });
-        checkboxElement.innerHTML = task.isComplete ? '✓' : '';
         
         taskElement.addEventListener('mouseenter', function() {
             taskElement.style.backgroundColor = 'var(--shade-1)';
@@ -4372,22 +4371,24 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         totalRenderedTaskCount++;
     });
 
-
-    const separatorId = `taskListSeparator-${index}`;
-    let separatorEl = HTML.getElement(separatorId);
-    if (!exists(separatorEl)) {
-        separatorEl = HTML.make('div');
-        HTML.setId(separatorEl, separatorId);
-        HTML.body.appendChild(separatorEl);
+    if (index < numberOfSections - 1) {
+        const separatorId = `taskListSeparator-${index}`;
+        let separatorEl = HTML.getElement(separatorId);
+        if (!exists(separatorEl)) {
+            separatorEl = HTML.make('div');
+            HTML.setId(separatorEl, separatorId);
+            HTML.body.appendChild(separatorEl);
+        }
+        HTML.setStyle(separatorEl, {
+            position: 'fixed',
+            top: `${currentTop}px`,
+            left: `${taskListLeft}px`,
+            width: `${taskListWidth}px`,
+            height: '1px',
+            backgroundColor: 'var(--shade-2)'
+        });
     }
-    HTML.setStyle(separatorEl, {
-        position: 'fixed',
-        top: `${currentTop}px`,
-        left: `${taskListLeft}px`,
-        width: `${taskListWidth}px`,
-        height: '1px',
-        backgroundColor: 'var(--shade-2)'
-    });
+
     currentTop += separatorHeight;
 
     return currentTop;
@@ -4432,7 +4433,7 @@ function renderTaskList() {
     ];
 
     sections.forEach((section, index) => {
-        currentTop = renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight);
+        currentTop = renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, sections.length);
     });
 }
 
