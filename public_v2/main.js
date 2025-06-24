@@ -1414,7 +1414,8 @@ class FilteredInstancesFactory {
                 let workStartMs = workStartDateTime.toMillis();
                 let workEndMs = workEndDateTime.toMillis();
 
-                // this logic seems weird but it's so you can have multi-day work sessions that span multiple days
+                // this logic seems weird but it's correct
+                // it's so you can have multi-day work sessions that span multiple days
                 if ((workStartMs <= dayEndUnix && workEndMs >= dayStartUnix)) {
                     const ambiguousEndTime = workSessionInstance.endTime === NULL;
                     results.push(new FilteredSegmentOfDayInstance(
@@ -1450,7 +1451,8 @@ class FilteredInstancesFactory {
                     let endMs = instanceEndDateTime.toMillis();
                     const ambiguousEndTime = workSessionInstance.endTime === NULL;
 
-                    // this logic seems weird but it's so you can have multi-day work sessions that span multiple days
+                    // this logic seems weird but it's correct
+                    // it's so you can have multi-day work sessions that span multiple days
                     if (startMs <= dayEndUnix && endMs >= dayStartUnix) {
                          results.push(new FilteredSegmentOfDayInstance(
                             entityId,
@@ -1536,8 +1538,9 @@ class FilteredInstancesFactory {
                 let eventStartMs = eventStartDateTime.toMillis();
                 let eventEndMs = eventEndDateTime.toMillis();
 
-                // this logic seems weird but it's so you can have multi-day events that span multiple days
-                if (eventStartMs <= dayEndUnix && eventEndMs >= dayEndUnix) {
+                // this logic seems weird but it's correct
+                // it's so you can have multi-day events that span multiple days
+                if (eventStartMs <= dayEndUnix && eventEndMs >= dayStartUnix) {
                     results.push(new FilteredSegmentOfDayInstance(
                         entityId,
                         entityName,
@@ -1586,7 +1589,8 @@ class FilteredInstancesFactory {
                     }
                     let endMs = instanceEndDateTime.toMillis();
                     
-                    // this logic seems weird but it's so you can have multi-day events that span multiple days
+                    // this logic seems weird but it's correct
+                    // it's so you can have multi-day events that span multiple days
                     if (startMs <= dayEndUnix && endMs >= dayStartUnix) {
                         results.push(new FilteredSegmentOfDayInstance(
                             entityId,
@@ -1850,6 +1854,8 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         
         allDayEventElement.innerHTML = allDayEventData.name;
 
+        // Make all-day event font size responsive
+        const allDayEventFontSize = colWidth > 300 ? '14px' : '12px';
         HTML.setStyle(allDayEventElement, {
             position: 'fixed',
             width: String(colWidth) + 'px',
@@ -1861,7 +1867,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             borderRadius: '3px',
             zIndex: '350',
             color: 'var(--shade-4)',
-            fontSize: '12px',
+            fontSize: allDayEventFontSize,
             fontFamily: 'LexendRegular',
             lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
             whiteSpace: 'nowrap',
@@ -1871,7 +1877,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             paddingRight: '2px',
             boxSizing: 'border-box',
             cursor: 'pointer',
-            transition: 'background-color 0.2s ease, opacity 0.2s ease'
+            transition: 'background-color 0.2s ease, opacity 0.2s ease, font-size 0.3s ease'
         });
         
         // Add hover effects using event listeners instead of CSS hover
@@ -2038,6 +2044,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
             const colorVar = `--event-${laneIndex % user.palette.events.length}`;
 
+            // Make timed event font size responsive
+            const timedEventFontSize = colWidth > 300 ? '14px' : '12px';
             let style = {
                 position: 'fixed',
                 top: `${top}px`,
@@ -2047,7 +2055,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 backgroundColor: `var(${colorVar})`,
                 borderRadius: '8px',
                 color: 'var(--shade-4)',
-                fontSize: '12px',
+                fontSize: timedEventFontSize,
                 fontFamily: 'LexendRegular',
                 paddingTop: '2px',
                 paddingRight: '8px',
@@ -2057,7 +2065,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 overflow: 'hidden',
                 cursor: 'pointer',
                 boxSizing: 'border-box',
-                zIndex: String(instanceZIndex)
+                zIndex: String(instanceZIndex),
+                transition: 'font-size 0.3s ease'
             };
 
             if (instance.ambiguousEndTime) {
@@ -2169,7 +2178,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                         width: `${width}px`,
                         height: `${height}px`,
                         color: 'var(--shade-4)',
-                        fontSize: '12px',
+                        fontSize: timedEventFontSize,
                         fontFamily: 'LexendRegular',
                         paddingTop: '2px',
                         paddingRight: '8px',
@@ -2181,7 +2190,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                         zIndex: String(instanceZIndex + reminderBaseZIndex + reminderIndexIncreaseOnHover + 1), // above all reminders
                         pointerEvents: 'none',
                         opacity: '0',
-                        transition: 'opacity 0.2s ease-in-out',
+                        transition: 'opacity 0.2s ease-in-out, font-size 0.3s ease',
                         textShadow: `-1px -1px 0 ${eventColor}, 1px -1px 0 ${eventColor}, -1px 1px 0 ${eventColor}, 1px 1px 0 ${eventColor}`
                     });
                     
