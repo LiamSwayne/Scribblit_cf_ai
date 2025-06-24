@@ -4064,6 +4064,10 @@ function renderInputBox() {
         HTML.setId(mask, 'gradientMask');
         HTML.body.appendChild(mask);
 
+        HTML.setStyle(mask, {
+            opacity: '0',
+        });
+
         // Create the rotating circle
         const circle = HTML.make('div');
         HTML.setId(circle, 'gradientCircle');
@@ -4100,6 +4104,11 @@ function renderInputBox() {
                 gradientMask.style.opacity = '0';
             }
         });
+
+        // on change, call this function
+        taskInput.oninput = () => {
+            renderInputBox();
+        };
     }
 
     // we are rendeing a custom border div, so we add 2px on each side
@@ -4122,26 +4131,29 @@ function renderInputBox() {
         fontFamily: 'JetBrainsMonoRegular',
         fontSize: '12px',
         whiteSpace: 'pre-wrap',
-        overflowY: 'auto',
         boxSizing: 'border-box',
         zIndex: '4'
     });
 
+    // Adjust height based on content
+    taskInput.style.height = 'auto';
+    taskInput.style.height = `${taskInput.scrollHeight}px`;
+
     // this is the background border
     let borderDiv = HTML.getElement('taskInputBorder');
+    const inputHeight = taskInput.offsetHeight;
+
     HTML.setStyle(borderDiv, {
         position: 'fixed',
         top: String(windowBorderMargin + logoHeight + 6) + 'px', // some padding from bottom of logo
         left: String(windowBorderMargin) + 'px',
         width: String(columnWidth) + 'px',
-        height: String(100 + borderThickness*2) + 'px',
+        height: String(inputHeight + borderThickness*2) + 'px',
         backgroundColor: 'var(--shade-2)',
         borderRadius: String(7 + borderThickness) + 'px',
         zIndex: '1',
         boxSizing: 'border-box'
     });
-
-    const inputHeight = taskInput.offsetHeight;
     
     const gradientMask = HTML.getElement('gradientMask');
     HTML.setStyle(gradientMask, {
@@ -4153,14 +4165,7 @@ function renderInputBox() {
         left: String(windowBorderMargin) + 'px',
         zIndex: '3',
         borderRadius: String(7 + borderThickness) + 'px',
-        opacity: '0',
-    });
-
-    // apply transition after so it doesn't transition to 0 on page load
-    wait(50, () => {
-        HTML.setStyle(gradientMask, {
-            transition: 'opacity 0.2s ease-in-out'
-        });
+        transition: 'opacity 0.2s ease-in-out'
     });
 
     const circle = HTML.getElement('gradientCircle');
