@@ -4114,13 +4114,19 @@ function renderInputBox() {
     // we are rendeing a custom border div, so we add 2px on each side
     const borderThickness = 2;
 
+    let minInputHeight = 70;
+    // if column width is less than 100px, set minInputHeight to 10
+    if (columnWidth < 180) {
+        minInputHeight += (180 - columnWidth);
+    }
+
     // Set styles that may change on resize
     HTML.setStyle(inputBox, {
         position: 'fixed',
         top: String(windowBorderMargin + logoHeight + borderThickness + 6) + 'px', // some padding from bottom of logo
         left: String(windowBorderMargin + borderThickness) + 'px',
         width: String(columnWidth - borderThickness*2) + 'px',
-        minHeight: '100px',
+        minHeight: String(minInputHeight) + 'px',
         maxHeight: '500px',
         backgroundColor: 'var(--shade-1)',
         color: 'var(--shade-4)',
