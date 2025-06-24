@@ -4299,7 +4299,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             paddingLeft: '12px',
             paddingRight: '18px', // Make space for checkbox
             boxSizing: 'border-box',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease, opacity 0.2s ease'
         });
 
         asteriskElement.innerHTML = '*';
@@ -4318,7 +4319,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         HTML.setStyle(checkboxElement, {
             position: 'fixed',
             top: String(taskTopPosition + (taskHeight - 2 - checkboxSize) / 2) + 'px',
-            left: String(taskListLeft + taskListWidth - checkboxSize - 4) + 'px',
+            left: String(taskListLeft + taskListWidth - checkboxSize - 2) + 'px',
             width: String(checkboxSize) + 'px',
             height: String(checkboxSize) + 'px',
             border: '1px solid var(--shade-3)',
@@ -4329,9 +4330,43 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             textAlign: 'center',
             lineHeight: String(checkboxSize) + 'px',
             color: 'var(--shade-3)',
-            fontSize: '10px'
+            fontSize: '10px',
+            opacity: String(task.isComplete ? 0.5 : 1),
+            transition: 'opacity 0.2s ease'
         });
         checkboxElement.innerHTML = task.isComplete ? '✓' : '';
+        
+        taskElement.addEventListener('mouseenter', function() {
+            taskElement.style.backgroundColor = 'var(--shade-1)';
+            if (task.isComplete) {
+                taskElement.style.opacity = '1';
+                checkboxElement.style.opacity = '1';
+            }
+        });
+        
+        taskElement.addEventListener('mouseleave', function() {
+            taskElement.style.backgroundColor = 'transparent';
+            if (task.isComplete) {
+                taskElement.style.opacity = '0.5';
+                checkboxElement.style.opacity = '0.5';
+            }
+        });
+
+        checkboxElement.addEventListener('mouseenter', function() {
+            taskElement.style.backgroundColor = 'var(--shade-1)';
+            if (task.isComplete) {
+                taskElement.style.opacity = '1';
+                checkboxElement.style.opacity = '1';
+            }
+        });
+
+        checkboxElement.addEventListener('mouseleave', function() {
+            taskElement.style.backgroundColor = 'transparent';
+            if (task.isComplete) {
+                taskElement.style.opacity = '0.5';
+                checkboxElement.style.opacity = '0.5';
+            }
+        });
         
         currentTop += taskHeight;
         totalRenderedTaskCount++;
