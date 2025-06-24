@@ -4083,6 +4083,8 @@ function renderInputBox() {
         // on change, call this function
         inputBox.oninput = () => {
             renderInputBox();
+            // this needs to adjust because the amount of space it has may have changed
+            renderTaskList();
         };
     }
 
@@ -4155,7 +4157,247 @@ function renderInputBox() {
         width: String(circleSize) + 'px',
         height: String(circleSize) + 'px',
         top: String((inputHeight / 2) - (circleSize / 2)) + 'px',
-        left: String((columnWidth / 2) - (circleSize / 2)) + 'px'
+        left: String((columnWidth / 2) - (circleSize / 2)) + 'px',
+    });
+}
+
+function hasIncompleteTasksInRange(startUnix, endUnix) {
+    ASSERT(type(startUnix, Int));
+    ASSERT(type(endUnix, Int));
+
+    for (const entity of user.entityArray) {
+        if (type(entity.data, TaskData)) {
+            if (!entity.data.isComplete(startUnix, endUnix)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function getTasksInRange(startUnix, endUnix) {
+    ASSERT(type(startUnix, Int));
+    ASSERT(type(endUnix, Int));
+
+    const tasks = [];
+    user.entityArray.forEach(entity => {
+        if (type(entity.data, TaskData)) {
+            entity.data.instances.forEach((instance, instanceIndex) => {
+                if (type(instance, NonRecurringTaskInstance)) {
+                    const dueDateTime = DateTime.local(instance.date.year, instance.date.month, instance.date.day)
+                        .set({ hour: instance.dueTime.hour, minute: instance.dueTime.minute });
+                    const dueUnix = dueDateTime.toMillis();
+
+                    if (dueUnix >= startUnix && dueUnix < endUnix) {
+                        tasks.push({
+                            id: entity.id,
+                            name: entity.name,
+                            isComplete: instance.completion,
+                            dueDate: dueUnix,
+                            instanceIndex: instanceIndex,
+                            originalInstance: instance
+                        });
+                    }
+                } else if (type(instance, RecurringTaskInstance)) {
+                    const dueTimestamps = generateInstancesFromPattern(instance, startUnix, endUnix);
+                    dueTimestamps.forEach(ts => {
+                        const dueDate = DateTime.fromMillis(ts);
+                        const dateField = new DateField(dueDate.year, dueDate.month, dueDate.day);
+                        
+                        const isCompleted = instance.completion.some(completedDate => 
+                            completedDate.year === dateField.year &&
+                            completedDate.month === dateField.month &&
+                            completedDate.day === dateField.day
+                        );
+
+                        tasks.push({
+                            id: entity.id,
+                            name: entity.name,
+                            isComplete: isCompleted,
+                            dueDate: ts,
+                            instanceIndex: instanceIndex,
+                            originalInstance: instance,
+                            recurringDate: dateField, // For completion checking
+                        });
+                    });
+                }
+            });
+        }
+    });
+
+    tasks.sort((a, b) => a.dueDate - b.dueDate);
+    return tasks;
+}
+
+let totalRenderedTaskCount = 0;
+
+function renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight) {
+    const headerId = `taskListHeader-${section.name}`;
+    let headerEl = HTML.getElement(headerId);
+    if (!exists(headerEl)) {
+        headerEl = HTML.make('div');
+        HTML.setId(headerEl, headerId);
+        HTML.body.appendChild(headerEl);
+    }
+    headerEl.innerHTML = section.name;
+    HTML.setStyle(headerEl, {
+        position: 'fixed',
+        top: `${currentTop}px`,
+        left: `${taskListLeft}px`,
+        width: `${taskListWidth}px`,
+        fontFamily: 'LexendBold',
+        fontSize: '14px',
+        color: section.active ? 'var(--shade-4)' : 'var(--shade-2)'
+    });
+    currentTop += sectionHeaderHeight;
+
+    // Render tasks for the section
+    const tasks = getTasksInRange(section.start.toMillis(), section.end.toMillis());
+    tasks.forEach(task => {
+        const taskTopPosition = currentTop;
+        const taskElementId = `task-${totalRenderedTaskCount}`;
+        const asteriskElementId = `task-asterisk-${totalRenderedTaskCount}`;
+        const checkboxElementId = `task-checkbox-${totalRenderedTaskCount}`;
+
+        let taskElement = HTML.getElement(taskElementId);
+        if (!exists(taskElement)) {
+            taskElement = HTML.make('div');
+            HTML.setId(taskElement, taskElementId);
+            HTML.body.appendChild(taskElement);
+        }
+
+        let asteriskElement = HTML.getElement(asteriskElementId);
+        if (!exists(asteriskElement)) {
+            asteriskElement = HTML.make('div');
+            HTML.setId(asteriskElement, asteriskElementId);
+            HTML.body.appendChild(asteriskElement);
+        }
+
+        let checkboxElement = HTML.getElement(checkboxElementId);
+        if (!exists(checkboxElement)) {
+            checkboxElement = HTML.make('div');
+            HTML.setId(checkboxElement, checkboxElementId);
+            HTML.body.appendChild(checkboxElement);
+        }
+
+        taskElement.innerHTML = task.name;
+        HTML.setStyle(taskElement, {
+            position: 'fixed',
+            width: String(taskListWidth) + 'px',
+            height: String(taskHeight - 2) + 'px',
+            top: String(taskTopPosition) + 'px',
+            left: String(taskListLeft) + 'px',
+            backgroundColor: 'transparent',
+            borderRadius: '3px',
+            color: 'var(--shade-4)',
+            fontSize: '12px',
+            fontFamily: 'LexendRegular',
+            lineHeight: String(taskHeight - 2) + 'px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            paddingLeft: '12px',
+            paddingRight: '18px', // Make space for checkbox
+            boxSizing: 'border-box',
+            cursor: 'pointer'
+        });
+
+        asteriskElement.innerHTML = '*';
+        HTML.setStyle(asteriskElement, {
+            position: 'fixed',
+            top: String(taskTopPosition) + 'px',
+            left: String(taskListLeft + 1) + 'px',
+            color: 'var(--shade-3)',
+            fontSize: '11px',
+            fontFamily: 'JetBrainsMonoRegular',
+            lineHeight: String(taskHeight - 2) + 'px',
+            pointerEvents: 'none'
+        });
+
+        const checkboxSize = 12;
+        HTML.setStyle(checkboxElement, {
+            position: 'fixed',
+            top: String(taskTopPosition + (taskHeight - 2 - checkboxSize) / 2) + 'px',
+            left: String(taskListLeft + taskListWidth - checkboxSize - 4) + 'px',
+            width: String(checkboxSize) + 'px',
+            height: String(checkboxSize) + 'px',
+            border: '1px solid var(--shade-3)',
+            borderRadius: '3px',
+            backgroundColor: 'transparent',
+            cursor: 'pointer',
+            boxSizing: 'border-box',
+            textAlign: 'center',
+            lineHeight: String(checkboxSize) + 'px',
+            color: 'var(--shade-3)',
+            fontSize: '10px'
+        });
+        checkboxElement.innerHTML = task.isComplete ? '✓' : '';
+        
+        currentTop += taskHeight;
+        totalRenderedTaskCount++;
+    });
+
+
+    const separatorId = `taskListSeparator-${index}`;
+    let separatorEl = HTML.getElement(separatorId);
+    if (!exists(separatorEl)) {
+        separatorEl = HTML.make('div');
+        HTML.setId(separatorEl, separatorId);
+        HTML.body.appendChild(separatorEl);
+    }
+    HTML.setStyle(separatorEl, {
+        position: 'fixed',
+        top: `${currentTop}px`,
+        left: `${taskListLeft}px`,
+        width: `${taskListWidth}px`,
+        height: '1px',
+        backgroundColor: 'var(--shade-2)'
+    });
+    currentTop += separatorHeight;
+
+    return currentTop;
+}
+
+function renderTaskList() {
+    for (let i = 0; i < totalRenderedTaskCount; i++) {
+        const taskElementId = `task-${i}`;
+        const asteriskElementId = `task-asterisk-${i}`;
+        const checkboxElementId = `task-checkbox-${i}`;
+        HTML.getElement(taskElementId).remove();
+        HTML.getElement(asteriskElementId).remove();
+        HTML.getElement(checkboxElementId).remove();
+    }
+
+    totalRenderedTaskCount = 0;
+
+    const borderDiv = HTML.getElement('inputBoxBorder');
+
+    const taskListTop = parseFloat(borderDiv.style.top) + parseFloat(borderDiv.style.height) + 4;
+    const taskListLeft = parseFloat(borderDiv.style.left);
+    const taskListWidth = parseFloat(borderDiv.style.width);
+
+    const now = DateTime.local();
+    const endOfToday = now.endOf('day');
+    const endOfTomorrow = now.plus({ days: 1 }).endOf('day');
+    const endOfWeek = now.plus({ days: 7 }).endOf('day');
+
+    const isTodayActive = hasIncompleteTasksInRange(0, endOfToday.toMillis());
+    const isTomorrowActive = hasIncompleteTasksInRange(endOfToday.toMillis(), endOfTomorrow.toMillis());
+    const isWeekActive = hasIncompleteTasksInRange(endOfTomorrow.toMillis(), endOfWeek.toMillis());
+
+    let currentTop = taskListTop;
+    const sectionHeaderHeight = 20;
+    const separatorHeight = 3;
+    const taskHeight = 18; // same as allDayEventHeight
+
+    const sections = [
+        { name: 'Today', active: isTodayActive, start: DateTime.fromMillis(0), end: endOfToday },
+        { name: 'Tomorrow', active: isTomorrowActive, start: endOfToday, end: endOfTomorrow },
+        { name: 'Week', active: isWeekActive, start: endOfTomorrow, end: endOfWeek }
+    ];
+
+    sections.forEach((section, index) => {
+        currentTop = renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight);
     });
 }
 
@@ -4166,6 +4408,7 @@ function render() {
     renderDividers();
     renderTimeIndicator(false);
     renderInputBox();
+    renderTaskList();
 }
 
 window.onresize = render;
