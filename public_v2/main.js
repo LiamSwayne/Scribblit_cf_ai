@@ -95,6 +95,9 @@ if (TESTING) {
     const baseDate = DateTime.local(); // Use a single base for all calculations
     const today = new DateField(baseDate.year, baseDate.month, baseDate.day);
 
+    const yesterdayDate = baseDate.minus({days: 1});
+    const yesterday = new DateField(yesterdayDate.year, yesterdayDate.month, yesterdayDate.day);
+
     const tomorrowDate = baseDate.plus({days: 1});
     const tomorrow = new DateField(tomorrowDate.year, tomorrowDate.month, tomorrowDate.day);
 
@@ -131,6 +134,44 @@ if (TESTING) {
 
     // Create sample tasks and events
     let entityArray = [
+        // OVERDUE TASK - Due today at 6 AM
+        new Entity(
+            'task-overdue-001', // id
+            'Morning Workout', // name
+            'Complete workout routine', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        today, // date
+                        new TimeField(6, 0), // dueTime
+                        false // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
+        // OVERDUE TASK - Due yesterday no specified time
+        new Entity(
+            'task-overdue-002', // id
+            'Call Mom', // name
+            'Check in with mom', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        yesterday, // date
+                        NULL, // dueTime
+                        false // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
         // one-time task with work time
         new Entity(
             'task-001', // id
@@ -4240,14 +4281,17 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         HTML.body.appendChild(headerEl);
     }
     headerEl.innerHTML = section.name;
+    // Make section header font size responsive
+    const sectionFontSize = columnWidth > 300 ? '16px' : '14px';
     HTML.setStyle(headerEl, {
         position: 'fixed',
         top: `${currentTop}px`,
         left: `${taskListLeft}px`,
         width: `${taskListWidth}px`,
         fontFamily: 'LexendBold',
-        fontSize: '14px',
-        color: section.active ? 'var(--shade-4)' : 'var(--shade-3)'
+        fontSize: sectionFontSize,
+        color: section.active ? 'var(--shade-4)' : 'var(--shade-3)',
+        transition: 'font-size 0.3s ease'
     });
     currentTop += sectionHeaderHeight;
 
@@ -4258,6 +4302,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const taskElementId = `task-${totalRenderedTaskCount}`;
         const asteriskElementId = `task-asterisk-${totalRenderedTaskCount}`;
         const checkboxElementId = `task-checkbox-${totalRenderedTaskCount}`;
+        const stripeElementId = `task-stripe-${totalRenderedTaskCount}`;
+
+        // Check if task is overdue and not complete
+        const now = DateTime.local();
+        const isOverdue = task.dueDate < now.toMillis() && !task.isComplete;
 
         let taskElement = HTML.getElement(taskElementId);
         if (!exists(taskElement)) {
@@ -4265,6 +4314,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             HTML.setId(taskElement, taskElementId);
             HTML.body.appendChild(taskElement);
         }
+        // Show the element (it might have been hidden)
+        taskElement.style.display = 'block';
 
         let asteriskElement = HTML.getElement(asteriskElementId);
         if (!exists(asteriskElement)) {
@@ -4272,6 +4323,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             HTML.setId(asteriskElement, asteriskElementId);
             HTML.body.appendChild(asteriskElement);
         }
+        // Show the element (it might have been hidden)
+        asteriskElement.style.display = 'block';
 
         let checkboxElement = HTML.getElement(checkboxElementId);
         if (!exists(checkboxElement)) {
@@ -4279,8 +4332,22 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             HTML.setId(checkboxElement, checkboxElementId);
             HTML.body.appendChild(checkboxElement);
         }
+        // Show the element (it might have been hidden)
+        checkboxElement.style.display = 'block';
+
+        // Create stripe background element for overdue tasks
+        let stripeElement = HTML.getElement(stripeElementId);
+        if (!exists(stripeElement)) {
+            stripeElement = HTML.make('div');
+            HTML.setId(stripeElement, stripeElementId);
+            HTML.body.appendChild(stripeElement);
+        }
+        // Show the element (it might have been hidden)
+        stripeElement.style.display = 'block';
 
         taskElement.innerHTML = task.name;
+        // Make task font size responsive
+        const taskFontSize = columnWidth > 300 ? '14px' : '12px';
         HTML.setStyle(taskElement, {
             position: 'fixed',
             width: String(taskListWidth) + 'px',
@@ -4290,7 +4357,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             backgroundColor: 'transparent',
             borderRadius: '3px',
             color: 'var(--shade-4)',
-            fontSize: '12px',
+            fontSize: taskFontSize,
             fontFamily: 'LexendRegular',
             lineHeight: String(taskHeight - 2) + 'px',
             whiteSpace: 'nowrap',
@@ -4300,7 +4367,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             paddingRight: '18px', // Make space for checkbox
             boxSizing: 'border-box',
             cursor: 'pointer',
-            transition: 'background-color 0.2s ease, opacity 0.2s ease'
+            transition: 'background-color 0.2s ease, opacity 0.2s ease, font-size 0.3s ease'
         });
 
         asteriskElement.innerHTML = '*';
@@ -4334,6 +4401,25 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             opacity: String(task.isComplete ? 0.5 : 1),
             transition: 'opacity 0.2s ease'
         });
+
+        // Style the striped background for overdue tasks
+        if (isOverdue) {
+            HTML.setStyle(stripeElement, {
+                position: 'fixed',
+                width: String(taskListWidth) + 'px',
+                height: String(taskHeight - 2) + 'px',
+                top: String(taskTopPosition) + 'px',
+                left: String(taskListLeft) + 'px',
+                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 0, 0, 0.08) 10px, rgba(255, 0, 0, 0.08) 20px)',
+                borderRadius: '3px',
+                zIndex: '-1',
+                pointerEvents: 'none'
+            });
+        } else {
+            HTML.setStyle(stripeElement, {
+                display: 'none'
+            });
+        }
         
         taskElement.addEventListener('mouseenter', function() {
             taskElement.style.backgroundColor = 'var(--shade-1)';
@@ -4395,13 +4481,21 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 }
 
 function renderTaskList() {
+    // Instead of removing all elements, we'll hide them first and show/reuse as needed
     for (let i = 0; i < totalRenderedTaskCount; i++) {
         const taskElementId = `task-${i}`;
         const asteriskElementId = `task-asterisk-${i}`;
         const checkboxElementId = `task-checkbox-${i}`;
-        HTML.getElement(taskElementId).remove();
-        HTML.getElement(asteriskElementId).remove();
-        HTML.getElement(checkboxElementId).remove();
+        const stripeElementId = `task-stripe-${i}`;
+        const taskElement = HTML.getElement(taskElementId);
+        const asteriskElement = HTML.getElement(asteriskElementId);
+        const checkboxElement = HTML.getElement(checkboxElementId);
+        const stripeElement = HTML.getElement(stripeElementId);
+        
+        if (taskElement) taskElement.style.display = 'none';
+        if (asteriskElement) asteriskElement.style.display = 'none';
+        if (checkboxElement) checkboxElement.style.display = 'none';
+        if (stripeElement) stripeElement.style.display = 'none';
     }
 
     totalRenderedTaskCount = 0;
@@ -4422,9 +4516,11 @@ function renderTaskList() {
     const isWeekActive = hasIncompleteTasksInRange(endOfTomorrow.toMillis(), endOfWeek.toMillis());
 
     let currentTop = taskListTop;
-    const sectionHeaderHeight = 20;
+    // Make sectionHeaderHeight responsive based on column width for larger fonts
+    const sectionHeaderHeight = columnWidth > 300 ? 22 : 20;
     const separatorHeight = 3;
-    const taskHeight = 18; // same as allDayEventHeight
+    // Make taskHeight responsive based on column width
+    const taskHeight = columnWidth > 300 ? 22 : 18; // Give more space for larger font
 
     const sections = [
         { name: 'Today', active: isTodayActive, start: DateTime.fromMillis(0), end: endOfToday },
