@@ -55,15 +55,16 @@ function hexToRgb(hex) {
     };
 }
 
-function formatTaskTime(time, fontSize) {
+function formatTaskTime(time, fontSize, colonColor) {
     ASSERT(type(time, TimeField));
     ASSERT(type(user, User));
     ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24');
     ASSERT(type(fontSize, Number));
+    ASSERT(type(colonColor, String));
 
     let hour = time.hour;
     const minute = time.minute.toString().padStart(2, '0');
-    const colonStyle = `margin-left: 0px; margin-right: 0px; position: relative; top: -0.05em; color: var(--shade-3); font-size: ${fontSize}px;`;
+    const colonStyle = `margin-left: 0px; margin-right: 0px; position: relative; top: -0.05em; color: ${colonColor}; font-size: ${fontSize}px;`;
 
     if (user.settings.ampmOr24 === '24') {
         return `${hour.toString()}<span style="${colonStyle}">:</span>${minute}`;
@@ -4064,7 +4065,8 @@ function toggleAmPmOr24() {
             if (exists(timeData)) {
                 const timeField = new TimeField(timeData.hour, timeData.minute);
                 const fontSize = parseFloat(line1El.style.fontSize);
-                const newTimeText = formatTaskTime(timeField, fontSize);
+                const color = line1El.style.color || 'var(--shade-3)';
+                const newTimeText = formatTaskTime(timeField, fontSize, color);
                 animateTextChange(line1El, newTimeText);
             }
         }
@@ -4075,7 +4077,8 @@ function toggleAmPmOr24() {
             if (exists(timeData)) {
                 const timeField = new TimeField(timeData.hour, timeData.minute);
                 const fontSize = parseFloat(line2El.style.fontSize);
-                const newTimeText = formatTaskTime(timeField, fontSize);
+                const color = line2El.style.color || 'var(--shade-3)';
+                const newTimeText = formatTaskTime(timeField, fontSize, color);
                 animateTextChange(line2El, newTimeText);
             }
         }
@@ -4548,24 +4551,24 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
     // Now generate the text with the correct font sizes for colons
     if (isOverdue) {
         if (isToday) {
-            line1Text = hasTime ? formatTaskTime(task.originalInstance.dueTime, line1FontSize) : "";
+            line1Text = hasTime ? formatTaskTime(task.originalInstance.dueTime, line1FontSize, vibrantRedColor) : "";
         } else {
             line1Text = dueDate.toFormat('M/d');
             if (hasTime) {
-                line2Text = formatTaskTime(task.originalInstance.dueTime, line2FontSize);
+                line2Text = formatTaskTime(task.originalInstance.dueTime, line2FontSize, vibrantRedColor);
             }
         }
     } else { // Not overdue
         if (isToday || isTomorrow) {
             if (hasTime) {
-                line1Text = formatTaskTime(task.originalInstance.dueTime, line1FontSize);
+                line1Text = formatTaskTime(task.originalInstance.dueTime, line1FontSize, 'var(--shade-3)');
             } else {
                 line1Text = '*';
             }
         } else { // Week
             line1Text = dueDate.toFormat('M/d');
             if (hasTime) {
-                line2Text = formatTaskTime(task.originalInstance.dueTime, line2FontSize);
+                line2Text = formatTaskTime(task.originalInstance.dueTime, line2FontSize, 'var(--shade-3)');
             }
         }
     }
