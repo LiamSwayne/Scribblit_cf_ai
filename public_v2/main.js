@@ -4861,10 +4861,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             stripeElement.style.height = String(taskHeight - 2) + 'px';
             stripeElement.style.top = String(taskTopPosition) + 'px';
             stripeElement.style.left = String(stripeLeftOnHover) + 'px';
-            if (task.isComplete) {
-                taskElement.style.opacity = '1';
-                checkboxElement.style.opacity = '1';
-            }
         };
         
         const mouseLeaveTask = function() {
@@ -4874,10 +4870,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             stripeElement.style.height = String(taskHeight - 6) + 'px';
             stripeElement.style.top = String(taskTopPosition + 2) + 'px';
             stripeElement.style.left = String(stripeLeft) + 'px';
-            if (task.isComplete) {
-                taskElement.style.opacity = '0.5';
-                checkboxElement.style.opacity = '0.5';
-            }
         };
 
         // Add hover listeners to all elements
