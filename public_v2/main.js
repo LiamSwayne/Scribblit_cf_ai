@@ -4708,6 +4708,10 @@ async function init() {
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
+
+    // how fast did the page load and render?
+    const loadTime = performance.now();
+    log(`Page loaded and rendered in ${loadTime}ms`);
 }
 
 init();
