@@ -1,8 +1,8 @@
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
 const fontDefinitions = [
-    { key: 'LexendRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Regular.woff2' },
-    { key: 'LexendBold', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Bold.woff2' },
+    { key: 'Primary', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Regular.woff2' },
+    { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Bold.woff2' },
     { key: 'Monospaced', url: 'https://super-publisher.pages.dev/public_v2/fonts/JetBrainsMono-Regular.woff2' }
 ];
 let preservedFontCss = {};
@@ -1092,7 +1092,7 @@ styleElement.textContent = `
         padding: 0;
         display: inline-block;
         font-size: 200px; /* This is to make sure that default font sizes are never used */
-        font-family: 'LexendRegular';
+        font-family: 'Primary';
         white-space: pre; /* This preserves whitespace leading */
         color: #ff00aa; /* make sure that default colors are never used */
         user-select: none; /* make text not highlightable */
@@ -1875,7 +1875,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             zIndex: '350',
             color: 'var(--shade-4)',
             fontSize: allDayEventFontSize,
-            fontFamily: 'LexendRegular',
+            fontFamily: 'Primary',
             lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -2063,7 +2063,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 borderRadius: '8px',
                 color: 'var(--shade-4)',
                 fontSize: timedEventFontSize,
-                fontFamily: 'LexendRegular',
+                fontFamily: 'Primary',
                 paddingTop: '2px',
                 paddingRight: '8px',
                 paddingBottom: '3px',
@@ -2186,7 +2186,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                         height: `${height}px`,
                         color: 'var(--shade-4)',
                         fontSize: timedEventFontSize,
-                        fontFamily: 'LexendRegular',
+                        fontFamily: 'Primary',
                         paddingTop: '2px',
                         paddingRight: '8px',
                         paddingBottom: '3px',
@@ -2918,7 +2918,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const measurer = HTML.make('span');
         HTML.setStyle(measurer, {
             visibility: 'hidden',
-            fontFamily: 'LexendRegular',
+            fontFamily: 'Primary',
             fontSize: `${reminderFontSize}px`,
             whiteSpace: 'nowrap',
             display: 'inline-block',
@@ -3086,7 +3086,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             boxSizing: 'border-box',
             color: 'var(--shade-4)',
             fontSize: `${reminderFontSize}px`,
-            fontFamily: 'LexendRegular',
+            fontFamily: 'Primary',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -3126,7 +3126,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-4)', // White background
                 color: accentColorVar, // Original blue color for the number
                 fontSize: `${reminderCountFontSize}px`, // Font size based on reminder font size (8px)
-                fontFamily: 'LexendBold',
+                fontFamily: 'PrimaryBold',
                 textAlign: 'center',
                 lineHeight: String(reminderCountIndicatorSize) + 'px',
                 borderRadius: '50%',
@@ -3207,7 +3207,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const measurer = HTML.make('span');
                 HTML.setStyle(measurer, {
                     visibility: 'hidden',
-                    fontFamily: 'LexendRegular',
+                    fontFamily: 'Primary',
                     fontSize: `${reminderFontSize}px`,
                     whiteSpace: 'nowrap',
                     display: 'inline-block',
@@ -3284,7 +3284,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     
                     // Re-measure text width for the clone
                     const measurer = HTML.make('span');
-                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'LexendRegular', fontSize: `${reminderFontSize}px`, whiteSpace: 'nowrap', position: 'absolute' });
+                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'Primary', fontSize: `${reminderFontSize}px`, whiteSpace: 'nowrap', position: 'absolute' });
                     measurer.innerHTML = stackedReminder.name;
                     HTML.body.appendChild(measurer);
                     const contentActualWidth = measurer.offsetWidth;
@@ -3303,7 +3303,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: accentColorVar, height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', paddingLeft: String(adjustedTextPaddingLeft) + 'px',
                         paddingRight: String(textPaddingRight) + 'px', boxSizing: 'border-box', color: 'var(--shade-4)',
-                        fontSize: `${reminderFontSize}px`, fontFamily: 'LexendRegular', whiteSpace: 'nowrap', overflow: 'hidden',
+                        fontSize: `${reminderFontSize}px`, fontFamily: 'Primary', whiteSpace: 'nowrap', overflow: 'hidden',
                         textOverflow: 'ellipsis', width: String(textElementActualWidth) + 'px',
                         zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover), borderTopLeftRadius: `${Math.round(reminderTextHeight * 0.5)}px`,
                         borderBottomLeftRadius: `${Math.round(reminderTextHeight * 0.5)}px`, borderBottomRightRadius: `${Math.round(reminderTextHeight * 0.5)}px`, borderTopRightRadius: '0px', cursor: 'ns-resize'
@@ -3458,7 +3458,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     boxSizing: 'border-box',
                     color: 'var(--shade-4)',
                     fontSize: `${reminderFontSize}px`,
-                    fontFamily: 'LexendRegular',
+                    fontFamily: 'Primary',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -3496,7 +3496,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     backgroundColor: 'var(--shade-4)', // White background
                     color: darkenedColor, // Number color matches the reminder's background
                     fontSize: `${reminderCountFontSize}px`, // Font size based on reminder font size (8px)
-                    fontFamily: 'LexendBold',
+                    fontFamily: 'PrimaryBold',
                     textAlign: 'center',
                     lineHeight: String(reminderCountIndicatorSize) + 'px',
                     borderRadius: '50%',
@@ -3705,7 +3705,7 @@ function renderCalendar(days) {
             right: String(window.innerWidth - left - columnWidth) + 'px',
             fontSize: dateTextFontSize,
             color: 'var(--shade-3)',
-            fontFamily: 'LexendBold',
+            fontFamily: 'PrimaryBold',
             zIndex: '400'
         });
         
@@ -3737,7 +3737,7 @@ function renderCalendar(days) {
             left: String(left) + 'px',
             fontSize: dayOfWeekTextFontSize,
             color: 'var(--shade-3)',
-            fontFamily: 'LexendBold',
+            fontFamily: 'PrimaryBold',
             zIndex: '400'
         });
         dayOfWeekText.innerHTML = dayOfWeekOrRelativeDay(days[i]);
@@ -4324,7 +4324,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         top: `${currentTop}px`,
         left: `${taskListLeft}px`,
         width: `${taskListWidth}px`,
-        fontFamily: 'LexendBold',
+        fontFamily: 'PrimaryBold',
         fontSize: sectionFontSize,
         color: section.active ? 'var(--shade-4)' : 'var(--shade-3)',
         transition: 'font-size 0.3s ease'
@@ -4405,7 +4405,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             borderRadius: '3px',
             color: 'var(--shade-4)',
             fontSize: taskFontSize,
-            fontFamily: 'LexendRegular',
+            fontFamily: 'Primary',
             lineHeight: String(taskHeight - 2) + 'px',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
