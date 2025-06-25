@@ -56,15 +56,15 @@ function hexToRgb(hex) {
     };
 }
 
-function formatTaskTime(time, colonFontSize) {
+function formatTaskTime(time, fontSize) {
     ASSERT(type(time, TimeField));
     ASSERT(type(user, User));
     ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24');
-    ASSERT(type(colonFontSize, Number));
+    ASSERT(type(fontSize, Number));
 
     let hour = time.hour;
     const minute = time.minute.toString().padStart(2, '0');
-    const colonStyle = `margin-left: 0px; margin-right: 0px; position: relative; top: -0.05em; color: var(--shade-3); font-size: ${colonFontSize}px;`;
+    const colonStyle = `margin-left: 0px; margin-right: 0px; position: relative; top: -0.05em; color: var(--shade-3); font-size: ${fontSize}px;`;
 
     if (user.settings.ampmOr24 === '24') {
         return `${hour.toString()}<span style="${colonStyle}">:</span>${minute}`;
@@ -263,7 +263,7 @@ if (TESTING) {
                             today, // initialDate
                             7 // n
                         ), // datePattern
-                        new TimeField(17, 0), // dueTime
+                        new TimeField(22, 0), // dueTime
                         new DateRange(
                             today, // startDate
                             in2Months // endDate
@@ -913,9 +913,10 @@ const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way
 const currentTimeIndicatorZIndex = 5000; // > than 3400+1441
 const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
 
-const taskInfoDateFontBigCol = 12; // px
-const taskInfoTimeFontBigCol = 10; // px
+const taskInfoDateFontBigCol = 10; // px
+const taskInfoTimeFontBigCol = 9; // px
 const taskInfoLineTwoFontBigCol = 8; // px
+const taskInfoAsteriskFontBigCol = 9; // px
 const taskInfoDateFontSmallCol = 10; // px
 const taskInfoTimeFontSmallCol = 8; // px
 const taskInfoLineTwoFontSmallCol = 7; // px
@@ -4416,12 +4417,13 @@ function getTasksInRange(startUnix, endUnix) {
 
 let totalRenderedTaskCount = 0;
 
-function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskHeight) {
+function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskHeight, spaceForTaskDateAndTime) {
     ASSERT(type(task, Object));
     ASSERT(type(taskIndex, Int));
     ASSERT(type(taskTopPosition, Number));
     ASSERT(type(taskListLeft, Number));
     ASSERT(type(taskHeight, Number));
+    ASSERT(type(spaceForTaskDateAndTime, Number));
 
     const now = DateTime.local();
     const dueDate = DateTime.fromMillis(task.dueDate);
@@ -4436,43 +4438,60 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
     let line2Text = '';
     let line2FontSize;
 
-    const colonSizeLine1 = 9;
-    const colonSizeLine2 = 8;
+    // Determine content type and font sizes first
+    let line1IsTime = false;
+    let line1IsAsterisk = false;
+    let line2IsTime = false;
 
     if (isOverdue) {
         if (isToday) {
-            line1Text = hasTime ? formatTaskTime(task.originalInstance.dueTime, colonSizeLine1) : "";
+            if (hasTime) line1IsTime = true;
+        } else {
+            if (hasTime) line2IsTime = true;
+        }
+    } else { // Not overdue
+        if (isToday || isTomorrow) {
+            if (hasTime) {
+                line1IsTime = true;
+            } else {
+                line1IsAsterisk = true;
+            }
+        } else { // Week
+            if (hasTime) line2IsTime = true;
+        }
+    }
+
+    if (columnWidth > columnWidthThreshold) {
+        line1FontSize = line1IsTime ? taskInfoTimeFontBigCol : (line1IsAsterisk ? taskInfoAsteriskFontBigCol : taskInfoDateFontBigCol);
+        line2FontSize = line2IsTime ? taskInfoLineTwoFontBigCol : taskInfoLineTwoFontBigCol; // Assuming line 2 is always smaller text
+    } else {
+        line1FontSize = line1IsTime ? taskInfoTimeFontSmallCol : taskInfoDateFontSmallCol; // Asterisk uses date font on small
+        line2FontSize = line2IsTime ? taskInfoLineTwoFontSmallCol : taskInfoLineTwoFontSmallCol;
+    }
+
+    // Now generate the text with the correct font sizes for colons
+    if (isOverdue) {
+        if (isToday) {
+            line1Text = hasTime ? formatTaskTime(task.originalInstance.dueTime, line1FontSize) : "";
         } else {
             line1Text = dueDate.toFormat('M/d');
             if (hasTime) {
-                line2Text = formatTaskTime(task.originalInstance.dueTime, colonSizeLine2);
-            } else {
-                line2Text = '';
+                line2Text = formatTaskTime(task.originalInstance.dueTime, line2FontSize);
             }
         }
     } else { // Not overdue
         if (isToday || isTomorrow) {
             if (hasTime) {
-                line1Text = formatTaskTime(task.originalInstance.dueTime, colonSizeLine1);
+                line1Text = formatTaskTime(task.originalInstance.dueTime, line1FontSize);
             } else {
                 line1Text = '*';
             }
         } else { // Week
             line1Text = dueDate.toFormat('M/d');
             if (hasTime) {
-                line2Text = formatTaskTime(task.originalInstance.dueTime, colonSizeLine2);
+                line2Text = formatTaskTime(task.originalInstance.dueTime, line2FontSize);
             }
         }
-    }
-
-    const line1IsTime = line1Text.includes('<span style=');
-
-    if (columnWidth > columnWidthThreshold) {
-        line1FontSize = line1IsTime ? taskInfoTimeFontBigCol : taskInfoDateFontBigCol;
-        line2FontSize = taskInfoLineTwoFontBigCol;
-    } else {
-        line1FontSize = line1IsTime ? taskInfoTimeFontSmallCol : taskInfoDateFontSmallCol;
-        line2FontSize = taskInfoLineTwoFontSmallCol;
     }
 
     const line1Id = `task-info-line1-${taskIndex}`;
@@ -4544,7 +4563,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             width: `${infoAreaWidth}px`,
         });
         HTML.setStyle(line2El, {
-            top: `${taskTopPosition + topPadding + line1FontSize - 3}px`,
+            top: `${taskTopPosition + topPadding + line1FontSize - 2}px`,
             left: `${infoAreaLeft}px`,
             width: `${infoAreaWidth}px`,
         });
@@ -4578,6 +4597,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
     });
     currentTop += sectionHeaderHeight;
 
+    const spaceForTaskDateAndTime = columnWidth > columnWidthThreshold ? 36 : 34;
+
     // Render tasks for the section
     const tasks = getTasksInRange(section.start.toMillis(), section.end.toMillis());
     tasks.forEach(task => {
@@ -4600,7 +4621,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         // Show the element (it might have been hidden)
         taskElement.style.display = 'block';
 
-        renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskHeight);
+        renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskHeight, spaceForTaskDateAndTime);
 
         let checkboxElement = HTML.getElement(checkboxElementId);
         if (!exists(checkboxElement)) {
