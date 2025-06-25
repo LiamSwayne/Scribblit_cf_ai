@@ -193,7 +193,7 @@ if (TESTING) {
         new Entity(
             'task-001', // id
             'Final Project', // name
-            'Complete and submit the final project for CS401', // description
+            '', // description
             new TaskData( // data
                 [
                     new NonRecurringTaskInstance(
@@ -278,7 +278,7 @@ if (TESTING) {
             new TaskData( // data
                 [
                     new RecurringTaskInstance(
-                        new MonthlyPattern(1, [true, true, true, true, true, true, true, true, true, true, true, true]), // datePattern (1st of every month)
+                        new MonthlyPattern(1, [false, false, false, false, false, false, false, false, false, false, true, true]), // datePattern (1st of every month)
                         new TimeField(10, 0), // dueTime
                         new RecurrenceCount(6), // range
                         [] // completion
@@ -4497,6 +4497,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             transition: 'opacity 0.2s ease'
         });
 
+        let stripeWidth = taskListWidth - spaceForTaskDateAndTime + 3;
+        let stripeLeft = taskListLeft + spaceForTaskDateAndTime - 3;
+        let stripeWidthOnHover = taskListWidth - spaceForTaskDateAndTime + 3;
+        let stripeLeftOnHover = taskListLeft + spaceForTaskDateAndTime - 3;
+
         // Style the striped background for overdue tasks
         if (isOverdue) {
             // Get background color from palette (shade 0) and mix with red (70% background, 30% red)
@@ -4514,11 +4519,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             
             HTML.setStyle(stripeElement, {
                 position: 'fixed',
-                width: String(taskListWidth - 4) + 'px',
+                width: String(stripeWidth) + 'px',
                 height: String(taskHeight - 6) + 'px',
                 top: String(taskTopPosition + 2) + 'px',
-                left: String(taskListLeft + 2) + 'px',
-                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, ${mixedColor} 10px, ${mixedColor} 20px)`,
+                left: String(stripeLeft) + 'px',
+                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 6px, ${mixedColor} 6px, ${mixedColor} 12px)`,
                 borderRadius: '3px',
                 zIndex: '2',
                 cursor: 'pointer',
@@ -4535,10 +4540,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const mouseEnterTask = function() {
             hoverElement.style.opacity = '1';
             stripeElement.style.opacity = '1';
-            stripeElement.style.width = String(taskListWidth) + 'px';
+            stripeElement.style.width = String(stripeWidthOnHover) + 'px';
             stripeElement.style.height = String(taskHeight - 2) + 'px';
             stripeElement.style.top = String(taskTopPosition) + 'px';
-            stripeElement.style.left = String(taskListLeft) + 'px';
+            stripeElement.style.left = String(stripeLeftOnHover) + 'px';
             if (task.isComplete) {
                 taskElement.style.opacity = '1';
                 checkboxElement.style.opacity = '1';
@@ -4548,10 +4553,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const mouseLeaveTask = function() {
             hoverElement.style.opacity = '0';
             stripeElement.style.opacity = '0.5';
-            stripeElement.style.width = String(taskListWidth - 4) + 'px';
+            stripeElement.style.width = String(stripeWidth) + 'px';
             stripeElement.style.height = String(taskHeight - 6) + 'px';
             stripeElement.style.top = String(taskTopPosition + 2) + 'px';
-            stripeElement.style.left = String(taskListLeft + 2) + 'px';
+            stripeElement.style.left = String(stripeLeft) + 'px';
             if (task.isComplete) {
                 taskElement.style.opacity = '0.5';
                 checkboxElement.style.opacity = '0.5';
@@ -4630,13 +4635,16 @@ function renderTaskList() {
     const taskListWidth = parseFloat(borderDiv.style.width);
 
     const now = DateTime.local();
+    const startOfToday = now.startOf('day');
     const endOfToday = now.endOf('day');
-    const endOfTomorrow = now.plus({ days: 1 }).endOf('day');
-    const endOfWeek = now.plus({ days: 7 }).endOf('day');
+    const startOfTomorrow = startOfToday.plus({ days: 1 });
+    const endOfTomorrow = startOfTomorrow.endOf('day');
+    const startOfWeek = startOfTomorrow.plus({ days: 1 });
+    const endOfWeek = startOfWeek.plus({ days: 6 }).endOf('day');
 
     const isTodayActive = hasIncompleteTasksInRange(0, endOfToday.toMillis());
-    const isTomorrowActive = hasIncompleteTasksInRange(endOfToday.toMillis(), endOfTomorrow.toMillis());
-    const isWeekActive = hasIncompleteTasksInRange(endOfTomorrow.toMillis(), endOfWeek.toMillis());
+    const isTomorrowActive = hasIncompleteTasksInRange(startOfTomorrow.toMillis(), endOfTomorrow.toMillis());
+    const isWeekActive = hasIncompleteTasksInRange(startOfWeek.toMillis(), endOfWeek.toMillis());
 
     let currentTop = taskListTop;
     // Make sectionHeaderHeight responsive based on column width for larger fonts
@@ -4647,8 +4655,8 @@ function renderTaskList() {
 
     const sections = [
         { name: 'Today', active: isTodayActive, start: DateTime.fromMillis(0), end: endOfToday },
-        { name: 'Tomorrow', active: isTomorrowActive, start: endOfToday, end: endOfTomorrow },
-        { name: 'Week', active: isWeekActive, start: endOfTomorrow, end: endOfWeek }
+        { name: 'Tomorrow', active: isTomorrowActive, start: startOfTomorrow, end: endOfTomorrow },
+        { name: 'Week', active: isWeekActive, start: startOfWeek, end: endOfWeek }
     ];
 
     sections.forEach((section, index) => {
