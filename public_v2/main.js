@@ -2,8 +2,8 @@
 const fontDefinitions = [
     { key: 'PrimaryRegular', url: 'https://super-publisher.pages.dev/YOOOOOOOOOOOOO.woff2' },
     { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/Bold.woff2' },
-    { key: 'PrimaryExtraBold', url: 'https://super-publisher.pages.dev/Extrabold.woff2' },
-    { key: 'PrimaryBlack', url: 'https://super-publisher.pages.dev/Black.woff2' },
+    // { key: 'PrimaryExtraBold', url: 'https://super-publisher.pages.dev/Extrabold.woff2' },
+    // { key: 'PrimaryBlack', url: 'https://super-publisher.pages.dev/Black.woff2' },
     { key: 'Monospaced', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
 ];
 
@@ -2110,8 +2110,6 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
             const eventColor = `var(${colorVar})`;
             eventElement.mouseEnterHandler = function() {
-                eventElement.style.overflow = 'visible';
-
                 // Create and show border element
                 let borderOverlay = HTML.getElement(`${eventId}_borderOverlay`);
                 if (exists(borderOverlay)) {
@@ -2216,7 +2214,6 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 }
             };
             eventElement.mouseLeaveHandler = function() {
-                eventElement.style.overflow = 'hidden';
                 eventElement.style.textShadow = 'none';
 
                 // Fade out and remove border overlay
@@ -4192,7 +4189,7 @@ function renderInputBox() {
         borderRadius: '8px',
         padding: '3px 6px',
         resize: 'none',
-        fontFamily: 'Monospaced',
+        fontFamily: 'PrimaryRegular',
         fontSize: '12px',
         whiteSpace: 'pre-wrap',
         boxSizing: 'border-box',
@@ -4415,7 +4412,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             paddingLeft: '12px',
-            paddingRight: '18px', // Make space for checkbox
+            paddingRight: '16px', // Make space for checkbox
             boxSizing: 'border-box',
             cursor: 'pointer',
             zIndex: '3',
