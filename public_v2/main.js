@@ -1,4 +1,4 @@
-// start loading fonts immediately
+// start loading fonts immediately on page load
 const fontDefinitions = [
     { key: 'PrimaryRegular', url: 'https://super-publisher.pages.dev/YOOOOOOOOOOOOO.woff2' },
     { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/Bold.woff2' },
