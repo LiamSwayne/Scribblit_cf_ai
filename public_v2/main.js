@@ -3,7 +3,7 @@ const DateTime = luxon.DateTime; // .local() sets the timezone to the user's tim
 const fontDefinitions = [
     { key: 'LexendRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Regular.woff2' },
     { key: 'LexendBold', url: 'https://super-publisher.pages.dev/public_v2/fonts/Lexend-Bold.woff2' },
-    { key: 'JetBrainsMonoRegular', url: 'https://super-publisher.pages.dev/public_v2/fonts/JetBrainsMono-Regular.woff2' }
+    { key: 'Monospaced', url: 'https://super-publisher.pages.dev/public_v2/fonts/JetBrainsMono-Regular.woff2' }
 ];
 let preservedFontCss = {};
 for (const font of fontDefinitions) {
@@ -1786,7 +1786,7 @@ function renderDay(day, index) {
                     top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
                     left: String(dayElementLeft) + 'px',
                     color: 'var(--shade-2)',
-                    fontFamily: 'JetBrainsMonoRegular',
+                    fontFamily: 'Monospaced',
                     fontSize: fontSize,
                     zIndex: '401'
                 });
@@ -1917,7 +1917,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             left: String(dayElemLeft + 1) + 'px', // Position to the left of the text
             color: 'var(--shade-3)',
             fontSize: '11px',
-            fontFamily: 'JetBrainsMonoRegular',
+            fontFamily: 'Monospaced',
             lineHeight: String(allDayEventHeight - 2) + 'px',
             zIndex: '351',
             pointerEvents: 'none' // Don't interfere with event interactions
@@ -2266,6 +2266,10 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
     ASSERT(type(dayIndex, Int) && type(groupIndex, Int) && type(isHovering, Boolean));
     ASSERT(type(timedAreaTop, Number) && type(timedAreaHeight, Number));
 
+    // Calculate scaled dimensions based on column width
+    const colWidth = getDayColumnDimensions(dayIndex).width;
+    const reminderTextHeight = Math.round((colWidth > columnWidthThreshold ? 14 : 12) * 1.4);
+
     const animationKey = `${dayIndex}-${groupIndex}`;
 
     // Cancel any previous animation frame for this group to avoid conflicts
@@ -2295,7 +2299,7 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
 
     // Decide whether to expand upwards or downwards
     const timedAreaBottom = timedAreaTop + timedAreaHeight;
-    const requiredHeight = groupLength * REMINDER_TEXT_HEIGHT;
+    const requiredHeight = groupLength * reminderTextHeight;
     const expandUpwards = (lineTop + requiredHeight) > timedAreaBottom;
     
     const baseAnimationTop = parseFloat(primaryTextElement.style.top);
@@ -2309,8 +2313,8 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
             
             if (exists(stackedText) && exists(stackedCount)) {
                 const expandedTop = expandUpwards 
-                    ? baseAnimationTop - (REMINDER_TEXT_HEIGHT * stackIndex)
-                    : baseAnimationTop + (REMINDER_TEXT_HEIGHT * stackIndex);
+                    ? baseAnimationTop - (reminderTextHeight * stackIndex)
+                    : baseAnimationTop + (reminderTextHeight * stackIndex);
 
                 const expandedCountTop = expandedTop + 2.5; // Shifted down 1px from main count indicator
                 const hiddenTop = baseAnimationTop;
@@ -2370,6 +2374,13 @@ function handleReminderDragMove(e) {
     const minTop = timedAreaTop;
     const maxTop = timedAreaTop + timedAreaHeight - reminderLineHeight; // Allow line to go to the very bottom
 
+    // Calculate scaled dimensions based on column width
+    const colWidth = getDayColumnDimensions(dayIndex).width;
+    const reminderFontSize = colWidth > columnWidthThreshold ? 14 : 12;
+    const reminderTextHeight = Math.round(reminderFontSize * 1.4);
+    const reminderQuarterCircleRadius = reminderFontSize;
+    const reminderBorderRadius = Math.round(reminderTextHeight * 0.5);
+
     // The new top position for the reminder LINE
     const newLineTop = G_reminderDragState.initialTops[0] + dy;
     const clampedLineTop = Math.max(minTop, Math.min(newLineTop, maxTop));
@@ -2389,31 +2400,31 @@ function handleReminderDragMove(e) {
         } else if (el.id.includes('Text') || el.id.includes('text')) {
             if (isFlipped) {
                 // Position text above the line
-                el.style.top = `${clampedLineTop - REMINDER_TEXT_HEIGHT + 2}px`;
-                el.style.height = `${REMINDER_TEXT_HEIGHT}px`;
+                el.style.top = `${clampedLineTop - reminderTextHeight + 2}px`;
+                el.style.height = `${reminderTextHeight}px`;
                 el.style.paddingTop = '1px';
                 // Flip border radius for the new orientation
-                el.style.borderTopLeftRadius = `${REMINDER_BORDER_RADIUS}px`;
-                el.style.borderBottomLeftRadius = `${REMINDER_BORDER_RADIUS}px`;
-                el.style.borderTopRightRadius = `${REMINDER_BORDER_RADIUS}px`; 
+                el.style.borderTopLeftRadius = `${reminderBorderRadius}px`;
+                el.style.borderBottomLeftRadius = `${reminderBorderRadius}px`;
+                el.style.borderTopRightRadius = `${reminderBorderRadius}px`; 
                 el.style.borderBottomRightRadius = '0px'; 
             } else {
                 // Original position below the line
                 el.style.top = `${clampedLineTop}px`;
-                el.style.height = `${reminderLineHeight + REMINDER_TEXT_HEIGHT - 2}px`;
+                el.style.height = `${reminderLineHeight + reminderTextHeight - 2}px`;
                 el.style.paddingTop = `${reminderLineHeight - 1}px`;
                 // Original border radius
-                el.style.borderTopLeftRadius = `${REMINDER_BORDER_RADIUS}px`;
-                el.style.borderBottomLeftRadius = `${REMINDER_BORDER_RADIUS}px`;
+                el.style.borderTopLeftRadius = `${reminderBorderRadius}px`;
+                el.style.borderBottomLeftRadius = `${reminderBorderRadius}px`;
                 el.style.borderTopRightRadius = '0px';
-                el.style.borderBottomRightRadius = `${REMINDER_BORDER_RADIUS}px`;
+                el.style.borderBottomRightRadius = `${reminderBorderRadius}px`;
             }
         
         } else if (el.id.includes('QuarterCircle') || el.id.includes('quarter-circle')) {
             if (isFlipped) {
                 // Position quarter circle above the line, flipped vertically
-                el.style.top = `${clampedLineTop - REMINDER_QUARTER_CIRCLE_RADIUS}px`;
-                const gradientMask = `radial-gradient(circle at top right, transparent 0, transparent ${REMINDER_QUARTER_CIRCLE_RADIUS}px, black ${REMINDER_QUARTER_CIRCLE_RADIUS + 1}px)`;
+                el.style.top = `${clampedLineTop - reminderQuarterCircleRadius}px`;
+                const gradientMask = `radial-gradient(circle at top right, transparent 0, transparent ${reminderQuarterCircleRadius}px, black ${reminderQuarterCircleRadius + 1}px)`;
                 el.style.webkitMaskImage = gradientMask;
                 el.style.maskImage = gradientMask;
                 el.style.webkitMaskPosition = 'top right';
@@ -2421,7 +2432,7 @@ function handleReminderDragMove(e) {
             } else {
                 // Original position below the line
                 el.style.top = `${clampedLineTop + reminderLineHeight}px`;
-                const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${REMINDER_QUARTER_CIRCLE_RADIUS}px, black ${REMINDER_QUARTER_CIRCLE_RADIUS + 1}px)`;
+                const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${reminderQuarterCircleRadius}px, black ${reminderQuarterCircleRadius + 1}px)`;
                 el.style.webkitMaskImage = gradientMask;
                 el.style.maskImage = gradientMask;
                 el.style.webkitMaskPosition = 'bottom right';
@@ -2430,7 +2441,7 @@ function handleReminderDragMove(e) {
 
         } else if (el.id.includes('Count') || el.id.includes('count')) {
             if (isFlipped) {
-                el.style.top = `${clampedLineTop - REMINDER_TEXT_HEIGHT + 4.5}px`;
+                el.style.top = `${clampedLineTop - reminderTextHeight + 4.5}px`;
             } else {
                 el.style.top = `${clampedLineTop + reminderLineHeight + 0.5}px`;
             }
@@ -2723,6 +2734,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     ASSERT(type(dayStartUnix, Int));
     ASSERT(type(dayEndUnix, Int));
 
+    // Scale reminder dimensions based on column width, similar to other elements
+    const reminderFontSize = colWidth > columnWidthThreshold ? 14 : 12; // px
+    const reminderTextHeight = Math.round(reminderFontSize * 1.4); // scaled proportionally
+    const reminderQuarterCircleRadius = reminderFontSize; // scaled
+    const reminderCountIndicatorSize = Math.round(reminderFontSize); // scaled
+    const reminderCountFontSize = Math.round(reminderFontSize * 0.75); // scaled proportionally
+
     const spaceForHourMarkers = 36; // px
     const reminderLineHeight = 2; // px height of the blue line
     const textPaddingLeft = 2; // px
@@ -2794,7 +2812,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const isFlipped = reminderTopPosition > flipThresholdTop;
 
         // Check for overlap with the previous reminder group to alternate colors
-        const currentVisualTop = isFlipped ? (reminderTopPosition - REMINDER_TEXT_HEIGHT + 2) : reminderTopPosition;
+        const currentVisualTop = isFlipped ? (reminderTopPosition - reminderTextHeight + 2) : reminderTopPosition;
 
         if (lastVisualBottom !== -1 && currentVisualTop < lastVisualBottom) {
             touchingGroupColorIndex++;
@@ -2806,7 +2824,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const accentColorVar = `var(${accentColorVarName})`;
 
         // Calculate container height and update last position for the next iteration
-        const currentVisualBottom = isFlipped ? (reminderTopPosition + reminderLineHeight) : (reminderTopPosition + REMINDER_TEXT_HEIGHT);
+        const currentVisualBottom = isFlipped ? (reminderTopPosition + reminderLineHeight) : (reminderTopPosition + reminderTextHeight);
         lastVisualBottom = currentVisualBottom;
 
         // Calculate minutes since start of day for z-index layering
@@ -2893,7 +2911,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         // First, measure text width to calculate positions
         // Calculate text positioning with potential count indicator
-        const extraPaddingForIndicator = isGrouped ? (REMINDER_COUNT_INDICATOR_SIZE + countIndicatorPadding) : 2; // +2px for single reminders
+        const extraPaddingForIndicator = isGrouped ? (reminderCountIndicatorSize + countIndicatorPadding) : 2; // +2px for single reminders
         const adjustedTextPaddingLeft = textPaddingLeft + extraPaddingForIndicator;
 
         // Measure text width
@@ -2901,7 +2919,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         HTML.setStyle(measurer, {
             visibility: 'hidden',
             fontFamily: 'LexendRegular',
-            fontSize: `${REMINDER_FONT_SIZE}px`,
+            fontSize: `${reminderFontSize}px`,
             whiteSpace: 'nowrap',
             display: 'inline-block',
             position: 'absolute'
@@ -2957,7 +2975,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             // Create time indicator bubble
             let timeBubble = HTML.make('div');
             HTML.setId(timeBubble, 'dragTimeBubble');
-            const bubbleHeight = reminderLineHeight + REMINDER_TEXT_HEIGHT - 2;
+            const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
             const dayLeft = getDayColumnDimensions(dayIndex).left;
             
             // Hide initially to prevent flickering
@@ -2968,7 +2986,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-2)',
                 color: 'var(--shade-4)',
                 fontSize: '9.5px', // Bigger font
-                fontFamily: 'JetBrainsMonoRegular',
+                fontFamily: 'Monospaced',
                 borderRadius: String(bubbleHeight / 2) + 'px',
                 paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                 boxSizing: 'border-box',
@@ -3058,26 +3076,26 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         HTML.setStyle(textElement, {
             position: 'fixed',
-            top: String(isFlipped ? reminderTopPosition - REMINDER_TEXT_HEIGHT + 2 : reminderTopPosition) + 'px',
+            top: String(isFlipped ? reminderTopPosition - reminderTextHeight + 2 : reminderTopPosition) + 'px',
             left: String(dayElemLeft + spaceForHourMarkers) + 'px',
             backgroundColor: accentColorVar,
-            height: String(isFlipped ? REMINDER_TEXT_HEIGHT : (reminderLineHeight + REMINDER_TEXT_HEIGHT - 2)) + 'px',
+            height: String(isFlipped ? reminderTextHeight : (reminderLineHeight + reminderTextHeight - 2)) + 'px',
             paddingTop: String(isFlipped ? '1px' : (reminderLineHeight - 1)) + 'px',
             paddingLeft: String(adjustedTextPaddingLeft) + 'px',
             paddingRight: String(textPaddingRight) + 'px',
             boxSizing: 'border-box',
             color: 'var(--shade-4)',
-            fontSize: `${REMINDER_FONT_SIZE}px`,
+            fontSize: `${reminderFontSize}px`,
             fontFamily: 'LexendRegular',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             width: String(textElementActualWidth) + 'px',
             zIndex: String(currentGroupZIndex), // Top reminder in stack gets highest z-index
-            borderTopLeftRadius: `${REMINDER_BORDER_RADIUS}px`,
-            borderBottomLeftRadius: `${REMINDER_BORDER_RADIUS}px`,
-            borderTopRightRadius: isFlipped ? `${REMINDER_BORDER_RADIUS}px` : '0px',
-            borderBottomRightRadius: isFlipped ? '0px' : `${REMINDER_BORDER_RADIUS}px`,
+            borderTopLeftRadius: `${Math.round(reminderTextHeight * 0.5)}px`,
+            borderBottomLeftRadius: `${Math.round(reminderTextHeight * 0.5)}px`,
+            borderTopRightRadius: isFlipped ? `${Math.round(reminderTextHeight * 0.5)}px` : '0px',
+            borderBottomRightRadius: isFlipped ? '0px' : `${Math.round(reminderTextHeight * 0.5)}px`,
             cursor: 'pointer'
         });
 
@@ -3101,16 +3119,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             
             HTML.setStyle(countElement, {
                 position: 'fixed',
-                top: String(isFlipped ? (reminderTopPosition - REMINDER_TEXT_HEIGHT + 4.5) : (reminderTopPosition + reminderLineHeight + 0.5)) + 'px',
+                top: String(isFlipped ? (reminderTopPosition - reminderTextHeight + 4.5) : (reminderTopPosition + reminderLineHeight + 0.5)) + 'px',
                 left: String(dayElemLeft + spaceForHourMarkers + textPaddingLeft + 1) + 'px',
-                width: String(REMINDER_COUNT_INDICATOR_SIZE) + 'px',
-                height: String(REMINDER_COUNT_INDICATOR_SIZE) + 'px',
+                width: String(reminderCountIndicatorSize) + 'px',
+                height: String(reminderCountIndicatorSize) + 'px',
                 backgroundColor: 'var(--shade-4)', // White background
                 color: accentColorVar, // Original blue color for the number
-                fontSize: `${REMINDER_COUNT_FONT_SIZE}px`, // Font size based on reminder font size (8px)
+                fontSize: `${reminderCountFontSize}px`, // Font size based on reminder font size (8px)
                 fontFamily: 'LexendBold',
                 textAlign: 'center',
-                lineHeight: String(REMINDER_COUNT_INDICATOR_SIZE) + 'px',
+                lineHeight: String(reminderCountIndicatorSize) + 'px',
                 borderRadius: '50%',
                 zIndex: String(currentGroupZIndex),
                 cursor: 'pointer'
@@ -3136,15 +3154,15 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         HTML.setData(quarterCircleElement, 'patternNumber', primaryReminder.patternIndex);
 
         const gradientMask = isFlipped 
-            ? `radial-gradient(circle at top right, transparent 0, transparent ${REMINDER_QUARTER_CIRCLE_RADIUS}px, black ${REMINDER_QUARTER_CIRCLE_RADIUS + 1}px)`
-            : `radial-gradient(circle at bottom right, transparent 0, transparent ${REMINDER_QUARTER_CIRCLE_RADIUS}px, black ${REMINDER_QUARTER_CIRCLE_RADIUS + 1}px)`;
-        const maskSizeValue = `${REMINDER_QUARTER_CIRCLE_RADIUS * 2}px ${REMINDER_QUARTER_CIRCLE_RADIUS * 2}px`;
+            ? `radial-gradient(circle at top right, transparent 0, transparent ${reminderQuarterCircleRadius}px, black ${reminderQuarterCircleRadius + 1}px)`
+            : `radial-gradient(circle at bottom right, transparent 0, transparent ${reminderQuarterCircleRadius}px, black ${reminderQuarterCircleRadius + 1}px)`;
+        const maskSizeValue = `${reminderQuarterCircleRadius * 2}px ${reminderQuarterCircleRadius * 2}px`;
 
         HTML.setStyle(quarterCircleElement, {
             position: 'fixed',
-            width: String(REMINDER_QUARTER_CIRCLE_RADIUS) + 'px',
-            height: String(REMINDER_QUARTER_CIRCLE_RADIUS) + 'px',
-            top: String(isFlipped ? (reminderTopPosition - REMINDER_QUARTER_CIRCLE_RADIUS) : (reminderTopPosition + reminderLineHeight)) + 'px',
+            width: String(reminderQuarterCircleRadius) + 'px',
+            height: String(reminderQuarterCircleRadius) + 'px',
+            top: String(isFlipped ? (reminderTopPosition - reminderQuarterCircleRadius) : (reminderTopPosition + reminderLineHeight)) + 'px',
             left: String(quarterCircleLeft) + 'px',
             backgroundColor: accentColorVar,
             zIndex: String(currentGroupZIndex),
@@ -3183,14 +3201,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const darkenedColor = `rgb(${newR}, ${newG}, ${newB})`;
 
                 // measuring to know how long to make the stacked text element
-                const stackedExtraPadding = REMINDER_COUNT_INDICATOR_SIZE + countIndicatorPadding;
+                const stackedExtraPadding = reminderCountIndicatorSize + countIndicatorPadding;
                 const stackedAdjustedPaddingLeft = textPaddingLeft + stackedExtraPadding;
                 
                 const measurer = HTML.make('span');
                 HTML.setStyle(measurer, {
                     visibility: 'hidden',
                     fontFamily: 'LexendRegular',
-                    fontSize: `${REMINDER_FONT_SIZE}px`,
+                    fontSize: `${reminderFontSize}px`,
                     whiteSpace: 'nowrap',
                     display: 'inline-block',
                     position: 'absolute'
@@ -3266,7 +3284,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     
                     // Re-measure text width for the clone
                     const measurer = HTML.make('span');
-                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'LexendRegular', fontSize: `${REMINDER_FONT_SIZE}px`, whiteSpace: 'nowrap', position: 'absolute' });
+                    HTML.setStyle(measurer, { visibility: 'hidden', fontFamily: 'LexendRegular', fontSize: `${reminderFontSize}px`, whiteSpace: 'nowrap', position: 'absolute' });
                     measurer.innerHTML = stackedReminder.name;
                     HTML.body.appendChild(measurer);
                     const contentActualWidth = measurer.offsetWidth;
@@ -3282,13 +3300,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     cloneText.innerHTML = stackedReminder.name;
                     HTML.setStyle(cloneText, {
                         position: 'fixed', top: String(reminderTopPosition) + 'px', left: String(dayElemLeft + spaceForHourMarkers) + 'px',
-                        backgroundColor: accentColorVar, height: String(reminderLineHeight + REMINDER_TEXT_HEIGHT - 2) + 'px',
+                        backgroundColor: accentColorVar, height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', paddingLeft: String(adjustedTextPaddingLeft) + 'px',
                         paddingRight: String(textPaddingRight) + 'px', boxSizing: 'border-box', color: 'var(--shade-4)',
-                        fontSize: `${REMINDER_FONT_SIZE}px`, fontFamily: 'LexendRegular', whiteSpace: 'nowrap', overflow: 'hidden',
+                        fontSize: `${reminderFontSize}px`, fontFamily: 'LexendRegular', whiteSpace: 'nowrap', overflow: 'hidden',
                         textOverflow: 'ellipsis', width: String(textElementActualWidth) + 'px',
-                        zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover), borderTopLeftRadius: `${REMINDER_BORDER_RADIUS}px`,
-                        borderBottomLeftRadius: `${REMINDER_BORDER_RADIUS}px`, borderBottomRightRadius: `${REMINDER_BORDER_RADIUS}px`, borderTopRightRadius: '0px', cursor: 'ns-resize'
+                        zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover), borderTopLeftRadius: `${Math.round(reminderTextHeight * 0.5)}px`,
+                        borderBottomLeftRadius: `${Math.round(reminderTextHeight * 0.5)}px`, borderBottomRightRadius: `${Math.round(reminderTextHeight * 0.5)}px`, borderTopRightRadius: '0px', cursor: 'ns-resize'
                     });
                     HTML.body.appendChild(cloneText);
                     draggedElements.push(cloneText);
@@ -3308,10 +3326,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     // Create clone quarter circle
                     const cloneQuarterCircle = HTML.make('div');
                     HTML.setId(cloneQuarterCircle, 'drag-clone-quarter-circle');
-                    const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${REMINDER_QUARTER_CIRCLE_RADIUS}px, black ${REMINDER_QUARTER_CIRCLE_RADIUS + 1}px)`;
-                    const maskSizeValue = `${REMINDER_QUARTER_CIRCLE_RADIUS * 2}px ${REMINDER_QUARTER_CIRCLE_RADIUS * 2}px`;
+                    const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${reminderQuarterCircleRadius}px, black ${reminderQuarterCircleRadius + 1}px)`;
+                    const maskSizeValue = `${reminderQuarterCircleRadius * 2}px ${reminderQuarterCircleRadius * 2}px`;
                     HTML.setStyle(cloneQuarterCircle, {
-                        position: 'fixed', width: String(REMINDER_QUARTER_CIRCLE_RADIUS) + 'px', height: String(REMINDER_QUARTER_CIRCLE_RADIUS) + 'px',
+                        position: 'fixed', width: String(reminderQuarterCircleRadius) + 'px', height: String(reminderQuarterCircleRadius) + 'px',
                         top: String(reminderTopPosition + reminderLineHeight) + 'px', left: String(quarterCircleLeft) + 'px',
                         backgroundColor: accentColorVar, zIndex: String(currentGroupZIndex + reminderIndexIncreaseOnHover),
                         webkitMaskImage: gradientMask, maskImage: gradientMask, webkitMaskSize: maskSizeValue, maskSize: maskSizeValue,
@@ -3362,7 +3380,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     // Create time indicator bubble for individual drag
                     let timeBubble = HTML.make('div');
                     HTML.setId(timeBubble, 'dragTimeBubble');
-                    const bubbleHeight = reminderLineHeight + REMINDER_TEXT_HEIGHT - 2;
+                    const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
                     const dayLeft = getDayColumnDimensions(dayIndex).left;
                     
                     // Hide initially to prevent flickering
@@ -3373,7 +3391,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: 'var(--shade-2)',
                         color: 'var(--shade-4)',
                         fontSize: '9.5px', // Bigger font
-                        fontFamily: 'JetBrainsMonoRegular',
+                        fontFamily: 'Monospaced',
                         borderRadius: String(bubbleHeight / 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                         boxSizing: 'border-box',
@@ -3433,20 +3451,20 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     top: String(reminderTopPosition) + 'px', // Start at same level as main reminder (hidden behind it)
                     left: String(dayElemLeft + spaceForHourMarkers) + 'px',
                     backgroundColor: darkenedColor,
-                    height: String(REMINDER_TEXT_HEIGHT) + 'px',
+                    height: String(reminderTextHeight) + 'px',
                     paddingTop: '1px', // Reduced from 2px to shift text up by 1px
-                    paddingLeft: String(adjustedTextPaddingLeft) + 'px',
+                    paddingLeft: String(stackedAdjustedPaddingLeft) + 'px',
                     paddingRight: String(textPaddingRight) + 'px',
                     boxSizing: 'border-box',
                     color: 'var(--shade-4)',
-                    fontSize: `${REMINDER_FONT_SIZE}px`,
+                    fontSize: `${reminderFontSize}px`,
                     fontFamily: 'LexendRegular',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     width: String(stackedTextElementActualWidth) + 'px',
                     zIndex: String(currentGroupZIndex - stackIndex), // Higher stackIndex = lower z-index (further back)
-                    borderRadius: `${REMINDER_BORDER_RADIUS}px`,
+                    borderRadius: `${Math.round(reminderTextHeight * 0.5)}px`,
                     opacity: '0',
                     cursor: 'pointer'
                 });
@@ -3473,14 +3491,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     position: 'fixed',
                     top: String(reminderTopPosition + reminderLineHeight + 1.5) + 'px', // Shifted down 1px from main count indicator
                     left: String(dayElemLeft + spaceForHourMarkers + textPaddingLeft + 1) + 'px',
-                    width: String(REMINDER_COUNT_INDICATOR_SIZE) + 'px',
-                    height: String(REMINDER_COUNT_INDICATOR_SIZE) + 'px',
+                    width: String(reminderCountIndicatorSize) + 'px',
+                    height: String(reminderCountIndicatorSize) + 'px',
                     backgroundColor: 'var(--shade-4)', // White background
                     color: darkenedColor, // Number color matches the reminder's background
-                    fontSize: `${REMINDER_COUNT_FONT_SIZE}px`, // Font size based on reminder font size (8px)
+                    fontSize: `${reminderCountFontSize}px`, // Font size based on reminder font size (8px)
                     fontFamily: 'LexendBold',
                     textAlign: 'center',
-                    lineHeight: String(REMINDER_COUNT_INDICATOR_SIZE) + 'px',
+                    lineHeight: String(reminderCountIndicatorSize) + 'px',
                     borderRadius: '50%',
                     zIndex: String(currentGroupZIndex - stackIndex),
                     opacity: '0',
@@ -4170,7 +4188,7 @@ function renderInputBox() {
         borderRadius: '8px',
         padding: '3px 6px',
         resize: 'none',
-        fontFamily: 'JetBrainsMonoRegular',
+        fontFamily: 'Monospaced',
         fontSize: '12px',
         whiteSpace: 'pre-wrap',
         boxSizing: 'border-box',
@@ -4409,7 +4427,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             left: String(taskListLeft + 1) + 'px',
             color: 'var(--shade-3)',
             fontSize: asteriskFontSize,
-            fontFamily: 'JetBrainsMonoRegular',
+            fontFamily: 'Monospaced',
             lineHeight: String(taskHeight - 2) + 'px',
             zIndex: '3',
             cursor: 'pointer',
