@@ -1159,11 +1159,6 @@ styleElement.textContent = `
         color: #ff00aa; /* make sure that default colors are never used */
         user-select: none; /* make text not highlightable */
     }
-    
-    /* I cannot explain why, but this only works in css. I don't know how to do this in js. */
-    :checked::after {
-        content: '\\2714';
-    }
 `;
 HTML.head.appendChild(styleElement);
 
@@ -4789,7 +4784,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             lineHeight: String(checkboxSize) + 'px',
             color: 'var(--shade-3)',
             fontSize: checkboxFontSize,
-            opacity: String(task.isComplete ? 0.5 : 1),
             zIndex: '3',
             transition: 'opacity 0.2s ease, width 0.3s ease, height 0.3s ease, font-size 0.3s ease, border-width 0.3s ease'
         });
