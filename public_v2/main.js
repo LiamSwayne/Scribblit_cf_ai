@@ -780,7 +780,7 @@ if (TESTING) {
 
         new Entity(
             'reminder-003',
-            "Human's Birthday",
+            "Bro's Birthday",
             "Don't forget to send wishes!",
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -4502,15 +4502,16 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             
             HTML.setStyle(stripeElement, {
                 position: 'fixed',
-                width: String(taskListWidth) + 'px',
-                height: String(taskHeight - 2) + 'px',
-                top: String(taskTopPosition) + 'px',
-                left: String(taskListLeft) + 'px',
+                width: String(taskListWidth - 4) + 'px',
+                height: String(taskHeight - 6) + 'px',
+                top: String(taskTopPosition + 2) + 'px',
+                left: String(taskListLeft + 2) + 'px',
                 backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, ${mixedColor} 10px, ${mixedColor} 20px)`,
                 borderRadius: '3px',
                 zIndex: '2',
                 cursor: 'pointer',
-                opacity: '0.5' // on hover it's 1
+                opacity: '0.5',
+                transition: 'all 0.2s ease'
             });
         } else {
             HTML.setStyle(stripeElement, {
@@ -4522,6 +4523,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const mouseEnterTask = function() {
             hoverElement.style.opacity = '1';
             stripeElement.style.opacity = '1';
+            stripeElement.style.width = String(taskListWidth) + 'px';
+            stripeElement.style.height = String(taskHeight - 2) + 'px';
+            stripeElement.style.top = String(taskTopPosition) + 'px';
+            stripeElement.style.left = String(taskListLeft) + 'px';
             if (task.isComplete) {
                 taskElement.style.opacity = '1';
                 checkboxElement.style.opacity = '1';
@@ -4531,6 +4536,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const mouseLeaveTask = function() {
             hoverElement.style.opacity = '0';
             stripeElement.style.opacity = '0.5';
+            stripeElement.style.width = String(taskListWidth - 4) + 'px';
+            stripeElement.style.height = String(taskHeight - 6) + 'px';
+            stripeElement.style.top = String(taskTopPosition + 2) + 'px';
+            stripeElement.style.left = String(taskListLeft + 2) + 'px';
             if (task.isComplete) {
                 taskElement.style.opacity = '0.5';
                 checkboxElement.style.opacity = '0.5';
