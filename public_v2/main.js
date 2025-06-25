@@ -1097,6 +1097,11 @@ styleElement.textContent = `
         color: #ff00aa; /* make sure that default colors are never used */
         user-select: none; /* make text not highlightable */
     }
+    
+    /* I cannot explain why, but this only works in css. I don't know how to do this in js. */
+    :checked::after {
+        content: '\\2714';
+    }
 `;
 HTML.head.appendChild(styleElement);
 
@@ -4315,7 +4320,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const taskElementId = `task-${totalRenderedTaskCount}`;
         const asteriskElementId = `task-asterisk-${totalRenderedTaskCount}`;
         const checkboxElementId = `task-checkbox-${totalRenderedTaskCount}`;
-        const stripeElementId = `task-stripe-${totalRenderedTaskCount}`;
+        const overdueStripeElementId = `task-ovderdue-stripe-${totalRenderedTaskCount}`;
+        const hoverElementId = `task-hover-${totalRenderedTaskCount}`;
 
         // Check if task is overdue and not complete
         const now = DateTime.local();
@@ -4349,14 +4355,24 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         checkboxElement.style.display = 'block';
 
         // Create stripe background element for overdue tasks
-        let stripeElement = HTML.getElement(stripeElementId);
+        let stripeElement = HTML.getElement(overdueStripeElementId);
         if (!exists(stripeElement)) {
             stripeElement = HTML.make('div');
-            HTML.setId(stripeElement, stripeElementId);
+            HTML.setId(stripeElement, overdueStripeElementId);
             HTML.body.appendChild(stripeElement);
         }
         // Show the element (it might have been hidden)
         stripeElement.style.display = 'block';
+
+        // Create hover background element
+        let hoverElement = HTML.getElement(hoverElementId);
+        if (!exists(hoverElement)) {
+            hoverElement = HTML.make('div');
+            HTML.setId(hoverElement, hoverElementId);
+            HTML.body.appendChild(hoverElement);
+        }
+        // Show the element (it might have been hidden)
+        hoverElement.style.display = 'block';
 
         taskElement.innerHTML = task.name;
         // Make task font size responsive
@@ -4380,29 +4396,39 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             paddingRight: '18px', // Make space for checkbox
             boxSizing: 'border-box',
             cursor: 'pointer',
-            transition: 'background-color 0.2s ease, opacity 0.2s ease, font-size 0.3s ease'
+            zIndex: '3',
+            transition: 'opacity 0.2s ease, font-size 0.3s ease'
         });
 
         asteriskElement.innerHTML = '*';
+        // Make asterisk font size responsive
+        const asteriskFontSize = columnWidth > columnWidthThreshold ? '14px' : '11px';
         HTML.setStyle(asteriskElement, {
             position: 'fixed',
             top: String(taskTopPosition) + 'px',
             left: String(taskListLeft + 1) + 'px',
             color: 'var(--shade-3)',
-            fontSize: '11px',
+            fontSize: asteriskFontSize,
             fontFamily: 'JetBrainsMonoRegular',
             lineHeight: String(taskHeight - 2) + 'px',
-            pointerEvents: 'none'
+            zIndex: '3',
+            cursor: 'pointer',
+            transition: 'font-size 0.3s ease'
         });
 
-        const checkboxSize = 12;
+        // Make checkbox size responsive
+        const checkboxSize = columnWidth > columnWidthThreshold ? 15 : 12;
+        // Make checkbox font size responsive
+        const checkboxFontSize = columnWidth > columnWidthThreshold ? '12px' : '10px';
+        // Make checkbox border thickness responsive
+        const checkboxBorderThickness = columnWidth > columnWidthThreshold ? '1.5px' : '1px';
         HTML.setStyle(checkboxElement, {
             position: 'fixed',
             top: String(taskTopPosition + (taskHeight - 2 - checkboxSize) / 2) + 'px',
             left: String(taskListLeft + taskListWidth - checkboxSize - 2) + 'px',
             width: String(checkboxSize) + 'px',
             height: String(checkboxSize) + 'px',
-            border: '1px solid var(--shade-3)',
+            border: checkboxBorderThickness + ' solid var(--shade-3)',
             borderRadius: '3px',
             backgroundColor: 'transparent',
             cursor: 'pointer',
@@ -4410,8 +4436,24 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             textAlign: 'center',
             lineHeight: String(checkboxSize) + 'px',
             color: 'var(--shade-3)',
-            fontSize: '10px',
+            fontSize: checkboxFontSize,
             opacity: String(task.isComplete ? 0.5 : 1),
+            zIndex: '3',
+            transition: 'opacity 0.2s ease, width 0.3s ease, height 0.3s ease, font-size 0.3s ease, border-width 0.3s ease'
+        });
+
+        // Style the hover background element
+        HTML.setStyle(hoverElement, {
+            position: 'fixed',
+            width: String(taskListWidth) + 'px',
+            height: String(taskHeight - 2) + 'px',
+            top: String(taskTopPosition) + 'px',
+            left: String(taskListLeft) + 'px',
+            backgroundColor: 'var(--shade-1)',
+            borderRadius: '3px',
+            zIndex: '1',
+            opacity: '0',
+            pointerEvents: 'none',
             transition: 'opacity 0.2s ease'
         });
 
@@ -4425,8 +4467,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
                 left: String(taskListLeft) + 'px',
                 backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 0, 0, 0.08) 10px, rgba(255, 0, 0, 0.08) 20px)',
                 borderRadius: '3px',
-                zIndex: '-1',
-                pointerEvents: 'none'
+                zIndex: '2',
+                cursor: 'pointer'
             });
         } else {
             HTML.setStyle(stripeElement, {
@@ -4434,37 +4476,37 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             });
         }
         
-        taskElement.addEventListener('mouseenter', function() {
-            taskElement.style.backgroundColor = 'var(--shade-1)';
+        // Hover handlers for all elements
+        const handleMouseEnter = function() {
+            hoverElement.style.opacity = '1';
             if (task.isComplete) {
                 taskElement.style.opacity = '1';
                 checkboxElement.style.opacity = '1';
             }
-        });
+        };
         
-        taskElement.addEventListener('mouseleave', function() {
-            taskElement.style.backgroundColor = 'transparent';
+        const handleMouseLeave = function() {
+            hoverElement.style.opacity = '0';
             if (task.isComplete) {
                 taskElement.style.opacity = '0.5';
                 checkboxElement.style.opacity = '0.5';
             }
-        });
+        };
 
-        checkboxElement.addEventListener('mouseenter', function() {
-            taskElement.style.backgroundColor = 'var(--shade-1)';
-            if (task.isComplete) {
-                taskElement.style.opacity = '1';
-                checkboxElement.style.opacity = '1';
-            }
-        });
-
-        checkboxElement.addEventListener('mouseleave', function() {
-            taskElement.style.backgroundColor = 'transparent';
-            if (task.isComplete) {
-                taskElement.style.opacity = '0.5';
-                checkboxElement.style.opacity = '0.5';
-            }
-        });
+        // Add hover listeners to all elements
+        taskElement.addEventListener('mouseenter', handleMouseEnter);
+        taskElement.addEventListener('mouseleave', handleMouseLeave);
+        
+        checkboxElement.addEventListener('mouseenter', handleMouseEnter);
+        checkboxElement.addEventListener('mouseleave', handleMouseLeave);
+        
+        asteriskElement.addEventListener('mouseenter', handleMouseEnter);
+        asteriskElement.addEventListener('mouseleave', handleMouseLeave);
+        
+        if (isOverdue) {
+            stripeElement.addEventListener('mouseenter', handleMouseEnter);
+            stripeElement.addEventListener('mouseleave', handleMouseLeave);
+        }
         
         currentTop += taskHeight;
         totalRenderedTaskCount++;
@@ -4499,16 +4541,19 @@ function renderTaskList() {
         const taskElementId = `task-${i}`;
         const asteriskElementId = `task-asterisk-${i}`;
         const checkboxElementId = `task-checkbox-${i}`;
-        const stripeElementId = `task-stripe-${i}`;
+        const stripeElementId = `task-ovderdue-stripe-${i}`;
+        const hoverElementId = `task-hover-${i}`;
         const taskElement = HTML.getElement(taskElementId);
         const asteriskElement = HTML.getElement(asteriskElementId);
         const checkboxElement = HTML.getElement(checkboxElementId);
         const stripeElement = HTML.getElement(stripeElementId);
+        const hoverElement = HTML.getElement(hoverElementId);
         
         if (taskElement) taskElement.style.display = 'none';
         if (asteriskElement) asteriskElement.style.display = 'none';
         if (checkboxElement) checkboxElement.style.display = 'none';
         if (stripeElement) stripeElement.style.display = 'none';
+        if (hoverElement) hoverElement.style.display = 'none';
     }
 
     totalRenderedTaskCount = 0;
