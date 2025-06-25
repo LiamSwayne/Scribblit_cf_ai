@@ -3990,19 +3990,77 @@ function toggleAmPmOr24() {
 
     let buttonAmPmOr24 = HTML.get('buttonAmPmOr24');
     buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
-    
+
+    const delay = 70; // 0.07 seconds
+
+    const animateTextChange = async (element, newHtml, newStyles = null) => {
+        if (!exists(element) || element.innerHTML === newHtml) return;
+
+        const oldText = element.textContent;
+        // Deletion
+        for (let i = oldText.length; i >= 0; i--) {
+            element.textContent = oldText.substring(0, i);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        // Apply new styles after deletion
+        if (newStyles) {
+            HTML.setStyle(element, newStyles);
+        }
+
+        // Get clean new text for animation
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newHtml;
+        const newText = tempDiv.textContent;
+
+        // Addition
+        for (let i = 1; i <= newText.length; i++) {
+            element.textContent = newText.substring(0, i);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        // Restore final HTML
+        element.innerHTML = newHtml;
+    };
+
     // update all hour markers
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         for (let j = 0; j < 24; j++) {
             let hourMarkerText = HTML.get(`day${i}hourMarkerText${j}`);
-            hourMarkerText.innerHTML = nthHourText(j);
+            const newHtml = nthHourText(j);
+
             let fontSize;
             if (user.settings.ampmOr24 == 'ampm') {
                 fontSize = '12px';
             } else {
                 fontSize = '10px'; // account for additional colon character
             }
-            HTML.setStyle(hourMarkerText, { fontSize: fontSize });
+            animateTextChange(hourMarkerText, newHtml, { fontSize: fontSize });
+        }
+    }
+
+    // Animate task times
+    for (let i = 0; i < totalRenderedTaskCount; i++) {
+        const line1El = HTML.getElement(`task-info-line1-${i}`);
+        if (exists(line1El)) {
+            const timeData = HTML.getDataUnsafely(line1El, 'timeField');
+            if (exists(timeData)) {
+                const timeField = new TimeField(timeData.hour, timeData.minute);
+                const fontSize = parseFloat(line1El.style.fontSize);
+                const newTimeText = formatTaskTime(timeField, fontSize);
+                animateTextChange(line1El, newTimeText);
+            }
+        }
+        
+        const line2El = HTML.getElement(`task-info-line2-${i}`);
+        if (exists(line2El)) {
+            const timeData = HTML.getDataUnsafely(line2El, 'timeField');
+            if (exists(timeData)) {
+                const timeField = new TimeField(timeData.hour, timeData.minute);
+                const fontSize = parseFloat(line2El.style.fontSize);
+                const newTimeText = formatTaskTime(timeField, fontSize);
+                animateTextChange(line2El, newTimeText);
+            }
         }
     }
 }
@@ -4504,6 +4562,11 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             HTML.setId(line1El, line1Id);
             HTML.body.appendChild(line1El);
         }
+        if (line1IsTime) {
+            HTML.setData(line1El, 'timeField', task.originalInstance.dueTime);
+        } else {
+            HTML.setData(line1El, 'timeField', NULL);
+        }
         line1El.innerHTML = line1Text;
         HTML.setStyle(line1El, {
             position: 'fixed',
@@ -4526,6 +4589,11 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             line2El = HTML.make('div');
             HTML.setId(line2El, line2Id);
             HTML.body.appendChild(line2El);
+        }
+        if (line2IsTime) {
+            HTML.setData(line2El, 'timeField', task.originalInstance.dueTime);
+        } else {
+            HTML.setData(line2El, 'timeField', NULL);
         }
         line2El.innerHTML = line2Text;
         HTML.setStyle(line2El, {
@@ -4739,6 +4807,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             ];
             const mixedColor = `rgb(${mixedRgb[0]}, ${mixedRgb[1]}, ${mixedRgb[2]})`;
             
+            stripeElement.style.transition = 'none';
+            
             HTML.setStyle(stripeElement, {
                 position: 'fixed',
                 width: String(stripeWidth) + 'px',
@@ -4750,8 +4820,17 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
                 zIndex: '2',
                 cursor: 'pointer',
                 opacity: '0.5',
-                transition: 'all 0.2s ease'
+                transition: 'none' // Explicitly set to none during resize
             });
+
+            // Restore transition after the browser has painted the changes
+            setTimeout(() => {
+                const el = HTML.getElement(overdueStripeElementId);
+                if (el) {
+                    el.style.transition = 'all 0.2s ease';
+                }
+            }, 0);
+
         } else {
             HTML.setStyle(stripeElement, {
                 display: 'none'
