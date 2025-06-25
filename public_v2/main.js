@@ -56,16 +56,18 @@ function hexToRgb(hex) {
     };
 }
 
-function formatTaskTime(time) {
+function formatTaskTime(time, colonFontSize) {
     ASSERT(type(time, TimeField));
     ASSERT(type(user, User));
     ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24');
+    ASSERT(type(colonFontSize, Number));
 
     let hour = time.hour;
     const minute = time.minute.toString().padStart(2, '0');
+    const colonStyle = `margin-left: 0px; margin-right: 0px; position: relative; top: -0.05em; color: var(--shade-3); font-size: ${colonFontSize}px;`;
 
     if (user.settings.ampmOr24 === '24') {
-        return `${hour.toString()}:${minute}`;
+        return `${hour.toString()}<span style="${colonStyle}">:</span>${minute}`;
     } else { // ampm
         const period = hour >= 12 ? 'PM' : 'AM';
         if (hour > 12) {
@@ -73,7 +75,7 @@ function formatTaskTime(time) {
         } else if (hour === 0) {
             hour = 12;
         }
-        return `${hour}:${minute}${period}`;
+        return `${hour}<span style="${colonStyle}">:</span>${minute}${period}`;
     }
 }
 
@@ -179,6 +181,25 @@ if (TESTING) {
                 [
                     new NonRecurringTaskInstance(
                         yesterday, // date
+                        NULL, // dueTime
+                        false // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
+        // Due today, no time
+        new Entity(
+            'task-due-today-no-time', // id
+            'Due Today', // name
+            '', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        today, // date
                         NULL, // dueTime
                         false // completion
                     )
@@ -781,18 +802,6 @@ if (TESTING) {
         ),
 
         new Entity(
-            'reminder-003',
-            "Bro's Birthday",
-            "Don't forget to send wishes!",
-            new ReminderData([
-                new NonRecurringReminderInstance(
-                    in3Days, // date
-                    new TimeField(10, 0)
-                )
-            ])
-        ),
-
-        new Entity(
             'reminder-400',
             "Thing that happens today and tomorrow",
             "Don't forget to send wishes!",
@@ -839,7 +848,19 @@ if (TESTING) {
                     )
                 ] // instances
             ) // data
-        )
+        ),
+
+        new Entity(
+            'reminder-003',
+            "Bro's Birthday",
+            "Don't forget to send wishes!",
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    in3Days, // date
+                    new TimeField(10, 0)
+                )
+            ])
+        ),
     ];
 
     // Create user object with the sample data
@@ -892,13 +913,20 @@ const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way
 const currentTimeIndicatorZIndex = 5000; // > than 3400+1441
 const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
 
+const taskInfoDateFontBigCol = 12; // px
+const taskInfoTimeFontBigCol = 10; // px
+const taskInfoLineTwoFontBigCol = 8; // px
+const taskInfoDateFontSmallCol = 10; // px
+const taskInfoTimeFontSmallCol = 8; // px
+const taskInfoLineTwoFontSmallCol = 7; // px
+
 // Reminder dimensions - all based on font size for consistency
-const REMINDER_FONT_SIZE = 12; // px
-const REMINDER_TEXT_HEIGHT = Math.round(REMINDER_FONT_SIZE * 1.4); // 17px
-const REMINDER_QUARTER_CIRCLE_RADIUS = REMINDER_FONT_SIZE; // 12px  
-const REMINDER_BORDER_RADIUS = Math.round(REMINDER_TEXT_HEIGHT * 0.5);
-const REMINDER_COUNT_INDICATOR_SIZE = Math.round(REMINDER_FONT_SIZE); // 14px (bigger circle)
-const REMINDER_COUNT_FONT_SIZE = Math.round(REMINDER_FONT_SIZE * 0.75); // 9px (slightly bigger font to match)
+const reminderFontSize = 12; // px
+const reminderTextHeight = Math.round(reminderFontSize * 1.4); // 17px
+const reminderQuarterCircleRadius = reminderFontSize; // 12px  
+const reminderBorderRadius = Math.round(reminderTextHeight * 0.5);
+const reminderCountIndicatorSize = Math.round(reminderFontSize); // 14px (bigger circle)
+const reminderCountFontSize = Math.round(reminderFontSize * 0.75); // 9px (slightly bigger font to match)
 
 let G_reminderDragState = {
     isDragging: false,
@@ -2437,10 +2465,10 @@ function handleReminderDragMove(e) {
 
     // Calculate scaled dimensions based on column width
     const colWidth = getDayColumnDimensions(dayIndex).width;
-    const reminderFontSize = colWidth > columnWidthThreshold ? 14 : 12;
-    const reminderTextHeight = Math.round(reminderFontSize * 1.4);
-    const reminderQuarterCircleRadius = reminderFontSize;
-    const reminderBorderRadius = Math.round(reminderTextHeight * 0.5);
+    const localReminderFontSize = colWidth > columnWidthThreshold ? 14 : 12;
+    const localReminderTextHeight = Math.round(localReminderFontSize * 1.4);
+    const localReminderQuarterCircleRadius = localReminderFontSize;
+    const localReminderBorderRadius = Math.round(localReminderTextHeight * 0.5);
 
     // The new top position for the reminder LINE
     const newLineTop = G_reminderDragState.initialTops[0] + dy;
@@ -2461,31 +2489,31 @@ function handleReminderDragMove(e) {
         } else if (el.id.includes('Text') || el.id.includes('text')) {
             if (isFlipped) {
                 // Position text above the line
-                el.style.top = `${clampedLineTop - reminderTextHeight + 2}px`;
-                el.style.height = `${reminderTextHeight}px`;
+                el.style.top = `${clampedLineTop - localReminderTextHeight + 2}px`;
+                el.style.height = `${localReminderTextHeight}px`;
                 el.style.paddingTop = '1px';
                 // Flip border radius for the new orientation
-                el.style.borderTopLeftRadius = `${reminderBorderRadius}px`;
-                el.style.borderBottomLeftRadius = `${reminderBorderRadius}px`;
-                el.style.borderTopRightRadius = `${reminderBorderRadius}px`; 
+                el.style.borderTopLeftRadius = `${localReminderBorderRadius}px`;
+                el.style.borderBottomLeftRadius = `${localReminderBorderRadius}px`;
+                el.style.borderTopRightRadius = `${localReminderBorderRadius}px`; 
                 el.style.borderBottomRightRadius = '0px'; 
             } else {
                 // Original position below the line
                 el.style.top = `${clampedLineTop}px`;
-                el.style.height = `${reminderLineHeight + reminderTextHeight - 2}px`;
+                el.style.height = `${reminderLineHeight + localReminderTextHeight - 2}px`;
                 el.style.paddingTop = `${reminderLineHeight - 1}px`;
                 // Original border radius
-                el.style.borderTopLeftRadius = `${reminderBorderRadius}px`;
-                el.style.borderBottomLeftRadius = `${reminderBorderRadius}px`;
+                el.style.borderTopLeftRadius = `${localReminderBorderRadius}px`;
+                el.style.borderBottomLeftRadius = `${localReminderBorderRadius}px`;
                 el.style.borderTopRightRadius = '0px';
-                el.style.borderBottomRightRadius = `${reminderBorderRadius}px`;
+                el.style.borderBottomRightRadius = `${localReminderBorderRadius}px`;
             }
         
         } else if (el.id.includes('QuarterCircle') || el.id.includes('quarter-circle')) {
             if (isFlipped) {
                 // Position quarter circle above the line, flipped vertically
-                el.style.top = `${clampedLineTop - reminderQuarterCircleRadius}px`;
-                const gradientMask = `radial-gradient(circle at top right, transparent 0, transparent ${reminderQuarterCircleRadius}px, black ${reminderQuarterCircleRadius + 1}px)`;
+                el.style.top = `${clampedLineTop - localReminderQuarterCircleRadius}px`;
+                const gradientMask = `radial-gradient(circle at top right, transparent 0, transparent ${localReminderQuarterCircleRadius}px, black ${localReminderQuarterCircleRadius + 1}px)`;
                 el.style.webkitMaskImage = gradientMask;
                 el.style.maskImage = gradientMask;
                 el.style.webkitMaskPosition = 'top right';
@@ -2493,7 +2521,7 @@ function handleReminderDragMove(e) {
             } else {
                 // Original position below the line
                 el.style.top = `${clampedLineTop + reminderLineHeight}px`;
-                const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${reminderQuarterCircleRadius}px, black ${reminderQuarterCircleRadius + 1}px)`;
+                const gradientMask = `radial-gradient(circle at bottom right, transparent 0, transparent ${localReminderQuarterCircleRadius}px, black ${localReminderQuarterCircleRadius + 1}px)`;
                 el.style.webkitMaskImage = gradientMask;
                 el.style.maskImage = gradientMask;
                 el.style.webkitMaskPosition = 'bottom right';
@@ -2502,7 +2530,7 @@ function handleReminderDragMove(e) {
 
         } else if (el.id.includes('Count') || el.id.includes('count')) {
             if (isFlipped) {
-                el.style.top = `${clampedLineTop - reminderTextHeight + 4.5}px`;
+                el.style.top = `${clampedLineTop - localReminderTextHeight + 4.5}px`;
             } else {
                 el.style.top = `${clampedLineTop + reminderLineHeight + 0.5}px`;
             }
@@ -2537,7 +2565,7 @@ function handleReminderDragMove(e) {
         const dayLeft = getDayColumnDimensions(G_reminderDragState.dayIndex).left;
         
         // Constrain bubble position to maintain 10px minimum distance from bottom
-        const bubbleHeight = reminderLineHeight + REMINDER_TEXT_HEIGHT - 2;
+        const bubbleHeight = reminderLineHeight + reminderTextHeight - 2;
         const maxBubbleTop = timedAreaTop + timedAreaHeight - bubbleHeight - 4; // must be 4px from bottom of day
         const constrainedBubbleTop = Math.min(clampedLineTop, maxBubbleTop);
         
@@ -4332,8 +4360,12 @@ function getTasksInRange(startUnix, endUnix) {
         if (type(entity.data, TaskData)) {
             entity.data.instances.forEach((instance, instanceIndex) => {
                 if (type(instance, NonRecurringTaskInstance)) {
-                    const dueDateTime = DateTime.local(instance.date.year, instance.date.month, instance.date.day)
-                        .set({ hour: instance.dueTime.hour, minute: instance.dueTime.minute });
+                    let dueDateTime = DateTime.local(instance.date.year, instance.date.month, instance.date.day);
+                    if (instance.dueTime !== NULL) {
+                        dueDateTime = dueDateTime.set({ hour: instance.dueTime.hour, minute: instance.dueTime.minute });
+                    } else {
+                        dueDateTime = dueDateTime.endOf('day').minus({ milliseconds: 1 });
+                    }
                     const dueUnix = dueDateTime.toMillis();
 
                     if (dueUnix >= startUnix && dueUnix < endUnix) {
@@ -4349,6 +4381,11 @@ function getTasksInRange(startUnix, endUnix) {
                 } else if (type(instance, RecurringTaskInstance)) {
                     const dueTimestamps = generateInstancesFromPattern(instance, startUnix, endUnix);
                     dueTimestamps.forEach(ts => {
+                        let finalTimestamp = ts;
+                        if (instance.dueTime === NULL) {
+                            finalTimestamp = DateTime.fromMillis(ts).endOf('day').minus({ milliseconds: 1 }).toMillis();
+                        }
+
                         const dueDate = DateTime.fromMillis(ts);
                         const dateField = new DateField(dueDate.year, dueDate.month, dueDate.day);
                         
@@ -4362,7 +4399,7 @@ function getTasksInRange(startUnix, endUnix) {
                             id: entity.id,
                             name: entity.name,
                             isComplete: isCompleted,
-                            dueDate: ts,
+                            dueDate: finalTimestamp,
                             instanceIndex: instanceIndex,
                             originalInstance: instance,
                             recurringDate: dateField, // For completion checking
@@ -4378,6 +4415,145 @@ function getTasksInRange(startUnix, endUnix) {
 }
 
 let totalRenderedTaskCount = 0;
+
+function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskHeight) {
+    ASSERT(type(task, Object));
+    ASSERT(type(taskIndex, Int));
+    ASSERT(type(taskTopPosition, Number));
+    ASSERT(type(taskListLeft, Number));
+    ASSERT(type(taskHeight, Number));
+
+    const now = DateTime.local();
+    const dueDate = DateTime.fromMillis(task.dueDate);
+    const isOverdue = task.dueDate < now.toMillis() && !task.isComplete;
+    const hasTime = task.originalInstance.dueTime !== NULL;
+
+    const isToday = dueDate.hasSame(now, 'day');
+    const isTomorrow = dueDate.hasSame(now.plus({ days: 1 }), 'day');
+
+    let line1Text = '';
+    let line1FontSize;
+    let line2Text = '';
+    let line2FontSize;
+
+    const colonSizeLine1 = 9;
+    const colonSizeLine2 = 8;
+
+    if (isOverdue) {
+        if (isToday) {
+            line1Text = hasTime ? formatTaskTime(task.originalInstance.dueTime, colonSizeLine1) : "";
+        } else {
+            line1Text = dueDate.toFormat('M/d');
+            if (hasTime) {
+                line2Text = formatTaskTime(task.originalInstance.dueTime, colonSizeLine2);
+            } else {
+                line2Text = '';
+            }
+        }
+    } else { // Not overdue
+        if (isToday || isTomorrow) {
+            if (hasTime) {
+                line1Text = formatTaskTime(task.originalInstance.dueTime, colonSizeLine1);
+            } else {
+                line1Text = '*';
+            }
+        } else { // Week
+            line1Text = dueDate.toFormat('M/d');
+            if (hasTime) {
+                line2Text = formatTaskTime(task.originalInstance.dueTime, colonSizeLine2);
+            }
+        }
+    }
+
+    const line1IsTime = line1Text.includes('<span style=');
+
+    if (columnWidth > columnWidthThreshold) {
+        line1FontSize = line1IsTime ? taskInfoTimeFontBigCol : taskInfoDateFontBigCol;
+        line2FontSize = taskInfoLineTwoFontBigCol;
+    } else {
+        line1FontSize = line1IsTime ? taskInfoTimeFontSmallCol : taskInfoDateFontSmallCol;
+        line2FontSize = taskInfoLineTwoFontSmallCol;
+    }
+
+    const line1Id = `task-info-line1-${taskIndex}`;
+    const line2Id = `task-info-line2-${taskIndex}`;
+
+    let line1El = HTML.getElement(line1Id);
+    if (line1Text) {
+        if (!exists(line1El)) {
+            line1El = HTML.make('div');
+            HTML.setId(line1El, line1Id);
+            HTML.body.appendChild(line1El);
+        }
+        line1El.innerHTML = line1Text;
+        HTML.setStyle(line1El, {
+            position: 'fixed',
+            color: 'var(--shade-3)',
+            fontFamily: 'Monospaced',
+            zIndex: '3',
+            cursor: 'pointer',
+            textAlign: 'center',
+            fontSize: `${line1FontSize}px`,
+            pointerEvents: 'none', // to allow hover on task element underneath
+            transition: 'font-size 0.3s ease'
+        });
+    } else if (exists(line1El)) {
+        line1El.remove();
+    }
+    
+    let line2El = HTML.getElement(line2Id);
+    if (line2Text) {
+        if (!exists(line2El)) {
+            line2El = HTML.make('div');
+            HTML.setId(line2El, line2Id);
+            HTML.body.appendChild(line2El);
+        }
+        line2El.innerHTML = line2Text;
+        HTML.setStyle(line2El, {
+            position: 'fixed',
+            color: 'var(--shade-3)',
+            fontFamily: 'Monospaced',
+            zIndex: '3',
+            cursor: 'pointer',
+            textAlign: 'center',
+            fontSize: `${line2FontSize}px`,
+            pointerEvents: 'none',
+            transition: 'font-size 0.3s ease'
+        });
+    } else if (exists(line2El)) {
+        line2El.remove();
+    }
+
+    const infoAreaWidth = spaceForTaskDateAndTime;
+    const infoAreaLeft = taskListLeft;
+
+    if (line1El && line1Text && !line2Text) { // Single line, vertically center
+        HTML.setStyle(line1El, {
+            top: `${taskTopPosition - 1}px`,
+            left: `${infoAreaLeft}px`,
+            width: `${infoAreaWidth}px`,
+            height: `${taskHeight}px`,
+            lineHeight: `${taskHeight}px`
+        });
+    } else if (line1El && line2El && line1Text && line2Text) { // Two lines
+        const totalTextHeight = line1FontSize + line2FontSize;
+        const topPadding = (taskHeight - totalTextHeight) / 2;
+        HTML.setStyle(line1El, {
+            top: `${taskTopPosition + topPadding - 2}px`,
+            left: `${infoAreaLeft}px`,
+            width: `${infoAreaWidth}px`,
+        });
+        HTML.setStyle(line2El, {
+            top: `${taskTopPosition + topPadding + line1FontSize - 3}px`,
+            left: `${infoAreaLeft}px`,
+            width: `${infoAreaWidth}px`,
+        });
+    }
+
+    // Show/hide the elements
+    if(line1El) line1El.style.display = 'block';
+    if(line2El) line2El.style.display = 'block';
+}
 
 function renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, numberOfSections) {
     const headerId = `taskListHeader-${section.name}`;
@@ -4407,7 +4583,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
     tasks.forEach(task => {
         const taskTopPosition = currentTop;
         const taskElementId = `task-${totalRenderedTaskCount}`;
-        const asteriskElementId = `task-asterisk-${totalRenderedTaskCount}`;
         const checkboxElementId = `task-checkbox-${totalRenderedTaskCount}`;
         const overdueStripeElementId = `task-ovderdue-stripe-${totalRenderedTaskCount}`;
         const hoverElementId = `task-hover-${totalRenderedTaskCount}`;
@@ -4425,14 +4600,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         // Show the element (it might have been hidden)
         taskElement.style.display = 'block';
 
-        let asteriskElement = HTML.getElement(asteriskElementId);
-        if (!exists(asteriskElement)) {
-            asteriskElement = HTML.make('div');
-            HTML.setId(asteriskElement, asteriskElementId);
-            HTML.body.appendChild(asteriskElement);
-        }
-        // Show the element (it might have been hidden)
-        asteriskElement.style.display = 'block';
+        renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskHeight);
 
         let checkboxElement = HTML.getElement(checkboxElementId);
         if (!exists(checkboxElement)) {
@@ -4487,22 +4655,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             cursor: 'pointer',
             zIndex: '3',
             transition: 'opacity 0.2s ease, font-size 0.3s ease'
-        });
-
-        asteriskElement.innerHTML = '*';
-        // Make asterisk font size responsive
-        const asteriskFontSize = columnWidth > columnWidthThreshold ? '14px' : '11px';
-        HTML.setStyle(asteriskElement, {
-            position: 'fixed',
-            top: String(taskTopPosition) + 'px',
-            left: String(taskListLeft + (spaceForTaskDateAndTime / 2) - 3) + 'px', // -4 is to account for the width of the asterisk
-            color: 'var(--shade-3)',
-            fontSize: asteriskFontSize,
-            fontFamily: 'Monospaced',
-            lineHeight: String(taskHeight - 2) + 'px',
-            zIndex: '3',
-            cursor: 'pointer',
-            transition: 'font-size 0.3s ease'
         });
 
         // Make checkbox size responsive
@@ -4619,9 +4771,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         checkboxElement.addEventListener('mouseenter', mouseEnterTask);
         checkboxElement.addEventListener('mouseleave', mouseLeaveTask);
         
-        asteriskElement.addEventListener('mouseenter', mouseEnterTask);
-        asteriskElement.addEventListener('mouseleave', mouseLeaveTask);
-        
         if (isOverdue) {
             stripeElement.addEventListener('mouseenter', mouseEnterTask);
             stripeElement.addEventListener('mouseleave', mouseLeaveTask);
@@ -4658,18 +4807,21 @@ function renderTaskList() {
     // Instead of removing all elements, we'll hide them first and show/reuse as needed
     for (let i = 0; i < totalRenderedTaskCount; i++) {
         const taskElementId = `task-${i}`;
-        const asteriskElementId = `task-asterisk-${i}`;
+        const line1Id = `task-info-line1-${i}`;
+        const line2Id = `task-info-line2-${i}`;
         const checkboxElementId = `task-checkbox-${i}`;
         const stripeElementId = `task-ovderdue-stripe-${i}`;
         const hoverElementId = `task-hover-${i}`;
         const taskElement = HTML.getElement(taskElementId);
-        const asteriskElement = HTML.getElement(asteriskElementId);
+        const line1El = HTML.getElement(line1Id);
+        const line2El = HTML.getElement(line2Id);
         const checkboxElement = HTML.getElement(checkboxElementId);
         const stripeElement = HTML.getElement(stripeElementId);
         const hoverElement = HTML.getElement(hoverElementId);
         
         if (taskElement) taskElement.style.display = 'none';
-        if (asteriskElement) asteriskElement.style.display = 'none';
+        if (line1El) line1El.style.display = 'none';
+        if (line2El) line2El.style.display = 'none';
         if (checkboxElement) checkboxElement.style.display = 'none';
         if (stripeElement) stripeElement.style.display = 'none';
         if (hoverElement) hoverElement.style.display = 'none';
