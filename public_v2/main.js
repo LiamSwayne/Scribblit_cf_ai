@@ -18,10 +18,9 @@ const DateTime = luxon.DateTime; // .local() sets the timezone to the user's tim
 let firstDayInCalendar;
 
 const allDayEventHeight = 18; // height in px for each all-day event
-
 const columnWidthThreshold = 300; // px
-
 const spaceForTaskDateAndTime = 30; // px
+const vibrantRedColor = '#ff4444';
 
 // Save user data to localStorage
 function saveUserData(user) {
@@ -153,11 +152,10 @@ if (TESTING) {
 
     // Create sample tasks and events
     let entityArray = [
-        // OVERDUE TASK - Due today at 6 AM
         new Entity(
             'task-overdue-001', // id
-            'Morning Workout', // name
-            'Complete workout routine', // description
+            'Overdue today at 6 AM', // name
+            '', // description
             new TaskData( // data
                 [
                     new NonRecurringTaskInstance(
@@ -172,11 +170,10 @@ if (TESTING) {
             ) // data
         ),
 
-        // OVERDUE TASK - Due yesterday no specified time
         new Entity(
             'task-overdue-002', // id
-            'Call Mom', // name
-            'Check in with mom', // description
+            'Overdue yesterday no time', // name
+            '', // description
             new TaskData( // data
                 [
                     new NonRecurringTaskInstance(
@@ -303,6 +300,25 @@ if (TESTING) {
                         new TimeField(10, 0), // dueTime
                         new RecurrenceCount(new DateField(2025, 1, 1), 6), // repeats 6 times, not 6 years
                         [] // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
+        // task overdue yesterday with time
+        new Entity(
+            'task-004', // id
+            'Overdue yesterday with time', // name
+            '', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        yesterday, // date
+                        new TimeField(10, 0), // dueTime
+                        false // completion
                     )
                 ], // instances
                 NULL, // hideUntil
@@ -4200,9 +4216,10 @@ function renderTimeIndicator(onSchedule) {
         width: String(dayColumnDimensions.width) + 'px',
         top: String(positionY) + 'px',
         height: '2px',
-        backgroundColor: '#ff444455',
+        backgroundColor: vibrantRedColor,
         zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441 + 1), // on top of all reminders
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        opacity: '0.33',
     });
     HTML.body.appendChild(timeMarker);
 
@@ -4216,7 +4233,7 @@ function renderTimeIndicator(onSchedule) {
         top: String(positionY - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)) + 'px',
         width: '0px',
         height: '0px',
-        borderLeft: String(timeTriangleWidth) + 'px solid #ff4444',
+        borderLeft: String(timeTriangleWidth) + 'px solid ' + vibrantRedColor,
         borderTop: String(timeTriangleHeight / 2) + 'px solid transparent',
         borderBottom: String(timeTriangleHeight / 2) + 'px solid transparent',
         zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441 + 2),
@@ -4555,6 +4572,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
 
     const line1Id = `task-info-line1-${taskIndex}`;
     const line2Id = `task-info-line2-${taskIndex}`;
+    const textColor = isOverdue ? vibrantRedColor : 'var(--shade-3)';
 
     let line1El = HTML.getElement(line1Id);
     if (line1Text) {
@@ -4571,7 +4589,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         line1El.innerHTML = line1Text;
         HTML.setStyle(line1El, {
             position: 'fixed',
-            color: 'var(--shade-3)',
+            color: textColor,
             fontFamily: 'Monospaced',
             zIndex: '3',
             cursor: 'pointer',
@@ -4599,7 +4617,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         line2El.innerHTML = line2Text;
         HTML.setStyle(line2El, {
             position: 'fixed',
-            color: 'var(--shade-3)',
+            color: textColor,
             fontFamily: 'Monospaced',
             zIndex: '3',
             cursor: 'pointer',
