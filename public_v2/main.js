@@ -21,6 +21,8 @@ const allDayEventHeight = 18; // height in px for each all-day event
 
 const columnWidthThreshold = 300; // px
 
+const spaceForTaskDateAndTime = 30; // px
+
 // Save user data to localStorage
 function saveUserData(user) {
     ASSERT(type(user, User));
@@ -231,8 +233,8 @@ if (TESTING) {
         // recurring weekly task with completion
         new Entity(
             'task-002', // id
-            'Weekly Report', // name
-            'Submit weekly status report to manager', // description
+            'Weekly task', // name
+            '', // description
             new TaskData( // data
                 [
                     new RecurringTaskInstance(
@@ -271,8 +273,8 @@ if (TESTING) {
         // monthly recurring task
         new Entity(
             'task-003', // id
-            'Monthly Budget Review', // name
-            'Review and update monthly budget', // description
+            'Monthly task', // name
+            '', // description
             new TaskData( // data
                 [
                     new RecurringTaskInstance(
@@ -1927,7 +1929,8 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         HTML.setStyle(asteriskElement, {
             position: 'fixed',
             top: String(allDayEventTopPosition) + 'px', // move it down a bit so it's at the center of the event
-            left: String(dayElemLeft + 1) + 'px', // Position to the left of the text
+            left: String(dayElemLeft + 2) + 'px', // Position to the left of the text
+            width: '60px', // Reserve much more space for date/time display
             color: 'var(--shade-3)',
             fontSize: '11px',
             fontFamily: 'Monospaced',
@@ -3795,14 +3798,17 @@ function renderDividers() {
 
             const hDividerLeft = minLeft - (gapBetweenColumns / 2);
             const hDividerWidth = maxRight - minLeft + gapBetweenColumns;
+            const hDividerHeight = 2;
+            const hDividerBorderRadius = hDividerHeight / 2;
 
             HTML.setStyle(hDivider, {
                 position: 'fixed',
                 top: `${hDividerTop}px`,
                 left: `${hDividerLeft}px`,
                 width: `${hDividerWidth}px`,
-                height: '2px',
+                height: `${hDividerHeight}px`,
                 backgroundColor: 'var(--shade-2)',
+                borderRadius: `${hDividerBorderRadius}px`,
                 zIndex: '350'
             });
             HTML.body.appendChild(hDivider);
@@ -3814,17 +3820,20 @@ function renderDividers() {
             HTML.setId(vDivider, `vertical-divider-${i}`);
 
             const dim = getDayColumnDimensions(i);
+            const vDividerWidth = 2;
             const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
             const vDividerTop = dim.top - topOfCalendarDay + 6;
             const vDividerHeight = dim.height + topOfCalendarDay - 6;
+            const vDividerBorderRadius = vDividerWidth / 2;
 
             HTML.setStyle(vDivider, {
                 position: 'fixed',
                 top: `${vDividerTop}px`,
                 left: `${vDividerLeft}px`,
-                width: '2px',
+                width: `${vDividerWidth}px`,
                 height: `${vDividerHeight}px`,
                 backgroundColor: 'var(--shade-2)',
+                borderRadius: `${vDividerBorderRadius}px`,
                 zIndex: '350'
             });
             HTML.body.appendChild(vDivider);
@@ -3837,17 +3846,20 @@ function renderDividers() {
             HTML.setId(vDivider, `vertical-divider-${i}`);
 
             const dim = getDayColumnDimensions(i);
+            const vDividerWidth = 2;
             const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
             const vDividerTop = dim.top - topOfCalendarDay + 6;
             const vDividerHeight = dim.height + topOfCalendarDay - 6;
+            const vDividerBorderRadius = vDividerWidth / 2;
 
             HTML.setStyle(vDivider, {
                 position: 'fixed',
                 top: `${vDividerTop}px`,
                 left: `${vDividerLeft}px`,
-                width: '2px',
+                width: `${vDividerWidth}px`,
                 height: `${vDividerHeight}px`,
                 backgroundColor: 'var(--shade-2)',
+                borderRadius: `${vDividerBorderRadius}px`,
                 zIndex: '350'
             });
             HTML.body.appendChild(vDivider);
@@ -4420,7 +4432,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            paddingLeft: '12px',
+            paddingLeft: String(spaceForTaskDateAndTime) + 'px',
             paddingRight: '16px', // Make space for checkbox
             boxSizing: 'border-box',
             cursor: 'pointer',
@@ -4434,7 +4446,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         HTML.setStyle(asteriskElement, {
             position: 'fixed',
             top: String(taskTopPosition) + 'px',
-            left: String(taskListLeft + 1) + 'px',
+            left: String(taskListLeft + (spaceForTaskDateAndTime / 2) - 3) + 'px', // -4 is to account for the width of the asterisk
             color: 'var(--shade-3)',
             fontSize: asteriskFontSize,
             fontFamily: 'Monospaced',
