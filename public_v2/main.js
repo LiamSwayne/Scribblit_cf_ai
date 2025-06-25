@@ -916,10 +916,11 @@ const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
 const taskInfoDateFontBigCol = 10; // px
 const taskInfoTimeFontBigCol = 9; // px
 const taskInfoLineTwoFontBigCol = 8; // px
-const taskInfoAsteriskFontBigCol = 9; // px
+const taskInfoAsteriskFontBigCol = 14; // px
 const taskInfoDateFontSmallCol = 10; // px
 const taskInfoTimeFontSmallCol = 8; // px
 const taskInfoLineTwoFontSmallCol = 7; // px
+const taskInfoAsteriskFontSmallCol = 12; //px
 
 // Reminder dimensions - all based on font size for consistency
 const reminderFontSize = 12; // px
@@ -4200,8 +4201,8 @@ function renderTimeIndicator(onSchedule) {
         top: String(positionY) + 'px',
         height: '2px',
         backgroundColor: '#ff444455',
-        zIndex: '2000',
-        pointerEvents: 'none',
+        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441 + 1), // on top of all reminders
+        pointerEvents: 'none'
     });
     HTML.body.appendChild(timeMarker);
 
@@ -4218,7 +4219,7 @@ function renderTimeIndicator(onSchedule) {
         borderLeft: String(timeTriangleWidth) + 'px solid #ff4444',
         borderTop: String(timeTriangleHeight / 2) + 'px solid transparent',
         borderBottom: String(timeTriangleHeight / 2) + 'px solid transparent',
-        zIndex: '2000',
+        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441 + 2),
         pointerEvents: 'none',
     });
     HTML.body.appendChild(timeTriangle);
@@ -4523,7 +4524,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         line1FontSize = line1IsTime ? taskInfoTimeFontBigCol : (line1IsAsterisk ? taskInfoAsteriskFontBigCol : taskInfoDateFontBigCol);
         line2FontSize = line2IsTime ? taskInfoLineTwoFontBigCol : taskInfoLineTwoFontBigCol; // Assuming line 2 is always smaller text
     } else {
-        line1FontSize = line1IsTime ? taskInfoTimeFontSmallCol : taskInfoDateFontSmallCol; // Asterisk uses date font on small
+        line1FontSize = line1IsTime ? taskInfoTimeFontSmallCol : (line1IsAsterisk ? taskInfoAsteriskFontSmallCol : taskInfoDateFontSmallCol);
         line2FontSize = line2IsTime ? taskInfoLineTwoFontSmallCol : taskInfoLineTwoFontSmallCol;
     }
 
