@@ -280,7 +280,7 @@ if (TESTING) {
                     new RecurringTaskInstance(
                         new MonthlyPattern(1, [false, false, false, false, false, false, false, false, false, false, true, true]), // datePattern (1st of every month)
                         new TimeField(10, 0), // dueTime
-                        new RecurrenceCount(6), // range
+                        new RecurrenceCount(new DateField(2025, 1, 1), 6), // repeats 6 times, not 6 years
                         [] // completion
                     )
                 ], // instances
@@ -490,7 +490,7 @@ if (TESTING) {
                         ), // startDatePattern
                         new TimeField(10, 0), // startTime
                         new TimeField(16, 0), // endTime
-                        new RecurrenceCount(4), // range
+                        new RecurrenceCount(nextSaturday, 4), // range
                         1 // differentEndDatePattern (e.g. workshop lasts 2 days, so end is start + 1 day)
                     )
                 ] // instances
@@ -511,7 +511,7 @@ if (TESTING) {
                         ), // startDatePattern
                         new TimeField(10, 0), // startTime
                         new TimeField(16, 0), // endTime
-                        new RecurrenceCount(4), // range
+                        new RecurrenceCount(today, 4), // range
                         1 // differentEndDatePattern (e.g. workshop lasts 2 days, so end is start + 1 day)
                     )
                 ] // instances
@@ -770,12 +770,12 @@ if (TESTING) {
                 new RecurringReminderInstance(
                     new EveryNDaysPattern(today, 1), // Daily starting today
                     new TimeField(9, 0),
-                    new RecurrenceCount(3) // For 3 days
+                    new RecurrenceCount(today, 3) // For 3 days
                 ),
                 new RecurringReminderInstance(
                     new EveryNDaysPattern(today, 1), // Daily starting today
                     new TimeField(21, 0),
-                    new RecurrenceCount(3) // For 3 days
+                    new RecurrenceCount(today, 3) // For 3 days
                 )
             ])
         ),
@@ -834,7 +834,7 @@ if (TESTING) {
                         ), // startDatePattern
                         NULL, // startTime (all-day)
                         NULL, // endTime (all-day)
-                        new RecurrenceCount(2),
+                        new RecurrenceCount(today, 2),
                         NULL // differentEndDatePattern
                     )
                 ] // instances
@@ -1211,21 +1211,69 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     // Determine start date
     let startDateTime;
     if (type(instance.range, DateRange)) {
-        ASSERT(type(instance.range.startDate, DateField));
         startDateTime = DateTime.local(instance.range.startDate.year, instance.range.startDate.month, instance.range.startDate.day);
+    } else if (type(instance.range, RecurrenceCount)) {
+        let baseDate = DateTime.local(instance.range.initialDate.year, instance.range.initialDate.month, instance.range.initialDate.day);
+        
+        // For RecurrenceCount, we need to find the first actual occurrence of the pattern starting from the initial date
+        if (type(pattern, EveryNDaysPattern)) {
+            startDateTime = baseDate;
+        } else if (type(pattern, MonthlyPattern)) {
+            // Find the first valid month from the base date
+            startDateTime = baseDate.set({day: pattern.day});
+            while (!pattern.months[startDateTime.month - 1]) {
+                startDateTime = startDateTime.plus({months: 1}).set({day: pattern.day});
+            }
+        } else if (type(pattern, AnnuallyPattern)) {
+            startDateTime = baseDate.set({month: pattern.month, day: pattern.day});
+            // If the date has already passed in the base year, use next year
+            if (startDateTime < baseDate) {
+                startDateTime = startDateTime.plus({years: 1});
+            }
+        } else if (type(pattern, NthWeekdayOfMonthsPattern)) {
+            startDateTime = baseDate;
+            // This will be refined in the generation loop to find the actual first occurrence
+        } else {
+            startDateTime = baseDate;
+        }
     } else if (type(pattern, EveryNDaysPattern)) {
         startDateTime = DateTime.local(pattern.initialDate.year, pattern.initialDate.month, pattern.initialDate.day);
+    } else if (type(pattern, MonthlyPattern)) {
+        // For MonthlyPattern, we need a reference date - use current date as fallback
+        // Find the first occurrence from today
+        let currentDate = DateTime.local();
+        startDateTime = currentDate.set({day: pattern.day});
+        // Find the first valid month from current date
+        while (!pattern.months[startDateTime.month - 1]) {
+            startDateTime = startDateTime.plus({months: 1}).set({day: pattern.day});
+        }
+    } else if (type(pattern, AnnuallyPattern)) {
+        // For AnnuallyPattern, use current year or next year if already passed
+        let currentDate = DateTime.local();
+        startDateTime = currentDate.set({month: pattern.month, day: pattern.day});
+        // If the date has already passed this year, use next year
+        if (startDateTime < currentDate) {
+            startDateTime = startDateTime.plus({years: 1});
+        }
+    } else if (type(pattern, NthWeekdayOfMonthsPattern)) {
+        // For NthWeekdayOfMonthsPattern, find the first occurrence from current date
+        let currentDate = DateTime.local();
+        startDateTime = currentDate;
+        // This will be refined in the generation loop to find the actual first occurrence
     } else {
-        // For patterns like Monthly or NthWeekday, we start from the beginning of the current day
-        // if no explicit start range is given. The loop will find the first valid date.
-        startDateTime = DateTime.local().startOf('day');
+        ASSERT(false, "Unknown pattern type in generateInstancesFromPattern");
     }
+    
     // Determine the recurrence's own end date
     let recurrenceEndDateTime;
     if (type(instance.range, DateRange) && instance.range.endDate !== NULL) {
         ASSERT(type(instance.range.endDate, DateField));
         recurrenceEndDateTime = DateTime.local(instance.range.endDate.year, instance.range.endDate.month, instance.range.endDate.day).endOf('day');
     } else if (type(instance.range, RecurrenceCount)) {
+        // For RecurrenceCount, we don't set an end date - the count will limit the instances
+        recurrenceEndDateTime = NULL;
+    } else {
+        // No range specified, so no end date
         recurrenceEndDateTime = NULL;
     }
 
@@ -1380,7 +1428,7 @@ class FilteredInstancesFactory {
         // we want to know if the entire task is complete
         // even if it's complete for some days, the work sessions
         // should still be shown because they can still make progress
-        const taskIsComplete = taskEntity.data.isComplete();
+        const taskIsComplete = taskEntity.data.isComplete(NULL, NULL);
 
         // Common properties for the instances derived from this workSessionInstance
         const originalStartDate = workSessionInstance.startDatePattern ? workSessionInstance.startDatePattern.initialDate : workSessionInstance.startDate;
@@ -4260,6 +4308,7 @@ function renderInputBox() {
     });
 }
 
+// are there any incomplete tasks in the range?
 function hasIncompleteTasksInRange(startUnix, endUnix) {
     ASSERT(type(startUnix, Int));
     ASSERT(type(endUnix, Int));
@@ -4762,7 +4811,7 @@ async function init() {
 
     // how fast did the page load and render?
     const loadTime = performance.now();
-    log(`Page loaded and rendered in ${loadTime}ms`);
+    log(`Page loaded and rendered in ${Math.round(loadTime)}ms`);
 }
 
 init();
