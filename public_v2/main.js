@@ -45,6 +45,15 @@ function loadUserData() {
     }
 }
 
+function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    };
+}
+
 function formatTaskTime(time) {
     ASSERT(type(time, TimeField));
     ASSERT(type(user, User));
@@ -4478,16 +4487,30 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 
         // Style the striped background for overdue tasks
         if (isOverdue) {
+            // Get background color from palette (shade 0) and mix with red (70% background, 30% red)
+            // Mix colors
+            const redPercentage = 0.35;
+            const backgroundPercentage = 1 - redPercentage;
+            const backgroundRGB = hexToRgb(user.palette.shades[0]);
+            const redRgb = [255, 0, 0];
+            const mixedRgb = [
+                Math.round(backgroundRGB.r * backgroundPercentage + redRgb[0] * redPercentage),
+                Math.round(backgroundRGB.g * backgroundPercentage + redRgb[1] * redPercentage),
+                Math.round(backgroundRGB.b * backgroundPercentage + redRgb[2] * redPercentage)
+            ];
+            const mixedColor = `rgb(${mixedRgb[0]}, ${mixedRgb[1]}, ${mixedRgb[2]})`;
+            
             HTML.setStyle(stripeElement, {
                 position: 'fixed',
                 width: String(taskListWidth) + 'px',
                 height: String(taskHeight - 2) + 'px',
                 top: String(taskTopPosition) + 'px',
                 left: String(taskListLeft) + 'px',
-                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 0, 0, 0.08) 10px, rgba(255, 0, 0, 0.08) 20px)',
+                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, ${mixedColor} 10px, ${mixedColor} 20px)`,
                 borderRadius: '3px',
                 zIndex: '2',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                opacity: '0.5' // on hover it's 1
             });
         } else {
             HTML.setStyle(stripeElement, {
@@ -4496,16 +4519,18 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         }
         
         // Hover handlers for all elements
-        const handleMouseEnter = function() {
+        const mouseEnterTask = function() {
             hoverElement.style.opacity = '1';
+            stripeElement.style.opacity = '1';
             if (task.isComplete) {
                 taskElement.style.opacity = '1';
                 checkboxElement.style.opacity = '1';
             }
         };
         
-        const handleMouseLeave = function() {
+        const mouseLeaveTask = function() {
             hoverElement.style.opacity = '0';
+            stripeElement.style.opacity = '0.5';
             if (task.isComplete) {
                 taskElement.style.opacity = '0.5';
                 checkboxElement.style.opacity = '0.5';
@@ -4513,18 +4538,18 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         };
 
         // Add hover listeners to all elements
-        taskElement.addEventListener('mouseenter', handleMouseEnter);
-        taskElement.addEventListener('mouseleave', handleMouseLeave);
+        taskElement.addEventListener('mouseenter', mouseEnterTask);
+        taskElement.addEventListener('mouseleave', mouseLeaveTask);
         
-        checkboxElement.addEventListener('mouseenter', handleMouseEnter);
-        checkboxElement.addEventListener('mouseleave', handleMouseLeave);
+        checkboxElement.addEventListener('mouseenter', mouseEnterTask);
+        checkboxElement.addEventListener('mouseleave', mouseLeaveTask);
         
-        asteriskElement.addEventListener('mouseenter', handleMouseEnter);
-        asteriskElement.addEventListener('mouseleave', handleMouseLeave);
+        asteriskElement.addEventListener('mouseenter', mouseEnterTask);
+        asteriskElement.addEventListener('mouseleave', mouseLeaveTask);
         
         if (isOverdue) {
-            stripeElement.addEventListener('mouseenter', handleMouseEnter);
-            stripeElement.addEventListener('mouseleave', handleMouseLeave);
+            stripeElement.addEventListener('mouseenter', mouseEnterTask);
+            stripeElement.addEventListener('mouseleave', mouseLeaveTask);
         }
         
         currentTop += taskHeight;
