@@ -395,16 +395,19 @@ class DateRange {
 }
 
 class RecurrenceCount {
-    constructor(count) {
+    constructor(initialDate, count) {
+        ASSERT(type(initialDate, DateField));
         ASSERT(type(count, Int));
         ASSERT(count > 0);
         
+        this.initialDate = initialDate;
         this.count = count;
     }
 
     toJson() {
         ASSERT(type(this, RecurrenceCount));
         return {
+            initialDate: this.initialDate.toJson(),
             count: this.count,
             _type: 'RecurrenceCount'
         };
@@ -412,7 +415,7 @@ class RecurrenceCount {
 
     static fromJson(json) {
         ASSERT(exists(json));
-        return new RecurrenceCount(json.count);
+        return new RecurrenceCount(DateField.fromJson(json.initialDate), json.count);
     }
 }
 
@@ -431,7 +434,7 @@ class NonRecurringTaskInstance {
     }
 
     // no unix args since it only happens once
-    isComplete(startUnix=NULL, endUnix=NULL) {
+    isComplete(startUnix, endUnix) {
         ASSERT(type(this, NonRecurringTaskInstance));
         ASSERT(type(startUnix, Union(Int, NULL)));
         ASSERT(type(endUnix, Union(Int, NULL)));
@@ -488,7 +491,7 @@ class RecurringTaskInstance {
         this.completion = completion;
     }
 
-    getDueDatesInRange(startUnix=NULL, endUnix=NULL) {
+    getDueDatesInRange(startUnix, endUnix) {
         ASSERT(type(this, RecurringTaskInstance));
         ASSERT(type(startUnix, Union(Int, NULL)));
         ASSERT(type(endUnix, Union(Int, NULL)));
@@ -500,7 +503,7 @@ class RecurringTaskInstance {
             lowerBound = this.range.startDate.toUnixTimestamp();
             upperBound = this.range.endDate === NULL ? defaultCutoffUnix : this.range.endDate.toUnixTimestamp();
         } else { // RecurrenceCount
-            lowerBound = 0; // Start from epoch
+            lowerBound = this.range.initialDate.toUnixTimestamp();
             upperBound = defaultCutoffUnix;
         }
 
@@ -619,14 +622,14 @@ class RecurringTaskInstance {
                         for (const nStr in this.datePattern.nthWeekdays) {
                             if (this.datePattern.nthWeekdays[nStr]) {
                                 const n = Number(nStr);
-                                let selectedDate = null;
+                                let selectedDate = NULL;
                                 if (n > 0 && n <= weekdaysInMonth.length) {
                                     selectedDate = weekdaysInMonth[n - 1];
                                 } else if (n === -1 && weekdaysInMonth.length > 0) {
                                     selectedDate = weekdaysInMonth[weekdaysInMonth.length - 1];
                                 }
 
-                                if (selectedDate) {
+                                if (selectedDate !== NULL) {
                                     let dueDateTime = selectedDate.getTime();
                                     if (dueDateTime >= lowerBound && dueDateTime <= upperBound) {
                                         potentialDueDates.push(dueDateTime);
@@ -650,7 +653,7 @@ class RecurringTaskInstance {
         return dueDates;
     }
 
-    isComplete(startUnix=NULL, endUnix=NULL) {
+    isComplete(startUnix, endUnix) {
         ASSERT(type(this, RecurringTaskInstance));
         ASSERT(type(startUnix, Union(Int, NULL)));
         ASSERT(type(endUnix, Union(Int, NULL)));
@@ -942,7 +945,7 @@ class TaskData {
         this.workSessions = workSessions;
     }
 
-    isComplete(startUnix=NULL, endUnix=NULL) {
+    isComplete(startUnix, endUnix) {
         ASSERT(type(this, TaskData));
         ASSERT(type(startUnix, Union(Int, NULL)));
         ASSERT(type(endUnix, Union(Int, NULL)));
@@ -1461,7 +1464,7 @@ function type(thing, sometype) {
         try { new DateRange(thing.startDate, thing.endDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurrenceCount) {
         if (!(thing instanceof RecurrenceCount)) return false;
-        try { new RecurrenceCount(thing.count); return true; } catch (e) { return false; }
+        try { new RecurrenceCount(DateField.fromJson(thing.initialDate), thing.count); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringTaskInstance) {
         if (!(thing instanceof NonRecurringTaskInstance)) return false;
         try { new NonRecurringTaskInstance(thing.date, thing.dueTime, thing.completion); return true; } catch (e) { return false; }
