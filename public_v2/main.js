@@ -1333,17 +1333,13 @@ function updateTaskSectionNames() {
         }
     }
 
-    log(initiallyActive);
-
     // get all the checkboxes
     for (const id of activeCheckboxIds) {
         const checkboxElement = HTML.getElement(id);
         const isArbitraryBoxChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
         ASSERT(type(isArbitraryBoxChecked, Boolean));
         if (!isArbitraryBoxChecked) {
-            log('isArbitraryBoxChecked is false for id: ' + id);
             const taskSectionName = HTML.getData(checkboxElement, 'SECTION');
-            log('taskSectionName: ' + taskSectionName);
             taskSectionNameInactive[taskSectionName] = false;
         }
     }
@@ -1353,20 +1349,13 @@ function updateTaskSectionNames() {
         if (isInactive) {
             taskSectionElement.style.color = inactiveColor;
         } else {
-            log('active for id: ' + taskSectionName);
             taskSectionElement.style.color = activeColor;
         }
     }
 
-    log(taskSectionNameInactive);
-
     // see if any of them weren't complete before and are now complete
     for (const [taskSectionName, isInactive] of Object.entries(taskSectionNameInactive)) {
-        log('taskSectionName: ' + taskSectionName);
-        log('isInactive: ' + isInactive);
-        log('initiallyActive[taskSectionName]: ' + initiallyActive[taskSectionName]);
         if (initiallyActive[taskSectionName] && isInactive) {
-            log('play confetti animation');
             // play a confetti animation
             playConfettiAnimation(taskSectionName);
         }
