@@ -1274,7 +1274,39 @@ function toggleCheckbox(checkboxElement) {
         }
     }
 
-    // TODO LATER update the task object itself in the user's entity array
+    // update the task object itself in the user's entity array
+    const taskId = HTML.getData(checkboxElement, 'TASK_ID');
+    const instanceIndex = HTML.getData(checkboxElement, 'INSTANCE_INDEX');
+    ASSERT(type(taskId, String));
+    ASSERT(type(instanceIndex, Int));
+    
+    // Find the task entity in user's entity array
+    const taskEntity = user.entityArray.find(entity => entity.id === taskId);
+    ASSERT(type(taskEntity, Entity));
+    ASSERT(type(taskEntity.data, TaskData));
+    const instance = taskEntity.data.instances[instanceIndex];
+    if (type(instance, NonRecurringTaskInstance)) {
+        // For non-recurring tasks, simply toggle the completion boolean
+        instance.completion = isChecked;
+    } else if (type(instance, RecurringTaskInstance)) {
+        const dueDateUnix = instance.getDueDatesInRange(NULL, NULL);
+        const initialNumberOfCompletions = instance.completion.length;
+        ASSERT(type(dueDateUnix, Int));
+        // For recurring tasks, manage the completion array with unix timestamps
+        if (isChecked) {
+            // Add completion unix timestamp if not already present
+            if (!instance.completion.includes(dueDateUnix)) {
+                instance.completion.push(dueDateUnix);
+            }
+        } else {
+            // Remove completion unix timestamp
+            instance.completion = instance.completion.filter(completedUnix => completedUnix !== dueDateUnix);
+        }
+        ASSERT(Math.abs(instance.completion.length - initialNumberOfCompletions) <= 1, "Recurring task completion array length changed by more than 1");
+    }
+    
+    // Save the updated user data
+    saveUserData(user);
 }
 
 // how many columns of calendar days plus the task list
@@ -4815,6 +4847,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
             HTML.setData(checkboxElement, 'IS_CHECKED', false);
         }
+        
+        // Set task ID, instance index, and due date unix time data on checkbox
+        HTML.setData(checkboxElement, 'TASK_ID', task.id);
+        HTML.setData(checkboxElement, 'INSTANCE_INDEX', task.instanceIndex);
+        HTML.setData(checkboxElement, 'DUE_DATE_UNIX', task.dueDate);
         // Show the element (it might have been hidden)
         checkboxElement.style.display = 'block';
 

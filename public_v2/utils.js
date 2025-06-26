@@ -433,6 +433,11 @@ class NonRecurringTaskInstance {
         this.completion = completion;
     }
 
+    getDueDate() {
+        ASSERT(type(this, NonRecurringTaskInstance));
+        return this.date.toUnixTimestamp();
+    }
+
     // no unix args since it only happens once
     isComplete(startUnix, endUnix) {
         ASSERT(type(this, NonRecurringTaskInstance));
@@ -480,10 +485,11 @@ class NonRecurringTaskInstance {
 
 class RecurringTaskInstance {
     constructor(datePattern, dueTime, range, completion) {
-        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)));
-        ASSERT(type(dueTime, Union(TimeField, NULL)));
-        ASSERT(type(range, Union(DateRange, RecurrenceCount)));
-        ASSERT(type(completion, List(Int)));
+        ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)), "1");
+        ASSERT(type(dueTime, Union(TimeField, NULL)), "2");
+        ASSERT(type(range, Union(DateRange, RecurrenceCount)), "3");
+        log(completion);
+        ASSERT(type(completion, List(Int)), "4");
 
         this.datePattern = datePattern;
         this.dueTime = dueTime;
@@ -943,6 +949,32 @@ class TaskData {
         this.hideUntil = hideUntil;
         this.showOverdue = showOverdue;
         this.workSessions = workSessions;
+    }
+
+    getDueDates(startUnix, endUnix) {
+        ASSERT(type(this, TaskData));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+        // array, and each elmenent is an instance's array of due dates
+        let dueDates = [];
+        let i = 0;
+        for (const instance of this.instances) {
+            if (type(instance, NonRecurringTaskInstance)) {
+                // add this array to the dueDates array
+                let dueDate = instance.getDueDate();
+                if (dueDate >= startUnix && dueDate <= endUnix) {
+                    dueDates.push([{date : dueDate, completed : instance.completion}]);
+                }
+            } else if (type(instance, RecurringTaskInstance)) {
+                let arr = [];
+                for (const date of instance.getDueDatesInRange(startUnix, endUnix)) {
+                    arr.push({date : date, completed : instance.completion.includes(date)});
+                }
+                dueDates.push(arr);
+            }
+            i++;
+        }
+        return dueDates;
     }
 
     isComplete(startUnix, endUnix) {
