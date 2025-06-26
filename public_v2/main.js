@@ -1368,13 +1368,13 @@ function updateTaskSectionNames() {
         if (initiallyActive[taskSectionName] && isInactive) {
             log('play confetti animation');
             // play a confetti animation
-            playConfettiAnimation();
+            playConfettiAnimation(taskSectionName);
         }
     }
 }
 
 let confettiAnimationCurrentlyPlaying = false;
-function playConfettiAnimation() {
+function playConfettiAnimation(taskSectionName) {
     if (confettiAnimationCurrentlyPlaying) {
         return;
     }
