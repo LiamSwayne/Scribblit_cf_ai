@@ -1201,13 +1201,21 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         });
     }
     
+    // Calculate if task is overdue based on due date first
+    const dueDateUnix = HTML.getData(checkboxElement, 'DUE_DATE_UNIX');
+    const now = DateTime.local().toMillis();
+    const isOverdue = dueDateUnix < now;
+
     // update the stripe element
     const taskNumber = checkboxElement.id.split('-')[2];
     const stripeElement = HTML.getElementUnsafely('task-overdue-stripe-' + taskNumber);
     if (exists(stripeElement)) {
         if (isChecked) {
+            log("setting stripe opacity to 0");
             stripeElement.style.opacity = '0';
         } else {
+            log("setting stripe opacity to 0.5");
+            // Only show stripe if task is actually overdue
             stripeElement.style.opacity = '0.5';
         }
     }
@@ -1223,11 +1231,6 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
             taskElement.style.textDecoration = 'none';
         }
     }
-
-    // Calculate if task is overdue based on due date
-    const dueDateUnix = HTML.getData(checkboxElement, 'DUE_DATE_UNIX');
-    const now = DateTime.local().toMillis();
-    const isOverdue = dueDateUnix < now;
 
     // update the time and date elements if they exist
     const line1Element = HTML.getElementUnsafely('task-info-line1-' + taskNumber);
@@ -4914,7 +4917,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             textAlign: 'center',
             fontSize: `${line1FontSize}px`,
             pointerEvents: 'none', // to allow hover on task element underneath
-            transition: 'font-size 0.3s ease'
+            transition: 'font-size 0.3s ease, color 0.2s ease'
         });
     } else if (exists(line1El)) {
         line1El.remove();
@@ -4942,7 +4945,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             textAlign: 'center',
             fontSize: `${line2FontSize}px`,
             pointerEvents: 'none',
-            transition: 'font-size 0.3s ease'
+            transition: 'font-size 0.3s ease, color 0.2s ease'
         });
     } else if (exists(line2El)) {
         line2El.remove();
@@ -5014,7 +5017,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 
         // Check if task is overdue and not complete
         const now = DateTime.local();
-        const isOverdue = task.dueDate < now.toMillis() && !task.isComplete;
+        // this doesn't mean it's overdue, just that it was due in the past
+        const dueInThePast = task.dueDate < now.toMillis();
 
         let taskElement = HTML.getElementUnsafely(taskElementId);
         if (!exists(taskElement)) {
@@ -5143,7 +5147,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         let stripeLeftOnHover = taskListLeft + spaceForTaskDateAndTime - 3;
 
         // Style the striped background for overdue tasks
-        if (isOverdue) {
+        if (dueInThePast) {
             // Get background color from palette (shade 0) and mix with red (70% background, 30% red)
             // Mix colors
             const redPercentage = 0.35;
@@ -5157,7 +5161,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             ];
             const mixedColor = `rgb(${mixedRgb[0]}, ${mixedRgb[1]}, ${mixedRgb[2]})`;
             
-            stripeElement.style.transition = 'none';
+            const currentOpacity = stripeElement.style.opacity;
+
+            HTML.setStyle(stripeElement, {
+                transition: 'none'
+            });
             
             HTML.setStyle(stripeElement, {
                 position: 'fixed',
@@ -5169,18 +5177,15 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
                 borderRadius: '3px',
                 zIndex: '2',
                 cursor: 'pointer',
-                opacity: '0.5',
-                transition: 'none' // Explicitly set to none during resize
+                opacity: currentOpacity,
+                transition: 'none'
             });
 
-            // Restore transition after the browser has painted the changes
             setTimeout(() => {
-                const el = HTML.getElementUnsafely(overdueStripeElementId);
-                if (el) {
-                    el.style.transition = 'all 0.2s ease';
-                }
-            }, 0);
-
+                HTML.setStyle(stripeElement, {
+                    transition: 'all 0.4s ease'
+                });
+            }, 50);
         } else {
             HTML.setStyle(stripeElement, {
                 display: 'none'
@@ -5233,7 +5238,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         checkboxElement.addEventListener('mouseenter', mouseEnterTask);
         checkboxElement.addEventListener('mouseleave', mouseLeaveTask);
         
-        if (isOverdue) {
+        if (dueInThePast) {
             stripeElement.addEventListener('mouseenter', mouseEnterTask);
             stripeElement.addEventListener('mouseleave', mouseLeaveTask);
         }
