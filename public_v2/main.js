@@ -4215,8 +4215,8 @@ function renderDividers() {
                 maxRight = Math.max(maxRight, dim.left + dim.width);
             }
 
-            const hDividerLeft = minLeft - (gapBetweenColumns / 2);
-            const hDividerWidth = maxRight - minLeft + gapBetweenColumns;
+            const hDividerLeft = Math.max(minLeft - (gapBetweenColumns / 2), gapBetweenColumns / 2);
+            const hDividerWidth = maxRight - minLeft;
             const hDividerHeight = dividerWidth;
             const hDividerBorderRadius = hDividerHeight / 2;
 
