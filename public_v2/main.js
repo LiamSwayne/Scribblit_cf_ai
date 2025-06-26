@@ -4199,44 +4199,53 @@ function renderDividers() {
         
         // Horizontal Divider
         // always show in stacking mode because we still have the task list column, so there's always a top and bottom row
-        if (numberOfDays >= 1) {
-            hDivider = HTML.make('div');
-            HTML.setId(hDivider, 'horizontal-divider');
+        hDivider = HTML.make('div');
+        HTML.setId(hDivider, 'horizontal-divider');
 
-            const day0Dim = getDayColumnDimensions(0); // A day in the top row
-            const hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) + 2;
+        const day0Dim = getDayColumnDimensions(0); // A day in the top row
+        const hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) + 2;
 
-            // Determine the horizontal span of all calendar day columns
-            let minLeft = Infinity;
-            let maxRight = -Infinity;
-            for (let i = 0; i < numberOfDays; i++) {
-                const dim = getDayColumnDimensions(i);
-                minLeft = Math.min(minLeft, dim.left);
-                maxRight = Math.max(maxRight, dim.left + dim.width);
-            }
-
-            const hDividerLeft = Math.max(minLeft - (gapBetweenColumns / 2), gapBetweenColumns / 2);
-            const hDividerWidth = maxRight - minLeft;
-            const hDividerHeight = dividerWidth;
-            const hDividerBorderRadius = hDividerHeight / 2;
-
-            HTML.setStyle(hDivider, {
-                position: 'fixed',
-                top: `${hDividerTop}px`,
-                left: `${hDividerLeft}px`,
-                width: `${hDividerWidth}px`,
-                height: `${hDividerHeight}px`,
-                backgroundColor: 'var(--shade-2)',
-                borderRadius: `${hDividerBorderRadius}px`,
-                zIndex: '350'
-            });
-            HTML.body.appendChild(hDivider);
+        // Determine the horizontal span of all calendar day columns
+        let minLeft = Infinity;
+        let maxRight = -Infinity;
+        for (let i = 0; i < numberOfDays; i++) {
+            const dim = getDayColumnDimensions(i);
+            minLeft = Math.min(minLeft, dim.left);
+            maxRight = Math.max(maxRight, dim.left + dim.width);
         }
+
+        const hDividerLeft = Math.max(minLeft - (gapBetweenColumns / 2), gapBetweenColumns / 2);
+        let hDividerWidth;
+        log(numberOfDays);
+        if (numberOfDays % 2 == 1) {
+            hDividerWidth = maxRight - minLeft;
+        } else {
+            hDividerWidth = maxRight - minLeft + (gapBetweenColumns / 2) + 1;
+        }
+        const hDividerHeight = dividerWidth;
+        const hDividerBorderRadius = hDividerHeight / 2;
+
+        HTML.setStyle(hDivider, {
+            position: 'fixed',
+            top: `${hDividerTop}px`,
+            left: `${hDividerLeft}px`,
+            width: `${hDividerWidth}px`,
+            height: `${hDividerHeight}px`,
+            backgroundColor: 'var(--shade-2)',
+            borderRadius: `${hDividerBorderRadius}px`,
+            zIndex: '350'
+        });
+        HTML.body.appendChild(hDivider);
 
         // Vertical Dividers for stacking mode
         for (let i = 0; i < numberOfDays; i++) {
             const vDivider = HTML.make('div');
             HTML.setId(vDivider, `vertical-divider-${i}`);
+
+            // if it's the leftmost column on bottom, skip it
+            if (i == Math.floor(numberOfDays / 2)) {
+                continue;
+            }
 
             const dim = getDayColumnDimensions(i);
             const vDividerWidth = dividerWidth;
