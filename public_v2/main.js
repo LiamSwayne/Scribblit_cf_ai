@@ -20,6 +20,7 @@ let firstDayInCalendar;
 const allDayEventHeight = 18; // height in px for each all-day event
 const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
+const dividerWidth = 3; // px width for both horizontal and vertical dividers
 const vibrantRedColor = '#ff4444';
 
 let activeCheckboxIds = new Set();
@@ -1395,11 +1396,12 @@ function playConfettiAnimation(taskSectionName) {
             shapeStyles.borderRadius = '50%';
         } else if (shapeType === 'triangle') {
             // Create equilateral triangle using CSS borders
+            const triangleSize = size * 1.3; // Make triangles 30% bigger
             shapeStyles.width = '0px';
             shapeStyles.height = '0px';
-            shapeStyles.borderLeft = (size/2) + 'px solid transparent';
-            shapeStyles.borderRight = (size/2) + 'px solid transparent';
-            shapeStyles.borderBottom = (size * 0.866) + 'px solid ' + color; // 0.866 ≈ √3/2 for equilateral triangle
+            shapeStyles.borderLeft = (triangleSize/2) + 'px solid transparent';
+            shapeStyles.borderRight = (triangleSize/2) + 'px solid transparent';
+            shapeStyles.borderBottom = (triangleSize * 0.866) + 'px solid ' + color; // 0.866 ≈ √3/2 for equilateral triangle
         } else { // square
             shapeStyles.backgroundColor = color;
             shapeStyles.borderRadius = '0%';
@@ -1419,7 +1421,11 @@ function playConfettiAnimation(taskSectionName) {
         let velX = Math.cos(angle) * velocity;
         let velY = Math.sin(angle) * velocity * 0.75;
         let rotation = 0;
-        let rotationSpeed = Math.random() * 10 + 5;
+        let rotationX = 0;
+        let rotationY = 0;
+        let rotationSpeed = Math.random() * 8 + 4; // Slower rotation for paper-like effect
+        let rotationXSpeed = Math.random() * 6 + 2; // Random X-axis flipping (slower)
+        let rotationYSpeed = Math.random() * 6 + 2; // Random Y-axis flipping (slower)
         
         const friction = Math.max(-0.002756 * window.innerWidth + 3.615 + Math.random() * 0.2, 0.5);
         
@@ -1433,6 +1439,8 @@ function playConfettiAnimation(taskSectionName) {
         let calcVelX = velX;
         let calcVelY = velY;
         let calcRotation = rotation;
+        let calcRotationX = rotationX;
+        let calcRotationY = rotationY;
         
         for (let frame = 0; frame <= numKeyframes; frame++) {
             const progress = frame / numKeyframes;
@@ -1445,6 +1453,8 @@ function playConfettiAnimation(taskSectionName) {
             calcX += calcVelX / 20; // position update (was /60, now /20 for 3x time step)
             calcY += calcVelY / 20; // position update (was /60, now /20 for 3x time step)
             calcRotation += rotationSpeed * 3; // rotation 3x faster per keyframe
+            calcRotationX += rotationXSpeed * 3; // X-axis flipping
+            calcRotationY += rotationYSpeed * 3; // Y-axis flipping
             
             // Fade out
             const opacity = progress > 0.5 ? 1 - ((progress - 0.5) * 2) : 1;
@@ -1452,7 +1462,7 @@ function playConfettiAnimation(taskSectionName) {
             keyframes.push({
                 left: calcX + 'px',
                 top: calcY + 'px',
-                transform: 'translate(-50%, -50%) rotate(' + calcRotation + 'deg)',
+                transform: 'translate(-50%, -50%) rotateZ(' + calcRotation + 'deg) rotateX(' + calcRotationX + 'deg) rotateY(' + calcRotationY + 'deg)',
                 opacity: String(opacity),
                 offset: progress
             });
@@ -1462,7 +1472,7 @@ function playConfettiAnimation(taskSectionName) {
         HTML.setStyle(shape, {
             left: x + 'px',
             top: y + 'px',
-            transform: 'translate(-50%, -50%) rotate(' + rotation + 'deg)',
+            transform: 'translate(-50%, -50%) rotateZ(' + rotation + 'deg) rotateX(' + rotationX + 'deg) rotateY(' + rotationY + 'deg)',
             opacity: '1'
         });
         
@@ -4176,8 +4186,9 @@ function renderDividers() {
     if (user.settings.stacking) {
         // STACKING MODE: Both horizontal and vertical dividers
         
-        // Horizontal Divider (only if there are top and bottom rows)
-        if (numberOfDays >= 2 && Math.floor(numberOfDays / 2) > 0) {
+        // Horizontal Divider
+        // always show in stacking mode because we still have the task list column, so there's always a top and bottom row
+        if (numberOfDays >= 1) {
             hDivider = HTML.make('div');
             HTML.setId(hDivider, 'horizontal-divider');
 
@@ -4195,7 +4206,7 @@ function renderDividers() {
 
             const hDividerLeft = minLeft - (gapBetweenColumns / 2);
             const hDividerWidth = maxRight - minLeft + gapBetweenColumns;
-            const hDividerHeight = 2;
+            const hDividerHeight = dividerWidth;
             const hDividerBorderRadius = hDividerHeight / 2;
 
             HTML.setStyle(hDivider, {
@@ -4217,8 +4228,8 @@ function renderDividers() {
             HTML.setId(vDivider, `vertical-divider-${i}`);
 
             const dim = getDayColumnDimensions(i);
-            const vDividerWidth = 2;
-            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
+            const vDividerWidth = dividerWidth;
+            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1;
             const vDividerTop = dim.top - topOfCalendarDay + 6;
             const vDividerHeight = dim.height + topOfCalendarDay - 6;
             const vDividerBorderRadius = vDividerWidth / 2;
@@ -4243,8 +4254,8 @@ function renderDividers() {
             HTML.setId(vDivider, `vertical-divider-${i}`);
 
             const dim = getDayColumnDimensions(i);
-            const vDividerWidth = 2;
-            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1; // For 2px width
+            const vDividerWidth = dividerWidth;
+            const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1;
             const vDividerTop = dim.top - topOfCalendarDay + 6;
             const vDividerHeight = dim.height + topOfCalendarDay - 6;
             const vDividerBorderRadius = vDividerWidth / 2;
