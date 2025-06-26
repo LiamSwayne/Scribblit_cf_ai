@@ -55,12 +55,6 @@ function hexToRgb(hex) {
     };
 }
 
-function toggleCheckbox(checkboxElement) {
-    const isChecked = checkboxElement.style.backgroundColor === 'var(--shade-2)';
-    checkboxElement.style.borderColor = isChecked ? 'var(--shade-3)' : 'var(--shade-2)';
-    checkboxElement.style.backgroundColor = isChecked ? 'transparent' : 'var(--shade-2)';
-}
-
 function formatTaskTime(time, fontSize, colonColor) {
     ASSERT(type(time, TimeField));
     ASSERT(type(user, User));
@@ -1007,7 +1001,7 @@ function dayOfWeekOrRelativeDay(day) {
 }
 
 let HTML = new class HTMLroot {    
-    get(id) {
+    getElement(id) {
         ASSERT(type(id, String));
         let element = document.getElementById(id);
         ASSERT(exists(element), `HTML.get element with id ${id} DNE`);
@@ -1019,7 +1013,7 @@ let HTML = new class HTMLroot {
     }
 
     // get but it may not exist
-    getElement(id) {
+    getElementUnsafely(id) {
         ASSERT(type(id, String));
         
         // If there's an element at all, verify it's the only one
@@ -1184,6 +1178,37 @@ HTML.setStyle(logo, {
 });
 HTML.body.appendChild(logo);
 const logoHeight = 22.15; // i measured it
+
+function toggleCheckbox(checkboxElement) {
+    log('toggleCheckbox');
+    let isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
+    ASSERT(type(isChecked, Boolean));
+    isChecked = !isChecked;
+
+    log('isChecked is ' + isChecked);
+
+    if (isChecked) {
+        checkboxElement.style.borderColor = 'var(--shade-2)';
+        checkboxElement.style.backgroundColor = 'var(--shade-2)';
+    } else {
+        checkboxElement.style.borderColor = 'var(--shade-3)';
+        checkboxElement.style.backgroundColor = 'transparent';
+    }
+    
+    // set data property
+    HTML.setData(checkboxElement, 'IS_CHECKED', isChecked);
+
+    // update the stripe element
+    const taskNumber = checkboxElement.id.split('-')[2];
+    const stripeElement = HTML.getElementUnsafely(`task-overdue-stripe-${taskNumber}`);
+    if (exists(stripeElement)) {
+        if (isChecked) {
+            stripeElement.style.opacity = '0';
+        } else {
+            stripeElement.style.opacity = '0.5';
+        }
+    }
+}
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
@@ -1863,7 +1888,7 @@ function renderDay(day, index) {
     let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
     
     // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
-    if (HTML.getElement(`day${index}hourMarker1`) == null) { // create hour markers
+    if (HTML.getElementUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
         // if one is missing, all 24 must be missing
         for (let j = 0; j < 25; j++) {
             let hourMarker = HTML.make('div');
@@ -1911,7 +1936,7 @@ function renderDay(day, index) {
         for (let j = 0; j < 25; j++) {
             let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
             
-            let hourMarker = HTML.getElement(`day${index}hourMarker${j}`);
+            let hourMarker = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
             if (!hourMarker) {
                 hourMarker = HTML.make('div');
                 HTML.setId(hourMarker, `day${index}hourMarker${j}`);
@@ -1932,7 +1957,7 @@ function renderDay(day, index) {
 
             if (j < 24) {
                 // adjust position of hour marker text
-                let hourMarkerText = HTML.get(`day${index}hourMarkerText${j}`);
+                let hourMarkerText = HTML.getElement(`day${index}hourMarkerText${j}`);
                 
                 HTML.setStyle(hourMarkerText, {
                     top: String(hourPosition + 1) + 'px',
@@ -1963,7 +1988,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         // All-day events are positioned from the dayElementActualTop (original top of the day column)
         let allDayEventTopPosition = dayElementActualTop + (i * allDayEventHeight) + 2;
         
-        let allDayEventElement = HTML.getElement(`day${dayIndex}allDayEvent${i}`);
+        let allDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${i}`);
         if (!exists(allDayEventElement)) {
             allDayEventElement = HTML.make('div');
             HTML.setId(allDayEventElement, `day${dayIndex}allDayEvent${i}`);
@@ -2014,7 +2039,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         });
 
         // Create/Update asterisk indicator
-        let asteriskElement = HTML.getElement(`day${dayIndex}allDayEventAsterisk${i}`);
+        let asteriskElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventAsterisk${i}`);
         if (!exists(asteriskElement)) {
             asteriskElement = HTML.make('div');
             HTML.setId(asteriskElement, `day${dayIndex}allDayEventAsterisk${i}`);
@@ -2037,18 +2062,18 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     }
 
     let existingAllDayEventIndex = allDayInstances.length;
-    let extraAllDayEventElement = HTML.getElement(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
+    let extraAllDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
     while (exists(extraAllDayEventElement)) {
         extraAllDayEventElement.remove();
         
         // Also remove the corresponding asterisk element
-        let extraAsteriskElement = HTML.getElement(`day${dayIndex}allDayEventAsterisk${existingAllDayEventIndex}`);
+        let extraAsteriskElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventAsterisk${existingAllDayEventIndex}`);
         if (exists(extraAsteriskElement)) {
             extraAsteriskElement.remove();
         }
         
         existingAllDayEventIndex++;
-        extraAllDayEventElement = HTML.getElement(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
+        extraAllDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
     }
 }
 
@@ -2146,7 +2171,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const instanceZIndex = timedEventBaseZIndex + minutesFromMidnight * 2;
 
             const eventId = `day${dayIndex}segment${renderedInstanceCount}`;
-            let eventElement = HTML.getElement(eventId);
+            let eventElement = HTML.getElementUnsafely(eventId);
             if (!exists(eventElement)) {
                 eventElement = HTML.make('div');
                 HTML.setId(eventElement, eventId);
@@ -2219,7 +2244,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const eventColor = `var(${colorVar})`;
             eventElement.mouseEnterHandler = function() {
                 // Create and show border element
-                let borderOverlay = HTML.getElement(`${eventId}_borderOverlay`);
+                let borderOverlay = HTML.getElementUnsafely(`${eventId}_borderOverlay`);
                 if (exists(borderOverlay)) {
                     if (borderOverlay.fadeOutTimeout) {
                         clearTimeout(borderOverlay.fadeOutTimeout);
@@ -2266,13 +2291,13 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     HTML.body.appendChild(borderOverlay);
                     
                     // Fade in
-                    setTimeout(() => { if (HTML.getElement(`${eventId}_borderOverlay`)) borderOverlay.style.opacity = '1' }, 10);
+                    setTimeout(() => { if (HTML.getElementUnsafely(`${eventId}_borderOverlay`)) borderOverlay.style.opacity = '1' }, 10);
                 }
 
                 eventElement.style.textShadow = `-1px -1px 0 ${eventColor}, 1px -1px 0 ${eventColor}, -1px 1px 0 ${eventColor}, 1px 1px 0 ${eventColor}`;
                 
                 // Check if text overlay already exists
-                let textOverlay = HTML.getElement(`${eventId}_textOverlay`);
+                let textOverlay = HTML.getElementUnsafely(`${eventId}_textOverlay`);
                 
                 if (exists(textOverlay)) {
                     // Clear any pending removal timeout
@@ -2315,7 +2340,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     
                     // Fade in
                     setTimeout(() => {
-                        if (HTML.getElement(`${eventId}_textOverlay`)) {
+                        if (HTML.getElementUnsafely(`${eventId}_textOverlay`)) {
                             textOverlay.style.opacity = '1';
                         }
                     }, 10);
@@ -2325,11 +2350,11 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 eventElement.style.textShadow = 'none';
 
                 // Fade out and remove border overlay
-                const borderOverlay = HTML.getElement(`${eventId}_borderOverlay`);
+                const borderOverlay = HTML.getElementUnsafely(`${eventId}_borderOverlay`);
                 if (exists(borderOverlay)) {
                     borderOverlay.style.opacity = '0';
                     borderOverlay.fadeOutTimeout = setTimeout(() => {
-                        const overlayToRemove = HTML.getElement(`${eventId}_borderOverlay`);
+                        const overlayToRemove = HTML.getElementUnsafely(`${eventId}_borderOverlay`);
                         if (exists(overlayToRemove)) {
                             overlayToRemove.remove();
                         }
@@ -2337,11 +2362,11 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 }
                 
                 // Fade out and remove text overlay
-                const textOverlay = HTML.getElement(`${eventId}_textOverlay`);
+                const textOverlay = HTML.getElementUnsafely(`${eventId}_textOverlay`);
                 if (exists(textOverlay)) {
                     textOverlay.style.opacity = '0';
                     textOverlay.fadeOutTimeout = setTimeout(() => {
-                        const overlayToRemove = HTML.getElement(`${eventId}_textOverlay`);
+                        const overlayToRemove = HTML.getElementUnsafely(`${eventId}_textOverlay`);
                         if (exists(overlayToRemove)) {
                             overlayToRemove.remove();
                         }
@@ -2358,7 +2383,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
     // Cleanup stale elements
     let i = renderedInstanceCount;
     while(true) {
-        const staleElement = HTML.getElement(`day${dayIndex}segment${i}`);
+        const staleElement = HTML.getElementUnsafely(`day${dayIndex}segment${i}`);
         if (staleElement) {
             staleElement.remove();
             i++;
@@ -2387,22 +2412,22 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
         G_animationFrameMap.delete(animationKey);
     }
     
-    const primaryTextElement = HTML.getElement(`day${dayIndex}reminderText${groupIndex}`);
+    const primaryTextElement = HTML.getElementUnsafely(`day${dayIndex}reminderText${groupIndex}`);
     if (!exists(primaryTextElement)) {
         // Elements might have been removed by a re-render, so we stop.
         return; 
     }
     
     // Assert that this is part of a stack.
-    const firstStackElement = HTML.getElement(`day${dayIndex}reminderStackText${groupIndex}_1`);
+    const firstStackElement = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${groupIndex}_1`);
     ASSERT(exists(firstStackElement), `updateStackPositions called for a non-stacked reminder: day${dayIndex}, group${groupIndex}`);
 
-    const reminderLineElement = HTML.getElement(`day${dayIndex}reminderLine${groupIndex}`);
+    const reminderLineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
     ASSERT(exists(reminderLineElement));
     const lineTop = parseFloat(reminderLineElement.style.top);
 
     let groupLength = 1;
-    while (HTML.getElement(`day${dayIndex}reminderStackText${groupIndex}_${groupLength}`)) {
+    while (HTML.getElementUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${groupLength}`)) {
         groupLength++;
     }
 
@@ -2417,8 +2442,8 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
         let anyChanges = false;
         
         for (let stackIndex = 1; stackIndex < groupLength; stackIndex++) {
-            let stackedText = HTML.getElement(`day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
-            let stackedCount = HTML.getElement(`day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
+            let stackedText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${groupIndex}_${stackIndex}`);
+            let stackedCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${groupIndex}_${stackIndex}`);
             
             if (exists(stackedText) && exists(stackedCount)) {
                 const expandedTop = expandUpwards 
@@ -2558,7 +2583,7 @@ function handleReminderDragMove(e) {
     });
 
     // Update time bubble position and text
-    const timeBubble = HTML.getElement('dragTimeBubble');
+    const timeBubble = HTML.getElementUnsafely('dragTimeBubble');
     if (exists(timeBubble)) {
         // Calculate the time based on current position
         const proportionOfDay = (clampedLineTop - timedAreaTop) / timedAreaHeight;
@@ -2678,7 +2703,7 @@ function handleReminderDragEnd(e) {
     document.removeEventListener('mouseup', handleReminderDragEnd);
 
     // Remove time bubble
-    const timeBubble = HTML.getElement('dragTimeBubble');
+    const timeBubble = HTML.getElementUnsafely('dragTimeBubble');
     if (exists(timeBubble)) {
         timeBubble.remove();
     }
@@ -2794,7 +2819,7 @@ function handleReminderDragCancel(e) {
     document.removeEventListener('keydown', handleReminderDragCancel);
 
     // Remove time bubble
-    const timeBubble = HTML.getElement('dragTimeBubble');
+    const timeBubble = HTML.getElementUnsafely('dragTimeBubble');
     if (exists(timeBubble)) {
         timeBubble.remove();
     }
@@ -2872,14 +2897,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         ASSERT(type(stackSize, Int));
 
         const elements = [];
-        elements.push(HTML.getElement(`day${dayIdx}reminderLine${grpIdx}`));
-        elements.push(HTML.getElement(`day${dayIdx}reminderText${grpIdx}`));
-        elements.push(HTML.getElement(`day${dayIdx}reminderQuarterCircle${grpIdx}`));
+        elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderLine${grpIdx}`));
+        elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderText${grpIdx}`));
+        elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderQuarterCircle${grpIdx}`));
         if (stackSize > 1) {
-            elements.push(HTML.getElement(`day${dayIdx}reminderCount${grpIdx}`));
+            elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderCount${grpIdx}`));
             for (let i = 1; i < stackSize; i++) {
-                elements.push(HTML.getElement(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
-                elements.push(HTML.getElement(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
+                elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderStackText${grpIdx}_${i}`));
+                elements.push(HTML.getElementUnsafely(`day${dayIdx}reminderStackCount${grpIdx}_${i}`));
             }
         }
 
@@ -3043,7 +3068,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const quarterCircleLeft = dayElemLeft + spaceForHourMarkers + textElementActualWidth;
 
         // Create/Update Line Element (now directly on body) - positioned from quarter circle to right edge
-        let lineElement = HTML.getElement(`day${dayIndex}reminderLine${groupIndex}`);
+        let lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${groupIndex}`);
         if (!exists(lineElement)) {
             lineElement = HTML.make('div');
             HTML.setId(lineElement, `day${dayIndex}reminderLine${groupIndex}`);
@@ -3169,7 +3194,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         });
 
         // Create/Update Text Element (now directly on body)
-        let textElement = HTML.getElement(`day${dayIndex}reminderText${groupIndex}`);
+        let textElement = HTML.getElementUnsafely(`day${dayIndex}reminderText${groupIndex}`);
         if (!exists(textElement)) {
             textElement = HTML.make('div');
             HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
@@ -3210,7 +3235,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         // Create count indicator if grouped (now directly on body)
         if (isGrouped) {
-            let countElement = HTML.getElement(`day${dayIndex}reminderCount${groupIndex}`);
+            let countElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
             if (!exists(countElement)) {
                 countElement = HTML.make('div');
                 HTML.setId(countElement, `day${dayIndex}reminderCount${groupIndex}`);
@@ -3244,14 +3269,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             });
         } else {
             // Remove count indicator if it exists but shouldn't
-            let countElement = HTML.getElement(`day${dayIndex}reminderCount${groupIndex}`);
+            let countElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
             if (exists(countElement)) {
                 countElement.remove();
             }
         }
 
         // Create/Update Quarter Circle Decorative Element (now directly on body)
-        let quarterCircleElement = HTML.getElement(`day${dayIndex}reminderQuarterCircle${groupIndex}`);
+        let quarterCircleElement = HTML.getElementUnsafely(`day${dayIndex}reminderQuarterCircle${groupIndex}`);
         if (!exists(quarterCircleElement)) {
             quarterCircleElement = HTML.make('div');
             HTML.setId(quarterCircleElement, `day${dayIndex}reminderQuarterCircle${groupIndex}`);
@@ -3331,7 +3356,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const stackedTextElementActualWidth = Math.min(stackedFinalWidth + 1, colWidth - spaceForHourMarkers - 10);
 
                 // Create stacked text element
-                let stackedTextElement = HTML.getElement(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
+                let stackedTextElement = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                 if (!exists(stackedTextElement)) {
                     stackedTextElement = HTML.make('div');
                     HTML.setId(stackedTextElement, `day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
@@ -3364,13 +3389,13 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     // --- Start of new logic for dragging stacked item ---
 
                     // 1. Hide the original stacked element and its count
-                    const originalStackedText = HTML.get(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
-                    const originalStackedCount = HTML.getElement(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
+                    const originalStackedText = HTML.getElement(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
+                    const originalStackedCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                     if(exists(originalStackedText)) originalStackedText.style.visibility = 'hidden';
                     if(exists(originalStackedCount)) originalStackedCount.style.visibility = 'hidden';
 
                     // 2. Update the main stack's count indicator temporarily
-                    const mainCountElement = HTML.getElement(`day${dayIndex}reminderCount${currentGroupIndex}`);
+                    const mainCountElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${currentGroupIndex}`);
                     if(exists(mainCountElement)) {
                         mainCountElement.dataset.originalCount = mainCountElement.innerHTML;
                         const newCount = group.length - 1;
@@ -3579,7 +3604,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 });
 
                 // Create stack count indicator
-                let stackCountElement = HTML.getElement(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
+                let stackCountElement = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                 if (!exists(stackCountElement)) {
                     stackCountElement = HTML.make('div');
                     HTML.setId(stackCountElement, `day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
@@ -3620,8 +3645,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const stackCleanupStartIndex = isGrouped ? group.length : 1;
         let stackCleanupIndex = stackCleanupStartIndex;
         while (true) {
-            const staleStackText = HTML.getElement(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
-            const staleStackCount = HTML.getElement(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
+            const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
+            const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
             
             if (!exists(staleStackText) && !exists(staleStackCount)) {
                 break; // No more stale elements for this group
@@ -3639,7 +3664,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     // Remove stale reminder elements
     let existingReminderIndex = groupIndex;
     while(true) {
-        const lineElement = HTML.getElement(`day${dayIndex}reminderLine${existingReminderIndex}`);
+        const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
         if (!exists(lineElement)) {
             // If the line element is gone, we assume all other elements for this index are too.
             break; 
@@ -3647,7 +3672,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         // Helper to remove an element by its generated ID
         const removeElementById = (id) => {
-            const el = HTML.getElement(id);
+            const el = HTML.getElementUnsafely(id);
             if(exists(el)) el.remove();
         };
 
@@ -3658,7 +3683,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         
         let stackIdx = 1;
         while(true) {
-            const stackText = HTML.getElement(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+            const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
             if(!exists(stackText)) break;
             
             removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
@@ -3715,36 +3740,36 @@ function renderCalendar(days) {
             */
             // hour markers
             for (let j = 0; j <= 24; j++) {
-                let hourMarker = HTML.getElement(`day${i}hourMarker${j}`);
+                let hourMarker = HTML.getElementUnsafely(`day${i}hourMarker${j}`);
                 if (exists(hourMarker)) {
                     hourMarker.remove();
                 }
                 if (j < 24) {
-                    let hourMarkerText = HTML.getElement(`day${i}hourMarkerText${j}`);
+                    let hourMarkerText = HTML.getElementUnsafely(`day${i}hourMarkerText${j}`);
                     if (exists(hourMarkerText)) {
                         hourMarkerText.remove();
                     }
                 }
             }
             // date text
-            let dateText = HTML.getElement('day' + String(i) + 'DateText');
+            let dateText = HTML.getElementUnsafely('day' + String(i) + 'DateText');
             if (exists(dateText)) {
                 dateText.remove();
             }
             // day of week text 
-            let dayOfWeekText = HTML.getElement('day' + String(i) + 'DayOfWeekText');
+            let dayOfWeekText = HTML.getElementUnsafely('day' + String(i) + 'DayOfWeekText');
             if (exists(dayOfWeekText)) {
                 dayOfWeekText.remove();
             }
             // Cleanup for all-day events and reminders for the removed day column
             let j = 0;
             while (true) {
-                let staleElement = HTML.getElement(`day${i}allDayEvent${j}`);
+                let staleElement = HTML.getElementUnsafely(`day${i}allDayEvent${j}`);
                 if (exists(staleElement)) {
                     staleElement.remove();
                     
                     // Also remove corresponding asterisk element
-                    let staleAsteriskElement = HTML.getElement(`day${i}allDayEventAsterisk${j}`);
+                    let staleAsteriskElement = HTML.getElementUnsafely(`day${i}allDayEventAsterisk${j}`);
                     if (exists(staleAsteriskElement)) {
                         staleAsteriskElement.remove();
                     }
@@ -3756,11 +3781,11 @@ function renderCalendar(days) {
             }
             j = 0;
             while (true) {
-                let staleElement = HTML.getElement(`day${i}reminderLine${j}`);
+                let staleElement = HTML.getElementUnsafely(`day${i}reminderLine${j}`);
                 if (exists(staleElement)) {
                     // To be thorough, remove all parts of the reminder group
                     const removeElementById = (id) => {
-                        const el = HTML.getElement(id);
+                        const el = HTML.getElementUnsafely(id);
                         if(exists(el)) el.remove();
                     };
                     removeElementById(`day${i}reminderLine${j}`);
@@ -3769,7 +3794,7 @@ function renderCalendar(days) {
                     removeElementById(`day${i}reminderCount${j}`);
                     let stackIdx = 1;
                     while(true) {
-                        const stackText = HTML.getElement(`day${i}reminderStackText${j}_${stackIdx}`);
+                        const stackText = HTML.getElementUnsafely(`day${i}reminderStackText${j}_${stackIdx}`);
                         if(!exists(stackText)) break;
                         removeElementById(`day${i}reminderStackText${j}_${stackIdx}`);
                         removeElementById(`day${i}reminderStackCount${j}_${stackIdx}`);
@@ -3784,7 +3809,7 @@ function renderCalendar(days) {
             // Cleanup for timed event segments
             j = 0;
             while(true) {
-                const staleElement = HTML.getElement(`day${i}segment${j}`);
+                const staleElement = HTML.getElementUnsafely(`day${i}segment${j}`);
                 if (staleElement) {
                     staleElement.remove();
                     j++;
@@ -3801,7 +3826,7 @@ function renderCalendar(days) {
         let verticalSpacing = 3;
 
         // add MM-DD text to top right of background element
-        let dateText = HTML.getElement('day' + String(i) + 'DateText');
+        let dateText = HTML.getElementUnsafely('day' + String(i) + 'DateText');
         if (!exists(dateText)) {
             dateText = HTML.make('div');
             HTML.setId(dateText, 'day' + String(i) + 'DateText');
@@ -3834,7 +3859,7 @@ function renderCalendar(days) {
         HTML.body.appendChild(dateText);
 
         // add dayOfWeekOrRelativeDay text to top left of background element
-        let dayOfWeekText = HTML.getElement('day' + String(i) + 'DayOfWeekText');
+        let dayOfWeekText = HTML.getElementUnsafely('day' + String(i) + 'DayOfWeekText');
         if (!exists(dayOfWeekText)) {
             dayOfWeekText = HTML.make('div');
             HTML.setId(dayOfWeekText, 'day' + String(i) + 'DayOfWeekText');
@@ -3863,10 +3888,10 @@ function renderCalendar(days) {
 
 function renderDividers() {
     // 1. Cleanup old dividers
-    let hDivider = HTML.getElement('horizontal-divider');
+    let hDivider = HTML.getElementUnsafely('horizontal-divider');
     if (exists(hDivider)) hDivider.remove();
     for (let i = 0; i < 7; i++) { // Max 7 days, so we clean up to 7
-        let vDivider = HTML.getElement(`vertical-divider-${i}`);
+        let vDivider = HTML.getElementUnsafely(`vertical-divider-${i}`);
         if (exists(vDivider)) vDivider.remove();
     }
 
@@ -3975,7 +4000,7 @@ function toggleNumberOfCalendarDays() {
     }
     saveUserData(user);
 
-    let buttonNumberCalendarDays = HTML.get('buttonNumberCalendarDays');
+    let buttonNumberCalendarDays = HTML.getElement('buttonNumberCalendarDays');
     buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
     render();
 }
@@ -4007,7 +4032,7 @@ function toggleAmPmOr24() {
     }
     saveUserData(user);
 
-    let buttonAmPmOr24 = HTML.get('buttonAmPmOr24');
+    let buttonAmPmOr24 = HTML.getElement('buttonAmPmOr24');
     buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
 
     const delay = 70; // 0.07 seconds
@@ -4045,7 +4070,7 @@ function toggleAmPmOr24() {
     // update all hour markers
     for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
         for (let j = 0; j < 24; j++) {
-            let hourMarkerText = HTML.get(`day${i}hourMarkerText${j}`);
+            let hourMarkerText = HTML.getElement(`day${i}hourMarkerText${j}`);
             const newHtml = nthHourText(j);
 
             let fontSize;
@@ -4060,7 +4085,7 @@ function toggleAmPmOr24() {
 
     // Animate task times
     for (let i = 0; i < totalRenderedTaskCount; i++) {
-        const line1El = HTML.getElement(`task-info-line1-${i}`);
+        const line1El = HTML.getElementUnsafely(`task-info-line1-${i}`);
         if (exists(line1El)) {
             const timeData = HTML.getDataUnsafely(line1El, 'timeField');
             if (exists(timeData)) {
@@ -4072,7 +4097,7 @@ function toggleAmPmOr24() {
             }
         }
         
-        const line2El = HTML.getElement(`task-info-line2-${i}`);
+        const line2El = HTML.getElementUnsafely(`task-info-line2-${i}`);
         if (exists(line2El)) {
             const timeData = HTML.getDataUnsafely(line2El, 'timeField');
             if (exists(timeData)) {
@@ -4134,11 +4159,11 @@ function renderTimeIndicator(onSchedule) {
     currentMin = DateTime.local().minute;
 
     // 1. Remove existing time indicator elements
-    let existingMarker = HTML.getElement('time-marker');
+    let existingMarker = HTML.getElementUnsafely('time-marker');
     if (exists(existingMarker)) {
         existingMarker.remove();
     }
-    let existingTriangle = HTML.getElement('time-triangle');
+    let existingTriangle = HTML.getElementUnsafely('time-triangle');
     if (exists(existingTriangle)) {
         existingTriangle.remove();
     }
@@ -4247,7 +4272,7 @@ function renderTimeIndicator(onSchedule) {
 }
 
 function renderInputBox() {
-    let inputBox = HTML.getElement('inputBox');
+    let inputBox = HTML.getElementUnsafely('inputBox');
 
     if (!exists(inputBox)) {
         inputBox = HTML.make('textarea');
@@ -4323,14 +4348,14 @@ function renderInputBox() {
 
         // Add focus/blur event listeners for rainbow mask fade animation
         inputBox.addEventListener('focus', function() {
-            const gradientMask = HTML.getElement('gradientMask');
+            const gradientMask = HTML.getElementUnsafely('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '1';
             }
         });
 
         inputBox.addEventListener('blur', function() {
-            const gradientMask = HTML.getElement('gradientMask');
+            const gradientMask = HTML.getElementUnsafely('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '0';
             }
@@ -4379,7 +4404,7 @@ function renderInputBox() {
     inputBox.style.height = `${inputBox.scrollHeight}px`;
 
     // this is the background border
-    let borderDiv = HTML.getElement('inputBoxBorder');
+    let borderDiv = HTML.getElementUnsafely('inputBoxBorder');
     const inputHeight = inputBox.offsetHeight;
 
     HTML.setStyle(borderDiv, {
@@ -4394,7 +4419,7 @@ function renderInputBox() {
         boxSizing: 'border-box'
     });
     
-    const gradientMask = HTML.getElement('gradientMask');
+    const gradientMask = HTML.getElementUnsafely('gradientMask');
     HTML.setStyle(gradientMask, {
         width: String(columnWidth) + 'px',
         height: String(inputHeight + borderThickness*2) + 'px',
@@ -4407,7 +4432,7 @@ function renderInputBox() {
         transition: 'opacity 0.2s ease-in-out'
     });
 
-    const circle = HTML.getElement('gradientCircle');
+    const circle = HTML.getElementUnsafely('gradientCircle');
     const circleSize = Math.max(inputHeight * 2, columnWidth * 2);
     HTML.setStyle(circle, {
         width: String(circleSize) + 'px',
@@ -4578,7 +4603,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
     const line2Id = `task-info-line2-${taskIndex}`;
     const textColor = isOverdue ? vibrantRedColor : 'var(--shade-3)';
 
-    let line1El = HTML.getElement(line1Id);
+    let line1El = HTML.getElementUnsafely(line1Id);
     if (line1Text) {
         if (!exists(line1El)) {
             line1El = HTML.make('div');
@@ -4606,7 +4631,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         line1El.remove();
     }
     
-    let line2El = HTML.getElement(line2Id);
+    let line2El = HTML.getElementUnsafely(line2Id);
     if (line2Text) {
         if (!exists(line2El)) {
             line2El = HTML.make('div');
@@ -4667,7 +4692,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
 
 function renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, numberOfSections) {
     const headerId = `taskListHeader-${section.name}`;
-    let headerEl = HTML.getElement(headerId);
+    let headerEl = HTML.getElementUnsafely(headerId);
     if (!exists(headerEl)) {
         headerEl = HTML.make('div');
         HTML.setId(headerEl, headerId);
@@ -4696,14 +4721,14 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const taskTopPosition = currentTop;
         const taskElementId = `task-${totalRenderedTaskCount}`;
         const checkboxElementId = `task-checkbox-${totalRenderedTaskCount}`;
-        const overdueStripeElementId = `task-ovderdue-stripe-${totalRenderedTaskCount}`;
+        const overdueStripeElementId = `task-overdue-stripe-${totalRenderedTaskCount}`;
         const hoverElementId = `task-hover-${totalRenderedTaskCount}`;
 
         // Check if task is overdue and not complete
         const now = DateTime.local();
         const isOverdue = task.dueDate < now.toMillis() && !task.isComplete;
 
-        let taskElement = HTML.getElement(taskElementId);
+        let taskElement = HTML.getElementUnsafely(taskElementId);
         if (!exists(taskElement)) {
             taskElement = HTML.make('div');
             HTML.setId(taskElement, taskElementId);
@@ -4714,17 +4739,20 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 
         renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskHeight, spaceForTaskDateAndTime);
 
-        let checkboxElement = HTML.getElement(checkboxElementId);
+        let checkboxElement = HTML.getElementUnsafely(checkboxElementId);
         if (!exists(checkboxElement)) {
             checkboxElement = HTML.make('div');
             HTML.setId(checkboxElement, checkboxElementId);
             HTML.body.appendChild(checkboxElement);
+            // Add checkbox click functionality only when initially created
+            checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
+            HTML.setData(checkboxElement, 'IS_CHECKED', false);
         }
         // Show the element (it might have been hidden)
         checkboxElement.style.display = 'block';
 
         // Create stripe background element for overdue tasks
-        let stripeElement = HTML.getElement(overdueStripeElementId);
+        let stripeElement = HTML.getElementUnsafely(overdueStripeElementId);
         if (!exists(stripeElement)) {
             stripeElement = HTML.make('div');
             HTML.setId(stripeElement, overdueStripeElementId);
@@ -4734,7 +4762,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         stripeElement.style.display = 'block';
 
         // Create hover background element
-        let hoverElement = HTML.getElement(hoverElementId);
+        let hoverElement = HTML.getElementUnsafely(hoverElementId);
         if (!exists(hoverElement)) {
             hoverElement = HTML.make('div');
             HTML.setId(hoverElement, hoverElementId);
@@ -4847,7 +4875,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 
             // Restore transition after the browser has painted the changes
             setTimeout(() => {
-                const el = HTML.getElement(overdueStripeElementId);
+                const el = HTML.getElementUnsafely(overdueStripeElementId);
                 if (el) {
                     el.style.transition = 'all 0.2s ease';
                 }
@@ -4860,9 +4888,21 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         }
         
         // Hover handlers for all elements
+        let count = totalRenderedTaskCount;
         const mouseEnterTask = function() {
             hoverElement.style.opacity = '1';
-            stripeElement.style.opacity = '1';
+            const checkboxElement = HTML.getElement(`task-checkbox-${count}`);
+            const isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
+            ASSERT(type(isChecked, Boolean));
+            if (isChecked) {
+                log('checkboxElement.checked is true');
+                log ('set stripeElement.style.opacity to 0');
+                stripeElement.style.opacity = '0';
+            } else {
+                log('checkboxElement.checked is false');
+                log ('set stripeElement.style.opacity to 1');
+                stripeElement.style.opacity = '1';
+            }
             stripeElement.style.width = String(stripeWidthOnHover) + 'px';
             stripeElement.style.height = String(taskHeight - 2) + 'px';
             stripeElement.style.top = String(taskTopPosition) + 'px';
@@ -4871,15 +4911,25 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         
         const mouseLeaveTask = function() {
             hoverElement.style.opacity = '0';
-            stripeElement.style.opacity = '0.5';
+            const checkboxElement = HTML.getElement(`task-checkbox-${count}`);
+            const isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
+            ASSERT(type(isChecked, Boolean));
+            if (isChecked) {
+                log('checkboxElement.checked is true');
+                log ('leave stripeElement.style.opacity as 0');
+                stripeElement.style.opacity = '0';
+            } else {
+                log('checkboxElement.checked is false');
+                log ('leave stripeElement.style.opacity as 0.5');
+                stripeElement.style.opacity = '0.5';
+            }
             stripeElement.style.width = String(stripeWidth) + 'px';
             stripeElement.style.height = String(taskHeight - 6) + 'px';
             stripeElement.style.top = String(taskTopPosition + 2) + 'px';
             stripeElement.style.left = String(stripeLeft) + 'px';
         };
 
-        // Add checkbox click functionality
-        checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
+
         
         // Add hover listeners to all elements
         taskElement.addEventListener('mouseenter', mouseEnterTask);
@@ -4899,7 +4949,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 
     if (index < numberOfSections - 1) {
         const separatorId = `taskListSeparator-${index}`;
-        let separatorEl = HTML.getElement(separatorId);
+        let separatorEl = HTML.getElementUnsafely(separatorId);
         if (!exists(separatorEl)) {
             separatorEl = HTML.make('div');
             HTML.setId(separatorEl, separatorId);
@@ -4929,12 +4979,12 @@ function renderTaskList() {
         const checkboxElementId = `task-checkbox-${i}`;
         const stripeElementId = `task-ovderdue-stripe-${i}`;
         const hoverElementId = `task-hover-${i}`;
-        const taskElement = HTML.getElement(taskElementId);
-        const line1El = HTML.getElement(line1Id);
-        const line2El = HTML.getElement(line2Id);
-        const checkboxElement = HTML.getElement(checkboxElementId);
-        const stripeElement = HTML.getElement(stripeElementId);
-        const hoverElement = HTML.getElement(hoverElementId);
+        const taskElement = HTML.getElementUnsafely(taskElementId);
+        const line1El = HTML.getElementUnsafely(line1Id);
+        const line2El = HTML.getElementUnsafely(line2Id);
+        const checkboxElement = HTML.getElementUnsafely(checkboxElementId);
+        const stripeElement = HTML.getElementUnsafely(stripeElementId);
+        const hoverElement = HTML.getElementUnsafely(hoverElementId);
         
         if (taskElement) taskElement.style.display = 'none';
         if (line1El) line1El.style.display = 'none';
@@ -4946,7 +4996,7 @@ function renderTaskList() {
 
     totalRenderedTaskCount = 0;
 
-    const borderDiv = HTML.getElement('inputBoxBorder');
+    const borderDiv = HTML.getElementUnsafely('inputBoxBorder');
 
     const taskListTop = parseFloat(borderDiv.style.top) + parseFloat(borderDiv.style.height) + 4;
     const taskListLeft = parseFloat(borderDiv.style.left);
