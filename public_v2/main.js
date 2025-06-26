@@ -1289,7 +1289,7 @@ function toggleCheckbox(checkboxElement) {
         // For non-recurring tasks, simply toggle the completion boolean
         instance.completion = isChecked;
     } else if (type(instance, RecurringTaskInstance)) {
-        const dueDateUnix = instance.getDueDatesInRange(NULL, NULL);
+        const dueDateUnix = HTML.getData(checkboxElement, 'DUE_DATE_UNIX');
         const initialNumberOfCompletions = instance.completion.length;
         ASSERT(type(dueDateUnix, Int));
         // For recurring tasks, manage the completion array with unix timestamps
