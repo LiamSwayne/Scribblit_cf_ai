@@ -66,10 +66,10 @@ function formatTaskTime(time, fontSize, colonColor) {
 
     let hour = time.hour;
     const minute = time.minute.toString().padStart(2, '0');
-    const colonStyle = `margin-left: 0px; margin-right: 0px; position: relative; top: -0.05em; color: ${colonColor}; font-size: ${fontSize}px;`;
+    const colonStyle = 'margin-left: 0px; margin-right: 0px; position: relative; top: -0.05em; color: ' + colonColor + '; font-size: ' + fontSize + 'px;';
 
     if (user.settings.ampmOr24 === '24') {
-        return `${hour.toString()}<span style="${colonStyle}">:</span>${minute}`;
+        return hour.toString() + '<span style="' + colonStyle + '">:</span>' + minute;
     } else { // ampm
         const period = hour >= 12 ? 'PM' : 'AM';
         if (hour > 12) {
@@ -77,7 +77,7 @@ function formatTaskTime(time, fontSize, colonColor) {
         } else if (hour === 0) {
             hour = 12;
         }
-        return `${hour}<span style="${colonStyle}">:</span>${minute}${period}`;
+        return hour + '<span style="' + colonStyle + '">:</span>' + minute + period;
     }
 }
 
@@ -900,14 +900,14 @@ function applyPalette(palette) {
     ASSERT(type(palette, Dict(String, List(String))));
     const root = document.documentElement;
     palette.shades.forEach((shade, index) => {
-        root.style.setProperty(`--shade-${index}`, shade);
+        root.style.setProperty('--shade-' + index, shade);
     });
     palette.accent.forEach((accent, index) => {
-        root.style.setProperty(`--accent-${index}`, accent);
+        root.style.setProperty('--accent-' + index, accent);
     });
     if (palette.events) {
         palette.events.forEach((color, index) => {
-            root.style.setProperty(`--event-${index}`, color);
+            root.style.setProperty('--event-' + index, color);
     });
     }
 }
@@ -1003,10 +1003,10 @@ let HTML = new class HTMLroot {
     getElement(id) {
         ASSERT(type(id, String));
         let element = document.getElementById(id);
-        ASSERT(exists(element), `HTML.get element with id ${id} DNE`);
+        ASSERT(exists(element), 'HTML.get element with id ' + id + ' DNE');
         
         // Check if multiple elements share the same ID
-        ASSERT(document.querySelectorAll(`#${id}`).length === 1, `HTML.get found ${document.querySelectorAll(`#${id}`).length} elements with id ${id}, should be exactly 1`);
+        ASSERT(document.querySelectorAll('#' + id).length === 1, 'HTML.get found ' + document.querySelectorAll('#' + id).length + ' elements with id ' + id + ', should be exactly 1');
         
         return element;
     }
@@ -1018,7 +1018,7 @@ let HTML = new class HTMLroot {
         // If there's an element at all, verify it's the only one
         let element = document.getElementById(id);
         if (exists(element)) {
-            ASSERT(document.querySelectorAll(`#${id}`).length === 1, `HTML.getUnsafely found ${document.querySelectorAll(`#${id}`).length} elements with id ${id}, should be at most 1`);
+            ASSERT(document.querySelectorAll('#' + id).length === 1, 'HTML.getUnsafely found ' + document.querySelectorAll('#' + id).length + ' elements with id ' + id + ', should be at most 1');
         }
         
         return element;
@@ -1029,7 +1029,7 @@ let HTML = new class HTMLroot {
 
         // Check if id is already in use
         // this is part of our interface with the DOM, so regular null is allowed in code
-        ASSERT(document.getElementById(id) === null, `HTML.setId id ${id} is already in use`);
+        ASSERT(document.getElementById(id) === null, 'HTML.setId id ' + id + ' is already in use');
         element.id = id;
     }
 
@@ -1075,7 +1075,8 @@ let HTML = new class HTMLroot {
 
     // function to cleanly apply styles to an element
     setStyle(element, styles) {
-        ASSERT(exists(element) && type(styles, Dict(String, String)));
+        ASSERT(exists(element), "HTML.setStyle: element is undefined or null");
+        ASSERT(type(styles, Dict(String, String)), "HTML.setStyle: styles is not a dictionary of strings to string");
         ASSERT(Object.keys(styles).length > 0);
         
         for (let key of Object.keys(styles)) {
@@ -1092,21 +1093,21 @@ let HTML = new class HTMLroot {
         ASSERT(type(element.id, NonEmptyString), "Element must have an ID to use setHoverStyle");
 
         // remove existing style element
-        let existingStyleElement = document.getElementById(`style-${element.id}`);
+        let existingStyleElement = document.getElementById('style-' + element.id);
         if (exists(existingStyleElement)) {
             existingStyleElement.remove();
         }
         
         // Build CSS string
-        let cssRules = `#${element.id}:hover {`;
+        let cssRules = '#' + element.id + ':hover {';
         for (let key of Object.keys(styles)) {
-            cssRules += `${key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()}: ${styles[key]}; `;
+            cssRules += key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase() + ': ' + styles[key] + '; ';
         }
-        cssRules += `}`;
+        cssRules += '}';
 
         // Create and append style element
         const styleElement = this.make('style');
-        this.setId(styleElement, `style-${element.id}`);
+        this.setId(styleElement, 'style-' + element.id);
         styleElement.textContent = cssRules;
         this.head.appendChild(styleElement);
     }
@@ -1118,7 +1119,7 @@ let HTML = new class HTMLroot {
 
     getStyle(element, property) {
         ASSERT(exists(element) && type(property, String));
-        ASSERT(this.hasStyle(element, property), `Element does not have property "${property}"`);
+        ASSERT(this.hasStyle(element, property), 'Element does not have property "' + property + '"');
         return element.style[property];
     }
 
@@ -1138,9 +1139,9 @@ let HTML = new class HTMLroot {
     
         let styleElement = this.make('style');
     
-        let styleString = Object.entries(styles).map(([key, value]) => `${key}: ${value};`).join('');
+        let styleString = Object.entries(styles).map(([key, value]) => key + ': ' + value + ';').join('');
     
-        styleElement.textContent = `.${name} {${styleString}}`;
+        styleElement.textContent = '.' + name + ' {' + styleString + '}';
         this.head.appendChild(styleElement);
     }
 }();
@@ -1196,7 +1197,7 @@ function toggleCheckbox(checkboxElement) {
 
     // update the stripe element
     const taskNumber = checkboxElement.id.split('-')[2];
-    const stripeElement = HTML.getElementUnsafely(`task-overdue-stripe-${taskNumber}`);
+    const stripeElement = HTML.getElementUnsafely('task-overdue-stripe-' + taskNumber);
     if (exists(stripeElement)) {
         if (isChecked) {
             stripeElement.style.opacity = '0';
@@ -1206,7 +1207,7 @@ function toggleCheckbox(checkboxElement) {
     }
 
     // update the task text element
-    const taskElement = HTML.getElementUnsafely(`task-${taskNumber}`);
+    const taskElement = HTML.getElementUnsafely('task-' + taskNumber);
     if (exists(taskElement)) {
         if (isChecked) {
             taskElement.style.color = 'var(--shade-3)';
@@ -1218,13 +1219,13 @@ function toggleCheckbox(checkboxElement) {
     }
 
     // update the time and date elements if they exist
-    const line1Element = HTML.getElementUnsafely(`task-info-line1-${taskNumber}`);
+    const line1Element = HTML.getElementUnsafely('task-info-line1-' + taskNumber);
     if (exists(line1Element)) {
         if (isChecked) {
             line1Element.style.color = 'var(--shade-3)';
         } else {
             // restore original color based on overdue status
-            const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
+            const stripeElement = HTML.getElement('task-overdue-stripe-' + taskNumber);
             if (stripeElement.style.display === 'none') {
                 // if the stripe element is not visible, then the task is not overdue
                 line1Element.style.color = 'var(--shade-3)';
@@ -1234,13 +1235,13 @@ function toggleCheckbox(checkboxElement) {
         }
     }
 
-    const line2Element = HTML.getElementUnsafely(`task-info-line2-${taskNumber}`);
+    const line2Element = HTML.getElementUnsafely('task-info-line2-' + taskNumber);
     if (exists(line2Element)) {
         if (isChecked) {
             line2Element.style.color = 'var(--shade-3)';
         } else {
             // restore original color based on overdue status
-            const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
+            const stripeElement = HTML.getElement('task-overdue-stripe-' + taskNumber);
             if (stripeElement.style.display === 'none') {
                 // if the stripe element is not visible, then the task is not overdue
                 line2Element.style.color = 'var(--shade-3)';
@@ -1263,7 +1264,7 @@ function toggleCheckbox(checkboxElement) {
         if (isChecked) {
             colonElement.style.color = 'var(--shade-3)';
         } else {
-            const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
+            const stripeElement = HTML.getElement('task-overdue-stripe-' + taskNumber);
             if (stripeElement.style.display === 'none') {
                 colonElement.style.color = 'var(--shade-3)';
             } else {
@@ -1323,7 +1324,7 @@ function updateTaskSectionNames() {
     const initiallyActive = {"Today" : true, "Tomorrow" : true, "Week" : true};
     // get the color
     for (const [taskSectionName, _] of Object.entries(taskSectionNameInactive)) {
-        const taskSectionElement = HTML.getElement(`taskListHeader-${taskSectionName}`);
+        const taskSectionElement = HTML.getElement('taskListHeader-' + taskSectionName);
         const taskSectionColor = taskSectionElement.style.color;
         // this 
         if (taskSectionColor === activeColor) {
@@ -1345,7 +1346,7 @@ function updateTaskSectionNames() {
     }
 
     for (const [taskSectionName, isInactive] of Object.entries(taskSectionNameInactive)) {
-        const taskSectionElement = HTML.getElement(`taskListHeader-${taskSectionName}`);
+        const taskSectionElement = HTML.getElement('taskListHeader-' + taskSectionName);
         if (isInactive) {
             taskSectionElement.style.color = inactiveColor;
         } else {
@@ -1363,14 +1364,78 @@ function updateTaskSectionNames() {
 }
 
 let confettiAnimationCurrentlyPlaying = false;
+
 function playConfettiAnimation(taskSectionName) {
-    if (confettiAnimationCurrentlyPlaying) {
-        return;
+    // Get the task section header element
+    const headerElement = HTML.getElement('taskListHeader-' + taskSectionName);
+    
+    const bounds = headerElement.getBoundingClientRect();
+    const centerX = bounds.left + bounds.width / 2;
+    const centerY = bounds.top + bounds.height / 2;
+    
+    // Create 40 dots directly
+    for (let i = 0; i < 40; i++) {
+        const dot = document.createElement('div');
+        HTML.setStyle(dot, {
+            position: 'fixed',
+            width: (6 + Math.random() * 2) + 'px',
+            height: (6 + Math.random() * 2) + 'px',
+            backgroundColor: 'rgb(' + (30 + Math.random() * 225) + ', ' + (30 + Math.random() * 200) + ', ' + (30 + Math.random() * 200) + ')',
+            zIndex: '5000',
+            pointerEvents: 'none',
+            borderRadius: '50%'
+        });
+        document.body.appendChild(dot);
+        
+        // Physics setup
+        const angle = -Math.PI / 4 + (Math.random() - 0.5) * (Math.PI / 6);
+        const startRadius = Math.random() * 10;
+        const velocity = (100 + Math.random() * 250) * 2.4;
+        const duration = 3000 + Math.random() * 1000;
+        
+        let x = centerX + Math.cos(angle) * startRadius;
+        let y = centerY + Math.sin(angle) * startRadius;
+        let velX = Math.cos(angle) * velocity;
+        let velY = Math.sin(angle) * velocity;
+        let rotation = 0;
+        let rotationSpeed = Math.random() * 10 + 5;
+        
+        const startTime = Date.now();
+        const friction = Math.max(-0.002756 * window.innerWidth + 2.915 + Math.random() * 0.2, 0.5);
+        
+        function animate() {
+            const elapsed = Date.now() - startTime;
+            const progress = elapsed / duration;
+            
+            if (progress >= 1) {
+                document.body.removeChild(dot);
+                return;
+            }
+            
+            // Physics
+            velY += 490 / 60; // gravity
+            velX *= 1 - friction / 60;
+            velY *= 1 - friction / 60;
+            
+            x += velX / 60;
+            y += velY / 60;
+            rotation += rotationSpeed;
+            
+            // Fade out
+            const opacity = progress > 0.5 ? 1 - ((progress - 0.5) * 2) : 1;
+            
+            HTML.setStyle(dot, {
+                left: x + 'px',
+                top: y + 'px',
+                transform: 'translate(-50%, -50%) rotate(' + rotation + 'deg)',
+                opacity: String(opacity)
+            });
+            
+            requestAnimationFrame(animate);
+        }
+        
+        requestAnimationFrame(animate);
     }
-
-    // the animation goes here
-
-    confettiAnimationCurrentlyPlaying = true;    
 }
 
 // how many columns of calendar days plus the task list
@@ -1422,7 +1487,7 @@ function dayOfWeekStringToIndex(dayOfWeekString) {
         case 'saturday': return 6;
         case 'sunday': return 7;
         default:
-            ASSERT(false, `Invalid dayOfWeekString: ${dayOfWeekString}`);
+            ASSERT(false, 'Invalid dayOfWeekString: ' + dayOfWeekString);
     }
 }
 
@@ -4868,7 +4933,6 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         position: 'fixed',
         top: `${currentTop}px`,
         left: `${taskListLeft}px`,
-        width: `${taskListWidth}px`,
         fontFamily: 'PrimaryBold',
         fontSize: sectionFontSize,
         color: section.active ? 'var(--shade-4)' : 'var(--shade-3)',
