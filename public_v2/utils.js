@@ -488,7 +488,6 @@ class RecurringTaskInstance {
         ASSERT(type(datePattern, Union(EveryNDaysPattern, MonthlyPattern, AnnuallyPattern, NthWeekdayOfMonthsPattern)), "1");
         ASSERT(type(dueTime, Union(TimeField, NULL)), "2");
         ASSERT(type(range, Union(DateRange, RecurrenceCount)), "3");
-        log(completion);
         ASSERT(type(completion, List(Int)), "4");
 
         this.datePattern = datePattern;
@@ -941,8 +940,6 @@ class TaskData {
         
         ASSERT(type(workSessions, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
 
-        // TODO get the latest due date, or it is NULL if this task continues indefinitely
-
         // TODO make sure that every work session ends before the due date of the task
         
         this.instances = instances;
@@ -1064,7 +1061,6 @@ class TaskData {
 
 class EventData {
     constructor(instances) {
-        // log("EventData constructor received instances:", instances);
         ASSERT(type(instances, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
         
         this.instances = instances;
