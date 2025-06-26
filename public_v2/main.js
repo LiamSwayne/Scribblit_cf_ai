@@ -1211,10 +1211,8 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
     const stripeElement = HTML.getElementUnsafely('task-overdue-stripe-' + taskNumber);
     if (exists(stripeElement)) {
         if (isChecked) {
-            log("setting stripe opacity to 0");
             stripeElement.style.opacity = '0';
         } else {
-            log("setting stripe opacity to 0.5");
             // Only show stripe if task is actually overdue
             stripeElement.style.opacity = '0.5';
         }
@@ -5102,7 +5100,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             boxSizing: 'border-box',
             cursor: 'pointer',
             zIndex: '3',
-            transition: 'opacity 0.2s ease, font-size 0.3s ease'
+            transition: 'opacity 0.2s ease, font-size 0.3s ease, color 0.2s ease'
         });
 
         // Make checkbox size responsive
