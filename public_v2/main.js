@@ -22,6 +22,8 @@ const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
 const vibrantRedColor = '#ff4444';
 
+let activeCheckboxIds = new Set();
+
 // Save user data to localStorage
 function saveUserData(user) {
     ASSERT(type(user, User));
@@ -1218,14 +1220,12 @@ function toggleCheckbox(checkboxElement) {
     // update the time and date elements if they exist
     const line1Element = HTML.getElementUnsafely(`task-info-line1-${taskNumber}`);
     if (exists(line1Element)) {
-        log('line1Element exists');
         if (isChecked) {
             line1Element.style.color = 'var(--shade-3)';
         } else {
             // restore original color based on overdue status
             const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
             if (stripeElement.style.display === 'none') {
-                log('stripeElement.style.display is none');
                 // if the stripe element is not visible, then the task is not overdue
                 line1Element.style.color = 'var(--shade-3)';
             } else {
@@ -1236,14 +1236,12 @@ function toggleCheckbox(checkboxElement) {
 
     const line2Element = HTML.getElementUnsafely(`task-info-line2-${taskNumber}`);
     if (exists(line2Element)) {
-        log('line2Element exists');
         if (isChecked) {
             line2Element.style.color = 'var(--shade-3)';
         } else {
             // restore original color based on overdue status
             const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
             if (stripeElement.style.display === 'none') {
-                log('stripeElement.style.display is none');
                 // if the stripe element is not visible, then the task is not overdue
                 line2Element.style.color = 'var(--shade-3)';
             } else {
@@ -1304,9 +1302,79 @@ function toggleCheckbox(checkboxElement) {
         }
         ASSERT(Math.abs(instance.completion.length - initialNumberOfCompletions) <= 1, "Recurring task completion array length changed by more than 1");
     }
-    
+
+    // quick update the task section names
+    updateTaskSectionNames();
+
     // Save the updated user data
     saveUserData(user);
+}
+
+// quick function to know whether a section color should be white for active or grey for inactive
+function updateTaskSectionNames() {
+    let activeColor = 'var(--shade-4)';
+    let inactiveColor = 'var(--shade-3)';
+
+    // get the task section names
+    const taskSectionNameInactive = {"Today" : true, "Tomorrow" : true, "Week" : true};
+
+    // get the curent section status so we can see if one goes from unfinished to finished
+    // then we play a confetti animation
+    const initiallyActive = {"Today" : true, "Tomorrow" : true, "Week" : true};
+    // get the color
+    for (const [taskSectionName, _] of Object.entries(taskSectionNameInactive)) {
+        const taskSectionElement = HTML.getElement(`taskListHeader-${taskSectionName}`);
+        const taskSectionColor = taskSectionElement.style.color;
+        // this 
+        if (taskSectionColor === activeColor) {
+            initiallyActive[taskSectionName] = true;
+        } else {
+            initiallyActive[taskSectionName] = false;
+        }
+    }
+
+    log(initiallyActive);
+
+    // get all the checkboxes
+    for (const id of activeCheckboxIds) {
+        const checkboxElement = HTML.getElement(id);
+        const isArbitraryBoxChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
+        ASSERT(type(isArbitraryBoxChecked, Boolean));
+        if (!isArbitraryBoxChecked) {
+            log('isArbitraryBoxChecked is false for id: ' + id);
+            const taskSectionName = HTML.getData(checkboxElement, 'SECTION');
+            log('taskSectionName: ' + taskSectionName);
+            taskSectionNameInactive[taskSectionName] = false;
+        }
+    }
+
+    for (const [taskSectionName, isInactive] of Object.entries(taskSectionNameInactive)) {
+        const taskSectionElement = HTML.getElement(`taskListHeader-${taskSectionName}`);
+        if (isInactive) {
+            taskSectionElement.style.color = inactiveColor;
+        } else {
+            log('active for id: ' + taskSectionName);
+            taskSectionElement.style.color = activeColor;
+        }
+    }
+
+    log(taskSectionNameInactive);
+
+    // see if any of them weren't complete before and are now complete
+    for (const [taskSectionName, isInactive] of Object.entries(taskSectionNameInactive)) {
+        log('taskSectionName: ' + taskSectionName);
+        log('isInactive: ' + isInactive);
+        log('initiallyActive[taskSectionName]: ' + initiallyActive[taskSectionName]);
+        if (initiallyActive[taskSectionName] && isInactive) {
+            log('play confetti animation');
+            // play a confetti animation
+            playConfettiAnimation();
+        }
+    }
+}
+
+function playConfettiAnimation() {
+    // TODO
 }
 
 // how many columns of calendar days plus the task list
@@ -4846,12 +4914,15 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             // Add checkbox click functionality only when initially created
             checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
             HTML.setData(checkboxElement, 'IS_CHECKED', false);
+            // Add the checkbox ID to the active set
+            activeCheckboxIds.add(checkboxElementId);
         }
         
-        // Set task ID, instance index, and due date unix time data on checkbox
+        // Set task ID, instance index, due date unix time, and section data on checkbox
         HTML.setData(checkboxElement, 'TASK_ID', task.id);
         HTML.setData(checkboxElement, 'INSTANCE_INDEX', task.instanceIndex);
         HTML.setData(checkboxElement, 'DUE_DATE_UNIX', task.dueDate);
+        HTML.setData(checkboxElement, 'SECTION', section.name);
         // Show the element (it might have been hidden)
         checkboxElement.style.display = 'block';
 
@@ -4999,12 +5070,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             const isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
             ASSERT(type(isChecked, Boolean));
             if (isChecked) {
-                log('checkboxElement.checked is true');
-                log ('set stripeElement.style.opacity to 0');
                 stripeElement.style.opacity = '0';
             } else {
-                log('checkboxElement.checked is false');
-                log ('set stripeElement.style.opacity to 1');
                 stripeElement.style.opacity = '1';
             }
             stripeElement.style.width = String(stripeWidthOnHover) + 'px';
