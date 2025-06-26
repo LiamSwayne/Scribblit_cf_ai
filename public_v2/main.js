@@ -1271,6 +1271,10 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
     if (children !== NULL) {
         ASSERT(children.length === 1);
         const colonElement = children[0];
+        // Add transition to colon element if not already present
+        if (!colonElement.style.transition) {
+            colonElement.style.transition = 'color 0.2s ease';
+        }
         if (isChecked) {
             colonElement.style.color = 'var(--shade-3)';
         } else {
