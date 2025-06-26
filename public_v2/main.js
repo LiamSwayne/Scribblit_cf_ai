@@ -138,9 +138,6 @@ if (TESTING) {
     const in2WeeksDate = baseDate.plus({days: 14});
     const in2Weeks = new DateField(in2WeeksDate.year, in2WeeksDate.month, in2WeeksDate.day);
     
-    const in1MonthDate = baseDate.plus({months: 1});
-    const in1Month = new DateField(in1MonthDate.year, in1MonthDate.month, in1MonthDate.day);
-    
     const in2MonthsDate = baseDate.plus({months: 2});
     const in2Months = new DateField(in2MonthsDate.year, in2MonthsDate.month, in2MonthsDate.day);
 
@@ -1180,12 +1177,9 @@ HTML.body.appendChild(logo);
 const logoHeight = 22.15; // i measured it
 
 function toggleCheckbox(checkboxElement) {
-    log('toggleCheckbox');
     let isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
     ASSERT(type(isChecked, Boolean));
     isChecked = !isChecked;
-
-    log('isChecked is ' + isChecked);
 
     if (isChecked) {
         checkboxElement.style.borderColor = 'var(--shade-2)';
@@ -1208,6 +1202,79 @@ function toggleCheckbox(checkboxElement) {
             stripeElement.style.opacity = '0.5';
         }
     }
+
+    // update the task text element
+    const taskElement = HTML.getElementUnsafely(`task-${taskNumber}`);
+    if (exists(taskElement)) {
+        if (isChecked) {
+            taskElement.style.color = 'var(--shade-3)';
+            taskElement.style.textDecoration = 'line-through';
+        } else {
+            taskElement.style.color = 'white';
+            taskElement.style.textDecoration = 'none';
+        }
+    }
+
+    // update the time and date elements if they exist
+    const line1Element = HTML.getElementUnsafely(`task-info-line1-${taskNumber}`);
+    if (exists(line1Element)) {
+        log('line1Element exists');
+        if (isChecked) {
+            line1Element.style.color = 'var(--shade-3)';
+        } else {
+            // restore original color based on overdue status
+            const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
+            if (stripeElement.style.display === 'none') {
+                log('stripeElement.style.display is none');
+                // if the stripe element is not visible, then the task is not overdue
+                line1Element.style.color = 'var(--shade-3)';
+            } else {
+                line1Element.style.color = vibrantRedColor;
+            }
+        }
+    }
+
+    const line2Element = HTML.getElementUnsafely(`task-info-line2-${taskNumber}`);
+    if (exists(line2Element)) {
+        log('line2Element exists');
+        if (isChecked) {
+            line2Element.style.color = 'var(--shade-3)';
+        } else {
+            // restore original color based on overdue status
+            const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
+            if (stripeElement.style.display === 'none') {
+                log('stripeElement.style.display is none');
+                // if the stripe element is not visible, then the task is not overdue
+                line2Element.style.color = 'var(--shade-3)';
+            } else {
+                line2Element.style.color = vibrantRedColor;
+            }
+        }
+    }
+
+    // update colon element if it exists
+    let children = NULL;
+    if (exists(line1Element) && line1Element.children.length > 0) {
+        children = line1Element.children;
+    } else if (exists(line2Element) && line2Element.children.length > 0) {
+        children = line2Element.children;
+    }
+    if (children !== NULL) {
+        ASSERT(children.length === 1);
+        const colonElement = children[0];
+        if (isChecked) {
+            colonElement.style.color = 'var(--shade-3)';
+        } else {
+            const stripeElement = HTML.getElement(`task-overdue-stripe-${taskNumber}`);
+            if (stripeElement.style.display === 'none') {
+                colonElement.style.color = 'var(--shade-3)';
+            } else {
+                colonElement.style.color = vibrantRedColor;
+            }
+        }
+    }
+
+    // TODO LATER update the task object itself in the user's entity array
 }
 
 // how many columns of calendar days plus the task list
@@ -4915,12 +4982,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             const isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
             ASSERT(type(isChecked, Boolean));
             if (isChecked) {
-                log('checkboxElement.checked is true');
-                log ('leave stripeElement.style.opacity as 0');
                 stripeElement.style.opacity = '0';
             } else {
-                log('checkboxElement.checked is false');
-                log ('leave stripeElement.style.opacity as 0.5');
                 stripeElement.style.opacity = '0.5';
             }
             stripeElement.style.width = String(stripeWidth) + 'px';
