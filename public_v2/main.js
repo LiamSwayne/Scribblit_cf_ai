@@ -1373,68 +1373,116 @@ function playConfettiAnimation(taskSectionName) {
     const centerX = bounds.left + bounds.width / 2;
     const centerY = bounds.top + bounds.height / 2;
     
-    // Create 40 dots directly
-    for (let i = 0; i < 40; i++) {
-        const dot = document.createElement('div');
-        HTML.setStyle(dot, {
+    for (let i = 0; i < 30; i++) {
+        const shape = document.createElement('div');
+        const size = (9 + Math.random() * 3);
+        const confettiColors = ['#FFCA3A', '#DD2D4A', '#8AC926', '#3772FF'];
+        const color = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+        
+        // Determine shape type based on index: 0-12 circles, 13-26 triangles, 27-39 squares
+        const shapeType = i < 13 ? 'circle' : i < 27 ? 'triangle' : 'square';
+        
+        let shapeStyles = {
             position: 'fixed',
-            width: (6 + Math.random() * 2) + 'px',
-            height: (6 + Math.random() * 2) + 'px',
-            backgroundColor: 'rgb(' + (30 + Math.random() * 225) + ', ' + (30 + Math.random() * 200) + ', ' + (30 + Math.random() * 200) + ')',
+            width: size + 'px',
+            height: size + 'px',
             zIndex: '5000',
-            pointerEvents: 'none',
-            borderRadius: '50%'
-        });
-        document.body.appendChild(dot);
+            pointerEvents: 'none'
+        };
+        
+        if (shapeType === 'circle') {
+            shapeStyles.backgroundColor = color;
+            shapeStyles.borderRadius = '50%';
+        } else if (shapeType === 'triangle') {
+            // Create equilateral triangle using CSS borders
+            shapeStyles.width = '0px';
+            shapeStyles.height = '0px';
+            shapeStyles.borderLeft = (size/2) + 'px solid transparent';
+            shapeStyles.borderRight = (size/2) + 'px solid transparent';
+            shapeStyles.borderBottom = (size * 0.866) + 'px solid ' + color; // 0.866 ≈ √3/2 for equilateral triangle
+        } else { // square
+            shapeStyles.backgroundColor = color;
+            shapeStyles.borderRadius = '0%';
+        }
+        
+        HTML.setStyle(shape, shapeStyles);
+        document.body.appendChild(shape);
         
         // Physics setup
         const angle = -Math.PI / 4 + (Math.random() - 0.5) * (Math.PI / 6);
         const startRadius = Math.random() * 10;
-        const velocity = (100 + Math.random() * 250) * 2.4;
-        const duration = 3000 + Math.random() * 1000;
+        const velocity = Math.max(400 + Math.random() * 700, 400);
+        const duration = 1500 + Math.random() * 1000; // Shorter: 1.5-2.5 seconds
         
         let x = centerX + Math.cos(angle) * startRadius;
         let y = centerY + Math.sin(angle) * startRadius;
         let velX = Math.cos(angle) * velocity;
-        let velY = Math.sin(angle) * velocity;
+        let velY = Math.sin(angle) * velocity * 0.75;
         let rotation = 0;
         let rotationSpeed = Math.random() * 10 + 5;
         
-        const startTime = Date.now();
-        const friction = Math.max(-0.002756 * window.innerWidth + 2.915 + Math.random() * 0.2, 0.5);
+        const friction = Math.max(-0.002756 * window.innerWidth + 3.615 + Math.random() * 0.2, 0.5);
         
-        function animate() {
-            const elapsed = Date.now() - startTime;
-            const progress = elapsed / duration;
+        // Pre-calculate all 50 keyframes
+        const keyframes = [];
+        const numKeyframes = 50;
+        
+        // Reset physics values for calculation
+        let calcX = x;
+        let calcY = y;
+        let calcVelX = velX;
+        let calcVelY = velY;
+        let calcRotation = rotation;
+        
+        for (let frame = 0; frame <= numKeyframes; frame++) {
+            const progress = frame / numKeyframes;
             
-            if (progress >= 1) {
-                document.body.removeChild(dot);
-                return;
-            }
+            // Physics calculations with 3x time step (simulate more physics time per keyframe)
+            calcVelY += 490 / 20; // gravity (was /60, now /20 for 3x time step)
+            calcVelX *= Math.pow(1 - friction / 60, 3); // friction applied 3x per frame
+            calcVelY *= Math.pow(1 - friction / 60, 3); // friction applied 3x per frame
             
-            // Physics
-            velY += 490 / 60; // gravity
-            velX *= 1 - friction / 60;
-            velY *= 1 - friction / 60;
-            
-            x += velX / 60;
-            y += velY / 60;
-            rotation += rotationSpeed;
+            calcX += calcVelX / 20; // position update (was /60, now /20 for 3x time step)
+            calcY += calcVelY / 20; // position update (was /60, now /20 for 3x time step)
+            calcRotation += rotationSpeed * 3; // rotation 3x faster per keyframe
             
             // Fade out
             const opacity = progress > 0.5 ? 1 - ((progress - 0.5) * 2) : 1;
             
-            HTML.setStyle(dot, {
-                left: x + 'px',
-                top: y + 'px',
-                transform: 'translate(-50%, -50%) rotate(' + rotation + 'deg)',
-                opacity: String(opacity)
+            keyframes.push({
+                left: calcX + 'px',
+                top: calcY + 'px',
+                transform: 'translate(-50%, -50%) rotate(' + calcRotation + 'deg)',
+                opacity: String(opacity),
+                offset: progress
             });
-            
-            requestAnimationFrame(animate);
         }
         
-        requestAnimationFrame(animate);
+        // Set initial position
+        HTML.setStyle(shape, {
+            left: x + 'px',
+            top: y + 'px',
+            transform: 'translate(-50%, -50%) rotate(' + rotation + 'deg)',
+            opacity: '1'
+        });
+        
+        // Apply CSS animation using the existing applyAnimation method
+        const animationOptions = {
+            duration: duration,
+            iterations: 1,
+            easing: 'linear',
+            fill: 'forwards'
+        };
+        
+        // Start animation immediately (no trigger needed)
+        const animation = shape.animate(keyframes, animationOptions);
+        
+        // Remove element when animation finishes
+        animation.addEventListener('finish', () => {
+            if (document.body.contains(shape)) {
+                document.body.removeChild(shape);
+            }
+        });
     }
 }
 
