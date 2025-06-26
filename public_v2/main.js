@@ -1373,8 +1373,15 @@ function updateTaskSectionNames() {
     }
 }
 
+let confettiAnimationCurrentlyPlaying = false;
 function playConfettiAnimation() {
-    // TODO
+    if (confettiAnimationCurrentlyPlaying) {
+        return;
+    }
+
+    // the animation goes here
+
+    confettiAnimationCurrentlyPlaying = true;    
 }
 
 // how many columns of calendar days plus the task list
