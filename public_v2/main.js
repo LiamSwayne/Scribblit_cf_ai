@@ -55,6 +55,12 @@ function hexToRgb(hex) {
     };
 }
 
+function toggleCheckbox(checkboxElement) {
+    const isChecked = checkboxElement.style.backgroundColor === 'var(--shade-2)';
+    checkboxElement.style.borderColor = isChecked ? 'var(--shade-3)' : 'var(--shade-2)';
+    checkboxElement.style.backgroundColor = isChecked ? 'transparent' : 'var(--shade-2)';
+}
+
 function formatTaskTime(time, fontSize, colonColor) {
     ASSERT(type(time, TimeField));
     ASSERT(type(user, User));
@@ -4872,6 +4878,9 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             stripeElement.style.left = String(stripeLeft) + 'px';
         };
 
+        // Add checkbox click functionality
+        checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
+        
         // Add hover listeners to all elements
         taskElement.addEventListener('mouseenter', mouseEnterTask);
         taskElement.addEventListener('mouseleave', mouseLeaveTask);
