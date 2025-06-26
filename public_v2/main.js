@@ -1224,6 +1224,11 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         }
     }
 
+    // Calculate if task is overdue based on due date
+    const dueDateUnix = HTML.getData(checkboxElement, 'DUE_DATE_UNIX');
+    const now = DateTime.local().toMillis();
+    const isOverdue = dueDateUnix < now;
+
     // update the time and date elements if they exist
     const line1Element = HTML.getElementUnsafely('task-info-line1-' + taskNumber);
     if (exists(line1Element)) {
@@ -1231,12 +1236,10 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
             line1Element.style.color = 'var(--shade-3)';
         } else {
             // restore original color based on overdue status
-            const stripeElement = HTML.getElement('task-overdue-stripe-' + taskNumber);
-            if (stripeElement.style.display === 'none') {
-                // if the stripe element is not visible, then the task is not overdue
-                line1Element.style.color = 'var(--shade-3)';
-            } else {
+            if (isOverdue) {
                 line1Element.style.color = vibrantRedColor;
+            } else {
+                line1Element.style.color = 'var(--shade-3)';
             }
         }
     }
@@ -1247,12 +1250,10 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
             line2Element.style.color = 'var(--shade-3)';
         } else {
             // restore original color based on overdue status
-            const stripeElement = HTML.getElement('task-overdue-stripe-' + taskNumber);
-            if (stripeElement.style.display === 'none') {
-                // if the stripe element is not visible, then the task is not overdue
-                line2Element.style.color = 'var(--shade-3)';
-            } else {
+            if (isOverdue) {
                 line2Element.style.color = vibrantRedColor;
+            } else {
+                line2Element.style.color = 'var(--shade-3)';
             }
         }
     }
@@ -1270,11 +1271,10 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         if (isChecked) {
             colonElement.style.color = 'var(--shade-3)';
         } else {
-            const stripeElement = HTML.getElement('task-overdue-stripe-' + taskNumber);
-            if (stripeElement.style.display === 'none') {
-                colonElement.style.color = 'var(--shade-3)';
-            } else {
+            if (isOverdue) {
                 colonElement.style.color = vibrantRedColor;
+            } else {
+                colonElement.style.color = 'var(--shade-3)';
             }
         }
     }
@@ -1295,7 +1295,6 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
             // For non-recurring tasks, simply toggle the completion boolean
             instance.completion = isChecked;
         } else if (type(instance, RecurringTaskInstance)) {
-            const dueDateUnix = HTML.getData(checkboxElement, 'DUE_DATE_UNIX');
             const initialNumberOfCompletions = instance.completion.length;
             ASSERT(type(dueDateUnix, Int));
             // For recurring tasks, manage the completion array with unix timestamps
