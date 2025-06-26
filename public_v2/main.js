@@ -4789,11 +4789,7 @@ function getTasksInRange(startUnix, endUnix) {
                         const dueDate = DateTime.fromMillis(ts);
                         const dateField = new DateField(dueDate.year, dueDate.month, dueDate.day);
                         
-                        const isCompleted = instance.completion.some(completedDate => 
-                            completedDate.year === dateField.year &&
-                            completedDate.month === dateField.month &&
-                            completedDate.day === dateField.day
-                        );
+                        const isCompleted = instance.completion.includes(ts);
 
                         tasks.push({
                             id: entity.id,
