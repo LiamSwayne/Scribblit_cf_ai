@@ -4216,7 +4216,6 @@ function renderDividers() {
 
         const hDividerLeft = Math.max(minLeft - (gapBetweenColumns / 2), gapBetweenColumns / 2);
         let hDividerWidth;
-        log(numberOfDays);
         if (numberOfDays % 2 == 1) {
             hDividerWidth = maxRight - minLeft;
         } else {
