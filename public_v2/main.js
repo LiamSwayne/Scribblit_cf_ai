@@ -1180,22 +1180,27 @@ HTML.setStyle(logo, {
 HTML.body.appendChild(logo);
 const logoHeight = 22.15; // i measured it
 
-function toggleCheckbox(checkboxElement) {
+function toggleCheckbox(checkboxElement, onlyRendering) {
     let isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
     ASSERT(type(isChecked, Boolean));
-    isChecked = !isChecked;
+    
+    if (!onlyRendering) {
+        isChecked = !isChecked;
+        HTML.setData(checkboxElement, 'IS_CHECKED', isChecked);
+    }
 
     if (isChecked) {
-        checkboxElement.style.borderColor = 'var(--shade-2)';
-        checkboxElement.style.backgroundColor = 'var(--shade-2)';
+        HTML.setStyle(checkboxElement, {
+            borderColor: 'var(--shade-2)',
+            backgroundColor: 'var(--shade-2)'
+        });
     } else {
-        checkboxElement.style.borderColor = 'var(--shade-3)';
-        checkboxElement.style.backgroundColor = 'transparent';
+        HTML.setStyle(checkboxElement, {
+            borderColor: 'var(--shade-3)',
+            backgroundColor: 'transparent'
+        });
     }
     
-    // set data property
-    HTML.setData(checkboxElement, 'IS_CHECKED', isChecked);
-
     // update the stripe element
     const taskNumber = checkboxElement.id.split('-')[2];
     const stripeElement = HTML.getElementUnsafely('task-overdue-stripe-' + taskNumber);
@@ -1214,7 +1219,7 @@ function toggleCheckbox(checkboxElement) {
             taskElement.style.color = 'var(--shade-3)';
             taskElement.style.textDecoration = 'line-through';
         } else {
-            taskElement.style.color = 'white';
+            taskElement.style.color = 'var(--shade-4)';
             taskElement.style.textDecoration = 'none';
         }
     }
@@ -1274,42 +1279,44 @@ function toggleCheckbox(checkboxElement) {
         }
     }
 
-    // update the task object itself in the user's entity array
-    const taskId = HTML.getData(checkboxElement, 'TASK_ID');
-    const instanceIndex = HTML.getData(checkboxElement, 'INSTANCE_INDEX');
-    ASSERT(type(taskId, String));
-    ASSERT(type(instanceIndex, Int));
-    
-    // Find the task entity in user's entity array
-    const taskEntity = user.entityArray.find(entity => entity.id === taskId);
-    ASSERT(type(taskEntity, Entity));
-    ASSERT(type(taskEntity.data, TaskData));
-    const instance = taskEntity.data.instances[instanceIndex];
-    if (type(instance, NonRecurringTaskInstance)) {
-        // For non-recurring tasks, simply toggle the completion boolean
-        instance.completion = isChecked;
-    } else if (type(instance, RecurringTaskInstance)) {
-        const dueDateUnix = HTML.getData(checkboxElement, 'DUE_DATE_UNIX');
-        const initialNumberOfCompletions = instance.completion.length;
-        ASSERT(type(dueDateUnix, Int));
-        // For recurring tasks, manage the completion array with unix timestamps
-        if (isChecked) {
-            // Add completion unix timestamp if not already present
-            if (!instance.completion.includes(dueDateUnix)) {
-                instance.completion.push(dueDateUnix);
+    if (!onlyRendering) {
+        // update the task object itself in the user's entity array
+        const taskId = HTML.getData(checkboxElement, 'TASK_ID');
+        const instanceIndex = HTML.getData(checkboxElement, 'INSTANCE_INDEX');
+        ASSERT(type(taskId, String));
+        ASSERT(type(instanceIndex, Int));
+        
+        // Find the task entity in user's entity array
+        const taskEntity = user.entityArray.find(entity => entity.id === taskId);
+        ASSERT(type(taskEntity, Entity));
+        ASSERT(type(taskEntity.data, TaskData));
+        const instance = taskEntity.data.instances[instanceIndex];
+        if (type(instance, NonRecurringTaskInstance)) {
+            // For non-recurring tasks, simply toggle the completion boolean
+            instance.completion = isChecked;
+        } else if (type(instance, RecurringTaskInstance)) {
+            const dueDateUnix = HTML.getData(checkboxElement, 'DUE_DATE_UNIX');
+            const initialNumberOfCompletions = instance.completion.length;
+            ASSERT(type(dueDateUnix, Int));
+            // For recurring tasks, manage the completion array with unix timestamps
+            if (isChecked) {
+                // Add completion unix timestamp if not already present
+                if (!instance.completion.includes(dueDateUnix)) {
+                    instance.completion.push(dueDateUnix);
+                }
+            } else {
+                // Remove completion unix timestamp
+                instance.completion = instance.completion.filter(completedUnix => completedUnix !== dueDateUnix);
             }
-        } else {
-            // Remove completion unix timestamp
-            instance.completion = instance.completion.filter(completedUnix => completedUnix !== dueDateUnix);
+            ASSERT(Math.abs(instance.completion.length - initialNumberOfCompletions) <= 1, "Recurring task completion array length changed by more than 1");
         }
-        ASSERT(Math.abs(instance.completion.length - initialNumberOfCompletions) <= 1, "Recurring task completion array length changed by more than 1");
+
+        // quick update the task section names
+        updateTaskSectionNames();
+
+        // Save the updated user data
+        saveUserData(user);
     }
-
-    // quick update the task section names
-    updateTaskSectionNames();
-
-    // Save the updated user data
-    saveUserData(user);
 }
 
 // quick function to know whether a section color should be white for active or grey for inactive
@@ -5032,7 +5039,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             HTML.body.appendChild(checkboxElement);
             // Add checkbox click functionality only when initially created
             checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
-            HTML.setData(checkboxElement, 'IS_CHECKED', false);
+            HTML.setData(checkboxElement, 'IS_CHECKED', task.isComplete);
             // Add the checkbox ID to the active set
             activeCheckboxIds.add(checkboxElementId);
         }
@@ -5042,6 +5049,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         HTML.setData(checkboxElement, 'INSTANCE_INDEX', task.instanceIndex);
         HTML.setData(checkboxElement, 'DUE_DATE_UNIX', task.dueDate);
         HTML.setData(checkboxElement, 'SECTION', section.name);
+        
+        // Update checkbox completion state and apply styling
+        HTML.setData(checkboxElement, 'IS_CHECKED', task.isComplete);
+        
         // Show the element (it might have been hidden)
         checkboxElement.style.display = 'block';
 
@@ -5180,6 +5191,9 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
                 display: 'none'
             });
         }
+        
+        // Apply completion-based styling to checkbox and task elements
+        toggleCheckbox(checkboxElement, true);
         
         // Hover handlers for all elements
         let count = totalRenderedTaskCount;
