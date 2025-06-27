@@ -1380,7 +1380,10 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
     const line1Element = HTML.getElementUnsafely('task-info-line1-' + taskNumber);
     if (exists(line1Element)) {
         if (isChecked) {
-            line1Element.style.color = 'var(--shade-3)';
+            // Check if task is currently being hovered
+            const hoverElement = HTML.getElementUnsafely('task-hover-' + taskNumber);
+            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '1';
+            line1Element.style.color = isHovering ? 'var(--shade-3)' : 'var(--shade-2)';
         } else {
             // restore original color based on overdue status
             if (isOverdue) {
@@ -1394,7 +1397,10 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
     const line2Element = HTML.getElementUnsafely('task-info-line2-' + taskNumber);
     if (exists(line2Element)) {
         if (isChecked) {
-            line2Element.style.color = 'var(--shade-3)';
+            // Check if task is currently being hovered
+            const hoverElement = HTML.getElementUnsafely('task-hover-' + taskNumber);
+            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '1';
+            line2Element.style.color = isHovering ? 'var(--shade-3)' : 'var(--shade-2)';
         } else {
             // restore original color based on overdue status
             if (isOverdue) {
@@ -1420,7 +1426,10 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
             colonElement.style.transition = 'color 0.2s ease';
         }
         if (isChecked) {
-            colonElement.style.color = 'var(--shade-3)';
+            // Check if task is currently being hovered
+            const hoverElement = HTML.getElementUnsafely('task-hover-' + taskNumber);
+            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '1';
+            colonElement.style.color = isHovering ? 'var(--shade-3)' : 'var(--shade-2)';
         } else {
             if (isOverdue) {
                 colonElement.style.color = vibrantRedColor;
@@ -4838,6 +4847,15 @@ function renderInputBox() {
         minInputHeight += (180 - columnWidth);
     }
 
+    // this is a rough calculation not based on thorough design decisions
+    // but it looks fine sooooo I guess it works for now
+    let maxHeight;
+    if (user.settings.stacking) {
+        maxHeight = window.innerHeight / 4;
+    } else {
+        maxHeight = window.innerHeight / 2;
+    }
+
     // Set styles that may change on resize
     HTML.setStyle(inputBox, {
         position: 'fixed',
@@ -4845,7 +4863,7 @@ function renderInputBox() {
         left: String(windowBorderMargin + borderThickness) + 'px',
         width: String(columnWidth - borderThickness*2) + 'px',
         minHeight: String(minInputHeight) + 'px',
-        maxHeight: '500px',
+        maxHeight: String(maxHeight) + 'px',
         backgroundColor: 'var(--shade-1)',
         color: 'var(--shade-4)',
         border: 'none',
@@ -5370,6 +5388,28 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             ASSERT(type(isChecked, Boolean));
             if (isChecked) {
                 stripeElement.style.opacity = '0';
+                
+                // Handle hover color for checked tasks' date/time elements
+                const line1Element = HTML.getElementUnsafely('task-info-line1-' + count);
+                const line2Element = HTML.getElementUnsafely('task-info-line2-' + count);
+                if (exists(line1Element)) {
+                    line1Element.style.color = 'var(--shade-3)';
+                }
+                if (exists(line2Element)) {
+                    line2Element.style.color = 'var(--shade-3)';
+                }
+                
+                // Handle hover color for checked tasks' colon elements
+                let children = NULL;
+                if (exists(line1Element) && line1Element.children.length > 0) {
+                    children = line1Element.children;
+                } else if (exists(line2Element) && line2Element.children.length > 0) {
+                    children = line2Element.children;
+                }
+                if (children !== NULL && children.length === 1) {
+                    const colonElement = children[0];
+                    colonElement.style.color = 'var(--shade-3)';
+                }
             } else {
                 stripeElement.style.opacity = '1';
             }
@@ -5386,6 +5426,28 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             ASSERT(type(isChecked, Boolean));
             if (isChecked) {
                 stripeElement.style.opacity = '0';
+                
+                // Restore normal checked color for date/time elements when leaving hover
+                const line1Element = HTML.getElementUnsafely('task-info-line1-' + count);
+                const line2Element = HTML.getElementUnsafely('task-info-line2-' + count);
+                if (exists(line1Element)) {
+                    line1Element.style.color = 'var(--shade-2)';
+                }
+                if (exists(line2Element)) {
+                    line2Element.style.color = 'var(--shade-2)';
+                }
+                
+                // Restore normal checked color for colon elements when leaving hover
+                let children = NULL;
+                if (exists(line1Element) && line1Element.children.length > 0) {
+                    children = line1Element.children;
+                } else if (exists(line2Element) && line2Element.children.length > 0) {
+                    children = line2Element.children;
+                }
+                if (children !== NULL && children.length === 1) {
+                    const colonElement = children[0];
+                    colonElement.style.color = 'var(--shade-2)';
+                }
             } else {
                 stripeElement.style.opacity = '0.5';
             }
