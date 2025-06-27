@@ -5482,10 +5482,10 @@ function renderTaskList() {
         // Calculate where the bottom of the top row of calendar columns would be
         const topRowBottom = windowBorderMargin + headerSpace + (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2;
         taskListHeight = topRowBottom - taskListTop;
-        taskListHeight -= 1; // manual adjustment to match calendar columns
+        taskListHeight += 8; // manual adjustment to match calendar columns
     } else {
         // In non-stacking mode, task list takes full available height
-        taskListHeight = window.innerHeight - taskListTop - windowBorderMargin;
+        taskListHeight = window.innerHeight - taskListTop - (windowBorderMargin * 2) + 3; // manua adjustment to match calendar columns
     }
 
     HTML.setStyle(taskListContainer, {
@@ -5494,11 +5494,11 @@ function renderTaskList() {
         left: String(taskListLeft) + 'px',
         width: String(taskListWidth) + 'px',
         height: String(taskListHeight) + 'px',
-        backgroundColor: 'rgba(255, 0, 0, 0.1)', // Temporary red background for visibility
-        border: '1px solid red', // Temporary border for visibility
+        // backgroundColor: 'rgba(255, 0, 0, 0.1)', // Temporary red background for visibility
+        // border: '1px solid red', // Temporary border for visibility
         zIndex: '10', // Above other elements to act as a mask
-        clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`, // Mask to hide overflow
-        pointerEvents: 'none' // Don't interfere with clicks, let them pass through to children
+        clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', // Mask to hide overflow
+        overflow: 'auto' // Make it scrollable
     });
 
     const now = DateTime.local();
