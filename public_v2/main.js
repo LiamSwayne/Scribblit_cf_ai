@@ -208,6 +208,44 @@ if (TESTING) {
             ) // data
         ),
 
+        new Entity(
+            'task-543', // id
+            '5 instances due today', // name
+            '', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        today, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        today, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        today, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        today, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        today, // date
+                        NULL, // dueTime
+                        false // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
         // one-time task with work time
         new Entity(
             'task-001', // id
@@ -1214,7 +1252,13 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
             stripeElement.style.opacity = '0';
         } else {
             // Only show stripe if task is actually overdue
-            stripeElement.style.opacity = '0.5';
+            // if we're hovering over task-hover-# then show 1 else show 0.5
+            const hoverElement = HTML.getElement('task-hover-' + taskNumber);
+            if (hoverElement.style.opacity === '1') {
+                stripeElement.style.opacity = '1';
+            } else {
+                stripeElement.style.opacity = '0.5';
+            }
         }
     }
 
@@ -4202,8 +4246,16 @@ function renderDividers() {
         hDivider = HTML.make('div');
         HTML.setId(hDivider, 'horizontal-divider');
 
-        const day0Dim = getDayColumnDimensions(0); // A day in the top row
-        const hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) + 2;
+        // When numberOfDays is 1, the single day is positioned in the bottom row, 
+        // so we need to calculate the divider position differently
+        let hDividerTop;
+        if (numberOfDays === 1) {
+            const topRowHeight = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2 - topOfCalendarDay;
+            hDividerTop = windowBorderMargin + headerSpace + topOfCalendarDay + topRowHeight + (gapBetweenColumns / 2) + 2;
+        } else {
+            const day0Dim = getDayColumnDimensions(0); // A day in the top row
+            hDividerTop = day0Dim.top + day0Dim.height + (gapBetweenColumns / 2) + 2;
+        }
 
         // Determine the horizontal span of all calendar day columns
         let minLeft = Infinity;
