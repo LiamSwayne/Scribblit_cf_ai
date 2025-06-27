@@ -210,34 +210,60 @@ if (TESTING) {
 
         new Entity(
             'task-543', // id
-            '5 instances due today', // name
+            '5 instances due in 2 days', // name
             '', // description
             new TaskData( // data
                 [
                     new NonRecurringTaskInstance(
-                        today, // date
+                        in2Days, // date
                         NULL, // dueTime
                         false // completion
                     ),
                     new NonRecurringTaskInstance(
-                        today, // date
+                        in2Days, // date
                         NULL, // dueTime
                         false // completion
                     ),
                     new NonRecurringTaskInstance(
-                        today, // date
+                        in2Days, // date
                         NULL, // dueTime
                         false // completion
                     ),
                     new NonRecurringTaskInstance(
-                        today, // date
+                        in2Days, // date
                         NULL, // dueTime
                         false // completion
                     ),
                     new NonRecurringTaskInstance(
-                        today, // date
+                        in2Days, // date
                         NULL, // dueTime
                         false // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
+        // task due daily 5 days in row starting in 2 days
+        new Entity(
+            'task-due-daily-5-days-in-row-starting-in-2-days', // id
+            'Due daily 5 times starting in 2 days', // name
+            '', // description
+            new TaskData( // data
+                [
+                    new RecurringTaskInstance(
+                        new EveryNDaysPattern(
+                            in2Days, // initialDate
+                            1 // n
+                        ), // datePattern
+                        new TimeField(10, 0), // dueTime
+                        new DateRange(
+                            in2Days, // startDate
+                            in1Week // endDate
+                        ), // range
+                        [] // completion
                     )
                 ], // instances
                 NULL, // hideUntil
@@ -5363,6 +5389,39 @@ function renderTaskList() {
     const taskListTop = parseFloat(borderDiv.style.top) + parseFloat(borderDiv.style.height) + 4;
     const taskListLeft = parseFloat(borderDiv.style.left);
     const taskListWidth = parseFloat(borderDiv.style.width);
+
+    // Create or update the task list container div that covers all available space
+    let taskListContainer = HTML.getElementUnsafely('taskListContainer');
+    if (!exists(taskListContainer)) {
+        taskListContainer = HTML.make('div');
+        HTML.setId(taskListContainer, 'taskListContainer');
+        HTML.body.appendChild(taskListContainer);
+    }
+
+    // Calculate the available height for the task list based on stacking mode
+    let taskListHeight;
+    if (user.settings.stacking) {
+        // In stacking mode, task list should align with the top row of calendar columns
+        // Calculate where the bottom of the top row of calendar columns would be
+        const topRowBottom = windowBorderMargin + headerSpace + (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2;
+        taskListHeight = topRowBottom - taskListTop;
+        taskListHeight -= 1; // manual adjustment to match calendar columns
+    } else {
+        // In non-stacking mode, task list takes full available height
+        taskListHeight = window.innerHeight - taskListTop - windowBorderMargin;
+    }
+
+    HTML.setStyle(taskListContainer, {
+        position: 'fixed',
+        top: String(taskListTop) + 'px',
+        left: String(taskListLeft) + 'px',
+        width: String(taskListWidth) + 'px',
+        height: String(taskListHeight) + 'px',
+        backgroundColor: 'rgba(255, 0, 0, 0.1)', // Temporary red background for visibility
+        border: '1px solid red', // Temporary border for visibility
+        zIndex: '0', // Behind other elements
+        pointerEvents: 'none' // Don't interfere with clicks
+    });
 
     const now = DateTime.local();
     const startOfToday = now.startOf('day');
