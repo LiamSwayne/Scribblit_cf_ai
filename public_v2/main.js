@@ -246,6 +246,82 @@ if (TESTING) {
             ) // data
         ),
 
+        new Entity(
+            'task-542', // id
+            '5 more instances due in 2 days', // name
+            '', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
+        new Entity(
+            'task-541', // id
+            '5 more more instances due in 2 days', // name
+            '', // description
+            new TaskData( // data
+                [
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    ),
+                    new NonRecurringTaskInstance(
+                        in2Days, // date
+                        NULL, // dueTime
+                        false // completion
+                    )
+                ], // instances
+                NULL, // hideUntil
+                true, // showOverdue
+                [] // workSessions
+            ) // data
+        ),
+
         // task due daily 5 days in row starting in 2 days
         new Entity(
             'task-due-daily-5-days-in-row-starting-in-2-days', // id
@@ -4902,7 +4978,7 @@ function getTasksInRange(startUnix, endUnix) {
 
 let totalRenderedTaskCount = 0;
 
-function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskHeight, spaceForTaskDateAndTime) {
+function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskHeight, spaceForTaskDateAndTime, taskListContainer) {
     ASSERT(type(task, Object));
     ASSERT(type(taskIndex, Int));
     ASSERT(type(taskTopPosition, Number));
@@ -4988,7 +5064,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         if (!exists(line1El)) {
             line1El = HTML.make('div');
             HTML.setId(line1El, line1Id);
-            HTML.body.appendChild(line1El);
+            taskListContainer.appendChild(line1El);
         }
         if (line1IsTime) {
             HTML.setData(line1El, 'timeField', task.originalInstance.dueTime);
@@ -5016,7 +5092,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         if (!exists(line2El)) {
             line2El = HTML.make('div');
             HTML.setId(line2El, line2Id);
-            HTML.body.appendChild(line2El);
+            taskListContainer.appendChild(line2El);
         }
         if (line2IsTime) {
             HTML.setData(line2El, 'timeField', task.originalInstance.dueTime);
@@ -5071,12 +5147,13 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
 }
 
 function renderTaskListSection(section, index, currentTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, numberOfSections) {
+    const taskListContainer = HTML.getElement('taskListContainer');
     const headerId = `taskListHeader-${section.name}`;
     let headerEl = HTML.getElementUnsafely(headerId);
     if (!exists(headerEl)) {
         headerEl = HTML.make('div');
         HTML.setId(headerEl, headerId);
-        HTML.body.appendChild(headerEl);
+        taskListContainer.appendChild(headerEl);
     }
     headerEl.innerHTML = section.name;
     // Make section header font size responsive
@@ -5112,18 +5189,18 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         if (!exists(taskElement)) {
             taskElement = HTML.make('div');
             HTML.setId(taskElement, taskElementId);
-            HTML.body.appendChild(taskElement);
+            taskListContainer.appendChild(taskElement);
         }
         // Show the element (it might have been hidden)
         taskElement.style.display = 'block';
 
-        renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskHeight, spaceForTaskDateAndTime);
+        renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskHeight, spaceForTaskDateAndTime, taskListContainer);
 
         let checkboxElement = HTML.getElementUnsafely(checkboxElementId);
         if (!exists(checkboxElement)) {
             checkboxElement = HTML.make('div');
             HTML.setId(checkboxElement, checkboxElementId);
-            HTML.body.appendChild(checkboxElement);
+            taskListContainer.appendChild(checkboxElement);
             // Add checkbox click functionality only when initially created
             checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
             HTML.setData(checkboxElement, 'IS_CHECKED', task.isComplete);
@@ -5148,7 +5225,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         if (!exists(stripeElement)) {
             stripeElement = HTML.make('div');
             HTML.setId(stripeElement, overdueStripeElementId);
-            HTML.body.appendChild(stripeElement);
+            taskListContainer.appendChild(stripeElement);
         }
         // Show the element (it might have been hidden)
         stripeElement.style.display = 'block';
@@ -5158,7 +5235,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         if (!exists(hoverElement)) {
             hoverElement = HTML.make('div');
             HTML.setId(hoverElement, hoverElementId);
-            HTML.body.appendChild(hoverElement);
+            taskListContainer.appendChild(hoverElement);
         }
         // Show the element (it might have been hidden)
         hoverElement.style.display = 'block';
@@ -5341,7 +5418,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         if (!exists(separatorEl)) {
             separatorEl = HTML.make('div');
             HTML.setId(separatorEl, separatorId);
-            HTML.body.appendChild(separatorEl);
+            taskListContainer.appendChild(separatorEl);
         }
         HTML.setStyle(separatorEl, {
             position: 'fixed',
@@ -5419,8 +5496,9 @@ function renderTaskList() {
         height: String(taskListHeight) + 'px',
         backgroundColor: 'rgba(255, 0, 0, 0.1)', // Temporary red background for visibility
         border: '1px solid red', // Temporary border for visibility
-        zIndex: '0', // Behind other elements
-        pointerEvents: 'none' // Don't interfere with clicks
+        zIndex: '10', // Above other elements to act as a mask
+        clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`, // Mask to hide overflow
+        pointerEvents: 'none' // Don't interfere with clicks, let them pass through to children
     });
 
     const now = DateTime.local();
