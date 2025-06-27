@@ -4978,7 +4978,7 @@ function getTasksInRange(startUnix, endUnix) {
 
 let totalRenderedTaskCount = 0;
 
-function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskListTop, taskHeight, spaceForTaskDateAndTime, taskListContainer) {
+function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskListTop, taskHeight, spaceForTaskDateAndTime, taskListContent) {
     ASSERT(type(task, Object));
     ASSERT(type(taskIndex, Int));
     ASSERT(type(taskTopPosition, Number));
@@ -5065,7 +5065,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         if (!exists(line1El)) {
             line1El = HTML.make('div');
             HTML.setId(line1El, line1Id);
-            taskListContainer.appendChild(line1El);
+            taskListContent.appendChild(line1El);
         }
         if (line1IsTime) {
             HTML.setData(line1El, 'timeField', task.originalInstance.dueTime);
@@ -5093,7 +5093,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         if (!exists(line2El)) {
             line2El = HTML.make('div');
             HTML.setId(line2El, line2Id);
-            taskListContainer.appendChild(line2El);
+            taskListContent.appendChild(line2El);
         }
         if (line2IsTime) {
             HTML.setData(line2El, 'timeField', task.originalInstance.dueTime);
@@ -5147,14 +5147,13 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
     if(line2El) line2El.style.display = 'block';
 }
 
-function renderTaskListSection(section, index, currentTop, taskListLeft, taskListTop, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, numberOfSections) {
-    const taskListContainer = HTML.getElement('taskListContainer');
+function renderTaskListSection(section, index, currentTop, taskListTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, numberOfSections, taskListContent) {
     const headerId = `taskListHeader-${section.name}`;
     let headerEl = HTML.getElementUnsafely(headerId);
     if (!exists(headerEl)) {
         headerEl = HTML.make('div');
         HTML.setId(headerEl, headerId);
-        taskListContainer.appendChild(headerEl);
+        taskListContent.appendChild(headerEl);
     }
     headerEl.innerHTML = section.name;
     // Make section header font size responsive
@@ -5163,6 +5162,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         position: 'absolute',
         top: `${currentTop - taskListTop}px`,
         left: `0px`,
+        width: `${taskListWidth}px`,
         fontFamily: 'PrimaryBold',
         fontSize: sectionFontSize,
         color: section.active ? 'var(--shade-4)' : 'var(--shade-3)',
@@ -5190,18 +5190,18 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         if (!exists(taskElement)) {
             taskElement = HTML.make('div');
             HTML.setId(taskElement, taskElementId);
-            taskListContainer.appendChild(taskElement);
+            taskListContent.appendChild(taskElement);
         }
         // Show the element (it might have been hidden)
         taskElement.style.display = 'block';
 
-        renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskListTop, taskHeight, spaceForTaskDateAndTime, taskListContainer);
+        renderTaskDueDateInfo(task, totalRenderedTaskCount, taskTopPosition, taskListLeft, taskListTop, taskHeight, spaceForTaskDateAndTime, taskListContent);
 
         let checkboxElement = HTML.getElementUnsafely(checkboxElementId);
         if (!exists(checkboxElement)) {
             checkboxElement = HTML.make('div');
             HTML.setId(checkboxElement, checkboxElementId);
-            taskListContainer.appendChild(checkboxElement);
+            taskListContent.appendChild(checkboxElement);
             // Add checkbox click functionality only when initially created
             checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
             HTML.setData(checkboxElement, 'IS_CHECKED', task.isComplete);
@@ -5226,7 +5226,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         if (!exists(stripeElement)) {
             stripeElement = HTML.make('div');
             HTML.setId(stripeElement, overdueStripeElementId);
-            taskListContainer.appendChild(stripeElement);
+            taskListContent.appendChild(stripeElement);
         }
         // Show the element (it might have been hidden)
         stripeElement.style.display = 'block';
@@ -5236,7 +5236,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         if (!exists(hoverElement)) {
             hoverElement = HTML.make('div');
             HTML.setId(hoverElement, hoverElementId);
-            taskListContainer.appendChild(hoverElement);
+            taskListContent.appendChild(hoverElement);
         }
         // Show the element (it might have been hidden)
         hoverElement.style.display = 'block';
@@ -5309,8 +5309,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 
         let stripeWidth = taskListWidth - spaceForTaskDateAndTime + 3;
         let stripeLeft = spaceForTaskDateAndTime - 3;
-        let stripeWidthOnHover = taskListWidth - spaceForTaskDateAndTime + 3;
-        let stripeLeftOnHover = spaceForTaskDateAndTime - 3;
+        let stripeWidthOnHover = taskListWidth;
+        let stripeLeftOnHover = 0;
 
         // Style the striped background for overdue tasks
         if (dueInThePast) {
@@ -5364,9 +5364,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         // Hover handlers for all elements
         let count = totalRenderedTaskCount;
         const mouseEnterTask = function() {
+            const hoverElement = HTML.getElement(`task-hover-${count}`);
             hoverElement.style.opacity = '1';
             const checkboxElement = HTML.getElement(`task-checkbox-${count}`);
             const isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
+            const stripeElement = HTML.getElement(`task-overdue-stripe-${count}`);
             ASSERT(type(isChecked, Boolean));
             if (isChecked) {
                 stripeElement.style.opacity = '0';
@@ -5380,9 +5382,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         };
         
         const mouseLeaveTask = function() {
+            const hoverElement = HTML.getElement(`task-hover-${count}`);
             hoverElement.style.opacity = '0';
             const checkboxElement = HTML.getElement(`task-checkbox-${count}`);
             const isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
+            const stripeElement = HTML.getElement(`task-overdue-stripe-${count}`);
             ASSERT(type(isChecked, Boolean));
             if (isChecked) {
                 stripeElement.style.opacity = '0';
@@ -5395,45 +5399,163 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             stripeElement.style.left = String(stripeLeft) + 'px';
         };
 
+        taskElement.onmouseenter = mouseEnterTask;
+        taskElement.onmouseleave = mouseLeaveTask;
+        checkboxElement.onmouseenter = mouseEnterTask;
+        checkboxElement.onmouseleave = mouseLeaveTask;
 
-        
-        // Add hover listeners to all elements
-        taskElement.addEventListener('mouseenter', mouseEnterTask);
-        taskElement.addEventListener('mouseleave', mouseLeaveTask);
-        
-        checkboxElement.addEventListener('mouseenter', mouseEnterTask);
-        checkboxElement.addEventListener('mouseleave', mouseLeaveTask);
-        
-        if (dueInThePast) {
-            stripeElement.addEventListener('mouseenter', mouseEnterTask);
-            stripeElement.addEventListener('mouseleave', mouseLeaveTask);
-        }
-        
         currentTop += taskHeight;
+        if (index < numberOfSections - 1 || tasks.length > 1) { // Add separator if not the last task of the last section
+            currentTop += separatorHeight;
+        }
+
         totalRenderedTaskCount++;
     });
 
-    if (index < numberOfSections - 1) {
-        const separatorId = `taskListSeparator-${index}`;
-        let separatorEl = HTML.getElementUnsafely(separatorId);
-        if (!exists(separatorEl)) {
-            separatorEl = HTML.make('div');
-            HTML.setId(separatorEl, separatorId);
-            taskListContainer.appendChild(separatorEl);
-        }
-        HTML.setStyle(separatorEl, {
-            position: 'absolute',
-            top: `${currentTop - taskListTop}px`,
-            left: `0px`,
-            width: `${taskListWidth}px`,
-            height: '1px',
-            backgroundColor: 'var(--shade-2)'
-        });
+    return currentTop;
+}
+
+function setupTaskListScrollbar() {
+    const taskListContainer = HTML.getElement('taskListContainer');
+    if (!exists(taskListContainer)) return;
+
+    // Inject styles to hide default scrollbar
+    let scrollbarStyle = HTML.getElementUnsafely('scrollbar-style');
+    if (!exists(scrollbarStyle)) {
+        scrollbarStyle = HTML.make('style');
+        HTML.setId(scrollbarStyle, 'scrollbar-style');
+        scrollbarStyle.textContent = `
+            #taskListContainer::-webkit-scrollbar { display: none; }
+            #taskListContainer { -ms-overflow-style: none; scrollbar-width: none; }
+        `;
+        HTML.head.appendChild(scrollbarStyle);
     }
 
-    currentTop += separatorHeight;
+    let wrapper = HTML.getElementUnsafely('taskListScrollbarWrapper');
+    if (!exists(wrapper)) {
+        wrapper = HTML.make('div');
+        HTML.setId(wrapper, 'taskListScrollbarWrapper');
+        HTML.body.appendChild(wrapper); // Append to body for global positioning
+    }
 
-    return currentTop;
+    let scrollbar = HTML.getElementUnsafely('taskListScrollbar');
+    if (!exists(scrollbar)) {
+        scrollbar = HTML.make('div');
+        HTML.setId(scrollbar, 'taskListScrollbar');
+        wrapper.appendChild(scrollbar);
+    }
+    
+    let handle = HTML.getElementUnsafely('taskListScrollbarHandle');
+    if (!exists(handle)) {
+        handle = HTML.make('div');
+        HTML.setId(handle, 'taskListScrollbarHandle');
+        scrollbar.appendChild(handle);
+    }
+    
+    // Style scrollbar elements
+    const containerRect = taskListContainer.getBoundingClientRect();
+    HTML.setStyle(wrapper, {
+        position: 'fixed',
+        width: '5px',
+        right: `${window.innerWidth - containerRect.right + 2}px`,
+        top: `${containerRect.top}px`,
+        height: `${containerRect.height}px`,
+        zIndex: '12',
+        overflow: 'hidden',
+        opacity: '0',
+        transition: 'opacity 0.3s ease'
+    });
+
+    HTML.setStyle(scrollbar, {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'var(--shade-2)',
+        borderRadius: '2.5px'
+    });
+    
+    HTML.setStyle(handle, {
+        position: 'absolute',
+        width: '100%',
+        minHeight: '30px',
+        backgroundColor: 'var(--shade-3)',
+        borderRadius: '2.5px',
+        transition: 'background-color 0.3s ease',
+        cursor: 'pointer'
+    });
+
+    HTML.setHoverStyle(handle, {
+        backgroundColor: 'var(--shade-4)'
+    });
+
+    const updateScrollbar = () => {
+        if (taskListContainer.scrollHeight <= taskListContainer.clientHeight) {
+            wrapper.style.opacity = '0';
+        } else {
+            wrapper.style.opacity = '1';
+        }
+
+        const scrollRatio = taskListContainer.clientHeight / taskListContainer.scrollHeight;
+        const handleHeight = Math.max(30, scrollRatio * wrapper.clientHeight);
+        handle.style.height = `${handleHeight}px`;
+
+        const scrollTop = taskListContainer.scrollTop;
+        if (taskListContainer.scrollHeight > taskListContainer.clientHeight) {
+            const scrollPercentage = scrollTop / (taskListContainer.scrollHeight - taskListContainer.clientHeight);
+            const handleTop = scrollPercentage * (wrapper.clientHeight - handleHeight);
+            handle.style.top = `${handleTop}px`;
+        } else {
+            handle.style.top = '0px';
+        }
+    };
+
+    // Use a unique function reference for the event listener to avoid duplicates
+    if (!taskListContainer.scrollListener) {
+        taskListContainer.scrollListener = updateScrollbar;
+        taskListContainer.addEventListener('scroll', taskListContainer.scrollListener);
+    }
+
+    let isDragging = false;
+    let startY = 0;
+    let startScrollTop = 0;
+
+    handle.onmousedown = (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startScrollTop = taskListContainer.scrollTop;
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const mouseMoveHandler = (e) => {
+        if (!isDragging) return;
+        const deltaY = e.clientY - startY;
+        if (wrapper.clientHeight > handle.clientHeight) {
+            const scrollRatio = (taskListContainer.scrollHeight - taskListContainer.clientHeight) / (wrapper.clientHeight - handle.clientHeight);
+            taskListContainer.scrollTop = startScrollTop + deltaY * scrollRatio;
+        }
+    };
+    
+    const mouseUpHandler = () => {
+        if (isDragging) {
+            isDragging = false;
+            document.body.style.userSelect = '';
+        }
+    };
+
+    // Remove existing listeners to avoid duplication
+    document.removeEventListener('mousemove', document.mouseMoveHandler);
+    document.removeEventListener('mouseup', document.mouseUpHandler);
+
+    // Store handlers on the document object to be able to remove them
+    document.mouseMoveHandler = mouseMoveHandler;
+    document.mouseUpHandler = mouseUpHandler;
+
+    document.addEventListener('mousemove', document.mouseMoveHandler);
+    document.addEventListener('mouseup', document.mouseUpHandler);
+    
+    updateScrollbar();
 }
 
 function renderTaskList() {
@@ -5468,20 +5590,19 @@ function renderTaskList() {
     const taskListLeft = parseFloat(borderDiv.style.left);
     const taskListWidth = parseFloat(borderDiv.style.width);
 
-    // Create or update the viewport wrapper
-    let taskListViewport = HTML.getElementUnsafely('taskListViewport');
-    if (!exists(taskListViewport)) {
-        taskListViewport = HTML.make('div');
-        HTML.setId(taskListViewport, 'taskListViewport');
-        HTML.body.appendChild(taskListViewport);
-    }
-
     // Create or update the task list container div that covers all available space
     let taskListContainer = HTML.getElementUnsafely('taskListContainer');
     if (!exists(taskListContainer)) {
         taskListContainer = HTML.make('div');
         HTML.setId(taskListContainer, 'taskListContainer');
-        taskListViewport.appendChild(taskListContainer);
+        HTML.body.appendChild(taskListContainer);
+    }
+
+    let taskListContent = HTML.getElementUnsafely('taskListContent');
+    if (!exists(taskListContent)) {
+        taskListContent = HTML.make('div');
+        HTML.setId(taskListContent, 'taskListContent');
+        taskListContainer.appendChild(taskListContent);
     }
 
     // Calculate the available height for the task list based on stacking mode
@@ -5497,35 +5618,24 @@ function renderTaskList() {
         taskListHeight = window.innerHeight - taskListTop - (windowBorderMargin * 2) + 3; // manua adjustment to match calendar columns
     }
 
-    // Create CSS class for hiding scrollbars if it doesn't exist
-    if (!HTML.getElementUnsafely('taskListViewportScrollbarStyle')) {
-        const style = HTML.make('style');
-        HTML.setId(style, 'taskListViewportScrollbarStyle');
-        style.textContent = `
-            .taskListViewport-hideScrollbars {
-                scrollbar-width: none; /* Firefox */
-                -ms-overflow-style: none; /* IE and Edge */
-            }
-            .taskListViewport-hideScrollbars::-webkit-scrollbar {
-                display: none; /* Webkit browsers */
-            }
-        `;
-        HTML.head.appendChild(style);
-    }
-
-    HTML.setStyle(taskListViewport, {
+    HTML.setStyle(taskListContainer, {
         position: 'fixed',
         top: String(taskListTop) + 'px',
         left: String(taskListLeft) + 'px',
         width: String(taskListWidth) + 'px',
-        height: String(taskListHeight + 1) + 'px',
+        height: String(taskListHeight) + 'px',
+        // backgroundColor: 'rgba(255, 0, 0, 0.1)', // Temporary red background for visibility
+        // border: '1px solid red', // Temporary border for visibility
         zIndex: '10', // Above other elements to act as a mask
         clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', // Mask to hide overflow
         overflow: 'auto' // Make it scrollable
     });
 
-    // Add the class to hide scrollbars
-    taskListViewport.className = 'taskListViewport-hideScrollbars';
+    HTML.setStyle(taskListContent, {
+        position: 'relative',
+        width: '100%',
+        height: '100%' // Will be updated later
+    });
 
     const now = DateTime.local();
     const startOfToday = now.startOf('day');
@@ -5553,24 +5663,16 @@ function renderTaskList() {
     ];
 
     sections.forEach((section, index) => {
-        currentTop = renderTaskListSection(section, index, currentTop, taskListLeft, taskListTop, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, sections.length);
+        currentTop = renderTaskListSection(section, index, currentTop, taskListTop, taskListLeft, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, sections.length, taskListContent);
     });
 
-    // Set container height to actual content height - viewport will handle clipping/scrolling
-    const actualContentHeight = currentTop - taskListTop;
-
-    let manualAdjustment;
-    if (user.settings.stacking) {
-        manualAdjustment = 56;
-    } else {
-        manualAdjustment = 60;
-    }
-
-    HTML.setStyle(taskListContainer, {
-        position: 'relative',
-        width: '100%',
-        height: String(actualContentHeight - manualAdjustment) + 'px'
+    // Set the total height of the content
+    const totalContentHeight = currentTop - taskListTop;
+    HTML.setStyle(taskListContent, {
+        height: `${totalContentHeight}px`
     });
+
+    setupTaskListScrollbar();
 }
 
 function render() {
