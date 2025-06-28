@@ -4778,20 +4778,103 @@ function toggleStacking() {
     updateTaskListBottomGradient(true); // update instantly when toggling stacking
 }
 
-let buttonStacking = HTML.make('div');
-HTML.setId(buttonStacking, 'buttonStacking');
-HTML.setStyle(buttonStacking, {
-    position: 'fixed',
-    top: windowBorderMargin + 'px',
-    // logo width + window border margin*2
-    left: String(100 + windowBorderMargin*2 + 450) + 'px',
-    backgroundColor: 'var(--shade-1)',
-    fontSize: '12px',
-    color: 'var(--shade-3)',
-});
-buttonStacking.onclick = toggleStacking;
-buttonStacking.innerHTML = 'Toggle Stacking';
-HTML.body.appendChild(buttonStacking);
+function initStackingButton() {
+    // Stacking button container
+    let stackingButton = HTML.make('div');
+    HTML.setId(stackingButton, 'stackingButton');
+    HTML.setStyle(stackingButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin + headerButtonSize + 4) + 'px', // Position to the left of settings button
+        width: String(headerButtonSize) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease'
+    });
+    
+    // Create stacking icon using CSS - two rectangles representing columns
+    let stackingIcon = HTML.make('div');
+    HTML.setId(stackingIcon, 'stackingIcon');
+    HTML.setStyle(stackingIcon, {
+        width: '14px',
+        height: '14px',
+        position: 'relative',
+        transition: 'transform 0.2s ease'
+    });
+    
+    // Create the column rectangles using CSS
+    const columnStyle = {
+        position: 'absolute',
+        backgroundColor: 'var(--shade-3)',
+        borderRadius: '1px'
+    };
+    
+    let column1 = HTML.make('div');
+    HTML.setStyle(column1, {
+        ...columnStyle,
+        width: '5px',
+        height: '14px',
+        left: '0px',
+        top: '0px'
+    });
+    
+    let column2 = HTML.make('div');
+    HTML.setStyle(column2, {
+        ...columnStyle,
+        width: '5px',
+        height: '14px',
+        right: '0px',
+        top: '0px'
+    });
+    
+    stackingIcon.appendChild(column1);
+    stackingIcon.appendChild(column2);
+    
+    // Event handlers
+    stackingButton.onclick = () => {
+        toggleStacking();
+        // Rotate icon 90 degrees on click
+        const currentRotation = HTML.getData(stackingIcon, 'rotation') || 0;
+        const newRotation = currentRotation + 90;
+        HTML.setData(stackingIcon, 'rotation', newRotation);
+        HTML.setStyle(stackingIcon, {
+            transform: `rotate(${newRotation}deg)`
+        });
+    };
+    
+    // Hover effect - change background to shade-2
+    stackingButton.onmouseenter = () => {
+        HTML.setStyle(stackingButton, {
+            backgroundColor: 'var(--shade-2)'
+        });
+    };
+    
+    stackingButton.onmouseleave = () => {
+        HTML.setStyle(stackingButton, {
+            backgroundColor: 'var(--shade-1)'
+        });
+    };
+    
+    // Set initial rotation based on stacking state
+    if (user.settings.stacking) {
+        HTML.setData(stackingIcon, 'rotation', 90);
+        HTML.setStyle(stackingIcon, {
+            transform: 'rotate(90deg)'
+        });
+    } else {
+        HTML.setData(stackingIcon, 'rotation', 0);
+    }
+    
+    // Assemble the button
+    stackingButton.appendChild(stackingIcon);
+    HTML.body.appendChild(stackingButton);
+}
 
 let currentMin = NULL;
 function renderTimeIndicator(onSchedule) {
@@ -5907,14 +5990,6 @@ function render() {
     renderInputBox();
     renderTaskList();
     updateTaskListBottomGradient(false); // fade animation on normal render/resize
-    
-    // Keep settings button in top right corner
-    let settingsButton = HTML.getElementUnsafely('settingsButton');
-    if (settingsButton) {
-        HTML.setStyle(settingsButton, {
-            right: String(windowBorderMargin) + 'px'
-        });
-    }
 }
 
 window.onresize = render;
@@ -6001,6 +6076,7 @@ async function init() {
     await loadFonts();
     initGridBackground();
     initNumberOfCalendarDaysButton();
+    initStackingButton();
     initSettingsButton();
     render();
     // refresh every second, the function will exit if it isn't a new minute
@@ -6078,7 +6154,7 @@ function toggleSettings() {
 }
 
 function initSettingsButton() {
-    // Settings button container
+    // Settings button (invisible clickable area)
     let settingsButton = HTML.make('div');
     HTML.setId(settingsButton, 'settingsButton');
     HTML.setStyle(settingsButton, {
@@ -6089,25 +6165,39 @@ function initSettingsButton() {
         height: String(headerButtonSize) + 'px',
         backgroundColor: 'var(--shade-1)',
         borderRadius: '4px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         userSelect: 'none',
         cursor: 'pointer',
         transition: 'all 0.3s ease'
     });
+
+    let gearIconSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 100 100">
+        <defs>
+            <style>
+            .st0 {
+                fill: var(--shade-3);
+            }
+            </style>
+        </defs>
+        <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1.1.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.2,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
+    </svg>
+    `
     
-    // Create gear icon SVG
+    // Gear icon (separate div, positioned independently)
     let gearIcon = HTML.make('div');
     HTML.setId(gearIcon, 'gearIcon');
+    gearIcon.innerHTML = gearIconSvg;
     HTML.setStyle(gearIcon, {
-        width: '20px',
-        height: '20px',
-        backgroundImage: 'url("gear_icon.svg")',
-        backgroundSize: 'contain',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        filter: 'invert(0.5)', // Match var(--shade-3) color
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin) + 'px',
+        width: String(headerButtonSize) + 'px',
+        height: String(headerButtonSize) + 'px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        cursor: 'pointer',
         transition: 'transform 0.3s ease'
     });
     
@@ -6118,17 +6208,23 @@ function initSettingsButton() {
         HTML.setStyle(gearIcon, { 
             transform: 'rotate(60deg)' 
         });
+        HTML.setStyle(settingsButton, {
+            backgroundColor: 'var(--shade-2)'
+        });
     };
     
     settingsButton.onmouseleave = () => {
         HTML.setStyle(gearIcon, { 
             transform: 'rotate(0deg)' 
         });
+        HTML.setStyle(settingsButton, {
+            backgroundColor: 'var(--shade-1)'
+        });
     };
     
-    // Assemble the button
-    settingsButton.appendChild(gearIcon);
+    // Add both elements to body
     HTML.body.appendChild(settingsButton);
+    HTML.body.appendChild(gearIcon);
 }
 
 init();
