@@ -14,9 +14,8 @@ for (const font of fontDefinitions) {
 
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 
-// the first day shown in calendar
-let firstDayInCalendar;
-
+let firstDayInCalendar; // the first day shown in calendar
+let taskListManualHeightAdjustment;
 const allDayEventHeight = 18; // height in px for each all-day event
 const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
@@ -4618,6 +4617,7 @@ function toggleStacking() {
     user.settings.stacking = !user.settings.stacking;
     saveUserData(user);
     render();
+    updateTaskListBottomGradient(true); // update instantly when toggling stacking
 }
 
 let buttonStacking = HTML.make('div');
@@ -5355,7 +5355,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             height: String(taskHeight - 2) + 'px',
             top: String(taskTopPosition - taskListTop) + 'px',
             left: '0px',
-            backgroundColor: 'var(--shade-1)',
+            backgroundColor: 'var(--shade-4)',
             borderRadius: '3px',
             zIndex: '1',
             opacity: '0',
@@ -5420,7 +5420,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         // Hover handlers for all elements
         let count = totalRenderedTaskCount;
         const mouseEnterTask = function() {
-            hoverElement.style.opacity = '1';
+            hoverElement.style.opacity = '0.12';
             const checkboxElement = HTML.getElement(`task-checkbox-${count}`);
             const isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
             ASSERT(type(isChecked, Boolean));
@@ -5536,6 +5536,63 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
     return currentTop;
 }
 
+// Shows / hides a purple gradient at the bottom of the window (or on the horizontal divider
+// in stacking mode) whenever the task-list content overflows its viewport.
+// "instant" controls whether the opacity transition is animated.
+function updateTaskListBottomGradient(instant) {
+    ASSERT(type(instant, Boolean));
+
+    ASSERT(type(taskListManualHeightAdjustment, Number));
+
+    const gradientId = 'taskList-bottom-gradient';
+    let gradientEl = HTML.getElementUnsafely(gradientId);
+    if (!exists(gradientEl)) {
+        gradientEl = HTML.make('div');
+        HTML.setId(gradientEl, gradientId);
+        HTML.body.appendChild(gradientEl);
+        HTML.setStyle(gradientEl, {
+            opacity: '0',
+        });
+    }
+
+    const taskListContainer = HTML.getElement('taskListContainer');
+
+    const containerRect = taskListContainer.getBoundingClientRect();
+    let showGradient = false;
+    let topPos = 0;
+    const gradientHeight = 30; // px
+
+    if (user.settings.stacking) {
+        const hDivider = HTML.getElement('horizontal-divider');
+        const hRect = hDivider.getBoundingClientRect();
+        topPos = hRect.top - gradientHeight; // center the gradient on the divider
+        showGradient = containerRect.bottom > (hRect.bottom - taskListManualHeightAdjustment + 5);
+    } else {
+        topPos = window.innerHeight - gradientHeight;
+        showGradient = containerRect.bottom > (window.innerHeight - taskListManualHeightAdjustment + 7); // 8px manual adjustment
+    }
+
+    // Get the accent color and convert to RGB
+    const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue('--accent-0').trim();
+    const accentRgb = hexToRgb(accentColorHex);
+    
+    // Style / update the gradient element
+    HTML.setStyle(gradientEl, {
+        position: 'fixed',
+        left: '10px',
+        top: String(topPos) + 'px',
+        width: String(taskListContainer.clientWidth) + 'px',
+        height: String(gradientHeight) + 'px',
+        background: `linear-gradient(to top, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.55) 0%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0) 100%)`,
+        mask: 'linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+        WebkitMask: 'linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%)',
+        pointerEvents: 'none',
+        zIndex: '5', // below task-list viewport (10) & horizontal divider (350)
+        opacity: showGradient ? '1' : '0',
+        transition: instant ? 'none' : 'opacity 0.3s ease'
+    });
+}
+
 function renderTaskList() {
     // Instead of removing all elements, we'll hide them first and show/reuse as needed
     for (let i = 0; i < totalRenderedTaskCount; i++) {
@@ -5632,6 +5689,9 @@ function renderTaskList() {
     // Add the class to hide scrollbars
     taskListViewport.className = 'taskListViewport-hideScrollbars';
 
+    // Add scroll event listener to update gradient
+    taskListViewport.addEventListener('scroll', () => updateTaskListBottomGradient(false));
+
     const now = DateTime.local();
     const startOfToday = now.startOf('day');
     const endOfToday = now.endOf('day');
@@ -5664,17 +5724,16 @@ function renderTaskList() {
     // Set container height to actual content height - viewport will handle clipping/scrolling
     const actualContentHeight = currentTop - taskListTop;
 
-    let manualAdjustment;
     if (user.settings.stacking) {
-        manualAdjustment = 56;
+        taskListManualHeightAdjustment = 56;
     } else {
-        manualAdjustment = 60;
+        taskListManualHeightAdjustment = 60;
     }
 
     HTML.setStyle(taskListContainer, {
         position: 'relative',
         width: '100%',
-        height: String(actualContentHeight - manualAdjustment) + 'px'
+        height: String(actualContentHeight - taskListManualHeightAdjustment) + 'px'
     });
 
     // Update task section name colors based on completion status
@@ -5689,6 +5748,7 @@ function render() {
     renderTimeIndicator(false);
     renderInputBox();
     renderTaskList();
+    updateTaskListBottomGradient(false); // fade animation on normal render/resize
 }
 
 window.onresize = render;
