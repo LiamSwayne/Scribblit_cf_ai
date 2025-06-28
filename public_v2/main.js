@@ -4491,9 +4491,11 @@ function toggleNumberOfCalendarDays(increment) {
             user.settings.numberOfCalendarDays--;
         }
     }
+
+    let numberDisplay = HTML.getElement('buttonNumberDisplay');
+    numberDisplay.textContent = String(user.settings.numberOfCalendarDays);
     
     saveUserData(user);
-    updateNumberOfCalendarDaysButton();
     render();
 }
 
@@ -4641,14 +4643,6 @@ function initNumberOfCalendarDaysButton() {
     HTML.body.appendChild(buttonNumberCalendarDays);
     
     // Initial content update
-    updateNumberOfCalendarDaysButton();
-}
-
-function updateNumberOfCalendarDaysButton() {
-    ASSERT(type(user.settings.numberOfCalendarDays, Int));
-    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
-    
-    let numberDisplay = HTML.getElement('buttonNumberDisplay');
     numberDisplay.textContent = String(user.settings.numberOfCalendarDays);
 }
 
