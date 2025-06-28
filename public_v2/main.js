@@ -1537,25 +1537,10 @@ function updateTaskSectionNames(onlyRendering) {
 let confettiAnimationCurrentlyPlaying = false;
 let lastClickedCheckbox = NULL;
 
-function playConfettiAnimation(taskSectionName) {
-    // Get the task section header element
-    const headerElement = HTML.getElement('taskListHeader-' + taskSectionName);
-    const taskListViewport = HTML.getElement('taskListViewport');
-    
-    const headerBounds = headerElement.getBoundingClientRect();
-    const viewportBounds = taskListViewport.getBoundingClientRect();
-    
-    let centerX, centerY;
-    
-    // If section header is above viewport and we have a clicked checkbox, use checkbox coords
-    if (headerBounds.top < viewportBounds.top && lastClickedCheckbox) {
-        const checkboxBounds = lastClickedCheckbox.getBoundingClientRect();
-        centerX = checkboxBounds.left + checkboxBounds.width / 2;
-        centerY = checkboxBounds.top + checkboxBounds.height / 2;
-    } else {
-        centerX = headerBounds.left + headerBounds.width / 2;
-        centerY = headerBounds.top + headerBounds.height / 2;
-    }
+function playConfettiAnimation() {
+    const checkboxBounds = lastClickedCheckbox.getBoundingClientRect();
+    const centerX = checkboxBounds.left + checkboxBounds.width / 2;
+    const centerY = checkboxBounds.top + checkboxBounds.height / 2;
     
     for (let i = 0; i < 30; i++) {
         const shape = document.createElement('div');
@@ -5357,7 +5342,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         fontFamily: 'PrimaryBold',
         fontSize: sectionFontSize,
         color: section.active ? 'var(--shade-4)' : 'var(--shade-3)',
-        transition: 'font-size 0.3s ease'
+        transition: 'font-size 0.3s ease, color 0.2s ease'
     });
     currentTop += sectionHeaderHeight;
 
