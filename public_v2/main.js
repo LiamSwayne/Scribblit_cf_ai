@@ -2446,6 +2446,29 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         // All-day events are positioned from the dayElementActualTop (original top of the day column)
         let allDayEventTopPosition = dayElementActualTop + (i * allDayEventHeight) + 2;
         
+        // Create/Update hover background element
+        let hoverElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventHover${i}`);
+        if (!exists(hoverElement)) {
+            hoverElement = HTML.make('div');
+            HTML.setId(hoverElement, `day${dayIndex}allDayEventHover${i}`);
+            HTML.body.appendChild(hoverElement);
+        }
+        
+        // Style the hover background element
+        HTML.setStyle(hoverElement, {
+            position: 'fixed',
+            width: String(colWidth) + 'px',
+            height: String(allDayEventHeight - 2) + 'px',
+            top: String(allDayEventTopPosition) + 'px',
+            left: String(dayElemLeft) + 'px',
+            backgroundColor: 'var(--shade-4)',
+            borderRadius: '3px',
+            zIndex: '349',
+            opacity: '0',
+            pointerEvents: 'none',
+            transition: 'opacity 0.2s ease'
+        });
+        
         let allDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${i}`);
         if (!exists(allDayEventElement)) {
             allDayEventElement = HTML.make('div');
@@ -2478,20 +2501,20 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             paddingRight: '2px',
             boxSizing: 'border-box',
             cursor: 'pointer',
-            transition: 'background-color 0.2s ease, opacity 0.2s ease, font-size 0.3s ease'
+            transition: 'opacity 0.2s ease, font-size 0.3s ease'
         });
         
-        // Add hover effects using event listeners instead of CSS hover
+        // Add hover effects using event listeners
         allDayEventElement.addEventListener('mouseenter', function() {
-            allDayEventElement.style.backgroundColor = 'var(--shade-1)';
-            allDayEventElement.style.color = 'white';
+            hoverElement.style.opacity = '0.12';
+            allDayEventElement.style.color = 'var(--shade-4)';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '1';
             }
         });
         
         allDayEventElement.addEventListener('mouseleave', function() {
-            allDayEventElement.style.backgroundColor = 'transparent';
+            hoverElement.style.opacity = '0';
             allDayEventElement.style.color = isToday ? 'var(--shade-4)' : 'var(--shade-3)';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '0.5';
@@ -2525,6 +2548,12 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
     let extraAllDayEventElement = HTML.getElementUnsafely(`day${dayIndex}allDayEvent${existingAllDayEventIndex}`);
     while (exists(extraAllDayEventElement)) {
         extraAllDayEventElement.remove();
+        
+        // Also remove the corresponding hover background element
+        let extraHoverElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventHover${existingAllDayEventIndex}`);
+        if (exists(extraHoverElement)) {
+            extraHoverElement.remove();
+        }
         
         // Also remove the corresponding asterisk element
         let extraAsteriskElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventAsterisk${existingAllDayEventIndex}`);
