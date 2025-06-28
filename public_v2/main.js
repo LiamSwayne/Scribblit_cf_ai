@@ -5962,6 +5962,7 @@ async function loadFonts() {
 
 async function init() {
     await loadFonts();
+    initGridBackground();
     initNumberOfCalendarDaysButton();
     render();
     // refresh every second, the function will exit if it isn't a new minute
@@ -5970,6 +5971,66 @@ async function init() {
     // how fast did the page load and render?
     const loadTime = performance.now();
     log(`Page loaded and rendered in ${Math.round(loadTime)}ms`);
+}
+
+// Grid Background with Cursor Fade Effect
+function initGridBackground() {
+    // Create the grid background element
+    const gridBackground = HTML.make('div');
+    gridBackground.id = 'grid-background';
+    
+    // Get accent color 2 and convert to rgba with 0.2 opacity
+    const accentColor2Hex = getComputedStyle(document.documentElement).getPropertyValue('--accent-1').trim();
+    const accentColor2Rgb = hexToRgb(accentColor2Hex);
+    const gridColor = `rgba(${accentColor2Rgb.r}, ${accentColor2Rgb.g}, ${accentColor2Rgb.b}, 0.2)`;
+    
+    // Add CSS styles for the grid
+    HTML.createClass('grid-background', {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100vw',
+        height: '100vh',
+        'pointer-events': 'none',
+        'z-index': '-1',
+        background: `
+            linear-gradient(to right, ${gridColor} 1px, transparent 1px),
+            linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)
+        `,
+        'background-size': '40px 40px',
+        'mask': 'radial-gradient(circle 200px at 50% 50%, black 0%, transparent 200px)',
+        '-webkit-mask': 'radial-gradient(circle 200px at 50% 50%, black 0%, transparent 200px)'
+    });
+    
+    gridBackground.className = 'grid-background';
+    HTML.body.appendChild(gridBackground);
+    
+    // Track mouse movement to update grid fade position
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    
+    function updateGridMask(x, y) {
+        mouseX = x;
+        mouseY = y;
+        const maskX = (x / window.innerWidth) * 100;
+        const maskY = (y / window.innerHeight) * 100;
+        
+        gridBackground.style.mask = `radial-gradient(circle 200px at ${maskX}% ${maskY}%, black 0%, transparent 200px)`;
+        gridBackground.style.webkitMask = `radial-gradient(circle 200px at ${maskX}% ${maskY}%, black 0%, transparent 200px)`;
+    }
+    
+    // Add mouse move listener
+    document.addEventListener('mousemove', (e) => {
+        updateGridMask(e.clientX, e.clientY);
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        updateGridMask(mouseX, mouseY);
+    });
+    
+    // Initial position
+    updateGridMask(mouseX, mouseY);
 }
 
 init();
