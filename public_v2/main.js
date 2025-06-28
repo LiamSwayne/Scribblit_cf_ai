@@ -1471,7 +1471,6 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         }
 
         // quick update the task section names
-        log(onlyRendering);
         updateTaskSectionNames(onlyRendering);
 
         // Save the updated user data
@@ -2421,7 +2420,7 @@ function renderDay(day, index) {
         }
     }
     
-    renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, originalTop, dayElementLeft);
+    renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, originalTop, dayElementLeft, day);
     renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
     renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
 }
@@ -2430,12 +2429,17 @@ function renderDay(day, index) {
 // If there are fewer all-day events than previously rendered for this day column, 
 // the extra DOM elements are removed. For the remaining (or newly created) elements, 
 // their content/style is updated to reflect the current all-day instances.
-function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementActualTop, dayElemLeft) {
+function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementActualTop, dayElemLeft, day) {
     ASSERT(type(allDayInstances, List(FilteredAllDayInstance)));
     ASSERT(type(dayIndex, Int));
     ASSERT(type(colWidth, Number));
     ASSERT(type(dayElementActualTop, Number)); // This is the original top of the day column, before shrinking for all-day items
     ASSERT(type(dayElemLeft, Number));
+    ASSERT(type(day, DateField));
+    
+    // Check if this day is today
+    const today = DateTime.local();
+    const isToday = day.year === today.year && day.month === today.month && day.day === today.day;
 
     for (let i = 0; i < allDayInstances.length; i++) {
         let allDayEventData = allDayInstances[i];
@@ -2463,7 +2467,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             opacity: String(allDayEventData.ignore ? 0.5 : 1),
             borderRadius: '3px',
             zIndex: '350',
-            color: 'var(--shade-4)',
+            color: isToday ? 'var(--shade-4)' : 'var(--shade-3)',
             fontSize: allDayEventFontSize,
             fontFamily: 'PrimaryRegular',
             lineHeight: String(allDayEventHeight - 2) + 'px', // Center text vertically
@@ -2480,6 +2484,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         // Add hover effects using event listeners instead of CSS hover
         allDayEventElement.addEventListener('mouseenter', function() {
             allDayEventElement.style.backgroundColor = 'var(--shade-1)';
+            allDayEventElement.style.color = 'white';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '1';
             }
@@ -2487,6 +2492,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         
         allDayEventElement.addEventListener('mouseleave', function() {
             allDayEventElement.style.backgroundColor = 'transparent';
+            allDayEventElement.style.color = isToday ? 'var(--shade-4)' : 'var(--shade-3)';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '0.5';
             }
