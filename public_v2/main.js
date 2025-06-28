@@ -13,7 +13,7 @@ for (const font of fontDefinitions) {
 }
 
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
-
+let headerButtonSize = 22;
 let firstDayInCalendar; // the first day shown in calendar
 let taskListManualHeightAdjustment;
 const allDayEventHeight = 18; // height in px for each all-day event
@@ -4527,8 +4527,8 @@ function initNumberOfCalendarDaysButton() {
         position: 'absolute',
         top: '6px',
         left: String(100 + windowBorderMargin*2) + 'px',
-        width: '22px',
-        height: '22px',
+        width: String(headerButtonSize) + 'px',
+        height: String(headerButtonSize) + 'px',
         backgroundColor: 'var(--shade-1)',
         borderRadius: '4px',
         fontSize: '12px',
@@ -5907,6 +5907,14 @@ function render() {
     renderInputBox();
     renderTaskList();
     updateTaskListBottomGradient(false); // fade animation on normal render/resize
+    
+    // Keep settings button in top right corner
+    let settingsButton = HTML.getElementUnsafely('settingsButton');
+    if (settingsButton) {
+        HTML.setStyle(settingsButton, {
+            right: String(windowBorderMargin) + 'px'
+        });
+    }
 }
 
 window.onresize = render;
@@ -5993,6 +6001,7 @@ async function init() {
     await loadFonts();
     initGridBackground();
     initNumberOfCalendarDaysButton();
+    initSettingsButton();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
@@ -6062,6 +6071,64 @@ function initGridBackground() {
     
     // Initial position
     updateGridMask(mouseX, mouseY);
+}
+
+function toggleSettings() {
+    // Empty function for now
+}
+
+function initSettingsButton() {
+    // Settings button container
+    let settingsButton = HTML.make('div');
+    HTML.setId(settingsButton, 'settingsButton');
+    HTML.setStyle(settingsButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin) + 'px',
+        width: String(headerButtonSize) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease'
+    });
+    
+    // Create gear icon SVG
+    let gearIcon = HTML.make('div');
+    HTML.setId(gearIcon, 'gearIcon');
+    HTML.setStyle(gearIcon, {
+        width: '20px',
+        height: '20px',
+        backgroundImage: 'url("gear_icon.svg")',
+        backgroundSize: 'contain',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        filter: 'invert(0.5)', // Match var(--shade-3) color
+        transition: 'transform 0.3s ease'
+    });
+    
+    // Event handlers
+    settingsButton.onclick = toggleSettings;
+    
+    settingsButton.onmouseenter = () => {
+        HTML.setStyle(gearIcon, { 
+            transform: 'rotate(60deg)' 
+        });
+    };
+    
+    settingsButton.onmouseleave = () => {
+        HTML.setStyle(gearIcon, { 
+            transform: 'rotate(0deg)' 
+        });
+    };
+    
+    // Assemble the button
+    settingsButton.appendChild(gearIcon);
+    HTML.body.appendChild(settingsButton);
 }
 
 init();
