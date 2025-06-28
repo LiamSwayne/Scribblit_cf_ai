@@ -96,7 +96,7 @@ let entityArray = [];
 
 let palettes = {
     'dark': { // default
-        accent: ['#7900bf', '#a82190'],
+        accent: ['#4a83ff', '#c64aff'],
         events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
         shades: ['#191919', '#383838', '#464646', '#9e9e9e', '#ffffff']
     },
@@ -5040,14 +5040,16 @@ function renderInputBox() {
         focusStyle.textContent = `#inputBox:focus { outline: none; }`;
         HTML.head.appendChild(focusStyle);
 
-        // Animate caret color on focus
+        // Animate caret color on focus - will use computed accent colors
+        const accent0 = getComputedStyle(document.documentElement).getPropertyValue('--accent-0').trim();
+        const accent1 = getComputedStyle(document.documentElement).getPropertyValue('--accent-1').trim();
         HTML.applyAnimation(
             inputBox,
             'focus',
             [
-                { caretColor: '#61a3ff', offset: 0 },
-                { caretColor: '#d477ff', offset: 0.5 },
-                { caretColor: '#61a3ff', offset: 1 }
+                { caretColor: accent0, offset: 0 },
+                { caretColor: accent1, offset: 0.5 },
+                { caretColor: accent0, offset: 1 }
             ],
             {
                 duration: 3000,
@@ -5075,7 +5077,7 @@ function renderInputBox() {
         HTML.setId(circle, 'gradientCircle');
         HTML.setStyle(circle, {
             borderRadius: '50%',
-            background: 'conic-gradient(#4a83ff,#4a83ff,#4a83ff,#c64aff,#4a83ff,#4a83ff,#4a83ff)',
+            background: 'conic-gradient(var(--accent-0),var(--accent-0),var(--accent-0),var(--accent-1),var(--accent-0),var(--accent-0),var(--accent-0))',
             position: 'absolute',
             animation: 'rainbowRotate 5s linear infinite',
             zIndex: '2'
@@ -5905,10 +5907,10 @@ function updateTaskListBottomGradient(instant) {
         const hDivider = HTML.getElement('horizontal-divider');
         const hRect = hDivider.getBoundingClientRect();
         topPos = hRect.top - gradientHeight; // center the gradient on the divider
-        showGradient = containerRect.bottom > (hRect.bottom - taskListManualHeightAdjustment + 5);
+        showGradient = containerRect.bottom > (hRect.bottom - taskListManualHeightAdjustment + 8);
     } else {
         topPos = window.innerHeight - gradientHeight;
-        showGradient = containerRect.bottom > (window.innerHeight - taskListManualHeightAdjustment + 7); // 8px manual adjustment
+        showGradient = containerRect.bottom > (window.innerHeight - taskListManualHeightAdjustment + 10); // 10px manual adjustment
     }
 
     // Get the accent color and convert to RGB
@@ -6192,10 +6194,10 @@ function initGridBackground() {
     const gridBackground = HTML.make('div');
     gridBackground.id = 'grid-background';
     
-    // Get accent color 2 and convert to rgba with 0.2 opacity
-    const accentColor2Hex = getComputedStyle(document.documentElement).getPropertyValue('--accent-1').trim();
-    const accentColor2Rgb = hexToRgb(accentColor2Hex);
-    const gridColor = `rgba(${accentColor2Rgb.r}, ${accentColor2Rgb.g}, ${accentColor2Rgb.b}, 0.2)`;
+    // Get accent color 1 and convert to rgba with 0.2 opacity
+    const accentColor1Hex = getComputedStyle(document.documentElement).getPropertyValue('--accent-0').trim();
+    const accentColor1Rgb = hexToRgb(accentColor1Hex);
+    const gridColor = `rgba(${accentColor1Rgb.r}, ${accentColor1Rgb.g}, ${accentColor1Rgb.b}, 0.2)`;
     
     // Add CSS styles for the grid
     // not all of these have js equivalents
