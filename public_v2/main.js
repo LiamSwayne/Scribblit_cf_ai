@@ -5589,7 +5589,7 @@ function renderTaskList() {
     if (user.settings.stacking) {
         if (user.settings.numberOfCalendarDays % 2 === 0) {
             // In stacking mode with even number of days, extend to bottom of page
-            taskListHeight = window.innerHeight - taskListTop - (windowBorderMargin * 2) + 3; // manual adjustment to match calendar columns
+            taskListHeight = window.innerHeight - taskListTop; // reach the bottom of the page
         } else {
             // In stacking mode with odd number of days, align with the top row of calendar columns
             // Calculate where the bottom of the top row of calendar columns would be
@@ -5599,7 +5599,7 @@ function renderTaskList() {
         }
     } else {
         // In non-stacking mode, task list takes full available height
-        taskListHeight = window.innerHeight - taskListTop - (windowBorderMargin * 2) + 3; // manua adjustment to match calendar columns
+        taskListHeight = window.innerHeight - taskListTop; // reach the bottom of the page
     }
 
     // Create CSS class for hiding scrollbars if it doesn't exist
