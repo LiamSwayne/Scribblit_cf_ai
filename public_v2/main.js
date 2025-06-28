@@ -5985,19 +5985,21 @@ function initGridBackground() {
     const gridColor = `rgba(${accentColor2Rgb.r}, ${accentColor2Rgb.g}, ${accentColor2Rgb.b}, 0.2)`;
     
     // Add CSS styles for the grid
+    // not all of these have js equivalents
     HTML.createClass('grid-background', {
         position: 'fixed',
         top: '0',
         left: '0',
         width: '100vw',
         height: '100vh',
-        'pointer-events': 'none',
-        'z-index': '-1',
+        pointerEvents: 'none',
+        zIndex: '-1',
         background: `
             linear-gradient(to right, ${gridColor} 1px, transparent 1px),
             linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)
         `,
         'background-size': '40px 40px',
+        'background-position': '20px 20px',
         'mask': 'radial-gradient(circle 200px at 50% 50%, black 0%, transparent 200px)',
         '-webkit-mask': 'radial-gradient(circle 200px at 50% 50%, black 0%, transparent 200px)'
     });
