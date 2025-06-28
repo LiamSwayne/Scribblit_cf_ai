@@ -4646,6 +4646,11 @@ function renderTimeIndicator(onSchedule) {
     currentMin = DateTime.local().minute;
 
     // 1. Remove existing time indicator elements
+    let existingContainer = HTML.getElementUnsafely('time-indicator-container');
+    if (exists(existingContainer)) {
+        existingContainer.remove();
+    }
+    // Fallback cleanup for old structure (can be removed after ensuring all users have updated)
     let existingMarker = HTML.getElementUnsafely('time-marker');
     if (exists(existingMarker)) {
         existingMarker.remove();
@@ -4722,40 +4727,52 @@ function renderTimeIndicator(onSchedule) {
 
     const positionY = timedEventAreaTop + (timeProportion * timedEventAreaHeight);
 
-    // 5. Create elements
+    // 5. Create container with timed calendar area dimensions and clipping
+    const timeIndicatorContainer = HTML.make('div');
+    HTML.setId(timeIndicatorContainer, 'time-indicator-container');
+    HTML.setStyle(timeIndicatorContainer, {
+        position: 'fixed',
+        left: String(dayColumnDimensions.left) + 'px',
+        top: String(timedEventAreaTop) + 'px',
+        width: String(dayColumnDimensions.width) + 'px',
+        height: String(timedEventAreaHeight) + 'px',
+        overflow: 'hidden',
+        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441), // on top of all reminders
+        pointerEvents: 'none',
+    });
+    HTML.body.appendChild(timeIndicatorContainer);
+
+    // 6. Create time marker line as child of container
     const timeMarker = HTML.make('div');
     HTML.setId(timeMarker, 'time-marker');
     const timeMarkerHeight = 2;
     HTML.setStyle(timeMarker, {
-        position: 'fixed',
-        left: String(dayColumnDimensions.left) + 'px',
-        width: String(dayColumnDimensions.width) + 'px',
-        top: String(positionY) + 'px',
+        position: 'absolute',
+        left: '0px',
+        width: '100%',
+        top: String(positionY - timedEventAreaTop) + 'px',
         height: '2px',
         backgroundColor: vibrantRedColor,
-        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441 + 1), // on top of all reminders
-        pointerEvents: 'none',
         opacity: '0.33',
     });
-    HTML.body.appendChild(timeMarker);
+    timeIndicatorContainer.appendChild(timeMarker);
 
+    // 7. Create time triangle as child of container
     const timeTriangle = HTML.make('div');
     HTML.setId(timeTriangle, 'time-triangle');
     const timeTriangleHeight = 16;
     const timeTriangleWidth = 10;
     HTML.setStyle(timeTriangle, {
-        position: 'fixed',
-        left: String(dayColumnDimensions.left) + 'px',
-        top: String(positionY - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)) + 'px',
+        position: 'absolute',
+        left: '0px',
+        top: String(positionY - timedEventAreaTop - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)) + 'px',
         width: '0px',
         height: '0px',
         borderLeft: String(timeTriangleWidth) + 'px solid ' + vibrantRedColor,
         borderTop: String(timeTriangleHeight / 2) + 'px solid transparent',
         borderBottom: String(timeTriangleHeight / 2) + 'px solid transparent',
-        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441 + 2),
-        pointerEvents: 'none',
     });
-    HTML.body.appendChild(timeTriangle);
+    timeIndicatorContainer.appendChild(timeTriangle);
 }
 
 function renderInputBox() {
@@ -5570,11 +5587,16 @@ function renderTaskList() {
     // Calculate the available height for the task list based on stacking mode
     let taskListHeight;
     if (user.settings.stacking) {
-        // In stacking mode, task list should align with the top row of calendar columns
-        // Calculate where the bottom of the top row of calendar columns would be
-        const topRowBottom = windowBorderMargin + headerSpace + (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2;
-        taskListHeight = topRowBottom - taskListTop;
-        taskListHeight += 8; // manual adjustment to match calendar columns
+        if (user.settings.numberOfCalendarDays % 2 === 0) {
+            // In stacking mode with even number of days, extend to bottom of page
+            taskListHeight = window.innerHeight - taskListTop - (windowBorderMargin * 2) + 3; // manual adjustment to match calendar columns
+        } else {
+            // In stacking mode with odd number of days, align with the top row of calendar columns
+            // Calculate where the bottom of the top row of calendar columns would be
+            const topRowBottom = windowBorderMargin + headerSpace + (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2;
+            taskListHeight = topRowBottom - taskListTop;
+            taskListHeight += 8; // manual adjustment to match calendar columns
+        }
     } else {
         // In non-stacking mode, task list takes full available height
         taskListHeight = window.innerHeight - taskListTop - (windowBorderMargin * 2) + 3; // manua adjustment to match calendar columns
