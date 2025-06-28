@@ -1382,7 +1382,7 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         if (isChecked) {
             // Check if task is currently being hovered
             const hoverElement = HTML.getElementUnsafely('task-hover-' + taskNumber);
-            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '1';
+            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '0.12';
             line1Element.style.color = isHovering ? 'var(--shade-3)' : 'var(--shade-2)';
         } else {
             // restore original color based on overdue status
@@ -1399,7 +1399,7 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         if (isChecked) {
             // Check if task is currently being hovered
             const hoverElement = HTML.getElementUnsafely('task-hover-' + taskNumber);
-            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '1';
+            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '0.12';
             line2Element.style.color = isHovering ? 'var(--shade-3)' : 'var(--shade-2)';
         } else {
             // restore original color based on overdue status
@@ -1428,7 +1428,7 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         if (isChecked) {
             // Check if task is currently being hovered
             const hoverElement = HTML.getElementUnsafely('task-hover-' + taskNumber);
-            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '1';
+            const isHovering = exists(hoverElement) && hoverElement.style.opacity === '0.12';
             colonElement.style.color = isHovering ? 'var(--shade-3)' : 'var(--shade-2)';
         } else {
             if (isOverdue) {
@@ -4474,39 +4474,183 @@ function renderDividers() {
     }
 }
 
-function toggleNumberOfCalendarDays() {
+function toggleNumberOfCalendarDays(increment) {
     ASSERT(type(user.settings.numberOfCalendarDays, Int));
     ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
     
-    // looping from 1 to 7 incrementing by 1
-    if (user.settings.numberOfCalendarDays === 7) {
-        user.settings.numberOfCalendarDays = 1;
+    if (increment) {
+        if (user.settings.numberOfCalendarDays === 7) {
+            user.settings.numberOfCalendarDays = 1;
+        } else {
+            user.settings.numberOfCalendarDays++;
+        }
     } else {
-        user.settings.numberOfCalendarDays++;
+        if (user.settings.numberOfCalendarDays === 1) {
+            user.settings.numberOfCalendarDays = 7;
+        } else {
+            user.settings.numberOfCalendarDays--;
+        }
     }
+    
     saveUserData(user);
-
-    let buttonNumberCalendarDays = HTML.getElement('buttonNumberCalendarDays');
-    buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
+    updateNumberOfCalendarDaysButton();
     render();
 }
 
-let buttonNumberCalendarDays = HTML.make('div');
-HTML.setId(buttonNumberCalendarDays, 'buttonNumberCalendarDays');
-HTML.setStyle(buttonNumberCalendarDays, {
-    position: 'fixed',
-    top: windowBorderMargin + 'px',
-    // logo width + window border margin*2
-    left: String(100 + windowBorderMargin*2) + 'px',
-    backgroundColor: 'var(--shade-1)',
-    fontSize: '12px',
-    color: 'var(--shade-3)',
-});
-ASSERT(type(user.settings.numberOfCalendarDays, Int));
-ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
-buttonNumberCalendarDays.innerHTML = 'Toggle Number of Calendar Days: ' + user.settings.numberOfCalendarDays;
-buttonNumberCalendarDays.onclick = toggleNumberOfCalendarDays;
-HTML.body.appendChild(buttonNumberCalendarDays);
+function initNumberOfCalendarDaysButton() {
+    // Main button container
+    let buttonNumberCalendarDays = HTML.make('div');
+    HTML.setId(buttonNumberCalendarDays, 'buttonNumberCalendarDays');
+    HTML.setStyle(buttonNumberCalendarDays, {
+        position: 'absolute',
+        top: '6px',
+        left: String(100 + windowBorderMargin*2) + 'px',
+        width: '22px',
+        height: '22px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        fontSize: '12px',
+        color: 'var(--shade-3)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer'
+    });
+    
+    // Number display
+    let numberDisplay = HTML.make('div');
+    HTML.setId(numberDisplay, 'buttonNumberDisplay');
+    HTML.setStyle(numberDisplay, {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        color: 'var(--shade-3)',
+        zIndex: '12',
+        pointerEvents: 'none'
+    });
+    
+    // Top half (increment)
+    let topHalf = HTML.make('div');
+    HTML.setId(topHalf, 'buttonTopHalf');
+    HTML.setStyle(topHalf, {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '50%',
+        borderTopLeftRadius: '4px',
+        borderTopRightRadius: '4px',
+        cursor: 'pointer',
+        zIndex: '10',
+        transition: 'background-color 0.2s ease'
+    });
+    
+    // Bottom half (decrement)
+    let bottomHalf = HTML.make('div');
+    HTML.setId(bottomHalf, 'buttonBottomHalf');
+    HTML.setStyle(bottomHalf, {
+        position: 'absolute',
+        bottom: '0',
+        left: '0',
+        width: '100%',
+        height: '50%',
+        borderBottomLeftRadius: '4px',
+        borderBottomRightRadius: '4px',
+        cursor: 'pointer',
+        zIndex: '10',
+        transition: 'background-color 0.2s ease'
+    });
+    
+    // Up triangle
+    let upTriangle = HTML.make('div');
+    HTML.setId(upTriangle, 'buttonUpTriangle');
+    HTML.setStyle(upTriangle, {
+        position: 'absolute',
+        top: '25%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '0',
+        height: '0',
+        borderLeft: '3px solid transparent',
+        borderRight: '3px solid transparent',
+        borderBottom: '4px solid var(--shade-3)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: '11',
+        pointerEvents: 'none'
+    });
+    
+    // Down triangle
+    let downTriangle = HTML.make('div');
+    HTML.setId(downTriangle, 'buttonDownTriangle');
+    HTML.setStyle(downTriangle, {
+        position: 'absolute',
+        top: '75%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '0',
+        height: '0',
+        borderLeft: '3px solid transparent',
+        borderRight: '3px solid transparent',
+        borderTop: '4px solid var(--shade-3)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: '11',
+        pointerEvents: 'none'
+    });
+    
+    // Event handlers
+    topHalf.onclick = () => toggleNumberOfCalendarDays(true);
+    bottomHalf.onclick = () => toggleNumberOfCalendarDays(false);
+    
+    topHalf.onmouseenter = () => {
+        HTML.setStyle(topHalf, { backgroundColor: 'var(--shade-2)' });
+        HTML.setStyle(upTriangle, { opacity: '1' });
+        HTML.setStyle(numberDisplay, { opacity: '0.3' });
+    };
+    
+    topHalf.onmouseleave = () => {
+        HTML.setStyle(topHalf, { backgroundColor: 'transparent' });
+        HTML.setStyle(upTriangle, { opacity: '0' });
+        HTML.setStyle(numberDisplay, { opacity: '1' });
+    };
+    
+    bottomHalf.onmouseenter = () => {
+        HTML.setStyle(bottomHalf, { backgroundColor: 'var(--shade-2)' });
+        HTML.setStyle(downTriangle, { opacity: '1' });
+        HTML.setStyle(numberDisplay, { opacity: '0.3' });
+    };
+    
+    bottomHalf.onmouseleave = () => {
+        HTML.setStyle(bottomHalf, { backgroundColor: 'transparent' });
+        HTML.setStyle(downTriangle, { opacity: '0' });
+        HTML.setStyle(numberDisplay, { opacity: '1' });
+    };
+    
+    // Assemble the button
+    buttonNumberCalendarDays.appendChild(numberDisplay);
+    buttonNumberCalendarDays.appendChild(topHalf);
+    buttonNumberCalendarDays.appendChild(bottomHalf);
+    buttonNumberCalendarDays.appendChild(upTriangle);
+    buttonNumberCalendarDays.appendChild(downTriangle);
+    
+    HTML.body.appendChild(buttonNumberCalendarDays);
+    
+    // Initial content update
+    updateNumberOfCalendarDaysButton();
+}
+
+function updateNumberOfCalendarDaysButton() {
+    ASSERT(type(user.settings.numberOfCalendarDays, Int));
+    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
+    
+    let numberDisplay = HTML.getElement('buttonNumberDisplay');
+    numberDisplay.textContent = String(user.settings.numberOfCalendarDays);
+}
 
 function toggleAmPmOr24() {
     ASSERT(type(user.settings.ampmOr24, String));
@@ -5536,7 +5680,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
     return currentTop;
 }
 
-// Shows / hides a purple gradient at the bottom of the window (or on the horizontal divider
+// Shows / hides an accent gradient at the bottom of the window (or on the horizontal divider
 // in stacking mode) whenever the task-list content overflows its viewport.
 // "instant" controls whether the opacity transition is animated.
 function updateTaskListBottomGradient(instant) {
@@ -5833,6 +5977,7 @@ async function loadFonts() {
 
 async function init() {
     await loadFonts();
+    initNumberOfCalendarDaysButton();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
