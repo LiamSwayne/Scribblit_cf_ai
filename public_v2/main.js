@@ -5817,10 +5817,14 @@ function updateInputBoxGradients(instant) {
         });
     }
 
+    const scrollDistanceThreshold = 10;
+
     const inputRect = inputBox.getBoundingClientRect();
     const isAtMaxHeight = inputBox.scrollHeight > inputBox.clientHeight;
-    const canScrollUp = inputBox.scrollTop > 0;
-    const canScrollDown = inputBox.scrollTop < (inputBox.scrollHeight - inputBox.clientHeight);
+    
+    // Only show if more than scrollDistanceThreshold px scroll distance
+    const canScrollUp = inputBox.scrollTop > scrollDistanceThreshold;
+    const canScrollDown = inputBox.scrollTop < (inputBox.scrollHeight - inputBox.clientHeight - scrollDistanceThreshold);
     
     const gradientHeight = 20; // px
     
@@ -5844,7 +5848,7 @@ function updateInputBoxGradients(instant) {
         width: String(inputBox.clientWidth) + 'px',
         height: String(gradientHeight) + 'px',
         background: `linear-gradient(to bottom, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.55) 0%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0) 100%)`,
-        mask: 'linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+        mask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
         WebkitMask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
         pointerEvents: 'none',
         zIndex: '5',
@@ -5861,8 +5865,8 @@ function updateInputBoxGradients(instant) {
         width: String(inputBox.clientWidth) + 'px',
         height: String(gradientHeight) + 'px',
         background: `linear-gradient(to top, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.55) 0%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0) 100%)`,
-        mask: 'linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
-        WebkitMask: 'linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+        mask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+        WebkitMask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
         pointerEvents: 'none',
         zIndex: '5',
         opacity: showBottomGradient ? '1' : '0',

@@ -18,7 +18,7 @@ async function testContinously() {
         let elements = HTML.body.querySelectorAll('*');
         elements.forEach(element => {
             let hasLeadingWhitespace = element.innerHTML.match(/^\s+/);
-            ASSERT(!hasLeadingWhitespace || HTML.getDataUnsafely(element, "leadingWhitespace") == null || HTML.getData(element, "leadingWhitespace") === true, `Leading whitespace detected in element without data-leadingWhitespace attribute: ${element.outerHTML}`);
+            ASSERT(!hasLeadingWhitespace || HTML.getDataUnsafely(element, "leadingWhitespace") === NULL || HTML.getData(element, "leadingWhitespace") === true, `Leading whitespace detected in element without data-leadingWhitespace attribute: ${element.outerHTML}`);
         });
     }
 }
