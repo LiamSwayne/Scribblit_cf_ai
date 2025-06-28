@@ -1424,8 +1424,8 @@ class FilteredReminderInstance {
 
 // type checking function
 function type(thing, sometype) {
-    ASSERT(exists(thing));
-    ASSERT(exists(sometype));
+    ASSERT(exists(thing), "found thing that doesn't exist while type checking");
+    ASSERT(exists(sometype), "found some type that doesn't exist while type checking");
     if (sometype === NULL) {
         return thing === NULL;
     } else if (sometype instanceof LIST) {

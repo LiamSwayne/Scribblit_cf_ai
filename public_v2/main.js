@@ -1323,6 +1323,7 @@ const logoHeight = 22.15; // i measured it
 function toggleCheckbox(checkboxElement, onlyRendering) {
     let isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
     ASSERT(type(isChecked, Boolean));
+    ASSERT(type(onlyRendering, Boolean));
     
     if (!onlyRendering) {
         isChecked = !isChecked;
@@ -1471,7 +1472,8 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         }
 
         // quick update the task section names
-        updateTaskSectionNames();
+        log(onlyRendering);
+        updateTaskSectionNames(onlyRendering);
 
         // Save the updated user data
         saveUserData(user);
@@ -1479,7 +1481,8 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
 }
 
 // quick function to know whether a section color should be white for active or grey for inactive
-function updateTaskSectionNames() {
+function updateTaskSectionNames(onlyRendering) {
+    ASSERT(type(onlyRendering, Boolean), "onlyRendering is not a boolean");
     let activeColor = 'var(--shade-4)';
     let inactiveColor = 'var(--shade-3)';
 
@@ -1505,7 +1508,7 @@ function updateTaskSectionNames() {
     for (const id of activeCheckboxIds) {
         const checkboxElement = HTML.getElement(id);
         const isArbitraryBoxChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
-        ASSERT(type(isArbitraryBoxChecked, Boolean));
+        ASSERT(type(isArbitraryBoxChecked, Boolean), "isArbitraryBoxChecked is not a boolean");
         if (!isArbitraryBoxChecked) {
             const taskSectionName = HTML.getData(checkboxElement, 'SECTION');
             taskSectionNameInactive[taskSectionName] = false;
@@ -1521,24 +1524,39 @@ function updateTaskSectionNames() {
         }
     }
 
-    // see if any of them weren't complete before and are now complete
-    for (const [taskSectionName, isInactive] of Object.entries(taskSectionNameInactive)) {
-        if (initiallyActive[taskSectionName] && isInactive) {
-            // play a confetti animation
-            playConfettiAnimation(taskSectionName);
+    if (!onlyRendering) {
+        // see if any of them weren't complete before and are now complete
+        for (const [taskSectionName, isInactive] of Object.entries(taskSectionNameInactive)) {
+            if (initiallyActive[taskSectionName] && isInactive) {
+                // play a confetti animation
+                playConfettiAnimation(taskSectionName);
+            }
         }
     }
 }
 
 let confettiAnimationCurrentlyPlaying = false;
+let lastClickedCheckbox = NULL;
 
 function playConfettiAnimation(taskSectionName) {
     // Get the task section header element
     const headerElement = HTML.getElement('taskListHeader-' + taskSectionName);
+    const taskListViewport = HTML.getElement('taskListViewport');
     
-    const bounds = headerElement.getBoundingClientRect();
-    const centerX = bounds.left + bounds.width / 2;
-    const centerY = bounds.top + bounds.height / 2;
+    const headerBounds = headerElement.getBoundingClientRect();
+    const viewportBounds = taskListViewport.getBoundingClientRect();
+    
+    let centerX, centerY;
+    
+    // If section header is above viewport and we have a clicked checkbox, use checkbox coords
+    if (headerBounds.top < viewportBounds.top && lastClickedCheckbox) {
+        const checkboxBounds = lastClickedCheckbox.getBoundingClientRect();
+        centerX = checkboxBounds.left + checkboxBounds.width / 2;
+        centerY = checkboxBounds.top + checkboxBounds.height / 2;
+    } else {
+        centerX = headerBounds.left + headerBounds.width / 2;
+        centerY = headerBounds.top + headerBounds.height / 2;
+    }
     
     for (let i = 0; i < 30; i++) {
         const shape = document.createElement('div');
@@ -5221,7 +5239,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             HTML.setId(checkboxElement, checkboxElementId);
             taskListContainer.appendChild(checkboxElement);
             // Add checkbox click functionality only when initially created
-            checkboxElement.addEventListener('click', () => toggleCheckbox(checkboxElement));
+            checkboxElement.addEventListener('click', () => {
+                lastClickedCheckbox = checkboxElement;
+                toggleCheckbox(checkboxElement, false);
+            });
             HTML.setData(checkboxElement, 'IS_CHECKED', task.isComplete);
             // Add the checkbox ID to the active set
             activeCheckboxIds.add(checkboxElementId);
@@ -5633,6 +5654,9 @@ function renderTaskList() {
         width: '100%',
         height: String(actualContentHeight - manualAdjustment) + 'px'
     });
+
+    // Update task section name colors based on completion status
+    updateTaskSectionNames(true);
 }
 
 function render() {
