@@ -4811,14 +4811,15 @@ function initStackingButton() {
     // Create the column rectangles using CSS
     const columnStyle = {
         position: 'absolute',
-        backgroundColor: 'var(--shade-3)',
-        borderRadius: '1px'
+        border: '1px solid var(--shade-3)',
+        borderRadius: '1px',
+        boxSizing: 'border-box'
     };
     
     let column1 = HTML.make('div');
     HTML.setStyle(column1, {
         ...columnStyle,
-        width: '5px',
+        width: '6px',
         height: '14px',
         left: '0px',
         top: '0px'
@@ -4827,7 +4828,7 @@ function initStackingButton() {
     let column2 = HTML.make('div');
     HTML.setStyle(column2, {
         ...columnStyle,
-        width: '5px',
+        width: '6px',
         height: '14px',
         right: '0px',
         top: '0px'
@@ -5112,6 +5113,9 @@ function renderInputBox() {
             // this needs to adjust because the amount of space it has may have changed
             renderTaskList();
         };
+
+        // Add scroll event listener to update gradients
+        inputBox.addEventListener('scroll', () => updateInputBoxGradients(false));
     }
 
     // we are rendeing a custom border div, so we add 2px on each side
@@ -5194,6 +5198,9 @@ function renderInputBox() {
         top: String((inputHeight / 2) - (circleSize / 2)) + 'px',
         left: String((columnWidth / 2) - (circleSize / 2)) + 'px',
     });
+
+    // Update input box gradients
+    updateInputBoxGradients(false);
 }
 
 // are there any incomplete tasks in the range?
@@ -5777,6 +5784,93 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
     return currentTop;
 }
 
+// Shows / hides accent gradients at the top and bottom of the input box
+// whenever the input box is at max height and can scroll.
+// "instant" controls whether the opacity transition is animated.
+function updateInputBoxGradients(instant) {
+    ASSERT(type(instant, Boolean));
+
+    const inputBox = HTML.getElementUnsafely('inputBox');
+    if (!exists(inputBox)) return;
+
+    const topGradientId = 'inputBox-top-gradient';
+    const bottomGradientId = 'inputBox-bottom-gradient';
+    
+    let topGradientEl = HTML.getElementUnsafely(topGradientId);
+    let bottomGradientEl = HTML.getElementUnsafely(bottomGradientId);
+    
+    if (!exists(topGradientEl)) {
+        topGradientEl = HTML.make('div');
+        HTML.setId(topGradientEl, topGradientId);
+        HTML.body.appendChild(topGradientEl);
+        HTML.setStyle(topGradientEl, {
+            opacity: '0',
+        });
+    }
+    
+    if (!exists(bottomGradientEl)) {
+        bottomGradientEl = HTML.make('div');
+        HTML.setId(bottomGradientEl, bottomGradientId);
+        HTML.body.appendChild(bottomGradientEl);
+        HTML.setStyle(bottomGradientEl, {
+            opacity: '0',
+        });
+    }
+
+    const inputRect = inputBox.getBoundingClientRect();
+    const isAtMaxHeight = inputBox.scrollHeight > inputBox.clientHeight;
+    const canScrollUp = inputBox.scrollTop > 0;
+    const canScrollDown = inputBox.scrollTop < (inputBox.scrollHeight - inputBox.clientHeight);
+    
+    const gradientHeight = 20; // px
+    
+    // Calculate positions - start from input box, not border
+    const topGradientTop = inputRect.top;
+    const bottomGradientTop = inputRect.bottom - gradientHeight;
+    
+    // Get the accent color and convert to RGB
+    const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue('--accent-0').trim();
+    const accentRgb = hexToRgb(accentColorHex);
+    
+    // Show gradients based on scroll state and max height
+    const showTopGradient = isAtMaxHeight && canScrollUp;
+    const showBottomGradient = isAtMaxHeight && canScrollDown;
+    
+    // Style the top gradient
+    HTML.setStyle(topGradientEl, {
+        position: 'fixed',
+        left: String(inputRect.left) + 'px',
+        top: String(topGradientTop) + 'px',
+        width: String(inputBox.clientWidth) + 'px',
+        height: String(gradientHeight) + 'px',
+        background: `linear-gradient(to bottom, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.55) 0%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0) 100%)`,
+        mask: 'linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+        WebkitMask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+        pointerEvents: 'none',
+        zIndex: '5',
+        opacity: showTopGradient ? '1' : '0',
+        transition: instant ? 'none' : 'opacity 0.3s ease',
+        borderRadius: '8px 8px 0 0'
+    });
+    
+    // Style the bottom gradient
+    HTML.setStyle(bottomGradientEl, {
+        position: 'fixed',
+        left: String(inputRect.left) + 'px',
+        top: String(bottomGradientTop) + 'px',
+        width: String(inputBox.clientWidth) + 'px',
+        height: String(gradientHeight) + 'px',
+        background: `linear-gradient(to top, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.55) 0%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0) 100%)`,
+        mask: 'linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+        WebkitMask: 'linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+        pointerEvents: 'none',
+        zIndex: '5',
+        opacity: showBottomGradient ? '1' : '0',
+        transition: instant ? 'none' : 'opacity 0.3s ease',
+        borderRadius: '0 0 8px 8px'
+    });
+}
+
 // Shows / hides an accent gradient at the bottom of the window (or on the horizontal divider
 // in stacking mode) whenever the task-list content overflows its viewport.
 // "instant" controls whether the opacity transition is animated.
@@ -5990,6 +6084,7 @@ function render() {
     renderInputBox();
     renderTaskList();
     updateTaskListBottomGradient(false); // fade animation on normal render/resize
+    updateInputBoxGradients(false); // update input box gradients on render/resize
 }
 
 window.onresize = render;
