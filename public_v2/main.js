@@ -6330,22 +6330,95 @@ function openSettingsModal() {
         // Get modal position for relative positioning
         const modalRect = settingsModal.getBoundingClientRect();
         
+        // Create "Settings" title text
+        const settingsText = HTML.make('div');
+        HTML.setId(settingsText, 'settingsText');
+        HTML.setStyle(settingsText, {
+            position: 'fixed',
+            left: (modalRect.left + 5) + 'px',
+            top: (modalRect.top + 5) + 'px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            zIndex: '7002',
+            lineHeight: '12px'
+        });
+        HTML.body.appendChild(settingsText);
+        
+        // Start the typing animation
+        animateSettingsText(settingsText);
+        
+        // Create time format label
+        const timeFormatLabel = HTML.make('div');
+        HTML.setId(timeFormatLabel, 'timeFormatLabel');
+        timeFormatLabel.textContent = 'Time format:';
+        HTML.setStyle(timeFormatLabel, {
+            position: 'fixed',
+            left: (modalRect.left + 5) + 'px',
+            top: (modalRect.top + 22) + 'px',
+            fontFamily: 'Monospace',
+            fontSize: '10px',
+            color: 'var(--shade-4)',
+            zIndex: '7002',
+            lineHeight: '24px'
+        });
+        HTML.body.appendChild(timeFormatLabel);
+        
         createSelector(
             ['24hr', 'AM/PM'],           // options: array of selectable strings
             'horizontal',                // orientation: layout direction
             'timeFormatSelector',        // id: unique identifier for this selector
-            modalRect.left + 5,          // x: 5px from left side of modal
+            modalRect.left + 80,          // x: 5px from left side of modal
             modalRect.top + 25,          // y: 25px from top of modal
-            100,                         // width: total selector width in pixels
+            76,                         // width: total selector width in pixels
             20,                          // height: total selector height in pixels
             7002,                        // zIndex: layer positioning (above settings modal)
-            'PrimaryRegular',            // font: font family for text rendering
-            12,                          // fontSize: text size in pixels
+            'Monospace',            // font: font family for text rendering
+            10,                          // fontSize: text size in pixels
             toggleAmPmOr24,               // onSelectionChange: callback function
             user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
             0.9                           // minWaitTime: minimum time between option changes
         );
     }, 400);
+}
+
+// Animated typing effect for "Settings" text
+async function animateSettingsText(textElement) {
+    const text = "Settings";
+    const cursor = '\u2588'; // Unicode full block character
+    
+    // Type in the text character by character
+    for (let i = 0; i <= text.length; i++) {
+        if (!settingsModalOpen) return; // Exit if modal closed
+        
+        textElement.textContent = text.substring(0, i) + cursor;
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Blink cursor a few times
+    for (let blinks = 0; blinks < 6; blinks++) {
+        if (!settingsModalOpen) return;
+        
+        textElement.textContent = text + (blinks % 2 === 0 ? "" : cursor);
+        await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    // Slide cursor left past each letter
+    for (let i = text.length; i >= 0; i--) {
+        if (!settingsModalOpen) return;
+        
+        let displayText = text.substring(0, i) + cursor;
+        if (i < text.length) {
+            displayText += text.substring(i);
+        }
+        textElement.textContent = displayText;
+        await new Promise(resolve => setTimeout(resolve, 80));
+    }
+    
+    // Final state - just the text without cursor
+    if (settingsModalOpen) {
+        textElement.textContent = text;
+    }
 }
 
 function closeSettingsModal() {
@@ -6356,6 +6429,34 @@ function closeSettingsModal() {
     
     // Delete the test selector
     deleteSelector('timeFormatSelector');
+    
+    // Fade out settings text and time format label
+    const settingsText = HTML.getElementUnsafely('settingsText');
+    const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
+    
+    if (settingsText) {
+        HTML.setStyle(settingsText, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (settingsText && settingsText.parentNode) {
+                HTML.body.removeChild(settingsText);
+            }
+        }, 200);
+    }
+    
+    if (timeFormatLabel) {
+        HTML.setStyle(timeFormatLabel, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (timeFormatLabel && timeFormatLabel.parentNode) {
+                HTML.body.removeChild(timeFormatLabel);
+            }
+        }, 200);
+    }
     
     if (settingsModal) {
         // Reset gear z-index
@@ -6470,14 +6571,18 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     const minSpacing = 2;
     const totalSpacing = (options.length - 1) * minSpacing;
     
+    // Calculate available space for text (removing spacing)
+    const availableWidth = innerWidth - totalSpacing;
+    const availableHeight = innerHeight - totalSpacing;
+    
     // Ensure we have enough space
     if (orientation === "horizontal") {
-        ASSERT(totalTextWidth + totalSpacing <= innerWidth, "createSelector: not enough horizontal space for all options");
+        ASSERT(totalTextWidth <= availableWidth, "createSelector: not enough horizontal space for all options");
     } else {
-        ASSERT(totalTextWidth + totalSpacing <= innerHeight, "createSelector: not enough vertical space for all options");
+        ASSERT(totalTextWidth <= availableHeight, "createSelector: not enough vertical space for all options");
     }
     
-    // Calculate option positions and dimensions
+    // Calculate option positions and dimensions proportionally based on text measurements
     const optionData = [];
     let currentPos = 0;
     
@@ -6488,17 +6593,21 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         let optionWidth, optionHeight, optionX, optionY;
         
         if (orientation === "horizontal") {
-            optionWidth = Math.floor(innerWidth / options.length);
+            // Allocate width proportionally based on text measurement
+            const textProportion = textWidth / totalTextWidth;
+            optionWidth = Math.floor(availableWidth * textProportion);
             optionHeight = innerHeight;
             optionX = Math.floor(currentPos);
             optionY = 0;
-            currentPos += optionWidth;
+            currentPos += optionWidth + (i < options.length - 1 ? minSpacing : 0);
         } else {
+            // Allocate height proportionally based on text measurement
+            const textProportion = textWidth / totalTextWidth;
+            optionHeight = Math.floor(availableHeight * textProportion);
             optionWidth = innerWidth;
-            optionHeight = Math.floor(innerHeight / options.length);
             optionX = 0;
             optionY = Math.floor(currentPos);
-            currentPos += optionHeight;
+            currentPos += optionHeight + (i < options.length - 1 ? minSpacing : 0);
         }
         
         optionData.push({
