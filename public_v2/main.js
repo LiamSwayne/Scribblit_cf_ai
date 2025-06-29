@@ -4517,6 +4517,7 @@ function toggleNumberOfCalendarDays(increment) {
     
     saveUserData(user);
     render();
+    updateTaskListBottomGradient(true); // update the bottom gradient
 }
 
 function initNumberOfCalendarDaysButton() {
@@ -5903,7 +5904,8 @@ function updateTaskListBottomGradient(instant) {
     let topPos = 0;
     const gradientHeight = 30; // px
 
-    if (user.settings.stacking) {
+    // stacking and there's a horizontal divider
+    if (user.settings.stacking && user.settings.numberOfCalendarDays % 2 === 1) {
         const hDivider = HTML.getElement('horizontal-divider');
         const hRect = hDivider.getBoundingClientRect();
         topPos = hRect.top - gradientHeight; // center the gradient on the divider
@@ -6213,10 +6215,8 @@ function initGridBackground() {
             linear-gradient(to right, ${gridColor} 1px, transparent 1px),
             linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)
         `,
-        'background-size': '40px 40px',
-        'background-position': '20px 20px',
-        'mask': 'radial-gradient(circle 200px at 50% 50%, black 0%, transparent 200px)',
-        '-webkit-mask': 'radial-gradient(circle 200px at 50% 50%, black 0%, transparent 200px)'
+        'background-size': '39px 39px',
+        'background-position': '20px 20px'
     });
     
     gridBackground.className = 'grid-background';
@@ -6236,6 +6236,9 @@ function initGridBackground() {
         gridBackground.style.webkitMask = `radial-gradient(circle 200px at ${maskX}% ${maskY}%, black 0%, transparent 200px)`;
     }
     
+    // Set initial position immediately after element is added to DOM
+    updateGridMask(mouseX, mouseY);
+    
     // Add mouse move listener
     document.addEventListener('mousemove', (e) => {
         updateGridMask(e.clientX, e.clientY);
@@ -6245,9 +6248,6 @@ function initGridBackground() {
     window.addEventListener('resize', () => {
         updateGridMask(mouseX, mouseY);
     });
-    
-    // Initial position
-    updateGridMask(mouseX, mouseY);
 }
 
 function toggleSettings() {
