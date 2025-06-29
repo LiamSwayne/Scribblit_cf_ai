@@ -6280,6 +6280,7 @@ function initGridBackground() {
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
     let mouseInWindow = true;
+    let maskActive = false; // Track whether the mask effect has been activated
     
     function updateGridMask(x, y) {
         mouseX = x;
@@ -6289,6 +6290,15 @@ function initGridBackground() {
         
         gridBackground.style.mask = `radial-gradient(circle 200px at ${maskX}% ${maskY}%, black 0%, transparent 200px)`;
         gridBackground.style.webkitMask = `radial-gradient(circle 200px at ${maskX}% ${maskY}%, black 0%, transparent 200px)`;
+    }
+    
+    function activateGridMask(x, y) {
+        if (!maskActive) {
+            maskActive = true;
+            // Add transition for smooth mask introduction
+            gridBackground.style.transition = 'mask 0.5s ease-out, -webkit-mask 0.5s ease-out, opacity 0.3s ease-in-out';
+        }
+        updateGridMask(x, y);
     }
     
     function fadeGridIn() {
@@ -6301,12 +6311,11 @@ function initGridBackground() {
         gridBackground.style.opacity = '0';
     }
     
-    // Set initial position immediately after element is added to DOM
-    updateGridMask(mouseX, mouseY);
+    // Don't apply mask initially - show all grid lines on page load
     
-    // Add mouse move listener
+    // Add mouse move listener that activates mask on first movement
     document.addEventListener('mousemove', (e) => {
-        updateGridMask(e.clientX, e.clientY);
+        activateGridMask(e.clientX, e.clientY);
     });
     
     // Add mouse enter/leave listeners for window
@@ -6526,7 +6535,6 @@ function closeSettingsModal() {
         
         // Animate modal back to button size
         const settingsButton = HTML.getElement('settingsButton');
-        const buttonRect = settingsButton.getBoundingClientRect();
         
         HTML.setStyle(settingsModal, {
             width: '0px',
