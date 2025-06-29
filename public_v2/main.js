@@ -6280,15 +6280,52 @@ function initGridBackground() {
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
     let mouseInWindow = true;
+    let hasMouseMoved = false; // Track if mouse has moved yet
+    let vignetteRadius = 2000; // Start with a very large radius (effectively no vignette)
     
-    function updateGridMask(x, y) {
+    function updateGridMask(x, y, targetRadius = 200) {
         mouseX = x;
         mouseY = y;
         const maskX = (x / window.innerWidth) * 100;
         const maskY = (y / window.innerHeight) * 100;
         
-        gridBackground.style.mask = `radial-gradient(circle 200px at ${maskX}% ${maskY}%, black 0%, transparent 200px)`;
-        gridBackground.style.webkitMask = `radial-gradient(circle 200px at ${maskX}% ${maskY}%, black 0%, transparent 200px)`;
+        // Apply the vignette mask with current radius
+        gridBackground.style.mask = `radial-gradient(circle ${vignetteRadius}px at ${maskX}% ${maskY}%, black 0%, transparent ${vignetteRadius}px)`;
+        gridBackground.style.webkitMask = `radial-gradient(circle ${vignetteRadius}px at ${maskX}% ${maskY}%, black 0%, transparent ${vignetteRadius}px)`;
+        
+        // Animate radius to target if different
+        if (vignetteRadius !== targetRadius) {
+            animateVignetteRadius(targetRadius);
+        }
+    }
+    
+    function animateVignetteRadius(targetRadius) {
+        const startRadius = vignetteRadius;
+        const startTime = performance.now();
+        const duration = 500; // 500ms animation
+        
+        function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Ease-out animation
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
+            vignetteRadius = startRadius + (targetRadius - startRadius) * easeProgress;
+            
+            // Update the mask with current radius
+            const maskX = (mouseX / window.innerWidth) * 100;
+            const maskY = (mouseY / window.innerHeight) * 100;
+            gridBackground.style.mask = `radial-gradient(circle ${vignetteRadius}px at ${maskX}% ${maskY}%, black 0%, transparent ${vignetteRadius}px)`;
+            gridBackground.style.webkitMask = `radial-gradient(circle ${vignetteRadius}px at ${maskX}% ${maskY}%, black 0%, transparent ${vignetteRadius}px)`;
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                vignetteRadius = targetRadius;
+            }
+        }
+        
+        requestAnimationFrame(animate);
     }
     
     function fadeGridIn() {
@@ -6301,12 +6338,19 @@ function initGridBackground() {
         gridBackground.style.opacity = '0';
     }
     
-    // Set initial position immediately after element is added to DOM
-    updateGridMask(mouseX, mouseY);
+    // Set initial mask with very large radius (effectively shows all grid)
+    updateGridMask(mouseX, mouseY, 2000);
     
     // Add mouse move listener
     document.addEventListener('mousemove', (e) => {
-        updateGridMask(e.clientX, e.clientY);
+        if (!hasMouseMoved) {
+            // First mouse movement - start the vignette effect
+            hasMouseMoved = true;
+            updateGridMask(e.clientX, e.clientY, 200); // Animate to normal radius
+        } else {
+            // Just update position, keep current radius
+            updateGridMask(e.clientX, e.clientY, vignetteRadius);
+        }
     });
     
     // Add mouse enter/leave listeners for window
@@ -6315,7 +6359,11 @@ function initGridBackground() {
     
     // Handle window resize
     window.addEventListener('resize', () => {
-        updateGridMask(mouseX, mouseY);
+        if (hasMouseMoved) {
+            updateGridMask(mouseX, mouseY, vignetteRadius);
+        } else {
+            updateGridMask(mouseX, mouseY, 2000);
+        }
     });
 }
 
@@ -6525,8 +6573,6 @@ function closeSettingsModal() {
         });
         
         // Animate modal back to button size
-        const settingsButton = HTML.getElement('settingsButton');
-        
         HTML.setStyle(settingsModal, {
             width: '0px',
             height: '0px',
