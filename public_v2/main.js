@@ -41,8 +41,7 @@ function loadUserData() {
             const userJson = JSON.parse(userData);
             return User.fromJson(userJson);
         } catch (error) {
-            log("Error parsing user data, creating default user: " + error.message);
-            return User.createDefault();
+            log("ERROR parsing user data, creating default user: " + error.message);
         }
     }
 }
@@ -1067,8 +1066,8 @@ const reminderBaseZIndex = 3400;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 const currentTimeIndicatorZIndex = 5000; // > than 3400+1441
 const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
-const settingsModalZIndex = 6999; // above timeBubbleZIndex
-const settingsButtonZIndex = 7000; // above timeBubbleZIndex
+const settingsModalZIndex = 6999;
+const settingsButtonZIndex = 7000; // stays above modal
 const settingsGearZIndex = 7001; // above settings modal but below settings modal content
 const settingsGearZElevateIndex = 7100; // temporarily for animation goes on top of the divs in the settings modal
 
@@ -6253,12 +6252,175 @@ function initGridBackground() {
     });
 }
 
+let settingsModalOpen = false;
+let settingsModal = null;
+
 function toggleSettings() {
-    // Empty function for now
+    if (settingsModalOpen) {
+        closeSettingsModal();
+    } else {
+        openSettingsModal();
+    }
+}
+
+function openSettingsModal() {
+    if (settingsModalOpen) return;
+    settingsModalOpen = true;
+    
+    const settingsButton = HTML.getElement('settingsButton');
+    const gearIcon = HTML.getElement('gearIcon');
+    
+    // Get current button position and size
+    const buttonRect = settingsButton.getBoundingClientRect();
+    const targetWidth = 200;
+    const targetHeight = 100;
+    
+    // Create modal div that starts as the button background
+    settingsModal = HTML.make('div');
+    HTML.setId(settingsModal, 'settingsModal');
+    HTML.setStyle(settingsModal, {
+        position: 'fixed',
+        top: buttonRect.top + 'px',
+        right: (window.innerWidth - buttonRect.right) + 'px',
+        width: buttonRect.width + 'px',
+        height: buttonRect.height + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        zIndex: String(settingsModalZIndex),
+        transformOrigin: 'top right',
+        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+    });
+    
+    HTML.body.appendChild(settingsModal);
+    
+    // Update gear z-index to be above the modal
+    HTML.setStyle(gearIcon, {
+        zIndex: String(settingsGearZIndex)
+    });
+    
+    // Force reflow
+    settingsModal.offsetHeight;
+    
+    // Start modal growth animation
+    HTML.setStyle(settingsModal, {
+        width: targetWidth + 'px',
+        height: targetHeight + 'px',
+        backgroundColor: 'var(--shade-0)',
+        borderRadius: '4px'
+    });
+    
+    // Start gear orbit animation (2x duration)
+    animateGearOrbit(800); // 800ms total, modal grows in 400ms
+}
+
+function closeSettingsModal() {
+    if (!settingsModalOpen) return;
+    settingsModalOpen = false;
+    
+    const gearIcon = HTML.getElement('gearIcon');
+    
+    if (settingsModal) {
+        // Reset gear z-index
+        HTML.setStyle(gearIcon, {
+            zIndex: String(settingsGearZIndex),
+            transform: 'rotate(0deg)'
+        });
+        
+        // Animate modal back to button size
+        const settingsButton = HTML.getElement('settingsButton');
+        const buttonRect = settingsButton.getBoundingClientRect();
+        
+        HTML.setStyle(settingsModal, {
+            width: buttonRect.width + 'px',
+            height: buttonRect.height + 'px',
+            backgroundColor: 'var(--shade-1)',
+            borderRadius: '4px'
+        });
+        
+        // Remove modal after animation
+        setTimeout(() => {
+            if (settingsModal) {
+                HTML.body.removeChild(settingsModal);
+                settingsModal = null;
+            }
+        }, 400);
+    }
+}
+
+function animateGearOrbit(duration) {
+    const gearIcon = HTML.getElement('gearIcon');
+    const settingsButton = HTML.getElement('settingsButton');
+    const buttonRect = settingsButton.getBoundingClientRect();
+    
+    // Calculate bottom-left corner of the full modal (200x100)
+    const modalBottomLeftX = buttonRect.right - 200;
+    const modalBottomLeftY = buttonRect.top + 100;
+    
+    // Current gear position (center of gear)
+    const gearCenterX = buttonRect.right - buttonRect.width / 2;
+    const gearCenterY = buttonRect.top + buttonRect.height / 2;
+    
+    // Orbit parameters - wide arc around bottom-left corner
+    const orbitCenterX = modalBottomLeftX;
+    const orbitCenterY = modalBottomLeftY;
+    const orbitRadiusX = 60; // Wide horizontal radius
+    const orbitRadiusY = 40; // Vertical radius
+    
+    let startTime = null;
+    let hasElevated = false;
+    
+    function animateFrame(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Switch to elevated z-index halfway through
+        if (progress >= 0.5 && !hasElevated) {
+            hasElevated = true;
+            HTML.setStyle(gearIcon, {
+                zIndex: String(settingsGearZElevateIndex)
+            });
+        }
+        
+        // Eased progress for smooth orbit
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        
+        // Calculate position along oval orbit
+        const angle = easedProgress * Math.PI * 2; // Full orbit
+        const offsetX = Math.cos(angle) * orbitRadiusX;
+        const offsetY = Math.sin(angle) * orbitRadiusY;
+        
+        // Calculate final position
+        const newX = orbitCenterX + offsetX;
+        const newY = orbitCenterY + offsetY;
+        
+        // Apply translation from gear's original position
+        const translateX = newX - gearCenterX;
+        const translateY = newY - gearCenterY;
+        
+        // Add rotation during orbit
+        const rotation = easedProgress * 360;
+        
+        HTML.setStyle(gearIcon, {
+            transform: `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg)`
+        });
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateFrame);
+        } else {
+            // Reset gear position and z-index after orbit
+            HTML.setStyle(gearIcon, {
+                transform: 'rotate(0deg)',
+                zIndex: String(settingsGearZIndex)
+            });
+        }
+    }
+    
+    requestAnimationFrame(animateFrame);
 }
 
 function initSettingsButton() {
-    // Settings button (invisible clickable area)
+    // Settings button (background for gear - uses modal z-index for seamless transition)
     let settingsButton = HTML.make('div');
     HTML.setId(settingsButton, 'settingsButton');
     HTML.setStyle(settingsButton, {
@@ -6271,7 +6433,8 @@ function initSettingsButton() {
         borderRadius: '4px',
         userSelect: 'none',
         cursor: 'pointer',
-        transition: 'all 0.3s ease'
+        transition: 'all 0.3s ease',
+        zIndex: String(settingsButtonZIndex)
     });
 
     let gearIconSvg = `
@@ -6287,7 +6450,7 @@ function initSettingsButton() {
     </svg>
     `
     
-    // Gear icon (separate div, positioned independently)
+    // Gear icon (separate div, positioned independently, above background)
     let gearIcon = HTML.make('div');
     HTML.setId(gearIcon, 'gearIcon');
     gearIcon.innerHTML = gearIconSvg;
@@ -6302,7 +6465,8 @@ function initSettingsButton() {
         justifyContent: 'center',
         pointerEvents: 'none',
         cursor: 'pointer',
-        transition: 'transform 0.3s ease'
+        transition: 'transform 0.3s ease',
+        zIndex: String(settingsGearZIndex)
     });
     
     // Event handlers
