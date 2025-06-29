@@ -4662,9 +4662,6 @@ function toggleAmPmOr24(formatSelection) {
     }
     saveUserData(user);
 
-    let buttonAmPmOr24 = HTML.getElement('buttonAmPmOr24');
-    buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
-
     const delay = 70; // 0.07 seconds
 
     const animateTextChange = async (element, newHtml, newStyles = null) => {
@@ -4755,21 +4752,6 @@ function toggleAmPmOr24(formatSelection) {
         }
     }
 }
-
-let buttonAmPmOr24 = HTML.make('div');
-HTML.setId(buttonAmPmOr24, 'buttonAmPmOr24');
-HTML.setStyle(buttonAmPmOr24, {
-    position: 'fixed',
-    top: windowBorderMargin + 'px',
-    // logo width + window border margin*2
-    left: String(100 + windowBorderMargin*2 + 250) + 'px',
-    backgroundColor: 'var(--shade-1)',
-    fontSize: '12px',
-    color: 'var(--shade-3)',
-});
-buttonAmPmOr24.onclick = toggleAmPmOr24;
-buttonAmPmOr24.innerHTML = 'Toggle 12 Hour or 24 Hour Time';
-HTML.body.appendChild(buttonAmPmOr24);
 
 function toggleStacking() {
     ASSERT(type(user.settings.stacking, Boolean));
@@ -6321,7 +6303,6 @@ function openSettingsModal() {
     HTML.setStyle(settingsModal, {
         width: targetWidth + 'px',
         height: targetHeight + 'px',
-        right: Math.max(0, (window.innerWidth - buttonRect.right) - (targetWidth - buttonRect.width)) + 'px',
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         borderRadius: '4px'
