@@ -6321,6 +6321,7 @@ function openSettingsModal() {
     HTML.setStyle(settingsModal, {
         width: targetWidth + 'px',
         height: targetHeight + 'px',
+        right: Math.max(0, (window.innerWidth - buttonRect.right) - (targetWidth - buttonRect.width)) + 'px',
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         borderRadius: '4px'
@@ -6356,7 +6357,7 @@ function openSettingsModal() {
         HTML.setStyle(timeFormatLabel, {
             position: 'fixed',
             left: (modalRect.left + 5) + 'px',
-            top: (modalRect.top + 22) + 'px',
+            top: (modalRect.top + 18) + 'px',
             fontFamily: 'Monospace',
             fontSize: '10px',
             color: 'var(--shade-4)',
@@ -6370,7 +6371,7 @@ function openSettingsModal() {
             'horizontal',                // orientation: layout direction
             'timeFormatSelector',        // id: unique identifier for this selector
             modalRect.left + 80,          // x: 5px from left side of modal
-            modalRect.top + 25,          // y: 25px from top of modal
+            modalRect.top + 20,          // y: 20px from top of modal
             76,                         // width: total selector width in pixels
             20,                          // height: total selector height in pixels
             7002,                        // zIndex: layer positioning (above settings modal)
