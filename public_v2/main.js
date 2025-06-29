@@ -3679,8 +3679,28 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
             });
         };
+
+        // Check if this day is rightmost
+        let isRightmostDay = false;
+        if (user.settings.stacking) {
+            // In stacking mode, there are two rightmost days: one for top row, one for bottom row
+            const topRowRightmost = Math.floor(user.settings.numberOfCalendarDays / 2) - 1;
+            const bottomRowRightmost = user.settings.numberOfCalendarDays - 1;
+            isRightmostDay = (dayIndex === topRowRightmost && topRowRightmost >= 0) || (dayIndex === bottomRowRightmost);
+        } else {
+            // In normal mode, only one rightmost day
+            isRightmostDay = (dayIndex === user.settings.numberOfCalendarDays - 1);
+        }
         
-        const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft;
+        // Calculate line width - for rightmost days, extend to the right edge of the day column
+        let lineWidth;
+        if (isRightmostDay) {
+            // doesn't extend past event width
+            lineWidth = dayElemLeft + colWidth - quarterCircleLeft;
+        } else {
+            // 1px adjustment to not overlap with the line between days
+            lineWidth = dayElemLeft + colWidth + (gapBetweenColumns / 2) - quarterCircleLeft - 1;
+        }
         HTML.setStyle(lineElement, {
             position: 'fixed',
             width: String(lineWidth) + 'px',
