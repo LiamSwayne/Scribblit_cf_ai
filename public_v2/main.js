@@ -6843,8 +6843,6 @@ function deleteSelector(id) {
     }, 300);
 }
 
-
-
 function initSettingsButton() {
     // Track base rotation that accumulates with each click
     let baseRotation = 0;
