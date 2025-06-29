@@ -21,7 +21,6 @@ const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
 const vibrantRedColor = '#ff4444';
-
 let activeCheckboxIds = new Set();
 
 // Save user data to localStorage
@@ -1068,6 +1067,10 @@ const reminderBaseZIndex = 3400;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 const currentTimeIndicatorZIndex = 5000; // > than 3400+1441
 const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
+const settingsModalZIndex = 6999; // above timeBubbleZIndex
+const settingsButtonZIndex = 7000; // above timeBubbleZIndex
+const settingsGearZIndex = 7001; // above settings modal but below settings modal content
+const settingsGearZElevateIndex = 7100; // temporarily for animation goes on top of the divs in the settings modal
 
 const taskInfoDateFontBigCol = 10; // px
 const taskInfoTimeFontBigCol = 9; // px
