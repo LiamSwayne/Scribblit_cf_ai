@@ -6316,15 +6316,21 @@ function openSettingsModal() {
         // Create "Settings" title text
         const settingsText = HTML.make('div');
         HTML.setId(settingsText, 'settingsText');
+        
+        // Measure the full width of "Settings" text for right alignment
+        const fullTextWidth = measureTextWidth("Settings", 'Monospace', 12);
+        
         HTML.setStyle(settingsText, {
             position: 'fixed',
-            left: (modalRect.left + 5) + 'px',
+            right: (window.innerWidth - modalRect.left - fullTextWidth - 5) + 'px',
             top: (modalRect.top + 5) + 'px',
             fontFamily: 'Monospace',
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '12px'
+            lineHeight: '12px',
+            textAlign: 'right',
+            width: fullTextWidth + 'px'
         });
         HTML.body.appendChild(settingsText);
         
@@ -6351,17 +6357,17 @@ function openSettingsModal() {
             ['24hr', 'AM/PM'],           // options: array of selectable strings
             'horizontal',                // orientation: layout direction
             'timeFormatSelector',        // id: unique identifier for this selector
-            54,          // x: 5px from left side of modal
+            modalRect.width - 146,          // x: 5px from left side of modal
             modalRect.top + 20,          // y: 20px from top of modal
-            76,                         // width: total selector width in pixels
+            72,                          // width: total selector width in pixels
             20,                          // height: total selector height in pixels
             7002,                        // zIndex: layer positioning (above settings modal)
-            'Monospace',            // font: font family for text rendering
+            'Monospace',                 // font: font family for text rendering
             10,                          // fontSize: text size in pixels
-            toggleAmPmOr24,               // onSelectionChange: callback function
+            toggleAmPmOr24,              // onSelectionChange: callback function
             user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
             0.9,                         // minWaitTime: minimum time between option changes
-            'right'                       // alignmentSide: position using left or right
+            'right'                      // alignmentSide: position using left or right
         );
     }, 400);
 }
@@ -6458,8 +6464,8 @@ function closeSettingsModal() {
         const buttonRect = settingsButton.getBoundingClientRect();
         
         HTML.setStyle(settingsModal, {
-            width: buttonRect.width + 'px',
-            height: buttonRect.height + 'px',
+            width: '0px',
+            height: '0px',
             backgroundColor: 'var(--shade-0)',
             border: '2px solid var(--shade-1)',
             borderRadius: '4px'
@@ -6623,7 +6629,11 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         borderRadius: '6px',
         zIndex: String(zIndex)
     };
-    backgroundStyles[alignmentSide] = x + 'px';
+    if (alignmentSide === 'left') {
+        backgroundStyles.left = x + 'px';
+    } else {
+        backgroundStyles.right = x + 'px';
+    }
     HTML.setStyle(background, backgroundStyles);
     
     // Store selected index in background using setData
@@ -6658,7 +6668,11 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         zIndex: String(zIndex + 1),
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
     };
-    highlightStyles[alignmentSide] = (x + padding + selectedOption.x) + 'px';
+    if (alignmentSide === 'left') {
+        highlightStyles.left = (x + padding + selectedOption.x) + 'px';
+    } else {
+        highlightStyles.right = (x + padding + (innerWidth - selectedOption.x - selectedOption.width)) + 'px';
+    }
     HTML.setStyle(highlight, highlightStyles);
     
     // Create text elements
@@ -6683,7 +6697,11 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
             userSelect: 'none',
             transition: 'color 0.3s ease'
         };
-        textStyles[alignmentSide] = (x + padding + optionInfo.x) + 'px';
+        if (alignmentSide === 'left') {
+            textStyles.left = (x + padding + optionInfo.x) + 'px';
+        } else {
+            textStyles.right = (x + padding + (innerWidth - optionInfo.x - optionInfo.width)) + 'px';
+        }
         HTML.setStyle(textElement, textStyles);
         textElement.textContent = optionInfo.text;
         
@@ -6712,7 +6730,11 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
                     height: targetOption.height + 'px',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 };
-                updateHighlightStyles[alignmentSide] = (x + padding + targetOption.x) + 'px';
+                if (alignmentSide === 'left') {
+                    updateHighlightStyles.left = (x + padding + targetOption.x) + 'px';
+                } else {
+                    updateHighlightStyles.right = (x + padding + (innerWidth - targetOption.x - targetOption.width)) + 'px';
+                }
                 HTML.setStyle(highlight, updateHighlightStyles);
                 
                 // Update text colors with smooth transitions
