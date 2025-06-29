@@ -12,6 +12,29 @@ for (const font of fontDefinitions) {
     preservedFontCss[font.key] = localStorage.getItem('font' + font.key + font.url);
 }
 
+// Global mouse position tracking for robust hover detection (only when needed)
+window.lastMouseX = 0;
+window.lastMouseY = 0;
+let mouseMoveListener = null;
+
+// Helper functions for mouse tracking
+function startMouseTracking() {
+    if (!mouseMoveListener) {
+        mouseMoveListener = (e) => {
+            window.lastMouseX = e.clientX;
+            window.lastMouseY = e.clientY;
+        };
+        document.addEventListener('mousemove', mouseMoveListener);
+    }
+}
+
+function stopMouseTracking() {
+    if (mouseMoveListener) {
+        document.removeEventListener('mousemove', mouseMoveListener);
+        mouseMoveListener = null;
+    }
+}
+
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
 let firstDayInCalendar; // the first day shown in calendar
@@ -6349,6 +6372,9 @@ function closeSettingsModal() {
 
 
 function initSettingsButton() {
+    // Track hover state for post-animation restoration
+    let isHovering = false;
+    
     // Settings button (background for gear - uses modal z-index for seamless transition)
     let settingsButton = HTML.make('div');
     HTML.setId(settingsButton, 'settingsButton');
@@ -6399,11 +6425,153 @@ function initSettingsButton() {
     });
     
     // Event handlers
-    settingsButton.onclick = toggleSettings;
+    settingsButton.onclick = () => {
+        // Make gear and background unclickable immediately
+        HTML.setStyle(settingsButton, {
+            pointerEvents: 'none',
+            cursor: 'default'
+        });
+        HTML.setStyle(gearIcon, {
+            pointerEvents: 'none',
+            cursor: 'default'
+        });
+        
+        // Check if modal is already open before animations
+        const modalWasOpen = settingsModalOpen;
+        
+        // Start modal animation (open or close)
+        toggleSettings();
+        
+        // If modal was already open, wait for close animation to complete before restoring clickability
+        if (modalWasOpen) {
+            // Wait for close animation (400ms) before restoring clickability
+            setTimeout(() => {
+                HTML.setStyle(settingsButton, {
+                    pointerEvents: 'auto',
+                    cursor: 'pointer'
+                });
+                HTML.setStyle(gearIcon, {
+                    pointerEvents: 'none',
+                    cursor: 'pointer'
+                });
+            }, 400); // Match the close animation duration
+            return; // Skip open animations
+        }
+        
+        // Start mouse tracking for the opening animation
+        startMouseTracking();
+        
+        // Create oval animation keyframes for gear
+        const ovalKeyframes = [
+            { transform: 'translate(0px, 0px)', offset: 0 },
+            { transform: 'translate(-120px, -50px)', offset: 0.25 },
+            { transform: 'translate(-240px, 0px)', offset: 0.5 },
+            { transform: 'translate(-120px, 50px)', offset: 0.75 },
+            { transform: 'translate(0px, 0px)', offset: 1 }
+        ];
+        
+        // Create fade out keyframes for gear background
+        const fadeOutKeyframes = [
+            { opacity: '1', offset: 0 },
+            { opacity: '0', offset: 1 }
+        ];
+        
+        // Apply oval animation to gear icon
+        const gearAnimation = gearIcon.animate(ovalKeyframes, {
+            duration: 800,
+            iterations: 1,
+            easing: 'ease-in-out'
+        });
+        
+        // Apply fade out animation to gear background
+        const backgroundFadeOut = settingsButton.animate(fadeOutKeyframes, {
+            duration: 400,
+            iterations: 1,
+            easing: 'ease-out',
+            fill: 'forwards'
+        });
+        
+        // When gear animation completes
+        gearAnimation.addEventListener('finish', () => {
+            // Robust function to check if mouse is actually over the button
+            const isMouseOverButton = () => {
+                const rect = settingsButton.getBoundingClientRect();
+                const mouseX = window.lastMouseX || 0;
+                const mouseY = window.lastMouseY || 0;
+                
+                return mouseX >= rect.left && 
+                       mouseX <= rect.right && 
+                       mouseY >= rect.top && 
+                       mouseY <= rect.bottom;
+            };
+            
+            // Check if mouse is still over the gear background
+            const shouldBeRotated = isMouseOverButton();
+            const rotation = shouldBeRotated ? '60deg' : '0deg';
+            
+            // Update our tracking variable to match reality
+            isHovering = shouldBeRotated;
+            
+            HTML.setStyle(gearIcon, {
+                transform: `translate(0px, 0px) rotate(${rotation})`,
+                transition: 'transform 0.3s ease'
+            });
+            
+            // Create fade in keyframes for gear background
+            const fadeInKeyframes = [
+                { opacity: '0', offset: 0 },
+                { opacity: '1', offset: 1 }
+            ];
+            
+            // Fade background back in
+            const backgroundFadeIn = settingsButton.animate(fadeInKeyframes, {
+                duration: 400,
+                iterations: 1,
+                easing: 'ease-in',
+                fill: 'forwards'
+            });
+            
+            // When fade in completes, restore clickability
+            backgroundFadeIn.addEventListener('finish', () => {
+                HTML.setStyle(settingsButton, {
+                    pointerEvents: 'auto',
+                    cursor: 'pointer'
+                });
+                HTML.setStyle(gearIcon, {
+                    pointerEvents: 'none', // Keep as none since it was originally non-interactive
+                    cursor: 'pointer'
+                });
+                
+                // Final check and apply hover state if mouse is still over the element
+                const finalMouseCheck = isMouseOverButton();
+                isHovering = finalMouseCheck;
+                
+                if (finalMouseCheck) {
+                    HTML.setStyle(gearIcon, { 
+                        transform: 'translate(0px, 0px) rotate(60deg)' 
+                    });
+                    HTML.setStyle(settingsButton, {
+                        backgroundColor: 'var(--shade-2)'
+                    });
+                } else {
+                    HTML.setStyle(gearIcon, { 
+                        transform: 'translate(0px, 0px) rotate(0deg)' 
+                    });
+                    HTML.setStyle(settingsButton, {
+                        backgroundColor: 'var(--shade-1)'
+                    });
+                }
+                
+                // Stop mouse tracking now that animation is complete
+                stopMouseTracking();
+            });
+        });
+    };
     
     settingsButton.onmouseenter = () => {
+        isHovering = true;
         HTML.setStyle(gearIcon, { 
-            transform: 'rotate(60deg)' 
+            transform: 'translate(0px, 0px) rotate(60deg)' 
         });
         HTML.setStyle(settingsButton, {
             backgroundColor: 'var(--shade-2)'
@@ -6411,8 +6579,9 @@ function initSettingsButton() {
     };
     
     settingsButton.onmouseleave = () => {
+        isHovering = false;
         HTML.setStyle(gearIcon, { 
-            transform: 'rotate(0deg)' 
+            transform: 'translate(0px, 0px) rotate(0deg)' 
         });
         HTML.setStyle(settingsButton, {
             backgroundColor: 'var(--shade-1)'
