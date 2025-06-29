@@ -801,54 +801,6 @@ if (TESTING) {
         ),
 
         new Entity(
-            'reminder-106',
-            'Quadruple reminder',
-            '',
-            new ReminderData([
-                new NonRecurringReminderInstance(
-                    tomorrow, // date
-                    new TimeField(19, 30)
-                )
-            ])
-        ),
-
-        new Entity(
-            'reminder-107',
-            'Pentuple reminder',
-            '',
-            new ReminderData([
-                new NonRecurringReminderInstance(
-                    tomorrow, // date
-                    new TimeField(20, 15)
-                )
-            ])
-        ),
-
-        new Entity(
-            'reminder-108',
-            'pentuple reminder',
-            '',
-            new ReminderData([
-                new NonRecurringReminderInstance(
-                    tomorrow, // date
-                    new TimeField(20, 15)
-                )
-            ])
-        ),
-
-        new Entity(
-            'reminder-109',
-            'pentuple reminder',
-            '',
-            new ReminderData([
-                new NonRecurringReminderInstance(
-                    tomorrow, // date
-                    new TimeField(20, 15)
-                )
-            ])
-        ),
-
-        new Entity(
             'reminder-110',
             'pentuple reminder',
             '',
@@ -3679,7 +3631,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 el.style.zIndex = parseInt(el.style.zIndex) + reminderIndexIncreaseOnHover;
             });
         };
-
+        
         // Check if this day is rightmost
         let isRightmostDay = false;
         if (user.settings.stacking) {
@@ -4697,13 +4649,17 @@ function initNumberOfCalendarDaysButton() {
     numberDisplay.textContent = String(user.settings.numberOfCalendarDays);
 }
 
-function toggleAmPmOr24() {
+function toggleAmPmOr24(formatSelection) {
     ASSERT(type(user.settings.ampmOr24, String));
     ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
-    if (user.settings.ampmOr24 == 'ampm') {
+    ASSERT(formatSelection == '24hr' || formatSelection == 'AM/PM');
+    ASSERT(type(formatSelection, String), "toggleAmPmOr24: formatSelection must be a string");
+    if (formatSelection === '24hr') {
         user.settings.ampmOr24 = '24';
-    } else {
+    } else if (formatSelection === 'AM/PM') {
         user.settings.ampmOr24 = 'ampm';
+    } else {
+        ASSERT(false, "toggleAmPmOr24: formatSelection must be '24hr' or 'AM/PM'");
     }
     saveUserData(user);
 
@@ -4754,7 +4710,12 @@ function toggleAmPmOr24() {
             } else {
                 fontSize = '10px'; // account for additional colon character
             }
-            animateTextChange(hourMarkerText, newHtml, { fontSize: fontSize });
+            
+            // Stagger animations with random delays within 0.5 seconds
+            const randomDelay = Math.random() * 500; // 0-500ms random delay
+            setTimeout(() => {
+                animateTextChange(hourMarkerText, newHtml, { fontSize: fontSize });
+            }, randomDelay);
         }
     }
 
@@ -4768,7 +4729,12 @@ function toggleAmPmOr24() {
                 const fontSize = parseFloat(line1El.style.fontSize);
                 const color = line1El.style.color || 'var(--shade-3)';
                 const newTimeText = formatTaskTime(timeField, fontSize, color);
-                animateTextChange(line1El, newTimeText);
+                
+                // Stagger animations with random delays within 0.5 seconds
+                const randomDelay = Math.random() * 500; // 0-500ms random delay
+                setTimeout(() => {
+                    animateTextChange(line1El, newTimeText);
+                }, randomDelay);
             }
         }
         
@@ -4780,7 +4746,12 @@ function toggleAmPmOr24() {
                 const fontSize = parseFloat(line2El.style.fontSize);
                 const color = line2El.style.color || 'var(--shade-3)';
                 const newTimeText = formatTaskTime(timeField, fontSize, color);
-                animateTextChange(line2El, newTimeText);
+                
+                // Stagger animations with random delays within 0.5 seconds
+                const randomDelay = Math.random() * 500; // 0-500ms random delay
+                setTimeout(() => {
+                    animateTextChange(line2El, newTimeText);
+                }, randomDelay);
             }
         }
     }
@@ -6354,7 +6325,27 @@ function openSettingsModal() {
         borderRadius: '4px'
     });
     
-
+    // Test the selector after settings animation completes
+    setTimeout(() => {
+        // Get modal position for relative positioning
+        const modalRect = settingsModal.getBoundingClientRect();
+        
+        createSelector(
+            ['24hr', 'AM/PM'],           // options: array of selectable strings
+            'horizontal',                // orientation: layout direction
+            'timeFormatSelector',        // id: unique identifier for this selector
+            modalRect.left + 5,          // x: 5px from left side of modal
+            modalRect.top + 25,          // y: 25px from top of modal
+            100,                         // width: total selector width in pixels
+            20,                          // height: total selector height in pixels
+            7002,                        // zIndex: layer positioning (above settings modal)
+            'PrimaryRegular',            // font: font family for text rendering
+            12,                          // fontSize: text size in pixels
+            toggleAmPmOr24,               // onSelectionChange: callback function
+            user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
+            0.9                           // minWaitTime: minimum time between option changes
+        );
+    }, 400);
 }
 
 function closeSettingsModal() {
@@ -6362,6 +6353,9 @@ function closeSettingsModal() {
     settingsModalOpen = false;
     
     const gearIcon = HTML.getElement('gearIcon');
+    
+    // Delete the test selector
+    deleteSelector('timeFormatSelector');
     
     if (settingsModal) {
         // Reset gear z-index
@@ -6389,6 +6383,343 @@ function closeSettingsModal() {
             }
         }, 400);
     }
+}
+
+// Helper function to measure text width
+function measureTextWidth(text, font, fontSize) {
+    ASSERT(type(text, String));
+    ASSERT(type(font, String));
+    ASSERT(type(fontSize, Number));
+    
+    // Create temporary element to measure text
+    const tempElement = HTML.make('div');
+    HTML.setStyle(tempElement, {
+        fontFamily: font,
+        fontSize: fontSize + 'px',
+        position: 'absolute',
+        visibility: 'hidden',
+        height: 'auto',
+        width: 'auto',
+        whiteSpace: 'nowrap'
+    });
+    tempElement.textContent = text;
+    HTML.body.appendChild(tempElement);
+    
+    const width = tempElement.offsetWidth;
+    HTML.body.removeChild(tempElement);
+    
+    return width;
+}
+
+// Creates a multiple choice selector with smooth transitions
+function createSelector(options, orientation, id, x, y, width, height, zIndex, font, fontSize, onSelectionChange, initialSelection, minWaitTime) {
+    // Robust assertions
+    ASSERT(type(options, List(String)), "createSelector: options must be a list of strings");
+    ASSERT(options.length >= 2, "createSelector: must have at least 2 options");
+    ASSERT(type(orientation, String), "createSelector: orientation must be a string");
+    ASSERT(orientation === "horizontal" || orientation === "vertical", "createSelector: orientation must be 'horizontal' or 'vertical'");
+    ASSERT(type(id, NonEmptyString), "createSelector: id must be a non-empty string");
+    ASSERT(type(x, Number), "createSelector: x must be a number");
+    ASSERT(type(y, Number), "createSelector: y must be a number");
+    ASSERT(type(width, Number), "createSelector: width must be a number");
+    ASSERT(type(height, Number), "createSelector: height must be a number");
+    ASSERT(width > 0, "createSelector: width must be positive");
+    ASSERT(height > 0, "createSelector: height must be positive");
+    ASSERT(type(zIndex, Int), "createSelector: zIndex must be an integer");
+    ASSERT(type(font, String), "createSelector: font must be a string");
+    ASSERT(type(fontSize, Number), "createSelector: fontSize must be a number");
+    ASSERT(fontSize > 0, "createSelector: fontSize must be positive");
+    ASSERT(type(onSelectionChange, Function), "createSelector: onSelectionChange must be a function");
+    ASSERT(type(initialSelection, String), "createSelector: initialSelection must be a string");
+    ASSERT(type(minWaitTime, Number), "createSelector: minWaitTime must be a number");
+    ASSERT(minWaitTime >= 0, "createSelector: minWaitTime must be non-negative");
+    
+    // Check if ID already exists
+    ASSERT(!exists(HTML.getElementUnsafely(id)), "createSelector: element with id '" + id + "' already exists");
+    
+    // Find the index of the initial selection
+    let initialIndex = -1;
+    for (let i = 0; i < options.length; i++) {
+        if (options[i] === initialSelection) {
+            initialIndex = i;
+            break;
+        }
+    }
+    ASSERT(initialIndex !== -1, "createSelector: initialSelection '" + initialSelection + "' not found in options");
+
+    // Calculate dimensions with 2px padding
+    const padding = 2;
+    const innerWidth = width - (padding * 2);
+    const innerHeight = height - (padding * 2);
+    
+    ASSERT(innerWidth > 0, "createSelector: width too small for padding");
+    ASSERT(innerHeight > 0, "createSelector: height too small for padding");
+    
+    // Measure text widths and calculate positions
+    const textWidths = [];
+    let totalTextWidth = 0;
+    
+    for (const option of options) {
+        ASSERT(type(option, String), "createSelector: all options must be strings");
+        const textWidth = measureTextWidth(option, font, fontSize);
+        textWidths.push(textWidth);
+        totalTextWidth += textWidth;
+    }
+    
+    // Calculate spacing between options (at least 2px)
+    const minSpacing = 2;
+    const totalSpacing = (options.length - 1) * minSpacing;
+    
+    // Ensure we have enough space
+    if (orientation === "horizontal") {
+        ASSERT(totalTextWidth + totalSpacing <= innerWidth, "createSelector: not enough horizontal space for all options");
+    } else {
+        ASSERT(totalTextWidth + totalSpacing <= innerHeight, "createSelector: not enough vertical space for all options");
+    }
+    
+    // Calculate option positions and dimensions
+    const optionData = [];
+    let currentPos = 0;
+    
+    for (let i = 0; i < options.length; i++) {
+        const option = options[i];
+        const textWidth = textWidths[i];
+        
+        let optionWidth, optionHeight, optionX, optionY;
+        
+        if (orientation === "horizontal") {
+            optionWidth = Math.floor(innerWidth / options.length);
+            optionHeight = innerHeight;
+            optionX = Math.floor(currentPos);
+            optionY = 0;
+            currentPos += optionWidth;
+        } else {
+            optionWidth = innerWidth;
+            optionHeight = Math.floor(innerHeight / options.length);
+            optionX = 0;
+            optionY = Math.floor(currentPos);
+            currentPos += optionHeight;
+        }
+        
+        optionData.push({
+            text: option,
+            width: optionWidth,
+            height: optionHeight,
+            x: optionX,
+            y: optionY,
+            textWidth: textWidth
+        });
+    }
+    
+    // Create background element
+    const background = HTML.make('div');
+    HTML.setId(background, id);
+    HTML.setStyle(background, {
+        position: 'absolute',
+        left: x + 'px',
+        top: y + 'px',
+        width: width + 'px',
+        height: height + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '6px',
+        zIndex: String(zIndex)
+    });
+    
+    // Store selected index in background using setData
+    HTML.setData(background, 'selectedIndex', initialIndex);
+    HTML.setData(background, 'options', options);
+    HTML.setData(background, 'orientation', orientation);
+    HTML.setData(background, 'lastSelectionTime', 0);  // Track last selection time
+    HTML.setData(background, 'minWaitTime', minWaitTime * 1000);  // Convert to milliseconds
+
+    // Create highlight element
+    const highlight = HTML.make('div');
+    HTML.setId(highlight, id + '_highlight');
+    const selectedOption = optionData[initialIndex];
+    
+    // Get accent color and convert to rgba with 0.2 opacity
+    const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue('--accent-1').trim();
+    const accentColorRgb = hexToRgb(accentColorHex);
+    const accentColorRgba = `rgba(${accentColorRgb.r}, ${accentColorRgb.g}, ${accentColorRgb.b}, 0.2)`;
+    
+    HTML.setStyle(highlight, {
+        position: 'absolute',
+        left: (x + padding + selectedOption.x) + 'px',
+        top: (y + padding + selectedOption.y) + 'px',
+        width: selectedOption.width + 'px',
+        height: selectedOption.height + 'px',
+        backgroundColor: accentColorRgba,
+        borderRadius: '4px',
+        zIndex: String(zIndex + 1),
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+    });
+    
+    // Create text elements
+    const textElements = [];
+    for (let i = 0; i < options.length; i++) {
+        const optionInfo = optionData[i];
+        const textElement = HTML.make('div');
+        HTML.setId(textElement, id + '_text_' + i);
+        HTML.setStyle(textElement, {
+            position: 'absolute',
+            left: (x + padding + optionInfo.x) + 'px',
+            top: (y + padding + optionInfo.y) + 'px',
+            width: optionInfo.width + 'px',
+            height: optionInfo.height + 'px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: font,
+            fontSize: fontSize + 'px',
+            color: i === initialIndex ? 'white' : 'var(--shade-3)',
+            zIndex: String(zIndex + 2),
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'color 0.3s ease'
+        });
+        textElement.textContent = optionInfo.text;
+        
+        // Click handler
+        textElement.onclick = () => {
+            const currentIndex = HTML.getData(background, 'selectedIndex');
+            const lastSelectionTime = HTML.getData(background, 'lastSelectionTime');
+            const minWaitTimeMs = HTML.getData(background, 'minWaitTime');
+            const currentTime = Date.now();
+            
+            // Check if enough time has passed since last selection
+            if (currentTime - lastSelectionTime < minWaitTimeMs) {
+                return; // Silently ignore the click
+            }
+            
+            if (currentIndex !== i) {
+                // Update selected index and timestamp
+                HTML.setData(background, 'selectedIndex', i);
+                HTML.setData(background, 'lastSelectionTime', currentTime);
+                
+                // Move highlight smoothly
+                const targetOption = optionData[i];
+                HTML.setStyle(highlight, {
+                    left: (x + padding + targetOption.x) + 'px',
+                    top: (y + padding + targetOption.y) + 'px',
+                    width: targetOption.width + 'px',
+                    height: targetOption.height + 'px',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                });
+                
+                // Update text colors with smooth transitions
+                for (let j = 0; j < textElements.length; j++) {
+                    HTML.setStyle(textElements[j], {
+                        color: j === i ? 'white' : 'var(--shade-3)',
+                        transition: 'color 0.3s ease'
+                    });
+                }
+                
+                // Call the callback function with the selected option
+                onSelectionChange(optionInfo.text);
+            }
+        };
+        
+        // Hover handlers
+        textElement.onmouseenter = () => {
+            const currentIndex = HTML.getData(background, 'selectedIndex');
+            if (currentIndex !== i) {
+                HTML.setStyle(textElement, {
+                    color: 'white',
+                    transition: 'color 0.2s ease'
+                });
+            }
+        };
+        
+        textElement.onmouseleave = () => {
+            const currentIndex = HTML.getData(background, 'selectedIndex');
+            if (currentIndex !== i) {
+                HTML.setStyle(textElement, {
+                    color: 'var(--shade-3)',
+                    transition: 'color 0.2s ease'
+                });
+            }
+        };
+        
+        textElements.push(textElement);
+    }
+    
+    // Add all elements to DOM
+    HTML.body.appendChild(background);
+    HTML.body.appendChild(highlight);
+    for (const textElement of textElements) {
+        HTML.body.appendChild(textElement);
+    }
+    
+    // Handle fade-in animation for creation
+    const allElements = [background, highlight, ...textElements];
+    
+    // Start with opacity 0
+    for (const element of allElements) {
+        HTML.setStyle(element, { opacity: '0' });
+    }
+    
+    // Fade in after a brief delay
+    setTimeout(() => {
+        for (const element of allElements) {
+            HTML.setStyle(element, { 
+                opacity: '1', 
+                transition: 'opacity 0.3s ease' 
+            });
+        }
+    }, 50);
+    
+    // Return calculated dimensions
+    return {
+        width: width,
+        height: height,
+        actualWidth: width,
+        actualHeight: height
+    };
+}
+
+// Deletes a selector and all its components
+function deleteSelector(id) {
+    ASSERT(type(id, NonEmptyString), "deleteSelector: id must be a non-empty string");
+    
+    const background = HTML.getElementUnsafely(id);
+    if (!exists(background)) {
+        return; // Already deleted or never existed
+    }
+    
+    const options = HTML.getData(background, 'options');
+    ASSERT(type(options, List(String)), "deleteSelector: invalid options data");
+    
+    // Fade out all elements
+    const highlight = HTML.getElementUnsafely(id + '_highlight');
+    const allElements = [background];
+    
+    if (exists(highlight)) {
+        allElements.push(highlight);
+    }
+    
+    for (let i = 0; i < options.length; i++) {
+        const textElement = HTML.getElementUnsafely(id + '_text_' + i);
+        if (exists(textElement)) {
+            allElements.push(textElement);
+        }
+    }
+    
+    // Apply fade out animation
+    for (const element of allElements) {
+        HTML.setStyle(element, {
+            opacity: '0',
+            transition: 'opacity 0.3s ease'
+        });
+    }
+    
+    // Remove elements after animation
+    setTimeout(() => {
+        for (const element of allElements) {
+            if (exists(element) && exists(element.parentNode)) {
+                element.parentNode.removeChild(element);
+            }
+        }
+    }, 300);
 }
 
 
