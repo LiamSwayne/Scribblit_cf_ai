@@ -6351,7 +6351,7 @@ function openSettingsModal() {
             ['24hr', 'AM/PM'],           // options: array of selectable strings
             'horizontal',                // orientation: layout direction
             'timeFormatSelector',        // id: unique identifier for this selector
-            modalRect.left + 80,          // x: 5px from left side of modal
+            54,          // x: 5px from left side of modal
             modalRect.top + 20,          // y: 20px from top of modal
             76,                         // width: total selector width in pixels
             20,                          // height: total selector height in pixels
@@ -6360,7 +6360,8 @@ function openSettingsModal() {
             10,                          // fontSize: text size in pixels
             toggleAmPmOr24,               // onSelectionChange: callback function
             user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
-            0.9                           // minWaitTime: minimum time between option changes
+            0.9,                         // minWaitTime: minimum time between option changes
+            'right'                       // alignmentSide: position using left or right
         );
     }, 400);
 }
@@ -6501,7 +6502,7 @@ function measureTextWidth(text, font, fontSize) {
 }
 
 // Creates a multiple choice selector with smooth transitions
-function createSelector(options, orientation, id, x, y, width, height, zIndex, font, fontSize, onSelectionChange, initialSelection, minWaitTime) {
+function createSelector(options, orientation, id, x, y, width, height, zIndex, font, fontSize, onSelectionChange, initialSelection, minWaitTime, alignmentSide) {
     // Robust assertions
     ASSERT(type(options, List(String)), "createSelector: options must be a list of strings");
     ASSERT(options.length >= 2, "createSelector: must have at least 2 options");
@@ -6522,6 +6523,8 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     ASSERT(type(initialSelection, String), "createSelector: initialSelection must be a string");
     ASSERT(type(minWaitTime, Number), "createSelector: minWaitTime must be a number");
     ASSERT(minWaitTime >= 0, "createSelector: minWaitTime must be non-negative");
+    ASSERT(type(alignmentSide, String), "createSelector: alignmentSide must be a string");
+    ASSERT(alignmentSide === "left" || alignmentSide === "right", "createSelector: alignmentSide must be 'left' or 'right'");
     
     // Check if ID already exists
     ASSERT(!exists(HTML.getElementUnsafely(id)), "createSelector: element with id '" + id + "' already exists");
@@ -6611,16 +6614,17 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     // Create background element
     const background = HTML.make('div');
     HTML.setId(background, id);
-    HTML.setStyle(background, {
+    const backgroundStyles = {
         position: 'absolute',
-        left: x + 'px',
         top: y + 'px',
         width: width + 'px',
         height: height + 'px',
         backgroundColor: 'var(--shade-1)',
         borderRadius: '6px',
         zIndex: String(zIndex)
-    });
+    };
+    backgroundStyles[alignmentSide] = x + 'px';
+    HTML.setStyle(background, backgroundStyles);
     
     // Store selected index in background using setData
     HTML.setData(background, 'selectedIndex', initialIndex);
@@ -6644,9 +6648,8 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     const shade4ColorRgb = hexToRgb(shade4ColorHex);
     const blendedTextColor = `rgb(${Math.round(shade4ColorRgb.r * 0.8 + accentColorRgb.r * 0.2)}, ${Math.round(shade4ColorRgb.g * 0.8 + accentColorRgb.g * 0.2)}, ${Math.round(shade4ColorRgb.b * 0.8 + accentColorRgb.b * 0.2)})`;
     
-    HTML.setStyle(highlight, {
+    const highlightStyles = {
         position: 'absolute',
-        left: (x + padding + selectedOption.x) + 'px',
         top: (y + padding + selectedOption.y) + 'px',
         width: selectedOption.width + 'px',
         height: selectedOption.height + 'px',
@@ -6654,7 +6657,9 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         borderRadius: '4px',
         zIndex: String(zIndex + 1),
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-    });
+    };
+    highlightStyles[alignmentSide] = (x + padding + selectedOption.x) + 'px';
+    HTML.setStyle(highlight, highlightStyles);
     
     // Create text elements
     const textElements = [];
@@ -6662,9 +6667,8 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         const optionInfo = optionData[i];
         const textElement = HTML.make('div');
         HTML.setId(textElement, id + '_text_' + i);
-        HTML.setStyle(textElement, {
+        const textStyles = {
             position: 'absolute',
-            left: (x + padding + optionInfo.x) + 'px',
             top: (y + padding + optionInfo.y) + 'px',
             width: optionInfo.width + 'px',
             height: optionInfo.height + 'px',
@@ -6678,7 +6682,9 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
             cursor: 'pointer',
             userSelect: 'none',
             transition: 'color 0.3s ease'
-        });
+        };
+        textStyles[alignmentSide] = (x + padding + optionInfo.x) + 'px';
+        HTML.setStyle(textElement, textStyles);
         textElement.textContent = optionInfo.text;
         
         // Click handler
@@ -6700,13 +6706,14 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
                 
                 // Move highlight smoothly
                 const targetOption = optionData[i];
-                HTML.setStyle(highlight, {
-                    left: (x + padding + targetOption.x) + 'px',
+                const updateHighlightStyles = {
                     top: (y + padding + targetOption.y) + 'px',
                     width: targetOption.width + 'px',
                     height: targetOption.height + 'px',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                });
+                };
+                updateHighlightStyles[alignmentSide] = (x + padding + targetOption.x) + 'px';
+                HTML.setStyle(highlight, updateHighlightStyles);
                 
                 // Update text colors with smooth transitions
                 for (let j = 0; j < textElements.length; j++) {
