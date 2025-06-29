@@ -6065,6 +6065,75 @@ function renderTaskList() {
     updateTaskSectionNames(true);
 }
 
+function updateSettingsTextPosition() {
+    // Only update if settings modal is open and elements exist
+    if (!settingsModalOpen) return;
+    
+    const settingsModal = HTML.getElementUnsafely('settingsModal');
+    if (!settingsModal) return;
+    
+    // Get current modal position
+    const modalRect = settingsModal.getBoundingClientRect();
+    
+    // Update settings text position
+    const settingsText = HTML.getElementUnsafely('settingsText');
+    if (settingsText) {
+        HTML.setStyle(settingsText, {
+            left: (modalRect.left + 5) + 'px',
+            top: (modalRect.top + 5) + 'px'
+        });
+    }
+    
+    // Update time format label position
+    const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
+    if (timeFormatLabel) {
+        HTML.setStyle(timeFormatLabel, {
+            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospace', 10) - 5) + 'px',
+            top: (modalRect.top + 18) + 'px'
+        });
+    }
+    
+    // Update time format selector position
+    const timeFormatSelector = HTML.getElementUnsafely('timeFormatSelector');
+    if (timeFormatSelector) {
+        // Update background element
+        HTML.setStyle(timeFormatSelector, {
+            top: (modalRect.top + 20) + 'px',
+            right: (modalRect.width - 145) + 'px'
+        });
+        
+        // Update highlight element
+        const highlight = HTML.getElementUnsafely('timeFormatSelector_highlight');
+        if (highlight) {
+            const currentTop = parseFloat(highlight.style.top);
+            const currentRight = parseFloat(highlight.style.right);
+            const offsetFromModal = currentTop - (modalRect.top + 20 + 2); // 2px padding
+            const offsetFromRight = currentRight - (modalRect.width - 145 + 2);
+            
+            HTML.setStyle(highlight, {
+                top: (modalRect.top + 20 + 2 + offsetFromModal) + 'px',
+                right: (modalRect.width - 145 + 2 + offsetFromRight) + 'px'
+            });
+        }
+        
+        // Update text elements
+        for (let i = 0; i < 2; i++) { // We know there are 2 options: '24hr' and 'AM/PM'
+            const textElement = HTML.getElementUnsafely('timeFormatSelector_text_' + i);
+            if (textElement) {
+                const currentTop = parseFloat(textElement.style.top);
+                const currentRight = parseFloat(textElement.style.right);
+                const offsetFromModal = currentTop - (modalRect.top + 20 + 2); // 2px padding
+                const offsetFromRight = currentRight - (modalRect.width - 145 + 2);
+                
+                HTML.setStyle(textElement, {
+                    top: (modalRect.top + 20 + 2 + offsetFromModal) + 'px',
+                    right: (modalRect.width - 145 + 2 + offsetFromRight) + 'px'
+                });
+            }
+        }
+    }
+}
+
 function render() {
     columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
@@ -6075,6 +6144,7 @@ function render() {
     renderTaskList();
     updateTaskListBottomGradient(false); // fade animation on normal render/resize
     updateInputBoxGradients(false); // update input box gradients on render/resize
+    updateSettingsTextPosition(); // update settings text position on render/resize
 }
 
 window.onresize = render;
@@ -6317,20 +6387,15 @@ function openSettingsModal() {
         const settingsText = HTML.make('div');
         HTML.setId(settingsText, 'settingsText');
         
-        // Measure the full width of "Settings" text for right alignment
-        const fullTextWidth = measureTextWidth("Settings", 'Monospace', 12);
-        
         HTML.setStyle(settingsText, {
             position: 'fixed',
-            right: (window.innerWidth - modalRect.left - fullTextWidth - 5) + 'px',
+            left: (modalRect.left + 5) + 'px',
             top: (modalRect.top + 5) + 'px',
             fontFamily: 'Monospace',
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '12px',
-            textAlign: 'right',
-            width: fullTextWidth + 'px'
+            lineHeight: '12px'
         });
         HTML.body.appendChild(settingsText);
         
@@ -6343,7 +6408,7 @@ function openSettingsModal() {
         timeFormatLabel.textContent = 'Time format:';
         HTML.setStyle(timeFormatLabel, {
             position: 'fixed',
-            left: (modalRect.left + 5) + 'px',
+            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospace', 10) - 5) + 'px',
             top: (modalRect.top + 18) + 'px',
             fontFamily: 'Monospace',
             fontSize: '10px',
@@ -6357,7 +6422,7 @@ function openSettingsModal() {
             ['24hr', 'AM/PM'],           // options: array of selectable strings
             'horizontal',                // orientation: layout direction
             'timeFormatSelector',        // id: unique identifier for this selector
-            modalRect.width - 146,          // x: 5px from left side of modal
+            modalRect.width - 145,          // x: 5px from left side of modal
             modalRect.top + 20,          // y: 20px from top of modal
             72,                          // width: total selector width in pixels
             20,                          // height: total selector height in pixels
