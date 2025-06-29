@@ -3404,9 +3404,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         } else {
             touchingGroupColorIndex = 0; // Reset because the chain is broken
         }
-        const accentColorVarName = `--accent-${touchingGroupColorIndex % user.palette.accent.length}`;
-        const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue(accentColorVarName).trim();
-        const accentColorVar = `var(${accentColorVarName})`;
+        const accentColorVar = `var(--accent-${touchingGroupColorIndex % user.palette.accent.length})`;
 
         // Calculate container height and update last position for the next iteration
         const currentVisualBottom = isFlipped ? (reminderTopPosition + reminderLineHeight) : (reminderTopPosition + reminderTextHeight);
@@ -3793,9 +3791,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 
                 // Calculate darkened color (less blue, more black)
                 const darknessFactor = stackIndex * 0.25; // Each level gets 25% more black mixed in
-                const originalR = parseInt(accentColorHex.slice(1, 3), 16);
-                const originalG = parseInt(accentColorHex.slice(3, 5), 16);
-                const originalB = parseInt(accentColorHex.slice(5, 7), 16);
+                const accentColorRgb = hexToRgb(user.palette.accent[0]);
+                const originalR = accentColorRgb.r;
+                const originalG = accentColorRgb.g;
+                const originalB = accentColorRgb.b;
 
                 // Interpolate between original color and black, but clamp brightness at 20%
                 const brightness = Math.max(0.2, 1 - darknessFactor);
@@ -6300,7 +6299,8 @@ function openSettingsModal() {
         right: (window.innerWidth - buttonRect.right) + 'px',
         width: buttonRect.width + 'px',
         height: buttonRect.height + 'px',
-        backgroundColor: 'var(--shade-1)',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
         borderRadius: '4px',
         zIndex: String(settingsModalZIndex),
         transformOrigin: 'top right',
@@ -6322,6 +6322,7 @@ function openSettingsModal() {
         width: targetWidth + 'px',
         height: targetHeight + 'px',
         backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
         borderRadius: '4px'
     });
     
@@ -6403,13 +6404,17 @@ async function animateSettingsText(textElement) {
         await new Promise(resolve => setTimeout(resolve, 300));
     }
     
-    // Slide cursor left past each letter
+    // Slide cursor left past each letter, replacing characters as it goes
     for (let i = text.length; i >= 0; i--) {
         if (!settingsModalOpen) return;
         
-        let displayText = text.substring(0, i) + cursor;
-        if (i < text.length) {
-            displayText += text.substring(i);
+        let displayText;
+        if (i === text.length) {
+            // When cursor is at the end, show text with cursor appended
+            displayText = text + cursor;
+        } else {
+            // Cursor replaces the character at position i
+            displayText = text.substring(0, i) + cursor + text.substring(i + 1);
         }
         textElement.textContent = displayText;
         await new Promise(resolve => setTimeout(resolve, 80));
@@ -6472,7 +6477,8 @@ function closeSettingsModal() {
         HTML.setStyle(settingsModal, {
             width: buttonRect.width + 'px',
             height: buttonRect.height + 'px',
-            backgroundColor: 'var(--shade-1)',
+            backgroundColor: 'var(--shade-0)',
+            border: '2px solid var(--shade-1)',
             borderRadius: '4px'
         });
         
@@ -6595,18 +6601,18 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         if (orientation === "horizontal") {
             // Allocate width proportionally based on text measurement
             const textProportion = textWidth / totalTextWidth;
-            optionWidth = Math.floor(availableWidth * textProportion);
+            optionWidth = availableWidth * textProportion;
             optionHeight = innerHeight;
-            optionX = Math.floor(currentPos);
+            optionX = currentPos;
             optionY = 0;
             currentPos += optionWidth + (i < options.length - 1 ? minSpacing : 0);
         } else {
             // Allocate height proportionally based on text measurement
             const textProportion = textWidth / totalTextWidth;
-            optionHeight = Math.floor(availableHeight * textProportion);
+            optionHeight = availableHeight * textProportion;
             optionWidth = innerWidth;
             optionX = 0;
-            optionY = Math.floor(currentPos);
+            optionY = currentPos;
             currentPos += optionHeight + (i < options.length - 1 ? minSpacing : 0);
         }
         
@@ -6646,10 +6652,15 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     HTML.setId(highlight, id + '_highlight');
     const selectedOption = optionData[initialIndex];
     
-    // Get accent color and convert to rgba with 0.2 opacity
-    const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue('--accent-1').trim();
+    // Get accent color and convert to rgba with 0.4 opacity
+    const accentColorHex = user.palette.accent[1]; // secondary accent color
     const accentColorRgb = hexToRgb(accentColorHex);
-    const accentColorRgba = `rgba(${accentColorRgb.r}, ${accentColorRgb.g}, ${accentColorRgb.b}, 0.2)`;
+    const accentColorRgba = `rgba(${accentColorRgb.r}, ${accentColorRgb.g}, ${accentColorRgb.b}, 0.4)`;
+    
+    // Get shade-4 color and create blended color for selected text (80% shade-4 + 20% accent)
+    const shade4ColorHex = user.palette.shades[4];
+    const shade4ColorRgb = hexToRgb(shade4ColorHex);
+    const blendedTextColor = `rgb(${Math.round(shade4ColorRgb.r * 0.8 + accentColorRgb.r * 0.2)}, ${Math.round(shade4ColorRgb.g * 0.8 + accentColorRgb.g * 0.2)}, ${Math.round(shade4ColorRgb.b * 0.8 + accentColorRgb.b * 0.2)})`;
     
     HTML.setStyle(highlight, {
         position: 'absolute',
@@ -6680,7 +6691,7 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
             justifyContent: 'center',
             fontFamily: font,
             fontSize: fontSize + 'px',
-            color: i === initialIndex ? 'white' : 'var(--shade-3)',
+            color: i === initialIndex ? blendedTextColor : 'var(--shade-3)',
             zIndex: String(zIndex + 2),
             cursor: 'pointer',
             userSelect: 'none',
@@ -6718,7 +6729,7 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
                 // Update text colors with smooth transitions
                 for (let j = 0; j < textElements.length; j++) {
                     HTML.setStyle(textElements[j], {
-                        color: j === i ? 'white' : 'var(--shade-3)',
+                        color: j === i ? blendedTextColor : 'var(--shade-3)',
                         transition: 'color 0.3s ease'
                     });
                 }
@@ -6733,7 +6744,7 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
             const currentIndex = HTML.getData(background, 'selectedIndex');
             if (currentIndex !== i) {
                 HTML.setStyle(textElement, {
-                    color: 'white',
+                    color: blendedTextColor,
                     transition: 'color 0.2s ease'
                 });
             }
