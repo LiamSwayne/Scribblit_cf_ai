@@ -4178,11 +4178,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
 let topOfCalendarDay = 20; // px
 
-function getDayColumnDimensions(dayIndex) {
+function getDayColumnDimensions(dayIndex) {    
+    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < numberOfDays);
     const numberOfDays = LocalData.get('numberOfDays');
     const isStacking = LocalData.get('stacking');
-    
-    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < numberOfDays);
 
     let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
     let top = windowBorderMargin + headerSpace + topOfCalendarDay;
@@ -4383,9 +4382,8 @@ function renderDividers() {
     }
 
     const numberOfDays = LocalData.get('numberOfDays');
-    const isStacking = LocalData.get('stacking');
 
-    if (isStacking) {
+    if (LocalData.get('stacking');) {
         // STACKING MODE: Both horizontal and vertical dividers
         
         // Horizontal Divider
