@@ -1315,7 +1315,6 @@ class User {
     }
 
     static fromJson(json) {
-        log("fromJson: " + JSON.stringify(json));
         ASSERT(exists(json));
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));
