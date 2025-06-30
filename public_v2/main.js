@@ -6724,7 +6724,7 @@ function openSignInModal() {
     // Sign-in button is at windowBorderMargin + 3*(headerButtonSize + 4) from right edge
     // We want to cover this entire span plus some extra to the left
     const modalHeight = 150;
-    const extraLeftWidth = 100; // Extra space to the left of sign-in button
+    const extraLeftWidth = 80; // Extra space to the left of sign-in button
     const distanceToSettingsRight = (headerButtonSize + 4) * 3; // Distance from sign-in to settings right edge
     const modalWidth = extraLeftWidth + buttonRect.width + distanceToSettingsRight;
     
@@ -6858,28 +6858,13 @@ function closeSignInModal() {
         
         // First animate back to button position and size
         HTML.setStyle(signInModal, {
-            width: buttonRect.width + 'px',
-            height: buttonRect.height + 'px',
-            right: (window.innerWidth - buttonRect.right) + 'px',
+            width: '10px',
+            height: '0px',
+            right: (window.innerWidth - buttonRect.right + 10) + 'px',
             backgroundColor: 'var(--shade-0)',
             border: '2px solid var(--shade-1)',
-            borderRadius: '4px',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         });
-        
-        // Then after the first animation completes, animate to zero size from button position
-        setTimeout(() => {
-            if (signInModal) {
-                HTML.setStyle(signInModal, {
-                    width: '0px',
-                    height: '0px',
-                    backgroundColor: 'var(--shade-0)',
-                    border: '2px solid var(--shade-1)',
-                    borderRadius: '4px',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                });
-            }
-        }, 300);
         
         // Remove modal after full animation and reset z-index
         setTimeout(() => {
