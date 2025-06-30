@@ -1441,6 +1441,80 @@ class FilteredReminderInstance {
     // No toJson or fromJson needed
 }
 
+// LocalData class for managing local storage state
+class LocalData {
+    static stacking = false;
+    static numberOfDays = 2;
+    static signedIn = false;
+    static isLoaded = false;
+    
+    // Prevent instantiation
+    constructor() {
+        ASSERT(false, "LocalData cannot be instantiated");
+    }
+    
+    static load() {
+        const localData = localStorage.getItem("localData");
+        if (exists(localData)) {
+            try {
+                const data = JSON.parse(localData);
+                ASSERT(type(data.stacking, Boolean), "LocalData.stacking must be Boolean");
+                ASSERT(type(data.numberOfDays, Int), "LocalData.numberOfDays must be Int");
+                ASSERT(type(data.signedIn, Boolean), "LocalData.signedIn must be Boolean");
+                
+                this.stacking = data.stacking;
+                this.numberOfDays = data.numberOfDays;
+                this.signedIn = data.signedIn;
+            } catch (error) {
+                log("ERROR parsing localData, using defaults: " + error.message);
+                // Keep default values if parsing fails
+            }
+        }
+        this.isLoaded = true;
+    }
+    
+    static get(key) {
+        ASSERT(this.isLoaded, "LocalData must be loaded before getting values");
+        ASSERT(type(key, String), "LocalData.get() key must be String");
+        
+        if (key === 'stacking') {
+            return this.stacking;
+        } else if (key === 'numberOfDays') {
+            return this.numberOfDays;
+        } else if (key === 'signedIn') {
+            return this.signedIn;
+        } else {
+            ASSERT(false, "LocalData.get() key must be stacking, numberOfDays, or signedIn");
+        }
+    }
+    
+    static set(key, value) {
+        ASSERT(this.isLoaded, "LocalData must be loaded before setting values");
+        ASSERT(type(key, String), "LocalData.set() key must be String");
+        
+        if (key === 'stacking') {
+            ASSERT(type(value, Boolean), "LocalData.stacking must be Boolean");
+            this.stacking = value;
+        } else if (key === 'numberOfDays') {
+            ASSERT(type(value, Int), "LocalData.numberOfDays must be Int");
+            this.numberOfDays = value;
+        } else if (key === 'signedIn') {
+            ASSERT(type(value, Boolean), "LocalData.signedIn must be Boolean");
+            this.signedIn = value;
+        } else {
+            ASSERT(false, "LocalData.set() key must be stacking, numberOfDays, or signedIn");
+        }
+        
+        // Save to localStorage
+        const data = {
+            stacking: this.stacking,
+            numberOfDays: this.numberOfDays,
+            signedIn: this.signedIn
+        };
+        localStorage.setItem("localData", JSON.stringify(data));
+    }
+}
+
 // type checking function
 function type(thing, sometype) {
     ASSERT(exists(thing), "found thing that doesn't exist while type checking");
