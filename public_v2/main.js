@@ -707,7 +707,7 @@ if (TESTING) {
         // Non-recurring timed reminder
         new Entity(
             'reminder-001',
-            'Call Alex re: Project Super Super Long Long Long Name',
+            'Call Alex re: Project Super Super Long Long Name',
             'Follow up on Project X deliverables',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1078,9 +1078,9 @@ function currentDays() {
     // firstDayInCalendar must be DateField
     ASSERT(type(firstDayInCalendar, DateField));
     // numberOfCalendarDays must be Int between 1 and 7
-    ASSERT(type(user.settings.numberOfCalendarDays, Int) && user.settings.numberOfCalendarDays >= 1 && user.settings.numberOfCalendarDays <= 7);
+    ASSERT(type(LocalData.get('numberOfDays'), Int) && LocalData.get('numberOfDays') >= 1 && LocalData.get('numberOfDays') <= 7);
     let days = [];
-    for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
+    for (let i = 0; i < LocalData.get('numberOfDays'); i++) {
         // Convert DateField to DateTime, add days, then create a new DateField
         let dt = DateTime.local(firstDayInCalendar.year, firstDayInCalendar.month, firstDayInCalendar.day);
         let dtWithOffset = dt.plus({days: i});
@@ -1638,11 +1638,11 @@ function playConfettiAnimation() {
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
-    ASSERT(type(user.settings.stacking, Boolean) && type(user.settings.numberOfCalendarDays, Int));
-    if (user.settings.stacking) {
-        return Math.floor(user.settings.numberOfCalendarDays / 2) + 1;
+    ASSERT(type(LocalData.get('stacking'), Boolean) && type(LocalData.get('numberOfDays'), Int));
+    if (LocalData.get('stacking')) {
+        return Math.floor(LocalData.get('numberOfDays') / 2) + 1;
     }
-    return user.settings.numberOfCalendarDays + 1;
+    return LocalData.get('numberOfDays') + 1;
 }
 
 function nthHourText(n) {
@@ -3643,14 +3643,14 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         
         // Check if this day is rightmost
         let isRightmostDay = false;
-        if (user.settings.stacking) {
+        if (LocalData.get('stacking')) {
             // In stacking mode, there are two rightmost days: one for top row, one for bottom row
-            const topRowRightmost = Math.floor(user.settings.numberOfCalendarDays / 2) - 1;
-            const bottomRowRightmost = user.settings.numberOfCalendarDays - 1;
+            const topRowRightmost = Math.floor(LocalData.get('numberOfDays') / 2) - 1;
+            const bottomRowRightmost = LocalData.get('numberOfDays') - 1;
             isRightmostDay = (dayIndex === topRowRightmost && topRowRightmost >= 0) || (dayIndex === bottomRowRightmost);
         } else {
             // In normal mode, only one rightmost day
-            isRightmostDay = (dayIndex === user.settings.numberOfCalendarDays - 1);
+            isRightmostDay = (dayIndex === LocalData.get('numberOfDays') - 1);
         }
         
         // Calculate line width - for rightmost days, extend to the right edge of the day column
@@ -4179,24 +4179,27 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 let topOfCalendarDay = 20; // px
 
 function getDayColumnDimensions(dayIndex) {
-    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < user.settings.numberOfCalendarDays);
+    const numberOfDays = LocalData.get('numberOfDays');
+    const isStacking = LocalData.get('stacking');
+    
+    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < numberOfDays);
 
     let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
-    height -= 2; // manual adjustment, not sure why it's off by 1
     let top = windowBorderMargin + headerSpace + topOfCalendarDay;
     let left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex + 1));
     const width = columnWidth; // columnWidth is a global
 
-    if (user.settings.stacking) {
+    if (isStacking) {
         height = (window.innerHeight - headerSpace - (2 * windowBorderMargin) - gapBetweenColumns) / 2 - topOfCalendarDay;
         height -= 1; // manual adjustment, not sure why it's off by 1
-        if (dayIndex >= Math.floor(user.settings.numberOfCalendarDays / 2)) { // bottom half
+        const halfDays = Math.floor(numberOfDays / 2);
+        if (dayIndex >= halfDays) { // bottom half
             top += height + gapBetweenColumns + topOfCalendarDay;
             
-            if (user.settings.numberOfCalendarDays % 2 == 0) {
-                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - Math.floor(user.settings.numberOfCalendarDays / 2) + 1));
+            if (numberOfDays % 2 == 0) {
+                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - halfDays + 1));
             } else {
-                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - Math.floor(user.settings.numberOfCalendarDays / 2)));
+                left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex - halfDays));
             }
         } else { // top half
             left = windowBorderMargin + ((columnWidth + gapBetweenColumns) * (dayIndex + 1));
@@ -4207,11 +4210,14 @@ function getDayColumnDimensions(dayIndex) {
 }
 
 function renderCalendar(days) {
+    const numberOfDays = LocalData.get('numberOfDays');
+    const isStacking = LocalData.get('stacking');
+    
     ASSERT(type(days, List(DateField)));
-    ASSERT(exists(user.settings) && exists(user.settings.numberOfCalendarDays) && days.length == user.settings.numberOfCalendarDays, "renderCalendar days must be an array of length user.settings.numberOfCalendarDays");
-    ASSERT(type(user.settings.stacking, Boolean));
+    ASSERT(exists(numberOfDays) && days.length == numberOfDays, "renderCalendar days must be an array of length LocalData.get('numberOfDays')");
+    ASSERT(type(isStacking, Boolean));
     for (let i = 0; i < 7; i++) {
-        if (i >= user.settings.numberOfCalendarDays) { // delete excess elements if they exist
+        if (i >= numberOfDays) { // delete excess elements if they exist
             // day background element
             /*
             let dayBackgroundElement = HTML.getUnsafely('day-background-' + String(i));
@@ -4376,9 +4382,10 @@ function renderDividers() {
         if (exists(vDivider)) vDivider.remove();
     }
 
-    const numberOfDays = user.settings.numberOfCalendarDays;
+    const numberOfDays = LocalData.get('numberOfDays');
+    const isStacking = LocalData.get('stacking');
 
-    if (user.settings.stacking) {
+    if (isStacking) {
         // STACKING MODE: Both horizontal and vertical dividers
         
         // Horizontal Divider
@@ -4487,29 +4494,30 @@ function renderDividers() {
 }
 
 function toggleNumberOfCalendarDays(increment) {
-    ASSERT(type(LocalData.get('numberOfDays'), Int));
-    ASSERT(1 <= LocalData.get('numberOfDays') && LocalData.get('numberOfDays') <= 7);
+    const currentDays = LocalData.get('numberOfDays');
+    ASSERT(type(currentDays, Int));
+    ASSERT(1 <= currentDays && currentDays <= 7);
     
     let newValue;
     if (increment) {
-        if (LocalData.get('numberOfDays') === 7) {
+        if (currentDays === 7) {
             newValue = 1;
         } else {
-            newValue = LocalData.get('numberOfDays') + 1;
+            newValue = currentDays + 1;
         }
     } else {
-        if (LocalData.get('numberOfDays') === 1) {
+        if (currentDays === 1) {
             newValue = 7;
         } else {
-            newValue = LocalData.get('numberOfDays') - 1;
+            newValue = currentDays - 1;
         }
     }
 
     LocalData.set('numberOfDays', newValue);
-    user.settings.numberOfCalendarDays = LocalData.get('numberOfDays'); // sync with user object
+    user.settings.numberOfCalendarDays = newValue; // sync with user object
 
     let numberDisplay = HTML.getElement('buttonNumberDisplay');
-    numberDisplay.textContent = String(LocalData.get('numberOfDays'));
+    numberDisplay.textContent = String(newValue);
     
     saveUserData(user);
     render();
@@ -4710,7 +4718,7 @@ function toggleAmPmOr24(formatSelection) {
     };
 
     // update all hour markers
-    for (let i = 0; i < user.settings.numberOfCalendarDays; i++) {
+    for (let i = 0; i < LocalData.get('numberOfDays'); i++) {
         for (let j = 0; j < 24; j++) {
             let hourMarkerText = HTML.getElement(`day${i}hourMarkerText${j}`);
             const newHtml = nthHourText(j);
@@ -5131,7 +5139,7 @@ function renderInputBox() {
     // this is a rough calculation not based on thorough design decisions
     // but it looks fine sooooo I guess it works for now
     let maxHeight;
-    if (user.settings.stacking) {
+    if (LocalData.get('stacking')) {
         maxHeight = window.innerHeight / 4;
     } else {
         maxHeight = window.innerHeight / 2;
@@ -5903,7 +5911,7 @@ function updateTaskListBottomGradient(instant) {
     const gradientHeight = 30; // px
 
     // stacking and there's a horizontal divider
-    if (user.settings.stacking && user.settings.numberOfCalendarDays % 2 === 1) {
+    if (LocalData.get('stacking') && LocalData.get('numberOfDays') % 2 === 1) {
         const hDivider = HTML.getElement('horizontal-divider');
         const hRect = hDivider.getBoundingClientRect();
         topPos = hRect.top - gradientHeight; // center the gradient on the divider
@@ -5984,8 +5992,8 @@ function renderTaskList() {
 
     // Calculate the available height for the task list based on stacking mode
     let taskListHeight;
-    if (user.settings.stacking) {
-        if (user.settings.numberOfCalendarDays % 2 === 0) {
+    if (LocalData.get('stacking')) {
+        if (LocalData.get('numberOfDays') % 2 === 0) {
             // In stacking mode with even number of days, extend to bottom of page
             taskListHeight = window.innerHeight - taskListTop; // reach the bottom of the page
         } else {
@@ -6065,7 +6073,7 @@ function renderTaskList() {
     // Set container height to actual content height - viewport will handle clipping/scrolling
     const actualContentHeight = currentTop - taskListTop;
 
-    if (user.settings.stacking) {
+    if (LocalData.get('stacking')) {
         taskListManualHeightAdjustment = 56;
     } else {
         taskListManualHeightAdjustment = 60;
