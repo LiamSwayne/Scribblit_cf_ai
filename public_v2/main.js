@@ -1014,6 +1014,14 @@ function applyPalette(palette) {
 }
 
 let user = loadUserData();
+
+// Sync LocalData with user settings (LocalData takes precedence)
+LocalData.set('stacking', user.settings.stacking);
+LocalData.set('numberOfDays', user.settings.numberOfCalendarDays);
+// Sync back to user object to ensure consistency
+user.settings.stacking = LocalData.get('stacking');
+user.settings.numberOfCalendarDays = LocalData.get('numberOfDays');
+
 applyPalette(user.palette);
 // Set firstDayInCalendar to today on page load
 firstDayInCalendar = getDayNDaysFromToday(0);
@@ -4479,25 +4487,29 @@ function renderDividers() {
 }
 
 function toggleNumberOfCalendarDays(increment) {
-    ASSERT(type(user.settings.numberOfCalendarDays, Int));
-    ASSERT(1 <= user.settings.numberOfCalendarDays && user.settings.numberOfCalendarDays <= 7);
+    ASSERT(type(LocalData.get('numberOfDays'), Int));
+    ASSERT(1 <= LocalData.get('numberOfDays') && LocalData.get('numberOfDays') <= 7);
     
+    let newValue;
     if (increment) {
-        if (user.settings.numberOfCalendarDays === 7) {
-            user.settings.numberOfCalendarDays = 1;
+        if (LocalData.get('numberOfDays') === 7) {
+            newValue = 1;
         } else {
-            user.settings.numberOfCalendarDays++;
+            newValue = LocalData.get('numberOfDays') + 1;
         }
     } else {
-        if (user.settings.numberOfCalendarDays === 1) {
-            user.settings.numberOfCalendarDays = 7;
+        if (LocalData.get('numberOfDays') === 1) {
+            newValue = 7;
         } else {
-            user.settings.numberOfCalendarDays--;
+            newValue = LocalData.get('numberOfDays') - 1;
         }
     }
 
+    LocalData.set('numberOfDays', newValue);
+    user.settings.numberOfCalendarDays = LocalData.get('numberOfDays'); // sync with user object
+
     let numberDisplay = HTML.getElement('buttonNumberDisplay');
-    numberDisplay.textContent = String(user.settings.numberOfCalendarDays);
+    numberDisplay.textContent = String(LocalData.get('numberOfDays'));
     
     saveUserData(user);
     render();
@@ -4648,7 +4660,7 @@ function initNumberOfCalendarDaysButton() {
     HTML.body.appendChild(buttonNumberCalendarDays);
     
     // Initial content update
-    numberDisplay.textContent = String(user.settings.numberOfCalendarDays);
+    numberDisplay.textContent = String(LocalData.get('numberOfDays'));
 }
 
 function toggleAmPmOr24(formatSelection) {
@@ -4757,8 +4769,9 @@ function toggleAmPmOr24(formatSelection) {
 }
 
 function toggleStacking() {
-    ASSERT(type(user.settings.stacking, Boolean));
-    user.settings.stacking = !user.settings.stacking;
+    ASSERT(type(LocalData.get('stacking'), Boolean));
+    LocalData.set('stacking', !LocalData.get('stacking'));
+    user.settings.stacking = LocalData.get('stacking'); // sync with user object
     saveUserData(user);
     render();
     updateTaskListBottomGradient(true); // update instantly when toggling stacking
@@ -4849,7 +4862,7 @@ function initStackingButton() {
     };
     
     // Set initial rotation based on stacking state
-    if (user.settings.stacking) {
+    if (LocalData.get('stacking')) {
         HTML.setData(stackingIcon, 'rotation', 90);
         HTML.setStyle(stackingIcon, {
             transform: 'rotate(90deg)'
