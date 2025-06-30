@@ -4508,7 +4508,7 @@ function initNumberOfCalendarDaysButton() {
     HTML.setStyle(buttonNumberCalendarDays, {
         position: 'absolute',
         top: '6px',
-        left: String(100 + windowBorderMargin*2) + 'px',
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of stacking button
         width: String(headerButtonSize) + 'px',
         height: String(headerButtonSize) + 'px',
         backgroundColor: 'var(--shade-1)',
