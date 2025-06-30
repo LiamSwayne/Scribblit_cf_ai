@@ -1081,6 +1081,9 @@ const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
 const settingsModalZIndex = 6999;
 const settingsButtonZIndex = 7000; // stays above modal
 const settingsGearZIndex = 7001; // above settings modal but below settings modal content
+const signInModalZIndex = 6996;
+const signInButtonZIndex = 6997; // stays above modal
+const signInTextZIndex = 6998; // above sign-in modal
 
 
 const taskInfoDateFontBigCol = 10; // px
@@ -6433,6 +6436,9 @@ function initGridBackground() {
 let settingsModalOpen = false;
 let settingsModal = null;
 
+let signInModalOpen = false;
+let signInModal = null;
+
 function toggleSettings() {
     if (settingsModalOpen) {
         closeSettingsModal();
@@ -6659,6 +6665,205 @@ function closeSettingsModal() {
                 settingsModal = null;
             }
         }, 400);
+    }
+}
+
+function toggleSignIn() {
+    if (signInModalOpen) {
+        closeSignInModal();
+    } else {
+        openSignInModal();
+    }
+}
+
+function openSignInModal() {
+    if (signInModalOpen || exists(HTML.getElementUnsafely('signInModal'))) return;
+    signInModalOpen = true;
+    
+    const signInButton = HTML.getElement('signInButton');
+    const signInText = HTML.getElement('signInText');
+    
+    // Get current button position and size
+    const buttonRect = signInButton.getBoundingClientRect();
+    
+    // Calculate modal width to span from left of sign-in button to right edge of settings button
+    // Settings button is at windowBorderMargin from right edge
+    // Sign-in button is at windowBorderMargin + 3*(headerButtonSize + 4) from right edge
+    // We want to cover this entire span plus some extra to the left
+    const modalHeight = 150;
+    const extraLeftWidth = 100; // Extra space to the left of sign-in button
+    const distanceToSettingsRight = (headerButtonSize + 4) * 3; // Distance from sign-in to settings right edge
+    const modalWidth = extraLeftWidth + buttonRect.width + distanceToSettingsRight;
+    
+    // Position modal so it grows left and right from the sign-in button
+    const modalRight = (window.innerWidth - buttonRect.right) - distanceToSettingsRight;
+    
+    // Create modal div that starts as the button background
+    signInModal = HTML.make('div');
+    HTML.setId(signInModal, 'signInModal');
+    HTML.setStyle(signInModal, {
+        position: 'fixed',
+        top: buttonRect.top + 'px',
+        right: (window.innerWidth - buttonRect.right) + 'px',
+        width: buttonRect.width + 'px',
+        height: buttonRect.height + 'px',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
+        borderRadius: '4px',
+        zIndex: String(signInModalZIndex + 100),
+        transformOrigin: 'top right',
+        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+    });
+    
+    HTML.body.appendChild(signInModal);
+    
+    // Update sign-in button and text z-index to be above everything
+    HTML.setStyle(signInButton, {
+        zIndex: String(signInButtonZIndex + 100)
+    });
+    
+    HTML.setStyle(signInText, {
+        zIndex: String(signInTextZIndex + 100)
+    });
+    
+    // Force reflow
+    signInModal.offsetHeight;
+    
+    // Start modal growth animation - expand left and right
+    HTML.setStyle(signInModal, {
+        width: modalWidth + 'px',
+        height: modalHeight + 'px',
+        right: modalRight + 'px',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
+        borderRadius: '4px'
+    });
+    
+    // After animation completes, add content (for now just placeholder)
+    setTimeout(() => {
+        // state may have changed since the timeout was set
+        if (!signInModalOpen) return;
+
+        // Get modal position for content positioning
+        const modalRect = signInModal.getBoundingClientRect();
+        
+        // Create "Sign In/Sign Up" title text
+        const titleText = HTML.make('div');
+        HTML.setId(titleText, 'signInTitleText');
+        titleText.textContent = 'Sign In/Sign Up';
+        
+        HTML.setStyle(titleText, {
+            position: 'fixed',
+            left: (modalRect.left + 10) + 'px',
+            top: (modalRect.top + 10) + 'px',
+            fontFamily: 'Monospace',
+            fontSize: '14px',
+            color: 'var(--shade-4)',
+            zIndex: String(signInTextZIndex + 101),
+            lineHeight: '14px'
+        });
+        HTML.body.appendChild(titleText);
+        
+        // Create placeholder text for now
+        const placeholderText = HTML.make('div');
+        HTML.setId(placeholderText, 'signInPlaceholderText');
+        placeholderText.textContent = 'Coming soon...';
+        
+        HTML.setStyle(placeholderText, {
+            position: 'fixed',
+            left: (modalRect.left + 10) + 'px',
+            top: (modalRect.top + 35) + 'px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-3)',
+            zIndex: String(signInTextZIndex + 101),
+            lineHeight: '12px'
+        });
+        HTML.body.appendChild(placeholderText);
+        
+    }, 400);
+}
+
+function closeSignInModal() {
+    if (!signInModalOpen) return;
+    signInModalOpen = false;
+    
+    const signInButton = HTML.getElement('signInButton');
+    const signInText = HTML.getElement('signInText');
+    
+    // Fade out title and placeholder text
+    const titleText = HTML.getElementUnsafely('signInTitleText');
+    const placeholderText = HTML.getElementUnsafely('signInPlaceholderText');
+    
+    if (titleText) {
+        HTML.setStyle(titleText, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (titleText && titleText.parentNode) {
+                HTML.body.removeChild(titleText);
+            }
+        }, 200);
+    }
+    
+    if (placeholderText) {
+        HTML.setStyle(placeholderText, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (placeholderText && placeholderText.parentNode) {
+                HTML.body.removeChild(placeholderText);
+            }
+        }, 200);
+    }
+    
+    if (signInModal) {
+        // Reset sign-in button and text z-index
+        HTML.setStyle(signInButton, {
+            zIndex: String(signInButtonZIndex)
+        });
+        
+        HTML.setStyle(signInText, {
+            zIndex: String(signInTextZIndex)
+        });
+        
+        // Get original button position to animate back to
+        const buttonRect = signInButton.getBoundingClientRect();
+        
+        // First animate back to button position and size
+        HTML.setStyle(signInModal, {
+            width: buttonRect.width + 'px',
+            height: buttonRect.height + 'px',
+            right: (window.innerWidth - buttonRect.right) + 'px',
+            backgroundColor: 'var(--shade-0)',
+            border: '2px solid var(--shade-1)',
+            borderRadius: '4px',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+        });
+        
+        // Then after the first animation completes, animate to zero size from button position
+        setTimeout(() => {
+            if (signInModal) {
+                HTML.setStyle(signInModal, {
+                    width: '0px',
+                    height: '0px',
+                    backgroundColor: 'var(--shade-0)',
+                    border: '2px solid var(--shade-1)',
+                    borderRadius: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                });
+            }
+        }, 300);
+        
+        // Remove modal after full animation
+        setTimeout(() => {
+            if (signInModal) {
+                HTML.body.removeChild(signInModal);
+                signInModal = null;
+            }
+        }, 500);
     }
 }
 
@@ -7159,7 +7364,8 @@ function initSignInButton() {
         justifyContent: 'center',
         userSelect: 'none',
         cursor: 'pointer',
-        transition: 'all 0.3s ease'
+        transition: 'all 0.3s ease',
+        zIndex: String(signInButtonZIndex)
     });
     
     // Sign-in text
@@ -7169,14 +7375,14 @@ function initSignInButton() {
         fontSize: '11px',
         fontFamily: 'Monospaced',
         color: 'var(--shade-3)',
-        whiteSpace: 'nowrap'
+        whiteSpace: 'nowrap',
+        zIndex: String(signInTextZIndex)
     });
     signInText.textContent = 'sign in/up';
     
     // Event handlers
     signInButton.onclick = () => {
-        // TODO: Implement sign-in functionality
-        console.log('Sign-in button clicked');
+        toggleSignIn();
     };
     
     // Hover effect
