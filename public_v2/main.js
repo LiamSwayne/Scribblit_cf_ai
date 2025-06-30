@@ -1,3 +1,6 @@
+// Load LocalData immediately
+LocalData.load();
+
 // start loading fonts immediately on page load
 const fontDefinitions = [
     { key: 'PrimaryRegular', url: 'https://super-publisher.pages.dev/YOOOOOOOOOOOOO.woff2' },
@@ -6379,7 +6382,7 @@ function toggleSettings() {
 }
 
 function openSettingsModal() {
-    if (settingsModalOpen) return;
+    if (settingsModalOpen || exists(HTML.getElementUnsafely('settingsModal'))) return;
     settingsModalOpen = true;
     
     const settingsButton = HTML.getElement('settingsButton');
@@ -6387,8 +6390,13 @@ function openSettingsModal() {
     
     // Get current button position and size
     const buttonRect = settingsButton.getBoundingClientRect();
-    const targetWidth = 200;
-    const targetHeight = 100;
+    const modalWidth = 200;
+    let modalHeight;
+    if (LocalData.get('signedIn')) {
+        modalHeight = 100;
+    } else {
+        modalHeight = 41;
+    }
     
     // Create modal div that starts as the button background
     settingsModal = HTML.make('div');
@@ -6419,8 +6427,8 @@ function openSettingsModal() {
     
     // Start modal growth animation
     HTML.setStyle(settingsModal, {
-        width: targetWidth + 'px',
-        height: targetHeight + 'px',
+        width: modalWidth + 'px',
+        height: modalHeight + 'px',
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         borderRadius: '4px'
@@ -6428,6 +6436,9 @@ function openSettingsModal() {
     
     // Test the selector after settings animation completes
     setTimeout(() => {
+        // state may have changed since the timeout was set
+        if (!settingsModalOpen) return;
+
         // Get modal position for relative positioning
         const modalRect = settingsModal.getBoundingClientRect();
         
