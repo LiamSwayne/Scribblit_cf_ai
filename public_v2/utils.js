@@ -1304,7 +1304,7 @@ class User {
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));
         ASSERT(exists(json.data.entityArray));
-        ASSERT(type(json.data.entityArray, List(Entity)));
+        ASSERT(type(json.data.entityArray, List(Object)));
         ASSERT(exists(json.data.settings));
         ASSERT(type(json.data.settings.startOfDayOffset, Int));
         ASSERT(type(json.data.settings.numberOfCalendarDays, Int));
