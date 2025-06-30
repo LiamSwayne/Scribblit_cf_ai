@@ -1248,12 +1248,14 @@ class Entity {
 
 // User class to encapsulate all user data
 class User {
-    constructor(entityArray, settings, palette, userId = NULL, email = NULL) {
+    constructor(entityArray, settings, palette, userId, email, usage, timestamp) {
         ASSERT(type(entityArray, List(Entity)));
         ASSERT(type(settings, Dict(String, Union(Boolean, Int, String))));
         ASSERT(type(palette, Dict(String, List(String))));
         ASSERT(type(userId, Union(String, NULL)));
         ASSERT(type(email, Union(String, NULL)));
+        ASSERT(type(usage, Int));
+        ASSERT(usage >= 0);
         
         // Assert that both userId and email are null, or both are non-null
         ASSERT((userId === NULL && email === NULL) || (userId !== NULL && email !== NULL), 
@@ -1263,6 +1265,7 @@ class User {
         ASSERT(settings.ampmOr24 === 'ampm' || settings.ampmOr24 === '24');
         // how many hours to offset
         ASSERT(type(settings.startOfDayOffset, Int) && -12 <= settings.startOfDayOffset && settings.startOfDayOffset <= 12);
+        ASSERT(type(settings.endOfDayOffset, Int) && -12 <= settings.endOfDayOffset && settings.endOfDayOffset <= 12);
         
         // Validate palette structure
         ASSERT(type(palette.accent, List(String)));
@@ -1277,12 +1280,16 @@ class User {
         this.palette = palette;
         this.userId = userId;
         this.email = email;
+        this.usage = usage;
+        this.timestamp = timestamp;
     }
 
     // this is how we store the user in the DB
     // note that we only need to query userId and email,
     // so everything else is stored as a single string in the DB
     // dataspec integer is just so we can migrate data
+    // note that we also don't store LocalData, which is basically
+    // prefernces on a per-device basis, not a per-user basis
     toJson() {
         ASSERT(type(this, User));
         let entityArrayJson = [];
@@ -1298,55 +1305,63 @@ class User {
                 palette: this.palette,
             }),
             // these have their own columns in the DB
-            userId: this.userId,
-            email: this.email,
+            userId: this.userId === NULL ? symbolToJson(NULL) : this.userId,
+            email: this.email === NULL ? symbolToJson(NULL) : this.email,
             dataspec: 1, // first dataspec version
+            usage: this.usage,
+            timestamp: this.timestamp,
             _type: 'User'
         };
     }
 
     static fromJson(json) {
+        log("fromJson: " + JSON.stringify(json));
         ASSERT(exists(json));
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));
-        ASSERT(exists(json.data.entityArray));
-        ASSERT(type(json.data.entityArray, List(Object)));
-        ASSERT(exists(json.data.settings));
-        ASSERT(type(json.data.settings.startOfDayOffset, Int));
-        ASSERT(type(json.data.settings.numberOfCalendarDays, Int));
-        ASSERT(type(json.data.settings.ampmOr24, String));
-        ASSERT(json.data.settings.ampmOr24 === 'ampm' || json.data.settings.ampmOr24 === '24');
-        ASSERT(exists(json.data.palette));
-        ASSERT(type(json.data.palette.accent, List(String)));
-        ASSERT(type(json.data.palette.shades, List(String)));
-        ASSERT(type(json.data.palette.events, List(String)));
-        ASSERT(json.data.palette.accent.length === 2);
-        ASSERT(json.data.palette.shades.length === 5);
-        ASSERT(json.data.palette.events.length === 5);
+        ASSERT(type(json.data, String));
+        let data = JSON.parse(json.data);
+        ASSERT(exists(data.entityArray));
+        ASSERT(type(data.entityArray, List(Object)));
+        ASSERT(exists(data.settings));
+        ASSERT(type(data.settings.startOfDayOffset, Int));
+        ASSERT(type(data.settings.endOfDayOffset, Int));
+        ASSERT(type(data.settings.ampmOr24, String));
+        ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
+        ASSERT(exists(data.palette));
+        ASSERT(type(data.palette.accent, List(String)));
+        ASSERT(type(data.palette.shades, List(String)));
+        ASSERT(type(data.palette.events, List(String)));
+        ASSERT(data.palette.accent.length === 2);
+        ASSERT(data.palette.shades.length === 5);
+        ASSERT(data.palette.events.length === 5);
         ASSERT(type(json.dataspec, Int));
+        ASSERT(json.userId === symbolToJson(NULL) || type(json.userId, String));
+        ASSERT(json.email === symbolToJson(NULL) || type(json.email, String));
+        ASSERT(type(json.usage, Int));
+        ASSERT(json.usage >= 0);
+        ASSERT(type(json.timestamp, Int));
 
         if (json.dataspec === 1) {
-            let data = json.data;
             let entityArray = [];
             for (const entityJson of data.entityArray) {
                 entityArray.push(Entity.fromJson(entityJson));
             }
-            let settings = data.settings;
-            let palette = data.palette;
-            let userId = json.userId;
-            let email = json.email;
-            
+
             return new User(
                 entityArray,
-                settings,
-                palette,
-                userId,
-                email
+                data.settings,
+                data.palette,
+                json.userId,
+                json.email,
+                json.usage,
+                json.timestamp
             );
         } else {
-            // we only know how to parse dataspec 1
+            // we only have one dataspec for now
             // parsing will be added for each dataspec later
             // this is how data migration is done *client-side* yippee
+            // also results in zero downtime for users
             ASSERT(false, "Only dataspec 1 is supported");
         }
     }
@@ -1355,8 +1370,6 @@ class User {
         return new User(
             [], // empty entityArray
             {
-                stacking: false,
-                numberOfCalendarDays: 2,
                 ampmOr24: 'ampm',
                 startOfDayOffset: 0,
                 endOfDayOffset: 0,
@@ -1367,7 +1380,9 @@ class User {
                 shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
             },
             NULL, // userId
-            NULL  // email
+            NULL, // email
+            0, // usage
+            Date.now() // timestamp
         );
     }
 }
@@ -1558,8 +1573,8 @@ class LocalData {
 
 // type checking function
 function type(thing, sometype) {
-    ASSERT(exists(thing), "found thing that doesn't exist while type checking");
-    ASSERT(exists(sometype), "found some type that doesn't exist while type checking");
+    ASSERT(exists(thing), "found thing that doesn't exist while type checking: " + String(thing));
+    ASSERT(exists(sometype), "found some type that doesn't exist while type checking: " + String(sometype));
     if (sometype === NULL) {
         return thing === NULL;
     } else if (sometype instanceof LIST) {
@@ -1668,7 +1683,7 @@ function type(thing, sometype) {
         try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     } else if (sometype === User) {
         if (!(thing instanceof User)) return false;
-        try { new User(thing.entityArray, thing.settings, thing.palette); return true; } catch (e) { return false; }
+        try { new User(thing.entityArray, thing.settings, thing.palette, thing.userId, thing.email, thing.usage, thing.timestamp); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';
