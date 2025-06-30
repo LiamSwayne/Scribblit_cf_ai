@@ -4383,7 +4383,7 @@ function renderDividers() {
 
     const numberOfDays = LocalData.get('numberOfDays');
 
-    if (LocalData.get('stacking');) {
+    if (LocalData.get('stacking')) {
         // STACKING MODE: Both horizontal and vertical dividers
         
         // Horizontal Divider
