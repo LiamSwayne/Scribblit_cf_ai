@@ -1470,6 +1470,9 @@ class LocalData {
             }
         }
         this.isLoaded = true;
+        this.set('stacking', this.stacking);
+        this.set('numberOfDays', this.numberOfDays);
+        this.set('signedIn', this.signedIn);
     }
     
     static get(key) {

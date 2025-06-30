@@ -804,6 +804,54 @@ if (TESTING) {
         ),
 
         new Entity(
+            'reminder-106',
+            'Quadruple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(19, 30)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-107',
+            'pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-108',
+            'pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
+            'reminder-109',
+            'pentuple reminder',
+            '',
+            new ReminderData([
+                new NonRecurringReminderInstance(
+                    tomorrow, // date
+                    new TimeField(20, 15)
+                )
+            ])
+        ),
+
+        new Entity(
             'reminder-110',
             'pentuple reminder',
             '',
@@ -3793,9 +3841,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const stackedReminder = group[stackIndex];
                 const stackNumber = group.length - stackIndex; // Count down from top to bottom
                 
-                // Calculate darkened color (less blue, more black)
+                // Calculate darkened color using the same accent color as the main reminder
                 const darknessFactor = stackIndex * 0.25; // Each level gets 25% more black mixed in
-                const accentColorRgb = hexToRgb(user.palette.accent[0]);
+                const accentColorIndex = touchingGroupColorIndex % user.palette.accent.length;
+                const accentColorRgb = hexToRgb(user.palette.accent[accentColorIndex]);
                 const originalR = accentColorRgb.r;
                 const originalG = accentColorRgb.g;
                 const originalB = accentColorRgb.b;
