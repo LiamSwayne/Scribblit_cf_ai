@@ -36,24 +36,48 @@ let activeCheckboxIds = new Set();
 
 // Save user data to localStorage
 function saveUserData(user) {
+    ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
+    // ms timestamp
+    user.timestamp = Date.now();
     const userJson = user.toJson();
-    localStorage.setItem("userData", JSON.stringify(userJson));
+    if (LocalData.get('signedIn')) {
+        // send to server and save to localStorage as a backup
+        // TODO: implement
+        localStorage.setItem("userData", JSON.stringify(userJson));
+    } else {
+        localStorage.setItem("userData", JSON.stringify(userJson));
+    }
 }
 
 // Load user data from localStorage, returns a User object
 function loadUserData() {
-    const userData = localStorage.getItem("userData");
-    if (!exists(userData)) {
-        // Create default user if no data exists
-        return User.createDefault();
-    } else {
+    if (LocalData.get('signedIn')) {
+        // TODO: implement server
         try {
-            const userJson = JSON.parse(userData);
-            return User.fromJson(userJson);
+            const userDataLocal = localStorage.getItem("userData");
+            const userJsonLocal = JSON.parse(userDataLocal);
+            
+            // TODO fetch server
+            let serverResponse = {
+                user: {
+                    timestamp: 0
+                }
+            };
+
+            // choose the most recent user data, which could be local or server
+            if (userJsonLocal.timestamp > serverResponse.user.timestamp) {
+                log("Using local user data");
+                return User.fromJson(userJsonLocal);
+            } else {
+                log("Using server user data");
+                return User.fromJson(serverResponse.user);
+            }
         } catch (error) {
             log("ERROR parsing user data, creating default user: " + error.message);
         }
+    } else {
+        return User.createDefault();
     }
 }
 
@@ -1032,17 +1056,21 @@ if (TESTING) {
     let user = new User(
         entityArray,
         {
-            stacking: false,
-            numberOfCalendarDays: 3,
             ampmOr24: 'ampm',
             startOfDayOffset: 0,
-            endOfDayOffset: 0,
+            endOfDayOffset: 0
         },
-        palettes.dark
+        palettes.dark,
+        NULL,
+        NULL,
+        0,
+        Date.now()
     );
     
     // Store using saveUserData function
     saveUserData(user);
+
+    LocalData.set('signedIn', true);
 }
 
 function applyPalette(palette) {
