@@ -6295,6 +6295,7 @@ async function init() {
     initNumberOfCalendarDaysButton();
     initStackingButton();
     initSettingsButton();
+    initSignInButton();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
@@ -7131,6 +7132,69 @@ function initSettingsButton() {
     // Add both elements to body
     HTML.body.appendChild(settingsButton);
     HTML.body.appendChild(gearIcon);
+}
+
+function initSignInButton() {
+    // Only show sign-in button if user is not signed in
+    if (LocalData.get('signedIn')) {
+        return;
+    }
+    
+    // Sign-in button width is wider than standard buttons for the text
+    const signInButtonWidth = measureTextWidth('sign in/up', 'Monospaced', 11) + 10;
+    
+    // Sign-in button container
+    let signInButton = HTML.make('div');
+    HTML.setId(signInButton, 'signInButton');
+    HTML.setStyle(signInButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of number of calendar days button
+        width: String(signInButtonWidth) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease'
+    });
+    
+    // Sign-in text
+    let signInText = HTML.make('div');
+    HTML.setId(signInText, 'signInText');
+    HTML.setStyle(signInText, {
+        fontSize: '11px',
+        fontFamily: 'Monospaced',
+        color: 'var(--shade-3)',
+        whiteSpace: 'nowrap'
+    });
+    signInText.textContent = 'sign in/up';
+    
+    // Event handlers
+    signInButton.onclick = () => {
+        // TODO: Implement sign-in functionality
+        console.log('Sign-in button clicked');
+    };
+    
+    // Hover effect
+    signInButton.onmouseenter = () => {
+        HTML.setStyle(signInButton, {
+            backgroundColor: 'var(--shade-2)'
+        });
+    };
+    
+    signInButton.onmouseleave = () => {
+        HTML.setStyle(signInButton, {
+            backgroundColor: 'var(--shade-1)'
+        });
+    };
+    
+    // Assemble the button
+    signInButton.appendChild(signInText);
+    HTML.body.appendChild(signInButton);
 }
 
 init();
