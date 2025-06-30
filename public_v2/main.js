@@ -6780,39 +6780,117 @@ function openSignInModal() {
         // Get modal position for content positioning
         const modalRect = signInModal.getBoundingClientRect();
         
-        // Create "Sign In/Sign Up" title text
-        const titleText = HTML.make('div');
-        HTML.setId(titleText, 'signInTitleText');
-        titleText.textContent = 'Sign In/Sign Up';
+        // Create email input field
+        const emailInput = HTML.make('input');
+        HTML.setId(emailInput, 'signInEmailInput');
+        emailInput.type = 'email';
+        emailInput.placeholder = 'Email';
         
-        HTML.setStyle(titleText, {
+        HTML.setStyle(emailInput, {
             position: 'fixed',
             left: (modalRect.left + 10) + 'px',
             top: (modalRect.top + 10) + 'px',
-            fontFamily: 'Monospace',
-            fontSize: '14px',
-            color: 'var(--shade-4)',
-            zIndex: String(signInTextZIndex + 101),
-            lineHeight: '14px'
-        });
-        HTML.body.appendChild(titleText);
-        
-        // Create placeholder text for now
-        const placeholderText = HTML.make('div');
-        HTML.setId(placeholderText, 'signInPlaceholderText');
-        placeholderText.textContent = 'Coming soon...';
-        
-        HTML.setStyle(placeholderText, {
-            position: 'fixed',
-            left: (modalRect.left + 10) + 'px',
-            top: (modalRect.top + 35) + 'px',
+            width: (modalRect.width - 20) + 'px',
+            height: '28px',
             fontFamily: 'Monospace',
             fontSize: '12px',
-            color: 'var(--shade-3)',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-0)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            padding: '0 8px',
             zIndex: String(signInTextZIndex + 101),
-            lineHeight: '12px'
+            outline: 'none'
         });
-        HTML.body.appendChild(placeholderText);
+        HTML.body.appendChild(emailInput);
+        
+        // Create password input field
+        const passwordInput = HTML.make('input');
+        HTML.setId(passwordInput, 'signInPasswordInput');
+        passwordInput.type = 'password';
+        passwordInput.placeholder = 'Password';
+        
+        HTML.setStyle(passwordInput, {
+            position: 'fixed',
+            left: (modalRect.left + 10) + 'px',
+            top: (modalRect.top + 50) + 'px',
+            width: (modalRect.width - 20) + 'px',
+            height: '28px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-0)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            padding: '0 8px',
+            zIndex: String(signInTextZIndex + 101),
+            outline: 'none'
+        });
+        HTML.body.appendChild(passwordInput);
+        
+        // Create sign in button
+        const signInActionButton = HTML.make('button');
+        HTML.setId(signInActionButton, 'signInActionButton');
+        signInActionButton.textContent = 'Sign In';
+        
+        HTML.setStyle(signInActionButton, {
+            position: 'fixed',
+            left: (modalRect.left + 10) + 'px',
+            top: (modalRect.top + 90) + 'px',
+            width: ((modalRect.width - 30) / 2) + 'px',
+            height: '32px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-1)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            zIndex: String(signInTextZIndex + 101),
+            transition: 'background-color 0.2s ease'
+        });
+        
+        signInActionButton.onclick = () => signIn();
+        signInActionButton.onmouseenter = () => {
+            HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-2)' });
+        };
+        signInActionButton.onmouseleave = () => {
+            HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-1)' });
+        };
+        
+        HTML.body.appendChild(signInActionButton);
+        
+        // Create sign up button
+        const signUpActionButton = HTML.make('button');
+        HTML.setId(signUpActionButton, 'signUpActionButton');
+        signUpActionButton.textContent = 'Sign Up';
+        
+        HTML.setStyle(signUpActionButton, {
+            position: 'fixed',
+            left: (modalRect.left + 20 + ((modalRect.width - 30) / 2)) + 'px',
+            top: (modalRect.top + 90) + 'px',
+            width: ((modalRect.width - 30) / 2) + 'px',
+            height: '32px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-1)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            zIndex: String(signInTextZIndex + 101),
+            transition: 'background-color 0.2s ease'
+        });
+        
+        signUpActionButton.onclick = () => signUp();
+        signUpActionButton.onmouseenter = () => {
+            HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-2)' });
+        };
+        signUpActionButton.onmouseleave = () => {
+            HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-1)' });
+        };
+        
+        HTML.body.appendChild(signUpActionButton);
         
     }, 400);
 }
@@ -6824,33 +6902,27 @@ function closeSignInModal() {
     const signInButton = HTML.getElement('signInButton');
     const signInText = HTML.getElement('signInText');
     
-    // Fade out title and placeholder text
-    const titleText = HTML.getElementUnsafely('signInTitleText');
-    const placeholderText = HTML.getElementUnsafely('signInPlaceholderText');
+    // Fade out form elements
+    const emailInput = HTML.getElementUnsafely('signInEmailInput');
+    const passwordInput = HTML.getElementUnsafely('signInPasswordInput');
+    const signInActionButton = HTML.getElementUnsafely('signInActionButton');
+    const signUpActionButton = HTML.getElementUnsafely('signUpActionButton');
     
-    if (titleText) {
-        HTML.setStyle(titleText, {
-            opacity: '0',
-            transition: 'opacity 0.2s ease-out'
-        });
-        setTimeout(() => {
-            if (titleText && titleText.parentNode) {
-                HTML.body.removeChild(titleText);
-            }
-        }, 200);
-    }
+    const elementsToRemove = [emailInput, passwordInput, signInActionButton, signUpActionButton];
     
-    if (placeholderText) {
-        HTML.setStyle(placeholderText, {
-            opacity: '0',
-            transition: 'opacity 0.2s ease-out'
-        });
-        setTimeout(() => {
-            if (placeholderText && placeholderText.parentNode) {
-                HTML.body.removeChild(placeholderText);
-            }
-        }, 200);
-    }
+    elementsToRemove.forEach(element => {
+        if (element) {
+            HTML.setStyle(element, {
+                opacity: '0',
+                transition: 'opacity 0.2s ease-out'
+            });
+            setTimeout(() => {
+                if (element && element.parentNode) {
+                    HTML.body.removeChild(element);
+                }
+            }, 200);
+        }
+    });
     
     if (signInModal) {
         // Get original button position to animate back to
@@ -6883,6 +6955,15 @@ function closeSignInModal() {
             }
         }, 500);
     }
+}
+
+// Empty functions for sign in and sign up - to be implemented later
+function signIn() {
+    // TODO: Implement sign in functionality
+}
+
+function signUp() {
+    // TODO: Implement sign up functionality
 }
 
 // Helper function to measure text width
