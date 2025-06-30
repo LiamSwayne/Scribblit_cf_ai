@@ -1015,13 +1015,6 @@ function applyPalette(palette) {
 
 let user = loadUserData();
 
-// Sync LocalData with user settings (LocalData takes precedence)
-LocalData.set('stacking', user.settings.stacking);
-LocalData.set('numberOfDays', user.settings.numberOfCalendarDays);
-// Sync back to user object to ensure consistency
-user.settings.stacking = LocalData.get('stacking');
-user.settings.numberOfCalendarDays = LocalData.get('numberOfDays');
-
 applyPalette(user.palette);
 // Set firstDayInCalendar to today on page load
 firstDayInCalendar = getDayNDaysFromToday(0);
@@ -4179,9 +4172,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 let topOfCalendarDay = 20; // px
 
 function getDayColumnDimensions(dayIndex) {    
-    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < numberOfDays);
     const numberOfDays = LocalData.get('numberOfDays');
     const isStacking = LocalData.get('stacking');
+    ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < numberOfDays);
 
     let height = window.innerHeight - (2 * windowBorderMargin) - headerSpace - topOfCalendarDay;
     let top = windowBorderMargin + headerSpace + topOfCalendarDay;
@@ -4512,7 +4505,6 @@ function toggleNumberOfCalendarDays(increment) {
     }
 
     LocalData.set('numberOfDays', newValue);
-    user.settings.numberOfCalendarDays = newValue; // sync with user object
 
     let numberDisplay = HTML.getElement('buttonNumberDisplay');
     numberDisplay.textContent = String(newValue);
@@ -4777,7 +4769,6 @@ function toggleAmPmOr24(formatSelection) {
 function toggleStacking() {
     ASSERT(type(LocalData.get('stacking'), Boolean));
     LocalData.set('stacking', !LocalData.get('stacking'));
-    user.settings.stacking = LocalData.get('stacking'); // sync with user object
     saveUserData(user);
     render();
     updateTaskListBottomGradient(true); // update instantly when toggling stacking
