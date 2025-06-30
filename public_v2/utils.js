@@ -1279,6 +1279,10 @@ class User {
         this.email = email;
     }
 
+    // this is how we store the user in the DB
+    // note that we only need to query userId and email,
+    // so everything else is stored as a single string in the DB
+    // dataspec integer is just so we can migrate data
     toJson() {
         ASSERT(type(this, User));
         let entityArrayJson = [];
@@ -1287,14 +1291,16 @@ class User {
         }
         return {
             // this is all stored as a single string in the DB
-            data: {
+            // TODO: optimize to store more efficiently
+            data: JSON.stringify({
                 entityArray: entityArrayJson,
                 settings: this.settings,
                 palette: this.palette,
-            },
+            }),
             // these have their own columns in the DB
             userId: this.userId,
             email: this.email,
+            dataspec: 1, // first dataspec version
             _type: 'User'
         };
     }
@@ -1317,24 +1323,32 @@ class User {
         ASSERT(json.data.palette.accent.length === 2);
         ASSERT(json.data.palette.shades.length === 5);
         ASSERT(json.data.palette.events.length === 5);
+        ASSERT(type(json.dataspec, Int));
 
-        let data = json.data;
-        let entityArray = [];
-        for (const entityJson of data.entityArray) {
-            entityArray.push(Entity.fromJson(entityJson));
+        if (json.dataspec === 1) {
+            let data = json.data;
+            let entityArray = [];
+            for (const entityJson of data.entityArray) {
+                entityArray.push(Entity.fromJson(entityJson));
+            }
+            let settings = data.settings;
+            let palette = data.palette;
+            let userId = json.userId;
+            let email = json.email;
+            
+            return new User(
+                entityArray,
+                settings,
+                palette,
+                userId,
+                email
+            );
+        } else {
+            // we only know how to parse dataspec 1
+            // parsing will be added for each dataspec later
+            // this is how data migration is done *client-side* yippee
+            ASSERT(false, "Only dataspec 1 is supported");
         }
-        let settings = data.settings;
-        let palette = data.palette;
-        let userId = json.userId;
-        let email = json.email;
-        
-        return new User(
-            entityArray,
-            settings,
-            palette,
-            userId,
-            email
-        );
     }
 
     static createDefault() {
