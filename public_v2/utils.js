@@ -1261,9 +1261,6 @@ class User {
                "userId and email must both be null or both be non-null");
         
         // Validate settings structure
-        ASSERT(type(settings.stacking, Boolean));
-        ASSERT(type(settings.numberOfCalendarDays, Int));
-        ASSERT(1 <= settings.numberOfCalendarDays && settings.numberOfCalendarDays <= 7, "numberOfCalendarDays out of range 1-7");
         ASSERT(settings.ampmOr24 === 'ampm' || settings.ampmOr24 === '24');
         // how many hours to offset
         ASSERT(type(settings.startOfDayOffset, Int) && -12 <= settings.startOfDayOffset && settings.startOfDayOffset <= 12);
@@ -1443,10 +1440,12 @@ class FilteredReminderInstance {
 
 // LocalData class for managing local storage state
 class LocalData {
+    static isLoaded = false;
+
+    // default values
     static stacking = false;
     static numberOfDays = 2;
     static signedIn = false;
-    static isLoaded = false;
     
     // Prevent instantiation
     constructor() {
@@ -1497,6 +1496,7 @@ class LocalData {
             this.stacking = value;
         } else if (key === 'numberOfDays') {
             ASSERT(type(value, Int), "LocalData.numberOfDays must be Int");
+            ASSERT(1 <= value && value <= 7, "LocalData.numberOfDays must be between 1 and 7");
             this.numberOfDays = value;
         } else if (key === 'signedIn') {
             ASSERT(type(value, Boolean), "LocalData.signedIn must be Boolean");
