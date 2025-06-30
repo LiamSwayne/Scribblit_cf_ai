@@ -1249,10 +1249,16 @@ class Entity {
 
 // User class to encapsulate all user data
 class User {
-    constructor(entityArray, settings, palette) {
+    constructor(entityArray, settings, palette, userId = NULL, email = NULL) {
         ASSERT(type(entityArray, List(Entity)));
         ASSERT(type(settings, Dict(String, Union(Boolean, Int, String))));
         ASSERT(type(palette, Dict(String, List(String))));
+        ASSERT(type(userId, Union(String, NULL)));
+        ASSERT(type(email, Union(String, NULL)));
+        
+        // Assert that both userId and email are null, or both are non-null
+        ASSERT((userId === NULL && email === NULL) || (userId !== NULL && email !== NULL), 
+               "userId and email must both be null or both be non-null");
         
         // Validate settings structure
         ASSERT(type(settings.stacking, Boolean));
@@ -1271,6 +1277,8 @@ class User {
         this.entityArray = entityArray;
         this.settings = settings;
         this.palette = palette;
+        this.userId = userId;
+        this.email = email;
     }
 
     toJson() {
@@ -1283,6 +1291,8 @@ class User {
             entityArray: entityArrayJson,
             settings: this.settings,
             palette: this.palette,
+            userId: this.userId,
+            email: this.email,
             _type: 'User'
         };
     }
@@ -1293,10 +1303,17 @@ class User {
         for (const entityJson of json.entityArray) {
             entityArray.push(Entity.fromJson(entityJson));
         }
+        
+        // Handle userId and email fields with backward compatibility
+        const userId = json.hasOwnProperty('userId') ? json.userId : NULL;
+        const email = json.hasOwnProperty('email') ? json.email : NULL;
+        
         return new User(
             entityArray,
             json.settings,
-            json.palette
+            json.palette,
+            userId,
+            email
         );
     }
 
@@ -1313,7 +1330,9 @@ class User {
             {
                 accent: ['#47b6ff', '#b547ff'],
                 shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
-            }
+            },
+            NULL, // userId
+            NULL  // email
         );
     }
 }
