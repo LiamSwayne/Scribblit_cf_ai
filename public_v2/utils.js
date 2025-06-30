@@ -1246,7 +1246,6 @@ class Entity {
     }
 }
 
-
 // User class to encapsulate all user data
 class User {
     constructor(entityArray, settings, palette, userId = NULL, email = NULL) {
@@ -1268,8 +1267,10 @@ class User {
         // Validate palette structure
         ASSERT(type(palette.accent, List(String)));
         ASSERT(type(palette.shades, List(String)));
+        ASSERT(type(palette.events, List(String)));
         ASSERT(palette.accent.length === 2);
         ASSERT(palette.shades.length === 5);
+        ASSERT(palette.events.length === 5);
         
         this.entityArray = entityArray;
         this.settings = settings;
@@ -1285,9 +1286,13 @@ class User {
             entityArrayJson.push(entity.toJson());
         }
         return {
-            entityArray: entityArrayJson,
-            settings: this.settings,
-            palette: this.palette,
+            // this is all stored as a single string in the DB
+            data: {
+                entityArray: entityArrayJson,
+                settings: this.settings,
+                palette: this.palette,
+            },
+            // these have their own columns in the DB
             userId: this.userId,
             email: this.email,
             _type: 'User'
@@ -1296,19 +1301,37 @@ class User {
 
     static fromJson(json) {
         ASSERT(exists(json));
+        ASSERT(json._type === 'User');
+        ASSERT(exists(json.data));
+        ASSERT(exists(json.data.entityArray));
+        ASSERT(type(json.data.entityArray, List(Entity)));
+        ASSERT(exists(json.data.settings));
+        ASSERT(type(json.data.settings.startOfDayOffset, Int));
+        ASSERT(type(json.data.settings.numberOfCalendarDays, Int));
+        ASSERT(type(json.data.settings.ampmOr24, String));
+        ASSERT(json.data.settings.ampmOr24 === 'ampm' || json.data.settings.ampmOr24 === '24');
+        ASSERT(exists(json.data.palette));
+        ASSERT(type(json.data.palette.accent, List(String)));
+        ASSERT(type(json.data.palette.shades, List(String)));
+        ASSERT(type(json.data.palette.events, List(String)));
+        ASSERT(json.data.palette.accent.length === 2);
+        ASSERT(json.data.palette.shades.length === 5);
+        ASSERT(json.data.palette.events.length === 5);
+
+        let data = json.data;
         let entityArray = [];
-        for (const entityJson of json.entityArray) {
+        for (const entityJson of data.entityArray) {
             entityArray.push(Entity.fromJson(entityJson));
         }
-        
-        // Handle userId and email fields with backward compatibility
-        const userId = json.hasOwnProperty('userId') ? json.userId : NULL;
-        const email = json.hasOwnProperty('email') ? json.email : NULL;
+        let settings = data.settings;
+        let palette = data.palette;
+        let userId = json.userId;
+        let email = json.email;
         
         return new User(
             entityArray,
-            json.settings,
-            json.palette,
+            settings,
+            palette,
             userId,
             email
         );
@@ -1326,6 +1349,7 @@ class User {
             },
             {
                 accent: ['#47b6ff', '#b547ff'],
+                events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
                 shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
             },
             NULL, // userId
