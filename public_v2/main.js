@@ -1081,9 +1081,9 @@ const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
 const settingsModalZIndex = 6999;
 const settingsButtonZIndex = 7000; // stays above modal
 const settingsGearZIndex = 7001; // above settings modal but below settings modal content
-const signInModalZIndex = 6996;
-const signInButtonZIndex = 6997; // stays above modal
-const signInTextZIndex = 6998; // above sign-in modal
+const signInModalZIndex = 7002; // above settings modal
+const signInButtonZIndex = 7003; // above sign-in modal
+const signInTextZIndex = 7004; // above sign-in modal
 
 
 const taskInfoDateFontBigCol = 10; // px
@@ -6451,6 +6451,23 @@ function openSettingsModal() {
     if (settingsModalOpen || exists(HTML.getElementUnsafely('settingsModal'))) return;
     settingsModalOpen = true;
     
+    // Immediately decrease sign-in button and text z-index by 200 each
+    // First move background (sign-in button), then move z-index of text
+    const signInButton = HTML.getElementUnsafely('signInButton');
+    const signInText = HTML.getElementUnsafely('signInText');
+    
+    if (signInButton) {
+        HTML.setStyle(signInButton, {
+            zIndex: String(signInButtonZIndex - 200)
+        });
+    }
+    
+    if (signInText) {
+        HTML.setStyle(signInText, {
+            zIndex: String(signInTextZIndex - 200)
+        });
+    }
+    
     const settingsButton = HTML.getElement('settingsButton');
     const gearIcon = HTML.getElement('gearIcon');
     
@@ -6649,6 +6666,22 @@ function closeSettingsModal() {
             transform: 'rotate(0deg)'
         });
         
+        // Restore sign-in button and text z-index to their normal values
+        const signInButton = HTML.getElementUnsafely('signInButton');
+        const signInText = HTML.getElementUnsafely('signInText');
+        
+        if (signInButton) {
+            HTML.setStyle(signInButton, {
+                zIndex: String(signInButtonZIndex)
+            });
+        }
+        
+        if (signInText) {
+            HTML.setStyle(signInText, {
+                zIndex: String(signInTextZIndex)
+            });
+        }
+        
         // Animate modal back to button size
         HTML.setStyle(settingsModal, {
             width: '0px',
@@ -6697,7 +6730,16 @@ function openSignInModal() {
     
     // Position modal so it grows left and right from the sign-in button
     const modalRight = (window.innerWidth - buttonRect.right) - distanceToSettingsRight;
+
+    // Update sign-in button and text z-index to be above everything
+    HTML.setStyle(signInText, {
+        zIndex: String(signInTextZIndex + 100)
+    });
     
+    HTML.setStyle(signInButton, {
+        zIndex: String(signInButtonZIndex + 100)
+    });
+
     // Create modal div that starts as the button background
     signInModal = HTML.make('div');
     HTML.setId(signInModal, 'signInModal');
@@ -6710,21 +6752,12 @@ function openSignInModal() {
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         borderRadius: '4px',
-        zIndex: String(signInModalZIndex + 100),
+        zIndex: String(signInModalZIndex),
         transformOrigin: 'top right',
         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
     });
     
     HTML.body.appendChild(signInModal);
-    
-    // Update sign-in button and text z-index to be above everything
-    HTML.setStyle(signInButton, {
-        zIndex: String(signInButtonZIndex + 100)
-    });
-    
-    HTML.setStyle(signInText, {
-        zIndex: String(signInTextZIndex + 100)
-    });
     
     // Force reflow
     signInModal.offsetHeight;
@@ -6820,15 +6853,6 @@ function closeSignInModal() {
     }
     
     if (signInModal) {
-        // Reset sign-in button and text z-index
-        HTML.setStyle(signInButton, {
-            zIndex: String(signInButtonZIndex)
-        });
-        
-        HTML.setStyle(signInText, {
-            zIndex: String(signInTextZIndex)
-        });
-        
         // Get original button position to animate back to
         const buttonRect = signInButton.getBoundingClientRect();
         
@@ -6857,8 +6881,17 @@ function closeSignInModal() {
             }
         }, 300);
         
-        // Remove modal after full animation
+        // Remove modal after full animation and reset z-index
         setTimeout(() => {
+            // Reset sign-in button and text z-index after animation completes
+            HTML.setStyle(signInButton, {
+                zIndex: String(signInButtonZIndex)
+            });
+            
+            HTML.setStyle(signInText, {
+                zIndex: String(signInTextZIndex)
+            });
+            
             if (signInModal) {
                 HTML.body.removeChild(signInModal);
                 signInModal = null;
