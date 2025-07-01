@@ -38,6 +38,7 @@ let activeCheckboxIds = new Set();
 function saveUserData(user) {
     ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
+    ASSERT(type(LocalData.get('signedIn'), Boolean));
     // ms timestamp
     user.timestamp = Date.now();
     const userJson = user.toJson();
@@ -1053,8 +1054,9 @@ if (TESTING) {
     ];
 
     // Create user object with the sample data
+
     let user = new User(
-        entityArray,
+        TESTING_NEW_USER ? [] : entityArray,
         {
             ampmOr24: 'ampm',
             startOfDayOffset: 0,
@@ -1064,13 +1066,18 @@ if (TESTING) {
         NULL,
         NULL,
         0,
-        Date.now()
+        Date.now(),
+        "free"
     );
     
     // Store using saveUserData function
     saveUserData(user);
 
-    LocalData.set('signedIn', true);
+    if (TESTING_NEW_USER) {
+        LocalData.set('signedIn', true);
+    } else {
+        LocalData.set('signedIn', false);
+    }
 }
 
 function applyPalette(palette) {
