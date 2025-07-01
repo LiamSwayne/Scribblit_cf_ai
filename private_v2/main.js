@@ -23,7 +23,7 @@ export default {
                         env.SENDGRID_API_KEY,
                         'liamtswayne@gmail.com',
                         'Test Integration',
-                        'This is a test email from your Cloudflare Worker.'
+                        'This is a test email from your Cloudflare Worker. If you see this, the SendGrid integration is working.'
                     );
                     return new Response('Test email sent', { status: 200 });
                 } catch (err) {
