@@ -9,6 +9,7 @@ on:
       - 'private/**'
       - 'legacy_private/**'
       - 'public_v2/**'
+      - 'private_v2/**'
 
 jobs:
   deploy:
@@ -29,6 +30,17 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: 'legacy_private'
           
+      - name: Deploy private_v2 Worker (with secret)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'private_v2'
+          secrets: |
+            SENDGRIP_API_KEY
+        env:
+          SENDGRIP_API_KEY: ${{ secrets.SENDGRIP_API_KEY }}
+      
       - name: Deploy Pages
         uses: cloudflare/pages-action@v1
         with:
