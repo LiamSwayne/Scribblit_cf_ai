@@ -1074,9 +1074,9 @@ if (TESTING) {
     saveUserData(user);
 
     if (TESTING_NEW_USER) {
-        LocalData.set('signedIn', true);
-    } else {
         LocalData.set('signedIn', false);
+    } else {
+        LocalData.set('signedIn', true);
     }
 }
 
