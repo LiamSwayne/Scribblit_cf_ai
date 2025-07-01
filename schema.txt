@@ -1,0 +1,18 @@
+-- SQL schema for Cloudflare D1 users table
+-- This table stores serialized user data alongside metadata fields.
+-- The user object's data field is kind of like a database of all their stuff, but all the querying is done on the front-end, which is faster and reduces the worker request count
+
+CREATE TABLE IF NOT EXISTS users (
+    user_id TEXT UNIQUE,                    -- corresponds to User.userId (NULL for guest/default users)
+    email TEXT UNIQUE,                      -- corresponds to User.email (NULL for guest/default users)
+    verified_email BOOLEAN NOT NULL,        -- whether the user's email has been verified
+    data TEXT NOT NULL,                          -- JSON-stringified user data, anything we don't need to query, and that it's ok for the user to fake, can go in here
+    dataspec INTEGER NOT NULL,              -- version of the data specification (e.g., 1)
+    usage INTEGER NOT NULL,                 -- usage count (>= 0)
+    timestamp INTEGER NOT NULL,             -- timestamp (ms since epoch)
+    plan TEXT NOT NULL)  -- subscription plan
+);
+
+-- Note: UNIQUE constraints on user_id and email allow multiple NULLs (SQLite semantics).
+-- You can add further indexes if needed, but UNIQUE constraints already create indexes on those columns.
+-- All data should be put in the data column if possible.
