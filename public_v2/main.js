@@ -6362,6 +6362,7 @@ function renderTaskList() {
     // Set container height to actual content height - viewport will handle clipping/scrolling
     const actualContentHeight = currentTop - taskListTop;
 
+    // seemingly does nothing since I made the viewport use flex box.
     if (LocalData.get('stacking')) {
         taskListManualHeightAdjustment = 56;
     } else {
