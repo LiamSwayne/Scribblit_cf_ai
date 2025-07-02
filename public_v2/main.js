@@ -7102,29 +7102,53 @@ function openSignInModal() {
     }, 400);
 }
 
-function closeSignInModal() {
+function slideSignInButtonOffScreen() {
+    const signInButton = HTML.getElementUnsafely('signInButton');
+    if (!signInButton) return;
+    
+    // Animate button sliding up off screen
+    HTML.setStyle(signInButton, {
+        transform: 'translateY(-50px)',
+        opacity: '0',
+        transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+    });
+    
+    // Remove button after animation completes
+    setTimeout(() => {
+        if (signInButton && signInButton.parentNode) {
+            HTML.body.removeChild(signInButton);
+        }
+    }, 500);
+}
+
+function closeSignInModal(slideButtonOffScreen = false) {
     if (!signInModalOpen) return;
     signInModalOpen = false;
     
-    // Remove all created elements
-    const elementsToRemove = [
-        'signInModal', 'signInGoogleButton', 'signInEmailButton', 
+    // Get all elements that need to be faded out
+    const elementsToFadeOut = [
+        'signInGoogleButton', 'signInEmailButton', 
         'emailFormContainer', 'signInEmailInput', 'signInPasswordInput', 
         'signInActionButton', 'signUpActionButton', 'verificationCodeInput',
         'verifyEmailButton'
     ];
     
-    elementsToRemove.forEach(id => {
+    // Fade out all elements
+    elementsToFadeOut.forEach(id => {
         const element = HTML.getElementUnsafely(id);
-        if (element && element.parentNode) {
-            element.parentNode.removeChild(element);
+        if (element) {
+            HTML.setStyle(element, {
+                opacity: '0',
+                transition: 'opacity 0.2s ease-out'
+            });
         }
     });
-
-    // Reset button z-indexes
+    
     const signInButton = HTML.getElement('signInButton');
     const signInText = HTML.getElement('signInText');
+    const signInModal = HTML.getElementUnsafely('signInModal');
     
+    // Reset button z-indexes
     HTML.setStyle(signInButton, {
         zIndex: String(signInButtonZIndex)
     });
@@ -7132,6 +7156,49 @@ function closeSignInModal() {
     HTML.setStyle(signInText, {
         zIndex: String(signInTextZIndex)
     });
+    
+    // Remove faded elements after fade animation completes
+    setTimeout(() => {
+        elementsToFadeOut.forEach(id => {
+            const element = HTML.getElementUnsafely(id);
+            if (element && element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
+        });
+    }, 200);
+    
+    // Animate modal back to button size if it exists
+    if (signInModal) {
+        // Get button position for shrinking animation
+        const buttonRect = signInButton.getBoundingClientRect();
+        
+        HTML.setStyle(signInModal, {
+            width: '0px',
+            height: '0px',
+            right: (window.innerWidth - buttonRect.right + (buttonRect.width/2)) + 'px',
+            backgroundColor: 'var(--shade-0)',
+            border: '2px solid var(--shade-1)',
+            borderRadius: '4px',
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+        });
+        
+        // Remove modal after shrinking animation completes
+        setTimeout(() => {
+            if (signInModal && signInModal.parentNode) {
+                HTML.body.removeChild(signInModal);
+            }
+            
+            // If we should slide the button off screen, do it after modal is fully closed
+            if (slideButtonOffScreen) {
+                slideSignInButtonOffScreen();
+            }
+        }, 400);
+    } else if (slideButtonOffScreen) {
+        // If no modal exists but we should slide button off screen
+        setTimeout(() => {
+            slideSignInButtonOffScreen();
+        }, 400);
+    }
 }
 
 function signIn() {
@@ -7161,8 +7228,12 @@ function signIn() {
         console.log('Login response:', data);
         if (data.token) {
             localStorage.setItem('authToken', data.token);
+            LocalData.set('signedIn', true);
+            user.email = email;
+            user.userId = data.id;
+            saveUserData(user);
             alert('Login successful!');
-            closeSignInModal();
+            closeSignInModal(true); // Slide button off screen after successful login
             // Here you would typically update the UI to a logged-in state
         } else {
             alert(data.error || 'Login failed.');
@@ -7277,7 +7348,7 @@ async function verifyEmail() {
             // Save the updated user data
             saveUserData(user);
             
-            closeSignInModal();
+            closeSignInModal(true); // Slide button off screen after successful signup
         } else {
             // Show error message
             console.error('Verification failed:', data.error || 'Unknown error');
