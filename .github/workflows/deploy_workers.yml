@@ -38,8 +38,10 @@ jobs:
           workingDirectory: 'private_v2'
           secrets: |
             SENDGRID_API_KEY
+            SECRET_KEY
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
       
       - name: Deploy Pages
         uses: cloudflare/pages-action@v1

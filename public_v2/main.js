@@ -7192,7 +7192,7 @@ function signIn() {
         return;
     }
 
-    const endpoint = TESTING ? 'test-login' : 'login';
+    const endpoint = 'login';
     const url = SERVER_URL + endpoint;
 
     fetch(url, {
@@ -7232,7 +7232,7 @@ function signUp() {
         return;
     }
 
-    const endpoint = TESTING ? 'test-signup' : 'signup';
+    const endpoint = 'signup';
     const url = SERVER_URL + endpoint;
 
     fetch(url, {
@@ -7245,8 +7245,12 @@ function signUp() {
     .then(response => response.json())
     .then(data => {
         console.log('Signup response:', data);
-        if (data.success) {
-            alert('Signup successful! Please log in.');
+        if (data.token) {
+            // Save token and mark signed-in
+            localStorage.setItem('authToken', data.token);
+            LocalData.set('signedIn', true);
+            alert('Signup successful! You are now logged in.');
+            closeSignInModal();
         } else {
             alert(data.error || 'Signup failed.');
         }
