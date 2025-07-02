@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     user_id TEXT UNIQUE,                    -- corresponds to User.userId (NULL for guest/default users)
     email TEXT UNIQUE,                      -- corresponds to User.email (NULL for guest/default users)
     verified_email BOOLEAN NOT NULL,        -- whether the user's email has been verified
-    data TEXT NOT NULL,                          -- JSON-stringified user data, anything we don't need to query, and that it's ok for the user to forge, can go in here
+    data TEXT NOT NULL,                          -- JSON-stringified user data, anything we don't need to query, and that it's ok for the user to forge, can go in here; before the user is signed up, this column stored the verification code
     dataspec INTEGER NOT NULL,              -- version of the data specification (e.g., 1)
     usage INTEGER NOT NULL,                 -- usage count (>= 0)
     timestamp INTEGER NOT NULL,             -- timestamp (ms since epoch)
