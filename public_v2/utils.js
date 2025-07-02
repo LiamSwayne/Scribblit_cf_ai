@@ -1,5 +1,5 @@
-let TESTING = true;
-let TESTING_NEW_USER = true;
+let TESTING = false;
+let TESTING_USER_IS_EMPTY = false;
 let TESTING_SHOW_LOGS = true;
 
 function ASSERT(condition, message="") {
@@ -20,6 +20,20 @@ const NULL = Symbol('NULL'); // custom null because js null and undefined are of
 const Int = Symbol('Int'); // Symbol for integer type checking
 const Type = Symbol('Type'); // Meta type to represent valid types
 const NonEmptyString = Symbol('NonEmptyString'); // Symbol for non-empty string type checking
+
+let palettes = {
+    'dark': { // default
+        accent: ['#4a83ff', '#c64aff'],
+        events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
+        shades: ['#191919', '#383838', '#464646', '#9e9e9e', '#ffffff']
+    },
+    'midnight': {
+        accent: ['#a82190', '#003fd2'],
+        events: ['#47b6ff', '#b547ff'],
+        shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
+    }
+    // TODO: add more palettes
+};
 
 function symbolToJson(symbol) {
     ASSERT(typeof symbol === 'symbol', "symbolToJson expects a symbol.");
@@ -1396,11 +1410,7 @@ class User {
                 startOfDayOffset: 0,
                 endOfDayOffset: 0,
             },
-            {
-                accent: ['#47b6ff', '#b547ff'],
-                events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
-                shades: ['#111111', '#383838', '#636363', '#9e9e9e', '#ffffff']
-            },
+            palettes.dark,
             NULL, // userId
             NULL, // email
             0, // usage

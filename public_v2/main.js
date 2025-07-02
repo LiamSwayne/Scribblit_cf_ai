@@ -47,7 +47,8 @@ const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
 
 // Save user data to localStorage and server
-async function saveUserData(user) {
+async function saveUserData(user) {  
+    log("recieved user: " + user);
     ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
     ASSERT(type(LocalData.get('signedIn'), Boolean));
@@ -62,11 +63,12 @@ async function saveUserData(user) {
         // Send to server
         try {
             const token = LocalData.get('token');
-            if (!token) {
+            if (token === NULL) {
                 log("ERROR: No token available for server save");
                 return;
             }
             
+            ASSERT(type(token, String));
             const response = await fetch(`${SERVER_URL}/update-user`, {
                 method: 'POST',
                 headers: {
@@ -93,10 +95,12 @@ async function saveUserData(user) {
                     // have it slide down from the top of the screen
                 }
             } else {
+                render();
                 log("User data saved to server successfully");
             }
         } catch (error) {
-            log("ERROR saving user data to server: " + error.message);
+            log("trace: " + error.stack);
+            log("ERROR saving user data to server (2): " + error.message);
         }
     }
 }
@@ -106,7 +110,7 @@ async function loadUserData() {
     if (LocalData.get('signedIn')) {
         try {
             const token = LocalData.get('token');
-            if (!token) {
+            if (token === NULL) {
                 log("ERROR: No token available for server load, using local data");
                 const userDataLocal = localStorage.getItem("userData");
                 if (userDataLocal) {
@@ -116,6 +120,8 @@ async function loadUserData() {
                     return User.createDefault();
                 }
             }
+
+            ASSERT(type(token, String));
             
             // Get local data as fallback
             let userJsonLocal = null;
@@ -151,17 +157,26 @@ async function loadUserData() {
                         }
                     }
                     
-                    // Choose the most recent user data
+                    // Add any new local entities to the server user
+                    // Take the union, avoid duplicates with same entity id
                     if (serverUser && userJsonLocal) {
+                        ASSERT(type(serverUser, User));
+                        ASSERT(type(userJsonLocal, Object));
                         log("serverUser.timestamp: " + serverUser.timestamp);
                         log("userJsonLocal.timestamp: " + userJsonLocal.timestamp);
-                        if (serverUser.timestamp >= userJsonLocal.timestamp) {
-                            log("Using server user data (timestamp: " + serverUser.timestamp + ")");
-                            return serverUser;
-                        } else {
-                            log("Using local user data (timestamp: " + userJsonLocal.timestamp + ")");
-                            return User.fromJson(userJsonLocal);
+                        log("serverUser:");
+                        log(serverUser);
+                        log("serverUserString: " + JSON.stringify(serverUser));
+                        
+                        // Create a proper merged user without modifying the original serverUser
+                        const localUser = User.fromJson(userJsonLocal);
+                        for (const entity of localUser.entityArray) {
+                            if (!serverUser.entityArray.some(e => e.id === entity.id)) {
+                                serverUser.entityArray.push(entity);
+                            }
                         }
+                        log("mergedUser entityArray length: " + serverUser.entityArray.length);
+                        return serverUser;
                     } else if (serverUser) {
                         log("Using server user data (no local data available)");
                         return serverUser;
@@ -193,6 +208,7 @@ async function loadUserData() {
                     }
                 }
             } catch (networkError) {
+                log("trace: " + networkError.stack);
                 log("ERROR connecting to server: " + networkError.message);
                 
                 // Use local data as fallback
@@ -268,25 +284,7 @@ function getDayNDaysFromToday(offset) {
 }
 let entityArray = [];
 
-let palettes = {
-    'dark': { // default
-        accent: ['#4a83ff', '#c64aff'],
-        events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
-        shades: ['#191919', '#383838', '#464646', '#9e9e9e', '#ffffff']
-    },
-    'midnight': {
-        accent: ['#a82190', '#003fd2'],
-        events: ['#47b6ff', '#b547ff'],
-        shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
-    }
-    // TODO: add more palettes
-};
-
-// load sample data
-if (TESTING) {
-    localStorage.clear();
-    log("Clean slate");
-
+function createFakeEntityArray() {
     const baseDate = DateTime.local(); // Use a single base for all calculations
     const today = new DateField(baseDate.year, baseDate.month, baseDate.day);
 
@@ -325,7 +323,7 @@ if (TESTING) {
     const nextSaturday = new DateField(nextSaturdayDateCalc.year, nextSaturdayDateCalc.month, nextSaturdayDateCalc.day);
 
     // Create sample tasks and events
-    let entityArray = [
+    return [
         new Entity(
             'task-overdue-001', // id
             'Overdue today at 6 AM', // name
@@ -1176,11 +1174,16 @@ if (TESTING) {
             ])
         ),
     ];
+}
+
+// load sample data
+if (TESTING) {
+    localStorage.clear();
+    log("Clean slate");
 
     // Create user object with the sample data
-
     let user = new User(
-        TESTING_NEW_USER ? [] : entityArray,
+        TESTING_USER_IS_EMPTY ? [] : createFakeEntityArray(),
         {
             ampmOr24: 'ampm',
             startOfDayOffset: 0,
@@ -1196,13 +1199,7 @@ if (TESTING) {
     );
     
     // Store using saveUserData function (async, non-blocking)
-    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
-
-    if (TESTING_NEW_USER) {
-        LocalData.set('signedIn', false);
-    } else {
-        LocalData.set('signedIn', true);
-    }
+    saveUserData(user);
 }
 
 function applyPalette(palette) {
@@ -1223,6 +1220,14 @@ function applyPalette(palette) {
 
 // Initialize user data - will be set by initUserData()
 let user = null;
+
+function addFakeEntitiesToUser() {
+    ASSERT(type(user, User));
+    ASSERT(LocalData.get('signedIn'), "addFakeEntitiesToUser: user is not signed in");
+    user.entityArray.push(...createFakeEntityArray());
+    user.timestamp = Date.now();
+    saveUserData(user);
+}
 
 // Initialize user data asynchronously
 async function initUserData() {
@@ -4826,6 +4831,7 @@ function initNumberOfCalendarDaysButton() {
         transform: 'translate(-50%, -50%)',
         fontSize: '14px',
         fontWeight: 'bold',
+        fontFamily: 'Monospaced',
         color: 'var(--shade-3)',
         zIndex: '12',
         pointerEvents: 'none'
@@ -6228,7 +6234,7 @@ function renderTaskList() {
         const line1Id = `task-info-line1-${i}`;
         const line2Id = `task-info-line2-${i}`;
         const checkboxElementId = `task-checkbox-${i}`;
-        const stripeElementId = `task-ovderdue-stripe-${i}`;
+        const stripeElementId = `task-overdue-stripe-${i}`;
         const hoverElementId = `task-hover-${i}`;
         const taskElement = HTML.getElementUnsafely(taskElementId);
         const line1El = HTML.getElementUnsafely(line1Id);
@@ -6395,7 +6401,7 @@ function updateSettingsTextPosition() {
     const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
     if (timeFormatLabel) {
         HTML.setStyle(timeFormatLabel, {
-            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospace', 10) - 5) + 'px',
+            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospaced', 10) - 5) + 'px',
             top: (modalRect.top + 18) + 'px'
         });
     }
@@ -6790,7 +6796,7 @@ function openSettingsModal() {
             position: 'fixed',
             left: (modalRect.left + 5) + 'px',
             top: (modalRect.top + 5) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'Monospaced',
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
@@ -6809,7 +6815,7 @@ function openSettingsModal() {
             position: 'fixed',
             right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospace', 10) - 5) + 'px',
             top: (modalRect.top + 18) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'Monospaced',
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
@@ -6826,7 +6832,7 @@ function openSettingsModal() {
             72,                          // width: total selector width in pixels
             20,                          // height: total selector height in pixels
             7002,                        // zIndex: layer positioning (above settings modal)
-            'Monospace',                 // font: font family for text rendering
+            'Monospaced',                 // font: font family for text rendering
             10,                          // fontSize: text size in pixels
             toggleAmPmOr24,              // onSelectionChange: callback function
             user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
@@ -7447,13 +7453,18 @@ function signIn() {
         if (data.token) {
             LocalData.set('token', data.token);
             LocalData.set('signedIn', true);
-            user.email = email;
-            user.userId = data.id;
+            
+            // Load user data from server FIRST, then update with login info
             try {
+                user = await loadUserData();
+                user.email = email;
+                user.userId = data.id;
                 await saveUserData(user);
+                render(); // Re-render UI with loaded data
             } catch (error) {
-                log("Error saving user data after login: " + error.message);
+                log("Error loading/saving user data after login: " + error.message);
             }
+            
             alert('Login successful!');
             closeSignInModal(true); // Slide button off screen after successful login
             // Here you would typically update the UI to a logged-in state
@@ -7560,18 +7571,18 @@ async function verifyEmail() {
             // Store auth token
             LocalData.set('token', data.token);
             
-            // Update global user object with email and userId
-            user.email = email;
-            user.userId = data.id;
-            
             // Set signed in state to true
             LocalData.set('signedIn', true);
             
-            // Save the updated user data
+            // Load user data from server FIRST, then update with signup info
             try {
+                user = await loadUserData();
+                user.email = email;
+                user.userId = data.id;
                 await saveUserData(user);
+                render(); // Re-render UI with loaded data
             } catch (error) {
-                log("Error saving user data after verification: " + error.message);
+                log("Error loading/saving user data after verification: " + error.message);
             }
             
             closeSignInModal(true); // Slide button off screen after successful signup
@@ -7594,13 +7605,15 @@ function logout() {
     user = User.createDefault();
     
     // Save updated user data
-    saveUserData(user).catch(error => log("Error saving user data after logout: " + error.message));
+    saveUserData(user);
     
     // Close settings modal
     closeSettingsModal();
     
     // Show sign-in button again
     initSignInButton();
+
+    render();
     
     log("User logged out successfully");
 }
