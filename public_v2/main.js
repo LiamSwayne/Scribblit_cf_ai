@@ -1158,8 +1158,6 @@ function navigateCalendar(direction, shiftHeld = false) {
     
     // Re-render the calendar with the new date range
     render();
-    
-    log('Navigate calendar: ' + direction + (shiftHeld ? ' (shift held)' : '') + ' - Moving ' + daysToShift + ' days - New start date: ' + firstDayInCalendar.year + '-' + firstDayInCalendar.month + '-' + firstDayInCalendar.day);
 }
 
 const taskInfoDateFontBigCol = 10; // px
