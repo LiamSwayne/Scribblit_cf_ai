@@ -1249,7 +1249,7 @@ class Entity {
 
 // User class to encapsulate all user data
 class User {
-    constructor(entityArray, settings, palette, userId, email, usage, timestamp, plan) {
+    constructor(entityArray, settings, palette, userId, email, usage, timestamp, plan, paymentDates) {
         ASSERT(type(entityArray, List(Entity)));
         ASSERT(type(settings, Dict(String, Union(Boolean, Int, String))));
         ASSERT(type(palette, Dict(String, List(String))));
@@ -1261,6 +1261,10 @@ class User {
         ASSERT(plan === "free" || plan === "pro");
         ASSERT(type(timestamp, Int));
         ASSERT(timestamp >= 0);
+        ASSERT(type(paymentDates, List(Int)));
+        for (const paymentDate of paymentDates) {
+            ASSERT(paymentDate >= 0);
+        }
 
         // Assert that both userId and email are null, or both are non-null
         ASSERT((userId === NULL && email === NULL) || (userId !== NULL && email !== NULL), "userId and email must both be null or both be non-null");
@@ -1287,6 +1291,7 @@ class User {
         this.usage = usage;
         this.timestamp = timestamp;
         this.plan = plan;
+        this.paymentDates = paymentDates;
     }
 
     // this is how we store the user in the DB
@@ -1316,6 +1321,7 @@ class User {
             usage: this.usage,
             timestamp: this.timestamp,
             plan: this.plan,
+            paymentDates: this.paymentDates,
             _type: 'User'
         };
     }
@@ -1348,6 +1354,11 @@ class User {
         ASSERT(type(json.timestamp, Int));
         ASSERT(type(json.plan, String));
         ASSERT(json.plan === "free" || json.plan === "pro");
+        ASSERT(type(json.paymentDates, List(Int)));
+        
+        for (const paymentDate of json.paymentDates) {
+            ASSERT(paymentDate >= 0);
+        }
 
         if (json.dataspec === 1) {
             let entityArray = [];
@@ -1363,7 +1374,8 @@ class User {
                 json.email,
                 json.usage,
                 json.timestamp,
-                json.plan
+                json.plan,
+                json.paymentDates
             );
         } else {
             // we only have one dataspec for now
@@ -1391,7 +1403,8 @@ class User {
             NULL, // email
             0, // usage
             Date.now(), // timestamp
-            "free" // plan
+            "free", // plan
+            [] // paymentDates
         );
     }
 }
@@ -1692,7 +1705,7 @@ function type(thing, sometype) {
         try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     } else if (sometype === User) {
         if (!(thing instanceof User)) return false;
-        try { new User(thing.entityArray, thing.settings, thing.palette, thing.userId, thing.email, thing.usage, thing.timestamp, thing.plan); return true; } catch (e) { return false; }
+        try { new User(thing.entityArray, thing.settings, thing.palette, thing.userId, thing.email, thing.usage, thing.timestamp, thing.plan, []); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';

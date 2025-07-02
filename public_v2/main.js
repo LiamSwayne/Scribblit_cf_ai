@@ -23,6 +23,17 @@ document.addEventListener('mousemove', (e) => {
     window.lastMouseY = e.clientY;
 });
 
+// Calendar navigation keyboard handlers
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateCalendar('left');
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateCalendar('right');
+    }
+});
+
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
 let firstDayInCalendar; // the first day shown in calendar
@@ -1067,7 +1078,8 @@ if (TESTING) {
         NULL,
         0,
         Date.now(),
-        "free"
+        "free",
+        []
     );
     
     // Store using saveUserData function
@@ -1120,6 +1132,14 @@ const signInModalZIndex = 7002; // above settings modal
 const signInButtonZIndex = 7003; // above sign-in modal
 const signInTextZIndex = 7004; // above sign-in modal
 
+// Calendar navigation functions
+function navigateCalendar(direction) {
+    ASSERT(type(direction, String));
+    ASSERT(direction === 'left' || direction === 'right');
+
+    // TODO: Implement calendar navigation logic
+    log('Navigate calendar: ' + direction);
+}
 
 const taskInfoDateFontBigCol = 10; // px
 const taskInfoTimeFontBigCol = 9; // px
@@ -6332,6 +6352,8 @@ async function init() {
     initGridBackground();
     initNumberOfCalendarDaysButton();
     initStackingButton();
+    initRightNavigationButton();
+    initLeftNavigationButton();
     initSettingsButton();
     initSignInButton();
     render();
@@ -6756,11 +6778,11 @@ function openSignInModal() {
     
     // Calculate modal width to span from left of sign-in button to right edge of settings button
     // Settings button is at windowBorderMargin from right edge
-    // Sign-in button is at windowBorderMargin + 3*(headerButtonSize + 4) from right edge
+    // Sign-in button is at windowBorderMargin + 5*(headerButtonSize + 4) from right edge
     // We want to cover this entire span plus some extra to the left
     const modalHeight = 150;
     const extraLeftWidth = 80; // Extra space to the left of sign-in button
-    const distanceToSettingsRight = (headerButtonSize + 4) * 3; // Distance from sign-in to settings right edge
+    const distanceToSettingsRight = (headerButtonSize + 4) * 5; // Distance from sign-in to settings right edge
     const modalWidth = extraLeftWidth + buttonRect.width + distanceToSettingsRight;
     
     // Position modal so it grows left and right from the sign-in button
@@ -7488,7 +7510,7 @@ function initSignInButton() {
     HTML.setStyle(signInButton, {
         position: 'absolute',
         top: '6px',
-        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of number of calendar days button
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of left nav button
         width: String(signInButtonWidth) + 'px',
         height: String(headerButtonSize) + 'px',
         backgroundColor: 'var(--shade-1)',
@@ -7535,6 +7557,114 @@ function initSignInButton() {
     // Assemble the button
     signInButton.appendChild(signInText);
     HTML.body.appendChild(signInButton);
+}
+
+function initLeftNavigationButton() {
+    // Left navigation button container
+    let leftNavButton = HTML.make('div');
+    HTML.setId(leftNavButton, 'leftNavButton');
+    HTML.setStyle(leftNavButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of right nav button
+        width: String(headerButtonSize) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease'
+    });
+    
+    // Left arrow triangle
+    let leftArrow = HTML.make('div');
+    HTML.setId(leftArrow, 'leftArrow');
+    HTML.setStyle(leftArrow, {
+        width: '0',
+        height: '0',
+        borderTop: '5px solid transparent',
+        borderBottom: '5px solid transparent',
+        borderRight: '8px solid var(--shade-3)',
+        pointerEvents: 'none'
+    });
+    
+    // Event handlers
+    leftNavButton.onclick = () => {
+        navigateCalendar('left');
+    };
+    
+    leftNavButton.onmouseenter = () => {
+        HTML.setStyle(leftNavButton, {
+            backgroundColor: 'var(--shade-2)'
+        });
+    };
+    
+    leftNavButton.onmouseleave = () => {
+        HTML.setStyle(leftNavButton, {
+            backgroundColor: 'var(--shade-1)'
+        });
+    };
+    
+    // Assemble the button
+    leftNavButton.appendChild(leftArrow);
+    HTML.body.appendChild(leftNavButton);
+}
+
+function initRightNavigationButton() {
+    // Right navigation button container
+    let rightNavButton = HTML.make('div');
+    HTML.setId(rightNavButton, 'rightNavButton');
+    HTML.setStyle(rightNavButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of number of calendar days button
+        width: String(headerButtonSize) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease'
+    });
+    
+    // Right arrow triangle
+    let rightArrow = HTML.make('div');
+    HTML.setId(rightArrow, 'rightArrow');
+    HTML.setStyle(rightArrow, {
+        width: '0',
+        height: '0',
+        borderTop: '5px solid transparent',
+        borderBottom: '5px solid transparent',
+        borderLeft: '8px solid var(--shade-3)',
+        pointerEvents: 'none'
+    });
+    
+    // Event handlers
+    rightNavButton.onclick = () => {
+        navigateCalendar('right');
+    };
+    
+    rightNavButton.onmouseenter = () => {
+        HTML.setStyle(rightNavButton, {
+            backgroundColor: 'var(--shade-2)'
+        });
+    };
+    
+    rightNavButton.onmouseleave = () => {
+        HTML.setStyle(rightNavButton, {
+            backgroundColor: 'var(--shade-1)'
+        });
+    };
+    
+    // Assemble the button
+    rightNavButton.appendChild(rightArrow);
+    HTML.body.appendChild(rightNavButton);
 }
 
 init();
