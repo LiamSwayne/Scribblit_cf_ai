@@ -116,8 +116,8 @@ export default {
                             }, 400);
                         }
 
-                        const existingUser = await env.DB.prepare('SELECT email FROM users WHERE email = ?').bind(email).first();
-                        if (existingUser) {
+                        const existingUser = await env.DB.prepare('SELECT email, verified_email FROM users WHERE email = ?').bind(email).first();
+                        if (existingUser && existingUser.verified_email) {
                             return SEND({
                                 error: 'User with this email already exists.'
                             }, 409);
@@ -125,36 +125,107 @@ export default {
 
                         const salt = crypto.randomUUID().replaceAll('-', '');
                         const password_hash = await hash(password, salt);
-                        const user_id = crypto.randomUUID().replaceAll('-', '');
+                        const verification_code = Math.floor(100000 + Math.random() * 900000).toString();
+                        const verification_code_expires_at = Date.now() + (10 * 60 * 1000); // 10 minutes
 
-                        await env.DB.prepare(
-                            `INSERT INTO users (user_id, email, verified_email, data, dataspec, usage, timestamp, plan, payment_times, login_attempts, provider, password_hash, salt)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                        ).bind(
-                            user_id,
-                            email,
-                            false, // verified_email
-                            '{}', // data
-                            1, // dataspec
-                            0, // usage
-                            Date.now(), // timestamp
-                            'free', // plan
-                            '[]', // payment_times
-                            '[]', // login_attempts
-                            'email', // provider
-                            password_hash,
-                            salt
-                        ).run();
+                        if (existingUser) { // User exists but is not verified
+                            await env.DB.prepare(
+                                `UPDATE users SET password_hash = ?, salt = ?, verification_code = ?, verification_code_expires_at = ? WHERE email = ?`
+                            ).bind(password_hash, salt, verification_code, verification_code_expires_at, email).run();
+                        } else {
+                            const user_id = crypto.randomUUID().replaceAll('-', '');
+                            await env.DB.prepare(
+                                `INSERT INTO users (user_id, email, verified_email, data, dataspec, usage, timestamp, plan, payment_times, login_attempts, provider, password_hash, salt, verification_code, verification_code_expires_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            ).bind(
+                                user_id,
+                                email,
+                                false, // verified_email
+                                '{}', // data
+                                1, // dataspec
+                                0, // usage
+                                Date.now(), // timestamp
+                                'free', // plan
+                                '[]', // payment_times
+                                '[]', // login_attempts
+                                'email', // provider
+                                password_hash,
+                                salt,
+                                verification_code,
+                                verification_code_expires_at
+                            ).run();
+                        }
 
-                        const token = await generateToken(email, env.SECRET_KEY);
+                        const emailContent = `Your verification code is: ${verification_code}`;
+                        await sendEmail(env.SENDGRID_API_KEY, email, 'Verify your email for Scribblit', emailContent);
+
                         return SEND({
-                            token
-                        }, 201);
+                            message: 'Verification code sent to your email.'
+                        });
 
                     } catch (err) {
                         console.error('Signup error:', err);
                         return SEND({
                             error: 'Failed to process signup request.'
+                        }, 500);
+                    }
+                }
+
+            case '/verify-email':
+                {
+                    if (request.method !== 'POST') return SEND({
+                        error: 'Method not allowed'
+                    }, 405);
+                    try {
+                        const {
+                            email,
+                            code
+                        } = await request.json();
+                        if (!email || !code) {
+                            return SEND({
+                                error: 'Email and verification code are required.'
+                            }, 400);
+                        }
+
+                        const user = await env.DB.prepare('SELECT verification_code, verification_code_expires_at, verified_email FROM users WHERE email = ?').bind(email).first();
+
+                        if (!user) {
+                            return SEND({
+                                error: 'User not found.'
+                            }, 404);
+                        }
+
+                        if (user.verified_email) {
+                            return SEND({
+                                error: 'Email is already verified.'
+                            }, 400);
+                        }
+
+                        if (Date.now() > user.verification_code_expires_at) {
+                            return SEND({
+                                error: 'Verification code has expired.'
+                            }, 400);
+                        }
+
+                        if (user.verification_code !== code) {
+                            return SEND({
+                                error: 'Invalid verification code.'
+                            }, 400);
+                        }
+
+                        await env.DB.prepare(
+                            'UPDATE users SET verified_email = ?, verification_code = NULL, verification_code_expires_at = NULL WHERE email = ?'
+                        ).bind(true, email).run();
+
+                        const token = await generateToken(email, env.SECRET_KEY);
+                        return SEND({
+                            token
+                        });
+
+                    } catch (err) {
+                        console.error('Email verification error:', err);
+                        return SEND({
+                            error: 'Failed to process email verification.'
                         }, 500);
                     }
                 }
@@ -176,10 +247,16 @@ export default {
                             }, 400);
                         }
 
-                        const user = await env.DB.prepare('SELECT password_hash, salt FROM users WHERE email = ?').bind(email).first();
+                        const user = await env.DB.prepare('SELECT password_hash, salt, verified_email FROM users WHERE email = ?').bind(email).first();
                         if (!user) {
                             return SEND({
                                 error: 'Invalid credentials.'
+                            }, 401);
+                        }
+
+                        if (!user.verified_email) {
+                            return SEND({
+                                error: 'Please verify your email before logging in.'
                             }, 401);
                         }
 
