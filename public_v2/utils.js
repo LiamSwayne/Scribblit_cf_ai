@@ -1,5 +1,5 @@
 let TESTING = true;
-let TESTING_NEW_USER = false;
+let TESTING_NEW_USER = true;
 
 function ASSERT(condition, message="") {
     if (typeof(condition) != "boolean") {
