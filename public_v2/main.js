@@ -27,10 +27,10 @@ document.addEventListener('mousemove', (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        navigateCalendar('left');
+        navigateCalendar('left', e.shiftKey);
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        navigateCalendar('right');
+        navigateCalendar('right', e.shiftKey);
     }
 });
 
@@ -1192,6 +1192,33 @@ let G_reminderDragState = {
     dayEndUnix: 0,
     reminderGroup: [],
 };
+
+// Global shift key state management
+let G_shiftKeyState = {
+    isHeld: false,
+    callbacks: []
+};
+
+// Initialize global shift key tracking
+function initGlobalShiftKeyTracking() {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Shift' && !G_shiftKeyState.isHeld) {
+            G_shiftKeyState.isHeld = true;
+            G_shiftKeyState.callbacks.forEach(callback => callback(true));
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'Shift' && G_shiftKeyState.isHeld) {
+            G_shiftKeyState.isHeld = false;
+            G_shiftKeyState.callbacks.forEach(callback => callback(false));
+        }
+    });
+}
+
+function registerShiftKeyCallback(callback) {
+    G_shiftKeyState.callbacks.push(callback);
+}
 
 // the current days to display
 function currentDays() {
@@ -2772,6 +2799,10 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 
             // Make timed event font size responsive
             const timedEventFontSize = colWidth > columnWidthThreshold ? '14px' : '12px';
+            
+            // Set font size immediately to prevent transition from global 200px default
+            eventElement.style.fontSize = timedEventFontSize;
+            
             let style = {
                 position: 'fixed',
                 top: `${top}px`,
@@ -2894,6 +2925,9 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     textOverlay = HTML.make('div');
                     HTML.setId(textOverlay, `${eventId}_textOverlay`);
                     textOverlay.innerHTML = instance.name;
+                    
+                    // Set font size immediately to prevent transition from global 200px default
+                    textOverlay.style.fontSize = timedEventFontSize;
                     
                     HTML.setStyle(textOverlay, {
                         position: 'fixed',
@@ -6371,6 +6405,7 @@ async function loadFonts() {
 async function init() {
     await loadFonts();
     initGridBackground();
+    initGlobalShiftKeyTracking();
     initNumberOfCalendarDaysButton();
     initStackingButton();
     initRightNavigationButton();
@@ -7581,6 +7616,9 @@ function initSignInButton() {
 }
 
 function initLeftNavigationButton() {
+    // Track hover state for this button
+    let isHovering = false;
+    
     // Left navigation button container
     let leftNavButton = HTML.make('div');
     HTML.setId(leftNavButton, 'leftNavButton');
@@ -7600,16 +7638,58 @@ function initLeftNavigationButton() {
         transition: 'all 0.3s ease'
     });
     
-    // Left arrow triangle
-    let leftArrow = HTML.make('div');
-    HTML.setId(leftArrow, 'leftArrow');
-    HTML.setStyle(leftArrow, {
+    // First left arrow triangle
+    let leftArrow1 = HTML.make('div');
+    HTML.setId(leftArrow1, 'leftArrow1');
+    HTML.setStyle(leftArrow1, {
         width: '0',
         height: '0',
         borderTop: '5px solid transparent',
         borderBottom: '5px solid transparent',
         borderRight: '8px solid var(--shade-3)',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        position: 'absolute',
+        transition: 'transform 0.2s ease'
+    });
+    
+    // Second left arrow triangle
+    let leftArrow2 = HTML.make('div');
+    HTML.setId(leftArrow2, 'leftArrow2');
+    HTML.setStyle(leftArrow2, {
+        width: '0',
+        height: '0',
+        borderTop: '5px solid transparent',
+        borderBottom: '5px solid transparent',
+        borderRight: '8px solid var(--shade-3)',
+        pointerEvents: 'none',
+        position: 'absolute',
+        transition: 'transform 0.2s ease'
+    });
+    
+    // Function to update arrow positions based on state
+    const updateArrowPositions = () => {
+        if (isHovering && G_shiftKeyState.isHeld) {
+            // Fast-forward mode: spread arrows apart
+            HTML.setStyle(leftArrow1, {
+                transform: 'translateX(-4px)'
+            });
+            HTML.setStyle(leftArrow2, {
+                transform: 'translateX(4px)'
+            });
+        } else {
+            // Normal mode: arrows together
+            HTML.setStyle(leftArrow1, {
+                transform: 'translateX(0px)'
+            });
+            HTML.setStyle(leftArrow2, {
+                transform: 'translateX(0px)'
+            });
+        }
+    };
+    
+    // Register for shift key state changes
+    registerShiftKeyCallback((shiftHeld) => {
+        updateArrowPositions();
     });
     
     // Event handlers
@@ -7618,23 +7698,31 @@ function initLeftNavigationButton() {
     };
     
     leftNavButton.onmouseenter = () => {
+        isHovering = true;
         HTML.setStyle(leftNavButton, {
             backgroundColor: 'var(--shade-2)'
         });
+        updateArrowPositions();
     };
     
     leftNavButton.onmouseleave = () => {
+        isHovering = false;
         HTML.setStyle(leftNavButton, {
             backgroundColor: 'var(--shade-1)'
         });
+        updateArrowPositions();
     };
     
     // Assemble the button
-    leftNavButton.appendChild(leftArrow);
+    leftNavButton.appendChild(leftArrow1);
+    leftNavButton.appendChild(leftArrow2);
     HTML.body.appendChild(leftNavButton);
 }
 
 function initRightNavigationButton() {
+    // Track hover state for this button
+    let isHovering = false;
+    
     // Right navigation button container
     let rightNavButton = HTML.make('div');
     HTML.setId(rightNavButton, 'rightNavButton');
@@ -7654,16 +7742,58 @@ function initRightNavigationButton() {
         transition: 'all 0.3s ease'
     });
     
-    // Right arrow triangle
-    let rightArrow = HTML.make('div');
-    HTML.setId(rightArrow, 'rightArrow');
-    HTML.setStyle(rightArrow, {
+    // First right arrow triangle
+    let rightArrow1 = HTML.make('div');
+    HTML.setId(rightArrow1, 'rightArrow1');
+    HTML.setStyle(rightArrow1, {
         width: '0',
         height: '0',
         borderTop: '5px solid transparent',
         borderBottom: '5px solid transparent',
         borderLeft: '8px solid var(--shade-3)',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        position: 'absolute',
+        transition: 'transform 0.2s ease'
+    });
+    
+    // Second right arrow triangle
+    let rightArrow2 = HTML.make('div');
+    HTML.setId(rightArrow2, 'rightArrow2');
+    HTML.setStyle(rightArrow2, {
+        width: '0',
+        height: '0',
+        borderTop: '5px solid transparent',
+        borderBottom: '5px solid transparent',
+        borderLeft: '8px solid var(--shade-3)',
+        pointerEvents: 'none',
+        position: 'absolute',
+        transition: 'transform 0.2s ease'
+    });
+    
+    // Function to update arrow positions based on state
+    const updateArrowPositions = () => {
+        if (isHovering && G_shiftKeyState.isHeld) {
+            // Fast-forward mode: spread arrows apart
+            HTML.setStyle(rightArrow1, {
+                transform: 'translateX(-4px)'
+            });
+            HTML.setStyle(rightArrow2, {
+                transform: 'translateX(4px)'
+            });
+        } else {
+            // Normal mode: arrows together
+            HTML.setStyle(rightArrow1, {
+                transform: 'translateX(0px)'
+            });
+            HTML.setStyle(rightArrow2, {
+                transform: 'translateX(0px)'
+            });
+        }
+    };
+    
+    // Register for shift key state changes
+    registerShiftKeyCallback((shiftHeld) => {
+        updateArrowPositions();
     });
     
     // Event handlers
@@ -7672,19 +7802,24 @@ function initRightNavigationButton() {
     };
     
     rightNavButton.onmouseenter = () => {
+        isHovering = true;
         HTML.setStyle(rightNavButton, {
             backgroundColor: 'var(--shade-2)'
         });
+        updateArrowPositions();
     };
     
     rightNavButton.onmouseleave = () => {
+        isHovering = false;
         HTML.setStyle(rightNavButton, {
             backgroundColor: 'var(--shade-1)'
         });
+        updateArrowPositions();
     };
     
     // Assemble the button
-    rightNavButton.appendChild(rightArrow);
+    rightNavButton.appendChild(rightArrow1);
+    rightNavButton.appendChild(rightArrow2);
     HTML.body.appendChild(rightNavButton);
 }
 
