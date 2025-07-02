@@ -1521,10 +1521,53 @@ class LocalData {
     static stacking = false;
     static numberOfDays = 2;
     static signedIn = false;
+    static token = NULL;
     
     // Prevent instantiation
     constructor() {
         ASSERT(false, "LocalData cannot be instantiated");
+    }
+    
+    // Simple encryption/decryption using XOR with static salt
+    static encryptToken(token) {
+        if (!token) return NULL;
+        
+        // Static salt for basic obfuscation
+        const salt = "scribblit_secure_salt_2024_v1";
+        let encrypted = "";
+        
+        for (let i = 0; i < token.length; i++) {
+            const charCode = token.charCodeAt(i);
+            const saltChar = salt.charCodeAt(i % salt.length);
+            encrypted += String.fromCharCode(charCode ^ saltChar);
+        }
+        
+        // Base64 encode to make it look like random data
+        return btoa(encrypted);
+    }
+
+    static decryptToken(encryptedToken) {
+        if (!encryptedToken) return NULL;
+        
+        try {
+            // Decode from base64
+            const encrypted = atob(encryptedToken);
+            
+            // Static salt (same as encryption)
+            const salt = "scribblit_secure_salt_2024_v1";
+            let decrypted = "";
+            
+            for (let i = 0; i < encrypted.length; i++) {
+                const charCode = encrypted.charCodeAt(i);
+                const saltChar = salt.charCodeAt(i % salt.length);
+                decrypted += String.fromCharCode(charCode ^ saltChar);
+            }
+            
+            return decrypted;
+        } catch (error) {
+            log("ERROR decrypting token: " + error.message);
+            return NULL;
+        }
     }
     
     static load() {
@@ -1539,6 +1582,13 @@ class LocalData {
                 this.stacking = data.stacking;
                 this.numberOfDays = data.numberOfDays;
                 this.signedIn = data.signedIn;
+                
+                // Handle encrypted token
+                if (data.token) {
+                    this.token = LocalData.decryptToken(data.token);
+                } else {
+                    this.token = NULL;
+                }
             } catch (error) {
                 log("ERROR parsing localData, using defaults: " + error.message);
                 // Keep default values if parsing fails
@@ -1548,6 +1598,9 @@ class LocalData {
         this.set('stacking', this.stacking);
         this.set('numberOfDays', this.numberOfDays);
         this.set('signedIn', this.signedIn);
+        if (this.token) {
+            this.set('token', this.token);
+        }
     }
     
     static get(key) {
@@ -1560,8 +1613,10 @@ class LocalData {
             return this.numberOfDays;
         } else if (key === 'signedIn') {
             return this.signedIn;
+        } else if (key === 'token') {
+            return this.token;
         } else {
-            ASSERT(false, "LocalData.get() key must be stacking, numberOfDays, or signedIn");
+            ASSERT(false, "LocalData.get() key must be stacking, numberOfDays, signedIn, or token");
         }
     }
     
@@ -1579,8 +1634,11 @@ class LocalData {
         } else if (key === 'signedIn') {
             ASSERT(type(value, Boolean), "LocalData.signedIn must be Boolean");
             this.signedIn = value;
+        } else if (key === 'token') {
+            ASSERT(value === NULL || type(value, String), "LocalData.token must be String or NULL");
+            this.token = value;
         } else {
-            ASSERT(false, "LocalData.set() key must be stacking, numberOfDays, or signedIn");
+            ASSERT(false, "LocalData.set() key must be stacking, numberOfDays, signedIn, or token");
         }
         
         // Save to localStorage
@@ -1589,6 +1647,12 @@ class LocalData {
             numberOfDays: this.numberOfDays,
             signedIn: this.signedIn
         };
+        
+        // Encrypt token before storing
+        if (this.token) {
+            data.token = LocalData.encryptToken(this.token);
+        }
+        
         localStorage.setItem("localData", JSON.stringify(data));
     }
 }

@@ -7103,22 +7103,39 @@ function openSignInModal() {
 }
 
 function slideSignInButtonOffScreen() {
+    // Warp (genie) effect: button is pulled toward the settings gear while being vertically squished
     const signInButton = HTML.getElementUnsafely('signInButton');
     if (!signInButton) return;
     
-    // Animate button sliding up off screen
-    HTML.setStyle(signInButton, {
-        transform: 'translateY(-50px)',
-        opacity: '0',
-        transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-    });
+    // Attempt to locate the settings gear button so we can animate towards it
+    const settingsButton = HTML.getElementUnsafely('settingsButton');
     
-    // Remove button after animation completes
+    // Default translation values (in case settings button isn't found)
+    let translateX = 0;
+    let translateY = -50; // Fallback: move up a bit
+    
+    if (settingsButton) {
+        const signInRect = signInButton.getBoundingClientRect();
+        const settingsRect = settingsButton.getBoundingClientRect();
+        // Compute delta from sign-in button centre to settings button centre
+        translateX = (settingsRect.left + settingsRect.width / 2) - (signInRect.left + signInRect.width / 2);
+        translateY = (settingsRect.top + settingsRect.height / 2) - (signInRect.top + signInRect.height / 2);
+    }
+
+    // Apply the warp animation via CSS transform & transition
+    HTML.setStyle(signInButton, {
+        transformOrigin: 'center center',
+        transition: 'transform 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s',
+        transform: `translate(${translateX - 40}px, ${translateY}px) scaleY(0.05)`, // almost flatten vertically
+        opacity: '0'
+    });
+
+    // Remove the element after the animation completes
     setTimeout(() => {
         if (signInButton && signInButton.parentNode) {
             HTML.body.removeChild(signInButton);
         }
-    }, 500);
+    }, 850);
 }
 
 function closeSignInModal(slideButtonOffScreen = false) {
@@ -7166,7 +7183,7 @@ function closeSignInModal(slideButtonOffScreen = false) {
             }
         });
     }, 200);
-    
+
     // Animate modal back to button size if it exists
     if (signInModal) {
         // Get button position for shrinking animation
@@ -7179,7 +7196,7 @@ function closeSignInModal(slideButtonOffScreen = false) {
             backgroundColor: 'var(--shade-0)',
             border: '2px solid var(--shade-1)',
             borderRadius: '4px',
-            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+            transition: 'all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
         });
         
         // Remove modal after shrinking animation completes
@@ -7187,17 +7204,14 @@ function closeSignInModal(slideButtonOffScreen = false) {
             if (signInModal && signInModal.parentNode) {
                 HTML.body.removeChild(signInModal);
             }
-            
-            // If we should slide the button off screen, do it after modal is fully closed
+            // Trigger warp now that modal animation is finished
             if (slideButtonOffScreen) {
                 slideSignInButtonOffScreen();
             }
         }, 400);
     } else if (slideButtonOffScreen) {
-        // If no modal exists but we should slide button off screen
-        setTimeout(() => {
-            slideSignInButtonOffScreen();
-        }, 400);
+        // If no modal exists, start warp immediately after fade
+        slideSignInButtonOffScreen();
     }
 }
 
@@ -7227,7 +7241,7 @@ function signIn() {
     .then(data => {
         console.log('Login response:', data);
         if (data.token) {
-            localStorage.setItem('authToken', data.token);
+            LocalData.set('token', data.token);
             LocalData.set('signedIn', true);
             user.email = email;
             user.userId = data.id;
@@ -7336,7 +7350,7 @@ async function verifyEmail() {
 
         if (response.ok && data.token && data.id) {
             // Store auth token
-            localStorage.setItem('authToken', data.token);
+            LocalData.set('token', data.token);
             
             // Update global user object with email and userId
             user.email = email;
