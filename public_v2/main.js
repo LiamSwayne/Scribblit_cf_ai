@@ -34,7 +34,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-const SERVER_URL = 'https://scribblit-production.unrono.workers.dev/';
+const SERVER_URL = 'https://scribblit-production.unrono.workers.dev';
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
 let firstDayInCalendar; // the first day shown in calendar
@@ -7146,7 +7146,7 @@ function signIn() {
         return;
     }
 
-    const endpoint = 'login';
+    const endpoint = '/login';
     const url = SERVER_URL + endpoint;
 
     fetch(url, {
