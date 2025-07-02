@@ -142,6 +142,7 @@ export default {
                             ).bind(password_hash, salt, JSON.stringify(userData), email).run();
                         } else {
                             user_id = crypto.randomUUID().replaceAll('-', '');
+                            user_id = user_id.slice(0, 8);
                             const userData = {
                                 verification_code,
                                 verification_code_expires_at
