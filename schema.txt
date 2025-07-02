@@ -1,6 +1,7 @@
 -- SQL schema for Cloudflare D1 users table
 -- This table stores serialized user data alongside metadata fields.
 -- The user object's data field is kind of like a database of all their stuff, but all the querying is done on the front-end, which is faster and reduces the worker request count
+-- a lot of this doesn't get exposed on front-end
 
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT UNIQUE,                    -- corresponds to User.userId (NULL for guest/default users)
