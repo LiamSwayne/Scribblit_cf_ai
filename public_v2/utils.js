@@ -1,5 +1,6 @@
 let TESTING = false;
 let TESTING_NEW_USER = true;
+let TESTING_SHOW_LOGS = true;
 
 function ASSERT(condition, message="") {
     if (typeof(condition) != "boolean") {
@@ -95,7 +96,7 @@ function Union(...types) {
 }
 
 function log(message) {
-    if (TESTING) {
+    if (TESTING_SHOW_LOGS) {
         console.log(message);
     }
 }
@@ -1327,6 +1328,7 @@ class User {
     }
 
     static fromJson(json) {
+        log(json);
         ASSERT(exists(json));
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));

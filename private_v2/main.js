@@ -341,7 +341,7 @@ export default {
                             usage: userResult.usage,
                             timestamp: userResult.timestamp,
                             plan: userResult.plan,
-                            paymentTimes: JSON.parse(userResult.payment_times || '[]'),
+                            paymentTimes: JSON.parse(userResult.payment_times),
                         };
 
                         const newToken = await generateToken(email, env.SECRET_KEY);
