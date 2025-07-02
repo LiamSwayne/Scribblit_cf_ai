@@ -1133,12 +1133,33 @@ const signInButtonZIndex = 7003; // above sign-in modal
 const signInTextZIndex = 7004; // above sign-in modal
 
 // Calendar navigation functions
-function navigateCalendar(direction) {
+function navigateCalendar(direction, shiftHeld = false) {
     ASSERT(type(direction, String));
     ASSERT(direction === 'left' || direction === 'right');
+    ASSERT(type(shiftHeld, Boolean));
 
-    // TODO: Implement calendar navigation logic
-    log('Navigate calendar: ' + direction);
+    // Calculate how many days to shift: 1 day normally, 7 days if shift is held
+    const daysToShift = shiftHeld ? 7 : 1;
+    
+    // Convert current firstDayInCalendar to DateTime for easy manipulation
+    let dt = DateTime.local(firstDayInCalendar.year, firstDayInCalendar.month, firstDayInCalendar.day);
+    
+    // Shift the date range
+    if (direction === 'left') {
+        // Go back in time
+        dt = dt.minus({days: daysToShift});
+    } else { // direction === 'right'
+        // Go forward in time
+        dt = dt.plus({days: daysToShift});
+    }
+    
+    // Update the global firstDayInCalendar
+    firstDayInCalendar = new DateField(dt.year, dt.month, dt.day);
+    
+    // Re-render the calendar with the new date range
+    render();
+    
+    log('Navigate calendar: ' + direction + (shiftHeld ? ' (shift held)' : '') + ' - Moving ' + daysToShift + ' days - New start date: ' + firstDayInCalendar.year + '-' + firstDayInCalendar.month + '-' + firstDayInCalendar.day);
 }
 
 const taskInfoDateFontBigCol = 10; // px
@@ -7592,8 +7613,8 @@ function initLeftNavigationButton() {
     });
     
     // Event handlers
-    leftNavButton.onclick = () => {
-        navigateCalendar('left');
+    leftNavButton.onclick = (e) => {
+        navigateCalendar('left', e.shiftKey);
     };
     
     leftNavButton.onmouseenter = () => {
@@ -7646,8 +7667,8 @@ function initRightNavigationButton() {
     });
     
     // Event handlers
-    rightNavButton.onclick = () => {
-        navigateCalendar('right');
+    rightNavButton.onclick = (e) => {
+        navigateCalendar('right', e.shiftKey);
     };
     
     rightNavButton.onmouseenter = () => {
