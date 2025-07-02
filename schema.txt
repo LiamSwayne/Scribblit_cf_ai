@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     payment_times TEXT NOT NULL, -- array of unix times of payment
     login_attempts TEXT NOT NULL, -- array of unix times they attempted login
     google_auth BOOLEAN, -- is this a google account or a regular email login
+    provider TEXT NOT NULL, -- OAuth provider (e.g. 'email' or 'google')
+    provider_id TEXT, -- OAuth provider user ID (e.g. provider sub/id)
     password_hash TEXT, -- only users using regular email account have this, google auth users don't need it
     stripe_account_id TEXT,
     salt TEXT
