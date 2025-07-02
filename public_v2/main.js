@@ -6983,7 +6983,7 @@ function openSignInModal() {
                 HTML.setStyle(emailInput, {
                     position: 'fixed',
                     right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 10) + 'px',
+                    top: (modalRect.top + 30) + 'px',
                     width: '252px',
                     height: '28px',
                     fontFamily: 'Monospace',
@@ -7009,7 +7009,7 @@ function openSignInModal() {
                 HTML.setStyle(passwordInput, {
                     position: 'fixed',
                     right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 50) + 'px',
+                    top: (modalRect.top + 70) + 'px',
                     width: '252px',
                     height: '28px',
                     fontFamily: 'Monospace',
@@ -7034,7 +7034,7 @@ function openSignInModal() {
                 HTML.setStyle(signInActionButton, {
                     position: 'fixed',
                     right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 90) + 'px',
+                    top: (modalRect.top + 110) + 'px',
                     width: ((modalRect.width - 30) / 2) + 'px',
                     height: '32px',
                     fontFamily: 'Monospace',
@@ -7067,7 +7067,7 @@ function openSignInModal() {
                 HTML.setStyle(signUpActionButton, {
                     position: 'fixed',
                     right: (window.innerWidth - modalRect.right + 20 + ((modalRect.width - 30) / 2)) + 'px',
-                    top: (modalRect.top + 90) + 'px',
+                    top: (modalRect.top + 110) + 'px',
                     width: ((modalRect.width - 30) / 2) + 'px',
                     height: '32px',
                     fontFamily: 'Monospace',
