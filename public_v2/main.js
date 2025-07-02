@@ -46,50 +46,178 @@ const dividerWidth = 3; // px width for both horizontal and vertical dividers
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
 
-// Save user data to localStorage
-function saveUserData(user) {
+// Save user data to localStorage and server
+async function saveUserData(user) {
     ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
     ASSERT(type(LocalData.get('signedIn'), Boolean));
     // ms timestamp
     user.timestamp = Date.now();
     const userJson = user.toJson();
+    
+    // Always save to localStorage as backup
+    localStorage.setItem("userData", JSON.stringify(userJson));
+    
     if (LocalData.get('signedIn')) {
-        // send to server and save to localStorage as a backup
-        // TODO: implement
-        localStorage.setItem("userData", JSON.stringify(userJson));
-    } else {
-        localStorage.setItem("userData", JSON.stringify(userJson));
+        // Send to server
+        try {
+            const token = LocalData.get('token');
+            if (!token) {
+                log("ERROR: No token available for server save");
+                return;
+            }
+            
+            const response = await fetch(`${SERVER_URL}/update-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    data: userJson.data,
+                    dataspec: userJson.dataspec,
+                    timestamp: userJson.timestamp
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                log("ERROR saving user data to server: " + (errorData.error || 'Unknown error'));
+                
+                // If token is invalid, sign out the user
+                if (response.status === 401) {
+                    LocalData.set('signedIn', false);
+                    LocalData.set('token', NULL);
+                    log("Token expired, signed out user");
+                    // TODO: show the sign in button
+                    // have it slide down from the top of the screen
+                }
+            } else {
+                log("User data saved to server successfully");
+            }
+        } catch (error) {
+            log("ERROR saving user data to server: " + error.message);
+        }
     }
 }
 
-// Load user data from localStorage, returns a User object
-function loadUserData() {
+// Load user data from localStorage and server, returns a User object
+async function loadUserData() {
     if (LocalData.get('signedIn')) {
-        // TODO: implement server
         try {
-            const userDataLocal = localStorage.getItem("userData");
-            const userJsonLocal = JSON.parse(userDataLocal);
-            
-            // TODO fetch server
-            let serverResponse = {
-                user: {
-                    timestamp: 0
+            const token = LocalData.get('token');
+            if (!token) {
+                log("ERROR: No token available for server load, using local data");
+                const userDataLocal = localStorage.getItem("userData");
+                if (userDataLocal) {
+                    const userJsonLocal = JSON.parse(userDataLocal);
+                    return User.fromJson(userJsonLocal);
+                } else {
+                    return User.createDefault();
                 }
-            };
-
-            // choose the most recent user data, which could be local or server
-            if (userJsonLocal.timestamp > serverResponse.user.timestamp) {
-                log("Using local user data");
-                return User.fromJson(userJsonLocal);
-            } else {
-                log("Using server user data");
-                return User.fromJson(serverResponse.user);
+            }
+            
+            // Get local data as fallback
+            let userJsonLocal = null;
+            const userDataLocal = localStorage.getItem("userData");
+            if (userDataLocal) {
+                userJsonLocal = JSON.parse(userDataLocal);
+            }
+            
+            // Fetch from server
+            try {
+                const response = await fetch(`${SERVER_URL}/get-user`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const serverResponse = await response.json();
+                    
+                    // Update token if server provided a new one
+                    if (serverResponse.token) {
+                        LocalData.set('token', serverResponse.token);
+                    }
+                    
+                    // Parse server user data
+                    let serverUser = null;
+                    if (serverResponse.user) {
+                        try {
+                            serverUser = User.fromJson(serverResponse.user);
+                        } catch (parseError) {
+                            log("ERROR parsing server user data: " + parseError.message);
+                        }
+                    }
+                    
+                    // Choose the most recent user data
+                    if (serverUser && userJsonLocal) {
+                        log("serverUser.timestamp: " + serverUser.timestamp);
+                        log("userJsonLocal.timestamp: " + userJsonLocal.timestamp);
+                        if (serverUser.timestamp >= userJsonLocal.timestamp) {
+                            log("Using server user data (timestamp: " + serverUser.timestamp + ")");
+                            return serverUser;
+                        } else {
+                            log("Using local user data (timestamp: " + userJsonLocal.timestamp + ")");
+                            return User.fromJson(userJsonLocal);
+                        }
+                    } else if (serverUser) {
+                        log("Using server user data (no local data available)");
+                        return serverUser;
+                    } else if (userJsonLocal) {
+                        log("Using local user data (no server data available)");
+                        return User.fromJson(userJsonLocal);
+                    } else {
+                        log("No user data available, creating default user");
+                        return User.createDefault();
+                    }
+                } else {
+                    const errorData = await response.json();
+                    log("ERROR fetching user data from server: " + (errorData.error || 'Unknown error'));
+                    
+                    // If token is invalid, sign out the user
+                    if (response.status === 401) {
+                        LocalData.set('signedIn', false);
+                        LocalData.set('token', NULL);
+                        log("Token expired, signed out user");
+                        return User.createDefault();
+                    }
+                    
+                    // Use local data as fallback
+                    if (userJsonLocal) {
+                        log("Using local user data as fallback");
+                        return User.fromJson(userJsonLocal);
+                    } else {
+                        return User.createDefault();
+                    }
+                }
+            } catch (networkError) {
+                log("ERROR connecting to server: " + networkError.message);
+                
+                // Use local data as fallback
+                if (userJsonLocal) {
+                    log("Using local user data as fallback");
+                    return User.fromJson(userJsonLocal);
+                } else {
+                    return User.createDefault();
+                }
             }
         } catch (error) {
-            log("ERROR parsing user data, creating default user: " + error.message);
+            log("ERROR loading user data: " + error.message);
+            return User.createDefault();
         }
     } else {
+        // User not signed in, try to load from localStorage or create default
+        try {
+            const userDataLocal = localStorage.getItem("userData");
+            if (userDataLocal) {
+                const userJsonLocal = JSON.parse(userDataLocal);
+                return User.fromJson(userJsonLocal);
+            }
+        } catch (error) {
+            log("ERROR parsing local user data: " + error.message);
+        }
         return User.createDefault();
     }
 }
@@ -1067,8 +1195,8 @@ if (TESTING) {
         []
     );
     
-    // Store using saveUserData function
-    saveUserData(user);
+    // Store using saveUserData function (async, non-blocking)
+    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
 
     if (TESTING_NEW_USER) {
         LocalData.set('signedIn', false);
@@ -1093,12 +1221,17 @@ function applyPalette(palette) {
     }
 }
 
-let user = loadUserData();
+// Initialize user data - will be set by initUserData()
+let user = null;
 
-applyPalette(user.palette);
-// Set firstDayInCalendar to today on page load
-firstDayInCalendar = getDayNDaysFromToday(0);
-ASSERT(type(user, User));
+// Initialize user data asynchronously
+async function initUserData() {
+    user = await loadUserData();
+    applyPalette(user.palette);
+    // Set firstDayInCalendar to today on page load
+    firstDayInCalendar = getDayNDaysFromToday(0);
+    ASSERT(type(user, User));
+}
 
 let gapBetweenColumns = 14;
 let windowBorderMargin = 6;
@@ -1577,7 +1710,7 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         updateTaskSectionNames(onlyRendering);
 
         // Save the updated user data
-        saveUserData(user);
+        saveUserData(user).catch(error => log("Error saving user data: " + error.message));
     }
 }
 
@@ -3376,7 +3509,7 @@ function handleReminderDragEnd(e) {
         }
     });
 
-    saveUserData(user);
+    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
 
     // Check if any of the dragged reminders were recurring
     let hasRecurringReminder = false;
@@ -4657,7 +4790,7 @@ function toggleNumberOfCalendarDays(increment) {
     let numberDisplay = HTML.getElement('buttonNumberDisplay');
     numberDisplay.textContent = String(newValue);
     
-    saveUserData(user);
+    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
     render();
     updateTaskListBottomGradient(true); // update the bottom gradient
 }
@@ -4821,7 +4954,7 @@ function toggleAmPmOr24(formatSelection) {
     } else {
         ASSERT(false, "toggleAmPmOr24: formatSelection must be '24hr' or 'AM/PM'");
     }
-    saveUserData(user);
+    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
 
     const delay = 70; // 0.07 seconds
 
@@ -4917,7 +5050,7 @@ function toggleAmPmOr24(formatSelection) {
 function toggleStacking() {
     ASSERT(type(LocalData.get('stacking'), Boolean));
     LocalData.set('stacking', !LocalData.get('stacking'));
-    saveUserData(user);
+    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
     render();
     updateTaskListBottomGradient(true); // update instantly when toggling stacking
 }
@@ -6294,6 +6427,15 @@ function updateSettingsTextPosition() {
             }
         }
     }
+    
+    // Update logout button position
+    const logoutButton = HTML.getElementUnsafely('logoutButton');
+    if (logoutButton) {
+        HTML.setStyle(logoutButton, {
+            left: (modalRect.left + 5) + 'px',
+            top: (modalRect.top + 100 - 10 - 20) + 'px' // 10px from bottom, 20px button height
+        });
+    }
 }
 
 function render() {
@@ -6390,6 +6532,9 @@ async function loadFonts() {
 }
 
 async function init() {
+    // Initialize user data
+    await initUserData();
+    
     await loadFonts();
     initGridBackground();
     initGlobalShiftKeyTracking();
@@ -6676,6 +6821,40 @@ function openSettingsModal() {
             0.9,                         // minWaitTime: minimum time between option changes
             'right'                      // alignmentSide: position using left or right
         );
+
+        // Add logout button if user is signed in
+        if (LocalData.get('signedIn')) {
+            const logoutButton = HTML.make('button');
+            HTML.setId(logoutButton, 'logoutButton');
+            logoutButton.textContent = 'log out';
+            
+            HTML.setStyle(logoutButton, {
+                position: 'fixed',
+                left: (modalRect.left + 5) + 'px',
+                top: (modalRect.top + modalHeight - 10 - 20) + 'px', // 10px from bottom, 20px button height
+                width: '60px',
+                height: '20px',
+                fontFamily: 'Monospace',
+                fontSize: '10px',
+                color: 'var(--shade-4)',
+                backgroundColor: 'var(--shade-1)',
+                border: '1px solid var(--shade-2)',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                zIndex: '7002',
+                transition: 'background-color 0.2s ease',
+            });
+            
+            logoutButton.onclick = () => logout();
+            logoutButton.onmouseenter = () => {
+                HTML.setStyle(logoutButton, { backgroundColor: 'var(--shade-2)' });
+            };
+            logoutButton.onmouseleave = () => {
+                HTML.setStyle(logoutButton, { backgroundColor: 'var(--shade-1)' });
+            };
+            
+            HTML.body.appendChild(logoutButton);
+        }
     }, 400);
 }
 
@@ -6731,9 +6910,10 @@ function closeSettingsModal() {
     // Delete the test selector
     deleteSelector('timeFormatSelector');
     
-    // Fade out settings text and time format label
+    // Fade out settings text, time format label, and logout button
     const settingsText = HTML.getElementUnsafely('settingsText');
     const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
+    const logoutButton = HTML.getElementUnsafely('logoutButton');
     
     if (settingsText) {
         HTML.setStyle(settingsText, {
@@ -6755,6 +6935,18 @@ function closeSettingsModal() {
         setTimeout(() => {
             if (timeFormatLabel && timeFormatLabel.parentNode) {
                 HTML.body.removeChild(timeFormatLabel);
+            }
+        }, 200);
+    }
+    
+    if (logoutButton) {
+        HTML.setStyle(logoutButton, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (logoutButton && logoutButton.parentNode) {
+                HTML.body.removeChild(logoutButton);
             }
         }, 200);
     }
@@ -7238,14 +7430,18 @@ function signIn() {
         body: JSON.stringify({ email, password }),
     })
     .then(response => response.json())
-    .then(data => {
+    .then(async (data) => {
         console.log('Login response:', data);
         if (data.token) {
             LocalData.set('token', data.token);
             LocalData.set('signedIn', true);
             user.email = email;
             user.userId = data.id;
-            saveUserData(user);
+            try {
+                await saveUserData(user);
+            } catch (error) {
+                log("Error saving user data after login: " + error.message);
+            }
             alert('Login successful!');
             closeSignInModal(true); // Slide button off screen after successful login
             // Here you would typically update the UI to a logged-in state
@@ -7360,7 +7556,11 @@ async function verifyEmail() {
             LocalData.set('signedIn', true);
             
             // Save the updated user data
-            saveUserData(user);
+            try {
+                await saveUserData(user);
+            } catch (error) {
+                log("Error saving user data after verification: " + error.message);
+            }
             
             closeSignInModal(true); // Slide button off screen after successful signup
         } else {
@@ -7372,6 +7572,25 @@ async function verifyEmail() {
     } catch (error) {
         console.error('Verification error:', error);
     }
+}
+
+function logout() {
+    // Clear authentication data
+    LocalData.set('signedIn', false);
+    LocalData.set('token', NULL);
+    
+    user = User.createDefault();
+    
+    // Save updated user data
+    saveUserData(user).catch(error => log("Error saving user data after logout: " + error.message));
+    
+    // Close settings modal
+    closeSettingsModal();
+    
+    // Show sign-in button again
+    initSignInButton();
+    
+    log("User logged out successfully");
 }
 
 // Helper function to measure text width
