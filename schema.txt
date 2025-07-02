@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     usage INTEGER NOT NULL,                 -- usage count (>= 0)
     timestamp INTEGER NOT NULL,             -- timestamp (ms since epoch)
     plan TEXT NOT NULL, -- subscription plan
-    payment_dates TEXT NOT NULL, -- array of unix times of payment
+    payment_times TEXT NOT NULL, -- array of unix times of payment
     login_attempts TEXT NOT NULL, -- array of unix times they attempted login
     google_auth BOOLEAN, -- is this a google account or a regular email login
     password_hash TEXT, -- only users using regular email account have this, google auth users don't need it
