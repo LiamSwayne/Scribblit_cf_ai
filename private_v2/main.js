@@ -263,6 +263,54 @@ export default {
                     }
                 }
 
+            case '/update-user':
+                {
+                    if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
+
+                    try {
+                        const authHeader = request.headers.get('Authorization');
+                        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                            return SEND({ error: 'Authorization header is missing or invalid.' }, 401);
+                        }
+                        const token = authHeader.substring(7);
+                        const email = await verifyToken(token, env.SECRET_KEY);
+                        if (!email) {
+                            return SEND({ error: 'Invalid or expired token.' }, 401);
+                        }
+
+                        const {
+                            data,
+                            dataspec,
+                            usage,
+                            timestamp,
+                            plan,
+                            paymentTimes
+                        } = await request.json();
+
+                        if (typeof data !== 'string' || typeof dataspec !== 'number' || typeof usage !== 'number' ||
+                            typeof timestamp !== 'number' || typeof plan !== 'string' || !Array.isArray(paymentTimes)) {
+                            return SEND({ error: 'Invalid user data.' }, 400);
+                        }
+
+                        await env.DB.prepare(
+                            `UPDATE users SET data = ?, dataspec = ?, usage = ?, timestamp = ?, plan = ?, payment_times = ? WHERE email = ?`
+                        ).bind(
+                            data,
+                            dataspec,
+                            usage,
+                            timestamp,
+                            plan,
+                            JSON.stringify(paymentTimes),
+                            email
+                        ).run();
+
+                        return SEND({ success: true });
+                    } catch (err) {
+                        console.error('Update user error:', err);
+                        return SEND({ error: 'Failed to update user data.' }, 500);
+                    }
+                }
+
             case '/send-email':
                 if (request.method !== 'POST') {
                     return SEND({
