@@ -116,7 +116,7 @@ export default {
                             }, 400);
                         }
 
-                        const existingUser = await env.DB.prepare('SELECT email, verified_email FROM users WHERE email = ?').bind(email).first();
+                        const existingUser = await env.DB.prepare('SELECT email, verified_email, data FROM users WHERE email = ?').bind(email).first();
                         if (existingUser && existingUser.verified_email) {
                             return SEND({
                                 error: 'User with this email already exists.'
@@ -129,19 +129,26 @@ export default {
                         const verification_code_expires_at = Date.now() + (10 * 60 * 1000); // 10 minutes
 
                         if (existingUser) { // User exists but is not verified
+                            const userData = JSON.parse(existingUser.data || '{}');
+                            userData.verification_code = verification_code;
+                            userData.verification_code_expires_at = verification_code_expires_at;
                             await env.DB.prepare(
-                                `UPDATE users SET password_hash = ?, salt = ?, verification_code = ?, verification_code_expires_at = ? WHERE email = ?`
-                            ).bind(password_hash, salt, verification_code, verification_code_expires_at, email).run();
+                                `UPDATE users SET password_hash = ?, salt = ?, data = ? WHERE email = ?`
+                            ).bind(password_hash, salt, JSON.stringify(userData), email).run();
                         } else {
                             const user_id = crypto.randomUUID().replaceAll('-', '');
+                            const userData = {
+                                verification_code,
+                                verification_code_expires_at
+                            };
                             await env.DB.prepare(
-                                `INSERT INTO users (user_id, email, verified_email, data, dataspec, usage, timestamp, plan, payment_times, login_attempts, provider, password_hash, salt, verification_code, verification_code_expires_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                                `INSERT INTO users (user_id, email, verified_email, data, dataspec, usage, timestamp, plan, payment_times, login_attempts, provider, password_hash, salt)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                             ).bind(
                                 user_id,
                                 email,
                                 false, // verified_email
-                                '{}', // data
+                                JSON.stringify(userData), // data
                                 1, // dataspec
                                 0, // usage
                                 Date.now(), // timestamp
@@ -150,9 +157,7 @@ export default {
                                 '[]', // login_attempts
                                 'email', // provider
                                 password_hash,
-                                salt,
-                                verification_code,
-                                verification_code_expires_at
+                                salt
                             ).run();
                         }
 
@@ -187,7 +192,7 @@ export default {
                             }, 400);
                         }
 
-                        const user = await env.DB.prepare('SELECT verification_code, verification_code_expires_at, verified_email FROM users WHERE email = ?').bind(email).first();
+                        const user = await env.DB.prepare('SELECT data, verified_email FROM users WHERE email = ?').bind(email).first();
 
                         if (!user) {
                             return SEND({
@@ -201,21 +206,26 @@ export default {
                             }, 400);
                         }
 
-                        if (Date.now() > user.verification_code_expires_at) {
+                        const userData = JSON.parse(user.data || '{}');
+
+                        if (!userData.verification_code_expires_at || Date.now() > userData.verification_code_expires_at) {
                             return SEND({
                                 error: 'Verification code has expired.'
                             }, 400);
                         }
 
-                        if (user.verification_code !== code) {
+                        if (userData.verification_code !== code) {
                             return SEND({
                                 error: 'Invalid verification code.'
                             }, 400);
                         }
 
+                        delete userData.verification_code;
+                        delete userData.verification_code_expires_at;
+
                         await env.DB.prepare(
-                            'UPDATE users SET verified_email = ?, verification_code = NULL, verification_code_expires_at = NULL WHERE email = ?'
-                        ).bind(true, email).run();
+                            'UPDATE users SET verified_email = ?, data = ? WHERE email = ?'
+                        ).bind(true, JSON.stringify(userData), email).run();
 
                         const token = await generateToken(email, env.SECRET_KEY);
                         return SEND({
