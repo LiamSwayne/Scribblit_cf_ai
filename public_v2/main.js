@@ -651,22 +651,6 @@ if (TESTING) {
         ),
 
         new Entity(
-            'event-666666', // id
-            'Ambiguous ending time event', // name
-            '', // description
-            new EventData( // data
-                [
-                    new NonRecurringEventInstance(
-                        in2Days, // startDate
-                        new TimeField(18, 0), // startTime
-                        NULL, // endTime
-                        NULL // differentEndDate
-                    )
-                ] // instances
-            )
-        ),
-
-        new Entity(
             'event-777777', // id
             'Event spanning 3 days', // name
             '', // description
@@ -6975,6 +6959,21 @@ function openSignInModal() {
                     HTML.body.removeChild(emailButton);
                 }
                 
+                // Create a container for the email form elements
+                const emailFormContainer = HTML.make('div');
+                HTML.setId(emailFormContainer, 'emailFormContainer');
+                HTML.setStyle(emailFormContainer, {
+                    position: 'fixed',
+                    right: (window.innerWidth - modalRect.right + 10) + 'px',
+                    top: (modalRect.top + 30) + 'px',
+                    width: '252px',
+                    height: '114px',
+                    zIndex: String(signInTextZIndex + 101),
+                    opacity: '0',
+                    transition: 'opacity 0.3s ease-in'
+                });
+                HTML.body.appendChild(emailFormContainer);
+                
                 // Create email input field
                 const emailInput = HTML.make('input');
                 HTML.setId(emailInput, 'signInEmailInput');
@@ -6982,10 +6981,10 @@ function openSignInModal() {
                 emailInput.placeholder = 'Email';
                 
                 HTML.setStyle(emailInput, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 30) + 'px',
-                    width: '252px',
+                    position: 'absolute',
+                    left: '0px',
+                    top: '0px',
+                    width: 'calc(100% - 16px)',
                     height: '28px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
@@ -6994,12 +6993,9 @@ function openSignInModal() {
                     border: '1px solid var(--shade-2)',
                     borderRadius: '3px',
                     padding: '0 8px',
-                    zIndex: String(signInTextZIndex + 101),
                     outline: 'none',
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease-in'
                 });
-                HTML.body.appendChild(emailInput);
+                emailFormContainer.appendChild(emailInput);
                 
                 // Create password input field
                 const passwordInput = HTML.make('input');
@@ -7008,10 +7004,10 @@ function openSignInModal() {
                 passwordInput.placeholder = 'Password';
                 
                 HTML.setStyle(passwordInput, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 70) + 'px',
-                    width: '252px',
+                    position: 'absolute',
+                    left: '0px',
+                    top: '40px',
+                    width: 'calc(100% - 16px)',
                     height: '28px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
@@ -7020,12 +7016,9 @@ function openSignInModal() {
                     border: '1px solid var(--shade-2)',
                     borderRadius: '3px',
                     padding: '0 8px',
-                    zIndex: String(signInTextZIndex + 101),
                     outline: 'none',
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease-in'
                 });
-                HTML.body.appendChild(passwordInput);
+                emailFormContainer.appendChild(passwordInput);
                 
                 // Create sign in button
                 const signInActionButton = HTML.make('button');
@@ -7033,10 +7026,10 @@ function openSignInModal() {
                 signInActionButton.textContent = 'Sign In';
                 
                 HTML.setStyle(signInActionButton, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 110) + 'px',
-                    width: ((modalRect.width - 30) / 2) + 'px',
+                    position: 'absolute',
+                    left: '0px',
+                    bottom: '0px',
+                    width: 'calc(50% - 5px)',
                     height: '32px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
@@ -7045,9 +7038,7 @@ function openSignInModal() {
                     border: '1px solid var(--shade-2)',
                     borderRadius: '3px',
                     cursor: 'pointer',
-                    zIndex: String(signInTextZIndex + 101),
                     transition: 'background-color 0.2s ease',
-                    opacity: '0'
                 });
                 
                 signInActionButton.onclick = () => signIn();
@@ -7058,7 +7049,7 @@ function openSignInModal() {
                     HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-1)' });
                 };
                 
-                HTML.body.appendChild(signInActionButton);
+                emailFormContainer.appendChild(signInActionButton);
                 
                 // Create sign up button
                 const signUpActionButton = HTML.make('button');
@@ -7066,10 +7057,10 @@ function openSignInModal() {
                 signUpActionButton.textContent = 'Sign Up';
                 
                 HTML.setStyle(signUpActionButton, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 20 + ((modalRect.width - 30) / 2)) + 'px',
-                    top: (modalRect.top + 110) + 'px',
-                    width: ((modalRect.width - 30) / 2) + 'px',
+                    position: 'absolute',
+                    right: '0px',
+                    bottom: '0px',
+                    width: 'calc(50% - 5px)',
                     height: '32px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
@@ -7078,9 +7069,7 @@ function openSignInModal() {
                     border: '1px solid var(--shade-2)',
                     borderRadius: '3px',
                     cursor: 'pointer',
-                    zIndex: String(signInTextZIndex + 101),
                     transition: 'background-color 0.2s ease',
-                    opacity: '0'
                 });
                 
                 signUpActionButton.onclick = () => signUp();
@@ -7091,16 +7080,13 @@ function openSignInModal() {
                     HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-1)' });
                 };
                 
-                HTML.body.appendChild(signUpActionButton);
-                
-                // Fade in the form elements
+                emailFormContainer.appendChild(signUpActionButton);
+
+                // Fade in the form
                 setTimeout(() => {
-                    HTML.setStyle(emailInput, { opacity: '1' });
-                    HTML.setStyle(passwordInput, { opacity: '1' });
-                    HTML.setStyle(signInActionButton, { opacity: '1' });
-                    HTML.setStyle(signUpActionButton, { opacity: '1' });
-                }, 50);
-                
+                    HTML.setStyle(emailFormContainer, { opacity: '1' });
+                }, 10);
+
             }, 300);
         };
         
@@ -7120,64 +7106,32 @@ function closeSignInModal() {
     if (!signInModalOpen) return;
     signInModalOpen = false;
     
+    // Remove all created elements
+    const elementsToRemove = [
+        'signInModal', 'signInGoogleButton', 'signInEmailButton', 
+        'emailFormContainer', 'signInEmailInput', 'signInPasswordInput', 
+        'signInActionButton', 'signUpActionButton', 'verificationCodeInput',
+        'verifyEmailButton'
+    ];
+    
+    elementsToRemove.forEach(id => {
+        const element = HTML.getElementUnsafely(id);
+        if (element && element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+    });
+
+    // Reset button z-indexes
     const signInButton = HTML.getElement('signInButton');
     const signInText = HTML.getElement('signInText');
     
-    // Fade out all possible elements
-    const emailInput = HTML.getElementUnsafely('signInEmailInput');
-    const passwordInput = HTML.getElementUnsafely('signInPasswordInput');
-    const signInActionButton = HTML.getElementUnsafely('signInActionButton');
-    const signUpActionButton = HTML.getElementUnsafely('signUpActionButton');
-    const googleButton = HTML.getElementUnsafely('signInGoogleButton');
-    const emailButton = HTML.getElementUnsafely('signInEmailButton');
-    
-    const elementsToRemove = [emailInput, passwordInput, signInActionButton, signUpActionButton, googleButton, emailButton];
-    
-    elementsToRemove.forEach(element => {
-        if (element) {
-            HTML.setStyle(element, {
-                opacity: '0',
-                transition: 'opacity 0.2s ease-out'
-            });
-            setTimeout(() => {
-                if (element && element.parentNode) {
-                    HTML.body.removeChild(element);
-                }
-            }, 200);
-        }
+    HTML.setStyle(signInButton, {
+        zIndex: String(signInButtonZIndex)
     });
     
-    if (signInModal) {
-        // Get original button position to animate back to
-        const buttonRect = signInButton.getBoundingClientRect();
-        
-        // First animate back to button position and size
-        HTML.setStyle(signInModal, {
-            width: '10px',
-            height: '0px',
-            right: (window.innerWidth - buttonRect.right + 10) + 'px',
-            backgroundColor: 'var(--shade-0)',
-            border: '2px solid var(--shade-1)',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-        });
-        
-        // Remove modal after full animation and reset z-index
-        setTimeout(() => {
-            // Reset sign-in button and text z-index after animation completes
-            HTML.setStyle(signInButton, {
-                zIndex: String(signInButtonZIndex)
-            });
-            
-            HTML.setStyle(signInText, {
-                zIndex: String(signInTextZIndex)
-            });
-            
-            if (signInModal) {
-                HTML.body.removeChild(signInModal);
-                signInModal = null;
-            }
-        }, 500);
-    }
+    HTML.setStyle(signInText, {
+        zIndex: String(signInTextZIndex)
+    });
 }
 
 function signIn() {
@@ -7220,45 +7174,102 @@ function signIn() {
     });
 }
 
-function signUp() {
+async function signUp() {
     const emailInput = HTML.getElement('signInEmailInput');
     const passwordInput = HTML.getElement('signInPasswordInput');
-
     const email = emailInput.value;
     const password = passwordInput.value;
 
-    if (!email || !password) {
-        alert('Please enter both email and password.');
-        return;
+    try {
+        const response = await fetch(`${SERVER_URL}/signup`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Grey out email and password fields
+            emailInput.disabled = true;
+            passwordInput.disabled = true;
+            HTML.setStyle(emailInput, { backgroundColor: 'var(--shade-1)', color: 'var(--shade-3)' });
+            HTML.setStyle(passwordInput, { backgroundColor: 'var(--shade-1)', color: 'var(--shade-3)' });
+
+            // Hide sign-in button
+            const signInActionButton = HTML.getElement('signInActionButton');
+            HTML.setStyle(signInActionButton, { display: 'none' });
+
+            // Create verification code input
+            const verificationCodeInput = HTML.make('input');
+            HTML.setId(verificationCodeInput, 'verificationCodeInput');
+            verificationCodeInput.placeholder = '6-digit code';
+            const emailFormContainer = HTML.getElement('emailFormContainer');
+            HTML.setStyle(verificationCodeInput, {
+                position: 'absolute',
+                left: '0px',
+                top: '80px',
+                width: 'calc(100% - 16px)',
+                height: '28px',
+                fontFamily: 'Monospace',
+                fontSize: '12px',
+                color: 'var(--shade-4)',
+                backgroundColor: 'var(--shade-0)',
+                border: '1px solid var(--shade-2)',
+                borderRadius: '3px',
+                padding: '0 8px',
+                outline: 'none',
+            });
+            emailFormContainer.appendChild(verificationCodeInput);
+
+            // Change sign-up button to "Verify Email"
+            const signUpActionButton = HTML.getElement('signUpActionButton');
+            signUpActionButton.textContent = 'Verify Email';
+            signUpActionButton.onclick = () => verifyEmail();
+            HTML.setStyle(signUpActionButton, {
+                width: '100%'
+            });
+
+
+        } else {
+            // TODO: show error message
+            console.error('Sign up failed:', data.error);
+        }
+    } catch (error) {
+        console.error('Sign up error:', error);
     }
+}
 
-    const endpoint = 'signup';
-    const url = SERVER_URL + endpoint;
+async function verifyEmail() {
+    const emailInput = HTML.getElement('signInEmailInput');
+    const verificationCodeInput = HTML.getElement('verificationCodeInput');
+    const email = emailInput.value;
+    const code = verificationCodeInput.value;
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Signup response:', data);
+    try {
+        const response = await fetch(`${SERVER_URL}/verify-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, code })
+        });
+
+        const data = await response.json();
+
         if (data.token) {
-            // Save token and mark signed-in
             localStorage.setItem('authToken', data.token);
-            LocalData.set('signedIn', true);
-            alert('Signup successful! You are now logged in.');
+            // Optionally load user data here
             closeSignInModal();
         } else {
-            alert(data.error || 'Signup failed.');
+            // TODO: show error message
+            console.error('Verification failed:', data.error);
         }
-    })
-    .catch(error => {
-        console.error('Signup error:', error);
-        alert('An error occurred during signup.');
-    });
+    } catch (error) {
+        console.error('Verification error:', error);
+    }
 }
 
 // Helper function to measure text width
