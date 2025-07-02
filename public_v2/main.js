@@ -7258,14 +7258,31 @@ async function verifyEmail() {
         });
 
         const data = await response.json();
+        
+        // Log the full response for debugging
+        console.log('Verify email response:', data);
+        console.log('Response status:', response.status);
 
-        if (data.token) {
+        if (response.ok && data.token && data.id) {
+            // Store auth token
             localStorage.setItem('authToken', data.token);
-            // Optionally load user data here
+            
+            // Update global user object with email and userId
+            user.email = email;
+            user.userId = data.id;
+            
+            // Set signed in state to true
+            LocalData.set('signedIn', true);
+            
+            // Save the updated user data
+            saveUserData(user);
+            
             closeSignInModal();
         } else {
-            // TODO: show error message
-            console.error('Verification failed:', data.error);
+            // Show error message
+            console.error('Verification failed:', data.error || 'Unknown error');
+            console.error('Full response data:', data);
+            // TODO: show error message in UI
         }
     } catch (error) {
         console.error('Verification error:', error);

@@ -116,7 +116,7 @@ export default {
                             }, 400);
                         }
 
-                        const existingUser = await env.DB.prepare('SELECT email, verified_email, data FROM users WHERE email = ?').bind(email).first();
+                        const existingUser = await env.DB.prepare('SELECT user_id, email, verified_email, data FROM users WHERE email = ?').bind(email).first();
                         if (existingUser && existingUser.verified_email) {
                             return SEND({
                                 error: 'User with this email already exists.'
@@ -128,7 +128,12 @@ export default {
                         const verification_code = Math.floor(100000 + Math.random() * 900000).toString();
                         const verification_code_expires_at = Date.now() + (10 * 60 * 1000); // 10 minutes
 
+                        let user_id;
+
                         if (existingUser) { // User exists but is not verified
+                            // Use the existing user_id
+                            user_id = existingUser.user_id;
+                            
                             const userData = JSON.parse(existingUser.data || '{}');
                             userData.verification_code = verification_code;
                             userData.verification_code_expires_at = verification_code_expires_at;
@@ -136,7 +141,7 @@ export default {
                                 `UPDATE users SET password_hash = ?, salt = ?, data = ? WHERE email = ?`
                             ).bind(password_hash, salt, JSON.stringify(userData), email).run();
                         } else {
-                            const user_id = crypto.randomUUID().replaceAll('-', '');
+                            user_id = crypto.randomUUID().replaceAll('-', '');
                             const userData = {
                                 verification_code,
                                 verification_code_expires_at
@@ -165,7 +170,8 @@ export default {
                         await sendEmail(env.SENDGRID_API_KEY, email, 'Verify your email for Scribblit', emailContent);
 
                         return SEND({
-                            message: 'Verification code sent to your email.'
+                            message: 'Verification code sent to your email.',
+                            id: user_id
                         });
 
                     } catch (err) {
@@ -192,7 +198,7 @@ export default {
                             }, 400);
                         }
 
-                        const user = await env.DB.prepare('SELECT data, verified_email FROM users WHERE email = ?').bind(email).first();
+                        const user = await env.DB.prepare('SELECT user_id, data, verified_email FROM users WHERE email = ?').bind(email).first();
 
                         if (!user) {
                             return SEND({
@@ -206,7 +212,7 @@ export default {
                             }, 400);
                         }
 
-                        const userData = JSON.parse(user.data || '{}');
+                        const userData = JSON.parse(user.data);
 
                         if (!userData.verification_code_expires_at || Date.now() > userData.verification_code_expires_at) {
                             return SEND({
@@ -225,11 +231,12 @@ export default {
 
                         await env.DB.prepare(
                             'UPDATE users SET verified_email = ?, data = ? WHERE email = ?'
-                        ).bind(true, JSON.stringify(userData), email).run();
-
+                        ).bind(true, "{}", email).run();
+    
                         const token = await generateToken(email, env.SECRET_KEY);
                         return SEND({
-                            token
+                            token,
+                            id: user.user_id
                         });
 
                     } catch (err) {
@@ -257,7 +264,7 @@ export default {
                             }, 400);
                         }
 
-                        const user = await env.DB.prepare('SELECT password_hash, salt, verified_email FROM users WHERE email = ?').bind(email).first();
+                        const user = await env.DB.prepare('SELECT user_id, password_hash, salt, verified_email FROM users WHERE email = ?').bind(email).first();
                         if (!user) {
                             return SEND({
                                 error: 'Invalid credentials.'
@@ -279,7 +286,8 @@ export default {
 
                         const token = await generateToken(email, env.SECRET_KEY);
                         return SEND({
-                            token
+                            token,
+                            id: user.user_id
                         });
 
                     } catch (err) {
@@ -368,26 +376,19 @@ export default {
                         const {
                             data,
                             dataspec,
-                            usage,
                             timestamp,
-                            plan,
-                            paymentTimes
                         } = await request.json();
 
-                        if (typeof data !== 'string' || typeof dataspec !== 'number' || typeof usage !== 'number' ||
-                            typeof timestamp !== 'number' || typeof plan !== 'string' || !Array.isArray(paymentTimes)) {
+                        if (typeof data !== 'string' || typeof dataspec !== 'number' || typeof timestamp !== 'number') {
                             return SEND({ error: 'Invalid user data.' }, 400);
                         }
 
                         await env.DB.prepare(
-                            `UPDATE users SET data = ?, dataspec = ?, usage = ?, timestamp = ?, plan = ?, payment_times = ? WHERE email = ?`
+                            `UPDATE users SET data = ?, dataspec = ?, timestamp = ? WHERE email = ?`
                         ).bind(
                             data,
                             dataspec,
-                            usage,
                             timestamp,
-                            plan,
-                            JSON.stringify(paymentTimes),
                             email
                         ).run();
 

@@ -1,4 +1,4 @@
-let TESTING = true;
+let TESTING = false;
 let TESTING_NEW_USER = true;
 
 function ASSERT(condition, message="") {
