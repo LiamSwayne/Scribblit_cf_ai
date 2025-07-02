@@ -5395,6 +5395,14 @@ function renderInputBox() {
 
         // Add scroll event listener to update gradients
         inputBox.addEventListener('scroll', () => updateInputBoxGradients(false));
+
+        // Add keydown event listener to process input when Enter is pressed
+        inputBox.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent the default Enter key behavior
+                processInput();
+            }
+        });
     }
 
     // we are rendeing a custom border div, so we add 2px on each side
@@ -6303,7 +6311,11 @@ function renderTaskList() {
         height: String(taskListHeight + 1) + 'px',
         zIndex: '10', // Above other elements to act as a mask
         clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', // Mask to hide overflow
-        overflow: 'auto' // Make it scrollable
+        overflow: 'auto', // Make it scrollable
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start'
     });
 
     // Add the class to hide scrollbars
@@ -7388,7 +7400,7 @@ function closeSignInModal(slideButtonOffScreen = false) {
             backgroundColor: 'var(--shade-0)',
             border: '2px solid var(--shade-1)',
             borderRadius: '4px',
-            transition: 'all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
+            transition: 'all 0.6s cubic-bezier(0.68, 0.0, 0.265, 1.55)'
         });
         
         // Remove modal after shrinking animation completes
@@ -7617,6 +7629,23 @@ function measureTextWidth(text, font, fontSize) {
     HTML.body.removeChild(tempElement);
     
     return width;
+}
+
+// Process input when Enter key is pressed
+function processInput() {
+    const inputBox = HTML.getElement('inputBox');
+    
+    const inputText = inputBox.value.trim();
+    if (inputText === '') return;
+    
+    log("Processing input: " + inputText);
+    
+    // TODO: Add your input processing logic here
+    // For now, just clear the input box as an example
+    inputBox.value = '';
+    
+    // Re-render to update the input box height and task list
+    render();
 }
 
 // Creates a multiple choice selector with smooth transitions
