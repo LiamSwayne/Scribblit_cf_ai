@@ -34,6 +34,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+const SERVER_URL = 'https://scribblit-production.unrono.workers.dev/';
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
 let firstDayInCalendar; // the first day shown in calendar
@@ -7179,13 +7180,81 @@ function closeSignInModal() {
     }
 }
 
-// Empty functions for sign in and sign up - to be implemented later
 function signIn() {
-    // TODO: Implement sign in functionality
+    const emailInput = HTML.getElement('signInEmailInput');
+    const passwordInput = HTML.getElement('signInPasswordInput');
+
+    const email = emailInput.value;
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+        alert('Please enter both email and password.');
+        return;
+    }
+
+    const endpoint = TESTING ? 'test-login' : 'login';
+    const url = SERVER_URL + endpoint;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Login response:', data);
+        if (data.token) {
+            localStorage.setItem('authToken', data.token);
+            alert('Login successful!');
+            closeSignInModal();
+            // Here you would typically update the UI to a logged-in state
+        } else {
+            alert(data.error || 'Login failed.');
+        }
+    })
+    .catch(error => {
+        console.error('Login error:', error);
+        alert('An error occurred during login.');
+    });
 }
 
 function signUp() {
-    // TODO: Implement sign up functionality
+    const emailInput = HTML.getElement('signInEmailInput');
+    const passwordInput = HTML.getElement('signInPasswordInput');
+
+    const email = emailInput.value;
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+        alert('Please enter both email and password.');
+        return;
+    }
+
+    const endpoint = TESTING ? 'test-signup' : 'signup';
+    const url = SERVER_URL + endpoint;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Signup response:', data);
+        if (data.success) {
+            alert('Signup successful! Please log in.');
+        } else {
+            alert(data.error || 'Signup failed.');
+        }
+    })
+    .catch(error => {
+        console.error('Signup error:', error);
+        alert('An error occurred during signup.');
+    });
 }
 
 // Helper function to measure text width
