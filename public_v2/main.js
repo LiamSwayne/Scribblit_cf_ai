@@ -6745,6 +6745,7 @@ async function init() {
     initLeftNavigationButton();
     initSettingsButton();
     initSignInButton();
+    createProButton();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
@@ -7511,7 +7512,7 @@ function toggleSignIn() {
 }
 
 function openSignInModal() {
-    if (signInModalOpen || exists(HTML.getElement('signInModal'))) return;
+    if (signInModalOpen || exists(HTML.getElementUnsafely('signInModal'))) return;
     signInModalOpen = true;
     
     const signInButton = HTML.getElement('signInButton');
@@ -8962,6 +8963,72 @@ function initRightNavigationButton() {
     rightNavButton.appendChild(rightArrow1);
     rightNavButton.appendChild(rightArrow2);
     HTML.body.appendChild(rightNavButton);
+}
+
+function createProButton() {
+    // Only show Pro button if user is signed in and on free plan
+    if (!LocalData.get('signedIn') || G_user.plan !== 'free') {
+        return;
+    }
+    
+    // Pro button width is wider than standard buttons for the text
+    const proButtonWidth = measureTextWidth('pro', 'Monospaced', 11) + 10;
+    
+    // Pro button container
+    let proButton = HTML.make('div');
+    HTML.setId(proButton, 'proButton');
+    HTML.setStyle(proButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of settings button
+        width: String(proButtonWidth) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-3)',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+        zIndex: String(proButtonZIndex)
+    });
+    
+    // Pro text
+    let proText = HTML.make('div');
+    HTML.setId(proText, 'proText');
+    HTML.setStyle(proText, {
+        fontSize: '11px',
+        fontFamily: 'Monospaced',
+        color: 'var(--shade-1)',
+        whiteSpace: 'nowrap',
+        zIndex: String(proTextZIndex)
+    });
+    proText.textContent = 'pro';
+    
+    // Event handlers
+    proButton.onclick = () => {
+        // Handle Pro button click
+    };
+    
+    // Hover effect
+    proButton.onmouseenter = () => {
+        HTML.setStyle(proButton, {
+            background: 'linear-gradient(to right, var(--accent-1), var(--accent-2))',
+            color: 'var(--shade-1)'
+        });
+    };
+    
+    proButton.onmouseleave = () => {
+        HTML.setStyle(proButton, {
+            backgroundColor: 'var(--shade-3)',
+            color: 'var(--shade-1)'
+        });
+    };
+    
+    // Assemble the button
+    proButton.appendChild(proText);
+    HTML.body.appendChild(proButton);
 }
 
 init();

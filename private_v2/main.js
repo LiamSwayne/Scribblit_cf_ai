@@ -1,4 +1,4 @@
-const SERVER_URL = 'https://scribblit-production.unrono.workers.dev/';
+const SERVER_DOMAIN = 'scribblit-production.unrono.workers.dev';
 const PAGES_DOMAIN = 'scribblit2.pages.dev';
 
 function SEND(data, status = 200, headers = {}) {
@@ -428,7 +428,7 @@ export default {
                     const googleAuthUrl = `https://accounts.google.com/oauth/authorize?` +
                         `response_type=code&` +
                         `client_id=${env.GOOGLE_CLIENT_ID}&` +
-                        `redirect_uri=${encodeURIComponent(SERVER_URL + 'auth/google/callback')}&` +
+                        `redirect_uri=${encodeURIComponent('https://' + SERVER_DOMAIN + '/auth/google/callback')}&` +
                         `scope=${encodeURIComponent('openid email')}&` +
                         `state=${state}`;
                     
@@ -464,7 +464,7 @@ export default {
                                 code,
                                 client_id: env.GOOGLE_CLIENT_ID,
                                 client_secret: env.GOOGLE_CLIENT_SECRET,
-                                redirect_uri: SERVER_URL + 'auth/google/callback',
+                                redirect_uri: 'https://' + SERVER_DOMAIN + '/auth/google/callback',
                                 grant_type: 'authorization_code',
                             }),
                         });
