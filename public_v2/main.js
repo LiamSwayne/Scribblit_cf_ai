@@ -7136,6 +7136,53 @@ function openSettingsModal() {
                         transition: 'opacity 0.2s ease-in',
                     });
 
+                    // SVG code for copy icon with stroke set to shade-3
+                    const copySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14">
+                        <style>.cls-1{fill:none;stroke:var(--shade-3);stroke-miterlimit:10;stroke-width:1.3px;}</style>
+                        <path class="cls-1" d="M5.18,11.13V3.48h-.7c-.77,0-1.39.62-1.39,1.39v8.35c0,.77.62,1.39,1.39,1.39h4.95c.77,0,1.39-.62,1.39-1.39v-.7h-4.25c-.77,0-1.39-.62-1.39-1.39Z"/>
+                        <path class="cls-1" d="M10.82,12.52h.7c.77,0,1.39-.62,1.39-1.39V2.78c0-.77-.62-1.39-1.39-1.39h-4.95c-.77,0-1.39.62-1.39,1.39v.7"/>
+                    </svg>`;
+
+                    // Background div for copy button
+                    const copyBg = HTML.make('div');
+                    HTML.setId(copyBg, 'featureRequestCopyBg');
+                    HTML.setStyle(copyBg, {
+                        position: 'fixed',
+                        right: '14px',
+                        top: (36 + 14) + 'px',
+                        width: '18px',
+                        height: '18px',
+                        backgroundColor: 'var(--shade-1)',
+                        border: '1px solid var(--shade-2)',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        zIndex: '7003',
+                        opacity: '0',
+                        transition: 'opacity 0.2s ease-in',
+                    });
+
+                    // SVG icon div
+                    const copyIcon = HTML.make('div');
+                    HTML.setId(copyIcon, 'featureRequestCopyIcon');
+                    copyIcon.innerHTML = copySvg;
+                    HTML.setStyle(copyIcon, {
+                        position: 'fixed',
+                        right: '17px', // 3px padding inside background
+                        top: (-124) + 'px', // align inside background, shifted up 200px
+                        width: '14px',
+                        height: '14px',
+                        cursor: 'pointer',
+                        zIndex: '7004', // slightly above background
+                        opacity: '0',
+                        transition: 'opacity 0.2s ease-in',
+                    });
+
+                    const copyEmailToClipboard = () => {
+                        navigator.clipboard.writeText('seamanwily@gmail.com').catch(() => {});
+                    };
+                    copyBg.onclick = copyEmailToClipboard;
+                    copyIcon.onclick = copyEmailToClipboard;
+
                     const messageLine2 = HTML.make('div');
                     HTML.setId(messageLine2, 'featureRequestMessage2');
                     messageLine2.textContent = 'This is my personal email, and I read and reply to literally every Scribblit user.';
@@ -7159,12 +7206,16 @@ function openSettingsModal() {
 
                     HTML.body.appendChild(messageLine1);
                     HTML.body.appendChild(emailLink);
+                    HTML.body.appendChild(copyBg);
+                    HTML.body.appendChild(copyIcon);
                     HTML.body.appendChild(messageLine2);
 
                     // Force reflow and fade in
                     backButton.offsetHeight;
                     HTML.setStyle(backButton, { opacity: '1' });
                     HTML.setStyle(messageLine1, { opacity: '1' });
+                    HTML.setStyle(copyBg, { opacity: '1' });
+                    HTML.setStyle(copyIcon, { opacity: '1' });
                     HTML.setStyle(emailLink, { opacity: '1' });
                     HTML.setStyle(messageLine2, { opacity: '1' });
 
@@ -7173,6 +7224,8 @@ function openSettingsModal() {
                         // Fade out back button and messages
                         HTML.setStyle(backButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
                         HTML.setStyle(messageLine1, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                        HTML.setStyle(copyBg, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                        HTML.setStyle(copyIcon, { opacity: '0', transition: 'opacity 0.2s ease-out' });
                         HTML.setStyle(emailLink, { opacity: '0', transition: 'opacity 0.2s ease-out' });
                         HTML.setStyle(messageLine2, { opacity: '0', transition: 'opacity 0.2s ease-out' });
 
@@ -7180,6 +7233,8 @@ function openSettingsModal() {
                             // Remove back button and messages
                             if (backButton.parentNode) HTML.body.removeChild(backButton);
                             if (messageLine1.parentNode) HTML.body.removeChild(messageLine1);
+                            if (copyBg.parentNode) HTML.body.removeChild(copyBg);
+                            if (copyIcon.parentNode) HTML.body.removeChild(copyIcon);
                             if (emailLink.parentNode) HTML.body.removeChild(emailLink);
                             if (messageLine2.parentNode) HTML.body.removeChild(messageLine2);
 
@@ -7287,6 +7342,8 @@ function closeSettingsModal() {
     const featureRequestBackButton = HTML.getElementUnsafely('featureRequestBackButton');
     const featureRequestMessage1 = HTML.getElementUnsafely('featureRequestMessage1');
     const featureRequestEmailLink = HTML.getElementUnsafely('featureRequestEmailLink');
+    const featureRequestCopyBg = HTML.getElementUnsafely('featureRequestCopyBg');
+    const featureRequestCopyIcon = HTML.getElementUnsafely('featureRequestCopyIcon');
     const featureRequestMessage2 = HTML.getElementUnsafely('featureRequestMessage2');
     
     if (settingsText) {
@@ -7347,6 +7404,12 @@ function closeSettingsModal() {
     if (featureRequestEmailLink) {
         HTML.body.removeChild(featureRequestEmailLink);
     }
+    if (featureRequestCopyBg) {
+        HTML.body.removeChild(featureRequestCopyBg);
+    }
+    if (featureRequestCopyIcon) {
+        HTML.body.removeChild(featureRequestCopyIcon);
+    }
     if (featureRequestMessage2) {
         HTML.body.removeChild(featureRequestMessage2);
     }
@@ -7402,7 +7465,7 @@ function toggleSignIn() {
 }
 
 function openSignInModal() {
-    if (signInModalOpen || exists(HTML.getElementUnsafely('signInModal'))) return;
+    if (signInModalOpen || exists(HTML.getElement('signInModal'))) return;
     signInModalOpen = true;
     
     const signInButton = HTML.getElement('signInButton');
