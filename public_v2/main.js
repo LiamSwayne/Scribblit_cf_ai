@@ -1270,6 +1270,9 @@ function navigateCalendar(direction, shiftHeld = false) {
     ASSERT(direction === 'left' || direction === 'right');
     ASSERT(type(shiftHeld, Boolean));
 
+    // Clean up any hover overlays before navigation
+    cleanupAllHoverOverlays();
+
     // Calculate how many days to shift: 1 day normally, 7 days if shift is held
     const daysToShift = shiftHeld ? 7 : 1;
     
@@ -1331,6 +1334,24 @@ let G_shiftKeyState = {
 
 // Global typing state management
 let currentlyTyping = false;
+
+// Function to clean up all hover overlay elements
+function cleanupAllHoverOverlays() {
+    // Clean up all border and text overlays that might be left behind
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        for (let segmentIndex = 0; segmentIndex < 50; segmentIndex++) { // Arbitrary high number
+            const borderOverlay = HTML.getElementUnsafely(`day${dayIndex}segment${segmentIndex}_borderOverlay`);
+            const textOverlay = HTML.getElementUnsafely(`day${dayIndex}segment${segmentIndex}_textOverlay`);
+            
+            if (borderOverlay) {
+                borderOverlay.remove();
+            }
+            if (textOverlay) {
+                textOverlay.remove();
+            }
+        }
+    }
+}
 
 // Initialize global shift key tracking
 function initGlobalShiftKeyTracking() {
@@ -4788,6 +4809,9 @@ function toggleNumberOfCalendarDays(increment, shiftHeld = false) {
     const currentDays = LocalData.get('numberOfDays');
     ASSERT(type(currentDays, Int));
     ASSERT(1 <= currentDays && currentDays <= 7);
+    
+    // Clean up any hover overlays before changing days
+    cleanupAllHoverOverlays();
     
     let newValue;
     if (shiftHeld) {
