@@ -16,6 +16,7 @@ for (const font of fontDefinitions) {
 }
 
 // Global mouse position tracking for robust hover detection
+// this is expensive, but it's needed to fix a hover bug until i find a better solution
 window.lastMouseX = 0;
 window.lastMouseY = 0;
 document.addEventListener('mousemove', (e) => {
@@ -1293,6 +1294,9 @@ function navigateCalendar(direction, shiftHeld = false) {
     
     // Re-render the calendar with the new date range
     render();
+    
+    // Restore hover state for element under mouse
+    restoreHoverState();
 }
 
 const taskInfoDateFontBigCol = 10; // px
@@ -1335,6 +1339,16 @@ let G_shiftKeyState = {
 // Global typing state management
 let currentlyTyping = false;
 
+// Global mouse position tracking
+let lastMouseX = 0;
+let lastMouseY = 0;
+
+// Track mouse position globally
+document.addEventListener('mousemove', (e) => {
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+});
+
 // Function to clean up all hover overlay elements
 function cleanupAllHoverOverlays() {
     // Clean up all border and text overlays that might be left behind
@@ -1351,6 +1365,20 @@ function cleanupAllHoverOverlays() {
             }
         }
     }
+}
+
+// Function to restore hover state for element under mouse
+function restoreHoverState() {
+    // Small delay to ensure render is complete
+    setTimeout(() => {
+        const elementUnderMouse = document.elementFromPoint(lastMouseX, lastMouseY);
+        if (elementUnderMouse && elementUnderMouse.id && elementUnderMouse.id.includes('segment')) {
+            // Check if this element has a mouse enter handler and trigger it
+            if (elementUnderMouse.mouseEnterHandler) {
+                elementUnderMouse.mouseEnterHandler();
+            }
+        }
+    }, 10);
 }
 
 // Initialize global shift key tracking
@@ -4846,6 +4874,9 @@ function toggleNumberOfCalendarDays(increment, shiftHeld = false) {
     saveUserData(user).catch(error => log("Error saving user data: " + error.message));
     render();
     updateTaskListBottomGradient(true); // update the bottom gradient
+    
+    // Restore hover state for element under mouse
+    restoreHoverState();
 }
 
 function initNumberOfCalendarDaysButton() {
