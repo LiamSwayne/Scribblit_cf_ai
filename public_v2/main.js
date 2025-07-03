@@ -58,7 +58,6 @@ let activeCheckboxIds = new Set();
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
-    log("recieved user: " + user);
     ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
     ASSERT(type(LocalData.get('signedIn'), Boolean));
@@ -172,11 +171,6 @@ async function loadUserData() {
                     if (serverUser && userJsonLocal) {
                         ASSERT(type(serverUser, User));
                         ASSERT(type(userJsonLocal, Object));
-                        log("serverUser.timestamp: " + serverUser.timestamp);
-                        log("userJsonLocal.timestamp: " + userJsonLocal.timestamp);
-                        log("serverUser:");
-                        log(serverUser);
-                        log("serverUserString: " + JSON.stringify(serverUser));
                         
                         // Create a proper merged user without modifying the original serverUser
                         const localUser = User.fromJson(userJsonLocal);
@@ -185,7 +179,7 @@ async function loadUserData() {
                                 serverUser.entityArray.push(entity);
                             }
                         }
-                        log("mergedUser entityArray length: " + serverUser.entityArray.length);
+                        log("merged entity array");
                         return serverUser;
                     } else if (serverUser) {
                         log("Using server user data (no local data available)");
@@ -1776,7 +1770,7 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
         updateTaskSectionNames(onlyRendering);
 
         // Save the updated user data
-        saveUserData(user).catch(error => log("Error saving user data: " + error.message));
+        saveUserData(user);
     }
 }
 
@@ -5168,7 +5162,7 @@ function toggleAmPmOr24(formatSelection) {
     } else {
         ASSERT(false, "toggleAmPmOr24: formatSelection must be '24hr' or 'AM/PM'");
     }
-    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
+    saveUserData(user);
 
     const delay = 70; // 0.07 seconds
 
@@ -6610,64 +6604,6 @@ function updateSettingsTextPosition() {
             top: (modalRect.top + 5) + 'px'
         });
     }
-    
-    // Update time format label position
-    const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
-    if (timeFormatLabel) {
-        HTML.setStyle(timeFormatLabel, {
-            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospaced', 10) - 5) + 'px',
-            top: (modalRect.top + 18) + 'px'
-        });
-    }
-    
-    // Update time format selector position
-    const timeFormatSelector = HTML.getElementUnsafely('timeFormatSelector');
-    if (timeFormatSelector) {
-        // Update background element
-        HTML.setStyle(timeFormatSelector, {
-            top: (modalRect.top + 20) + 'px',
-            right: (modalRect.width - 145) + 'px'
-        });
-        
-        // Update highlight element
-        const highlight = HTML.getElementUnsafely('timeFormatSelector_highlight');
-        if (highlight) {
-            const currentTop = parseFloat(highlight.style.top);
-            const currentRight = parseFloat(highlight.style.right);
-            const offsetFromModal = currentTop - (modalRect.top + 20 + 2); // 2px padding
-            const offsetFromRight = currentRight - (modalRect.width - 145 + 2);
-            
-            HTML.setStyle(highlight, {
-                top: (modalRect.top + 20 + 2 + offsetFromModal) + 'px',
-                right: (modalRect.width - 145 + 2 + offsetFromRight) + 'px'
-            });
-        }
-        
-        // Update text elements
-        for (let i = 0; i < 2; i++) { // We know there are 2 options: '24hr' and 'AM/PM'
-            const textElement = HTML.getElementUnsafely('timeFormatSelector_text_' + i);
-            if (textElement) {
-                const currentTop = parseFloat(textElement.style.top);
-                const currentRight = parseFloat(textElement.style.right);
-                const offsetFromModal = currentTop - (modalRect.top + 20 + 2); // 2px padding
-                const offsetFromRight = currentRight - (modalRect.width - 145 + 2);
-                
-                HTML.setStyle(textElement, {
-                    top: (modalRect.top + 20 + 2 + offsetFromModal) + 'px',
-                    right: (modalRect.width - 145 + 2 + offsetFromRight) + 'px'
-                });
-            }
-        }
-    }
-    
-    // Update logout button position
-    const logoutButton = HTML.getElementUnsafely('logoutButton');
-    if (logoutButton) {
-        HTML.setStyle(logoutButton, {
-            left: (modalRect.left + 5) + 'px',
-            top: (modalRect.top + 100 - 10 - 20) + 'px' // 10px from bottom, 20px button height
-        });
-    }
 }
 
 function render() {
@@ -7056,22 +6992,14 @@ function openSettingsModal() {
 
         // Add logout button if user is signed in
         if (LocalData.get('signedIn')) {
-            const bottomButtonsContainer = HTML.make('div');
-            HTML.setId(bottomButtonsContainer, 'bottomButtonsContainer');
-            HTML.setStyle(bottomButtonsContainer, {
-                position: 'fixed',
-                left: (modalRect.left + 5) + 'px',
-                top: (modalRect.top + modalHeight - 21) + 'px',
-                display: 'flex',
-                gap: '5px',
-                zIndex: '7002'
-            });
-
             const logoutButton = HTML.make('button');
             HTML.setId(logoutButton, 'logoutButton');
             logoutButton.textContent = 'log out?';
             
             HTML.setStyle(logoutButton, {
+                position: 'fixed',
+                right: (modalWidth - 55) + 'px',
+                top: (modalHeight - 15) + 'px',
                 width: '60px',
                 height: '20px',
                 fontFamily: 'Monospace',
@@ -7082,6 +7010,7 @@ function openSettingsModal() {
                 borderRadius: '3px',
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease',
+                zIndex: '7002'
             });
             
             logoutButton.onclick = () => logout();
@@ -7097,6 +7026,9 @@ function openSettingsModal() {
             featureRequestButton.textContent = 'request a feature!';
             
             HTML.setStyle(featureRequestButton, {
+                position: 'fixed',
+                right: '11px',
+                top: (modalHeight - 15) + 'px',
                 width: '120px',
                 height: '20px',
                 fontFamily: 'Monospace',
@@ -7107,6 +7039,7 @@ function openSettingsModal() {
                 borderRadius: '3px',
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease',
+                zIndex: '7002'
             });
             
             featureRequestButton.onmouseenter = () => {
@@ -7119,17 +7052,20 @@ function openSettingsModal() {
             featureRequestButton.onclick = () => {
                 const settingsText = HTML.getElement('settingsText');
                 const timeFormatLabel = HTML.getElement('timeFormatLabel');
+                const logoutButton = HTML.getElement('logoutButton');
                 
                 // Start animations immediately
                 deleteSelector('timeFormatSelector');
                 HTML.setStyle(settingsText, { opacity: '0', transition: 'opacity 0.2s ease-out' });
                 HTML.setStyle(timeFormatLabel, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                HTML.setStyle(bottomButtonsContainer, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                HTML.setStyle(logoutButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                HTML.setStyle(featureRequestButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
 
                 setTimeout(() => {
                     HTML.setStyle(settingsText, { display: 'none' });
                     HTML.setStyle(timeFormatLabel, { display: 'none' });
-                    HTML.setStyle(bottomButtonsContainer, { display: 'none' });
+                    HTML.setStyle(logoutButton, { display: 'none' });
+                    HTML.setStyle(featureRequestButton, { display: 'none' });
 
                     // Create and show "back" button
                     const backButton = HTML.make('button');
@@ -7137,8 +7073,8 @@ function openSettingsModal() {
                     backButton.textContent = 'back';
                     HTML.setStyle(backButton, {
                         position: 'fixed',
-                        right: (window.innerWidth - modalWidth - 49) + 'px',
-                        top: (modalRect.top + 5) + 'px',
+                        right: (modalWidth - 35) + 'px',
+                        top: '11px',
                         width: '40px',
                         height: '20px',
                         fontFamily: 'Monospaced',
@@ -7160,18 +7096,20 @@ function openSettingsModal() {
                     message.innerHTML = "Send your feature request to seamanwily@gmail.com. This is my personal email, and I read and reply to literally every Scribblit user.";
                     HTML.setStyle(message, {
                         position: 'fixed',
-                        right: (window.innerWidth - modalRect.right + 5) + 'px',
-                        top: (modalRect.top + 30) + 'px',
-                        width: (modalRect.width - 10) + 'px',
+                        right: (14) + 'px',
+                        top: '36px',
+                        width: (modalWidth - 10) + 'px',
                         fontFamily: 'Monospaced',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         zIndex: '7003',
                         lineHeight: '1.4',
                         wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
                         opacity: '0',
                         transition: 'opacity 0.2s ease-in',
-                        textAlign: 'right'
                     });
                     HTML.body.appendChild(message);
 
@@ -7194,7 +7132,8 @@ function openSettingsModal() {
                             // Prepare original elements for fade-in
                             HTML.setStyle(settingsText, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
                             HTML.setStyle(timeFormatLabel, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
-                            HTML.setStyle(bottomButtonsContainer, { display: 'flex', opacity: '0', transition: 'opacity 0.2s ease-in' });
+                            HTML.setStyle(logoutButton, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
+                            HTML.setStyle(featureRequestButton, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
 
                             // Re-create selector
                             createSelector(
@@ -7213,7 +7152,8 @@ function openSettingsModal() {
                             settingsText.offsetHeight;
                             HTML.setStyle(settingsText, { opacity: '1' });
                             HTML.setStyle(timeFormatLabel, { opacity: '1' });
-                            HTML.setStyle(bottomButtonsContainer, { opacity: '1' });
+                            HTML.setStyle(logoutButton, { opacity: '1' });
+                            HTML.setStyle(featureRequestButton, { opacity: '1' });
 
                         }, 200);
                     };
@@ -7227,9 +7167,8 @@ function openSettingsModal() {
                 }, 200);
             };
 
-            bottomButtonsContainer.appendChild(logoutButton);
-            bottomButtonsContainer.appendChild(featureRequestButton);
-            HTML.body.appendChild(bottomButtonsContainer);
+            HTML.body.appendChild(logoutButton);
+            HTML.body.appendChild(featureRequestButton);
         }
     }, 400);
 }
@@ -7286,10 +7225,11 @@ function closeSettingsModal() {
     // Delete the test selector
     deleteSelector('timeFormatSelector');
     
-    // Fade out settings text, time format label, and logout button
+    // Fade out settings text, time format label, and buttons
     const settingsText = HTML.getElementUnsafely('settingsText');
     const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
-    const bottomButtonsContainer = HTML.getElementUnsafely('bottomButtonsContainer');
+    const logoutButton = HTML.getElementUnsafely('logoutButton');
+    const featureRequestButton = HTML.getElementUnsafely('featureRequestButton');
     const featureRequestBackButton = HTML.getElementUnsafely('featureRequestBackButton');
     const featureRequestMessage = HTML.getElementUnsafely('featureRequestMessage');
     
@@ -7317,14 +7257,26 @@ function closeSettingsModal() {
         }, 200);
     }
     
-    if (bottomButtonsContainer) {
-        HTML.setStyle(bottomButtonsContainer, {
+    if (logoutButton) {
+        HTML.setStyle(logoutButton, {
             opacity: '0',
             transition: 'opacity 0.2s ease-out'
         });
         setTimeout(() => {
-            if (bottomButtonsContainer && bottomButtonsContainer.parentNode) {
-                HTML.body.removeChild(bottomButtonsContainer);
+            if (logoutButton && logoutButton.parentNode) {
+                HTML.body.removeChild(logoutButton);
+            }
+        }, 200);
+    }
+    
+    if (featureRequestButton) {
+        HTML.setStyle(featureRequestButton, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (featureRequestButton && featureRequestButton.parentNode) {
+                HTML.body.removeChild(featureRequestButton);
             }
         }, 200);
     }
@@ -7889,7 +7841,7 @@ function signIn() {
     })
     .then(response => response.json())
     .then(async (data) => {
-        console.log('Login response:', data);
+        log('Login response:', data);
         if (data.token) {
             LocalData.set('token', data.token);
             LocalData.set('signedIn', true);
@@ -8013,8 +7965,8 @@ async function verifyEmail() {
         const data = await response.json();
         
         // Log the full response for debugging
-        console.log('Verify email response:', data);
-        console.log('Response status:', response.status);
+        log('Verify email response:', data);
+        log('Response status:', response.status);
 
         if (response.ok && data.token && data.id) {
             // Store auth token
