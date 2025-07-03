@@ -7010,7 +7010,7 @@ function openSettingsModal() {
                 border: '1px solid var(--shade-2)',
                 borderRadius: '3px',
                 cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
+                transition: 'background-color 0.2s ease, opacity 0.2s ease-in',
                 zIndex: '7002'
             });
             
@@ -7039,7 +7039,7 @@ function openSettingsModal() {
                 border: '1px solid var(--shade-2)',
                 borderRadius: '3px',
                 cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
+                transition: 'background-color 0.2s ease, opacity 0.2s ease-in',
                 zIndex: '7002'
             });
             
@@ -7057,10 +7057,10 @@ function openSettingsModal() {
                 
                 // Start animations immediately
                 deleteSelector('timeFormatSelector');
-                HTML.setStyle(settingsText, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                HTML.setStyle(timeFormatLabel, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                HTML.setStyle(logoutButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                HTML.setStyle(featureRequestButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                HTML.setStyle(settingsText, { opacity: '0' });
+                HTML.setStyle(timeFormatLabel, { opacity: '0' });
+                HTML.setStyle(logoutButton, { opacity: '0' });
+                HTML.setStyle(featureRequestButton, { opacity: '0' });
 
                 setTimeout(() => {
                     HTML.setStyle(settingsText, { display: 'none' });
@@ -7158,7 +7158,7 @@ function openSettingsModal() {
                         cursor: 'pointer',
                         zIndex: '7003',
                         opacity: '0',
-                        transition: 'opacity 0.2s ease-in',
+                        transition: 'background-color 0.2s ease, opacity 0.2s ease-in',
                     });
 
                     // SVG icon div
@@ -7222,12 +7222,12 @@ function openSettingsModal() {
                     // Back button logic
                     backButton.onclick = () => {
                         // Fade out back button and messages
-                        HTML.setStyle(backButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                        HTML.setStyle(messageLine1, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                        HTML.setStyle(copyBg, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                        HTML.setStyle(copyIcon, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                        HTML.setStyle(emailLink, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                        HTML.setStyle(messageLine2, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                        HTML.setStyle(backButton, { opacity: '0' });
+                        HTML.setStyle(messageLine1, { opacity: '0' });
+                        HTML.setStyle(copyBg, { opacity: '0' });
+                        HTML.setStyle(copyIcon, { opacity: '0' });
+                        HTML.setStyle(emailLink, { opacity: '0' });
+                        HTML.setStyle(messageLine2, { opacity: '0' });
 
                         setTimeout(() => {
                             // Remove back button and messages
@@ -7239,10 +7239,10 @@ function openSettingsModal() {
                             if (messageLine2.parentNode) HTML.body.removeChild(messageLine2);
 
                             // Prepare original elements for fade-in
-                            HTML.setStyle(settingsText, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
-                            HTML.setStyle(timeFormatLabel, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
-                            HTML.setStyle(logoutButton, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
-                            HTML.setStyle(featureRequestButton, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
+                            HTML.setStyle(settingsText, { display: 'block', opacity: '0' });
+                            HTML.setStyle(timeFormatLabel, { display: 'block', opacity: '0' });
+                            HTML.setStyle(logoutButton, { display: 'block', opacity: '0' });
+                            HTML.setStyle(featureRequestButton, { display: 'block', opacity: '0' });
 
                             // Re-create selector
                             createSelector(
