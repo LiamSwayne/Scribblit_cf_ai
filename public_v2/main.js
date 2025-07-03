@@ -7137,7 +7137,7 @@ function openSettingsModal() {
                     });
 
                     // SVG code for copy icon with stroke set to shade-3
-                    const copySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14">
+                    const copySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="11" height="11">
                         <style>.cls-1{fill:none;stroke:var(--shade-3);stroke-miterlimit:10;stroke-width:1.3px;}</style>
                         <path class="cls-1" d="M5.18,11.13V3.48h-.7c-.77,0-1.39.62-1.39,1.39v8.35c0,.77.62,1.39,1.39,1.39h4.95c.77,0,1.39-.62,1.39-1.39v-.7h-4.25c-.77,0-1.39-.62-1.39-1.39Z"/>
                         <path class="cls-1" d="M10.82,12.52h.7c.77,0,1.39-.62,1.39-1.39V2.78c0-.77-.62-1.39-1.39-1.39h-4.95c-.77,0-1.39.62-1.39,1.39v.7"/>
@@ -7148,10 +7148,10 @@ function openSettingsModal() {
                     HTML.setId(copyBg, 'featureRequestCopyBg');
                     HTML.setStyle(copyBg, {
                         position: 'fixed',
-                        right: '14px',
-                        top: (36 + 14) + 'px',
-                        width: '18px',
-                        height: '18px',
+                        right: String(modalWidth - 134) + 'px',
+                        top: '50px',
+                        width: '13px',
+                        height: '13px',
                         backgroundColor: 'var(--shade-1)',
                         border: '1px solid var(--shade-2)',
                         borderRadius: '3px',
@@ -7167,10 +7167,10 @@ function openSettingsModal() {
                     copyIcon.innerHTML = copySvg;
                     HTML.setStyle(copyIcon, {
                         position: 'fixed',
-                        right: '17px', // 3px padding inside background
-                        top: (-124) + 'px', // align inside background, shifted up 200px
-                        width: '14px',
-                        height: '14px',
+                        right: String(modalWidth - 131) + 'px',
+                        top: '-128px',
+                        width: '10px',
+                        height: '10px',
                         cursor: 'pointer',
                         zIndex: '7004', // slightly above background
                         opacity: '0',
@@ -7182,6 +7182,20 @@ function openSettingsModal() {
                     };
                     copyBg.onclick = copyEmailToClipboard;
                     copyIcon.onclick = copyEmailToClipboard;
+
+                    // Hover effects
+                    copyBg.onmouseenter = () => {
+                        HTML.setStyle(copyBg, { backgroundColor: 'var(--shade-2)' });
+                    };
+                    copyBg.onmouseleave = () => {
+                        HTML.setStyle(copyBg, { backgroundColor: 'var(--shade-1)' });
+                    };
+                    copyIcon.onmouseenter = () => {
+                        HTML.setStyle(copyBg, { backgroundColor: 'var(--shade-2)' });
+                    };
+                    copyIcon.onmouseleave = () => {
+                        HTML.setStyle(copyBg, { backgroundColor: 'var(--shade-1)' });
+                    };
 
                     const messageLine2 = HTML.make('div');
                     HTML.setId(messageLine2, 'featureRequestMessage2');
