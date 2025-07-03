@@ -3136,17 +3136,6 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
         if (staleElement) {
             staleElement.remove();
             
-            // Also clean up associated overlay elements
-            const staleBorderOverlay = HTML.getElementUnsafely(`day${dayIndex}segment${i}_borderOverlay`);
-            if (staleBorderOverlay) {
-                staleBorderOverlay.remove();
-            }
-            
-            const staleTextOverlay = HTML.getElementUnsafely(`day${dayIndex}segment${i}_textOverlay`);
-            if (staleTextOverlay) {
-                staleTextOverlay.remove();
-            }
-            
             i++;
         } else {
             break;
@@ -4601,17 +4590,6 @@ function renderCalendar(days) {
                 const staleElement = HTML.getElementUnsafely(`day${i}segment${j}`);
                 if (staleElement) {
                     staleElement.remove();
-                    
-                    // Also clean up associated overlay elements
-                    const staleBorderOverlay = HTML.getElementUnsafely(`day${i}segment${j}_borderOverlay`);
-                    if (staleBorderOverlay) {
-                        staleBorderOverlay.remove();
-                    }
-                    
-                    const staleTextOverlay = HTML.getElementUnsafely(`day${i}segment${j}_textOverlay`);
-                    if (staleTextOverlay) {
-                        staleTextOverlay.remove();
-                    }
                     
                     j++;
                 } else {
