@@ -7056,14 +7056,22 @@ function openSettingsModal() {
 
         // Add logout button if user is signed in
         if (LocalData.get('signedIn')) {
+            const bottomButtonsContainer = HTML.make('div');
+            HTML.setId(bottomButtonsContainer, 'bottomButtonsContainer');
+            HTML.setStyle(bottomButtonsContainer, {
+                position: 'fixed',
+                left: (modalRect.left + 5) + 'px',
+                top: (modalRect.top + modalHeight - 21) + 'px',
+                display: 'flex',
+                gap: '5px',
+                zIndex: '7002'
+            });
+
             const logoutButton = HTML.make('button');
             HTML.setId(logoutButton, 'logoutButton');
             logoutButton.textContent = 'log out?';
             
             HTML.setStyle(logoutButton, {
-                position: 'fixed',
-                left: (modalRect.left + 5) + 'px',
-                top: (modalRect.top + modalHeight - 21) + 'px',
                 width: '60px',
                 height: '20px',
                 fontFamily: 'Monospace',
@@ -7073,7 +7081,6 @@ function openSettingsModal() {
                 border: '1px solid var(--shade-2)',
                 borderRadius: '3px',
                 cursor: 'pointer',
-                zIndex: '7002',
                 transition: 'background-color 0.2s ease',
             });
             
@@ -7084,8 +7091,145 @@ function openSettingsModal() {
             logoutButton.onmouseleave = () => {
                 HTML.setStyle(logoutButton, { backgroundColor: 'var(--shade-1)' });
             };
+
+            const featureRequestButton = HTML.make('button');
+            HTML.setId(featureRequestButton, 'featureRequestButton');
+            featureRequestButton.textContent = 'request a feature!';
             
-            HTML.body.appendChild(logoutButton);
+            HTML.setStyle(featureRequestButton, {
+                width: '120px',
+                height: '20px',
+                fontFamily: 'Monospace',
+                fontSize: '10px',
+                color: 'var(--shade-4)',
+                backgroundColor: 'var(--shade-1)',
+                border: '1px solid var(--shade-2)',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+            });
+            
+            featureRequestButton.onmouseenter = () => {
+                HTML.setStyle(featureRequestButton, { backgroundColor: 'var(--shade-2)' });
+            };
+            featureRequestButton.onmouseleave = () => {
+                HTML.setStyle(featureRequestButton, { backgroundColor: 'var(--shade-1)' });
+            };
+
+            featureRequestButton.onclick = () => {
+                const settingsText = HTML.getElement('settingsText');
+                const timeFormatLabel = HTML.getElement('timeFormatLabel');
+                
+                // Start animations immediately
+                deleteSelector('timeFormatSelector');
+                HTML.setStyle(settingsText, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                HTML.setStyle(timeFormatLabel, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                HTML.setStyle(bottomButtonsContainer, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+
+                setTimeout(() => {
+                    HTML.setStyle(settingsText, { display: 'none' });
+                    HTML.setStyle(timeFormatLabel, { display: 'none' });
+                    HTML.setStyle(bottomButtonsContainer, { display: 'none' });
+
+                    // Create and show "back" button
+                    const backButton = HTML.make('button');
+                    HTML.setId(backButton, 'featureRequestBackButton');
+                    backButton.textContent = 'back';
+                    HTML.setStyle(backButton, {
+                        position: 'fixed',
+                        right: (window.innerWidth - modalWidth - 49) + 'px',
+                        top: (modalRect.top + 5) + 'px',
+                        width: '40px',
+                        height: '20px',
+                        fontFamily: 'Monospaced',
+                        fontSize: '10px',
+                        color: 'var(--shade-4)',
+                        backgroundColor: 'var(--shade-1)',
+                        border: '1px solid var(--shade-2)',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        zIndex: '7003',
+                        transition: 'background-color 0.2s ease, opacity 0.2s ease-in',
+                        opacity: '0'
+                    });
+                    HTML.body.appendChild(backButton);
+
+                    // Create and show feature request message
+                    const message = HTML.make('div');
+                    HTML.setId(message, 'featureRequestMessage');
+                    message.innerHTML = "Send your feature request to seamanwily@gmail.com. This is my personal email, and I read and reply to literally every Scribblit user.";
+                    HTML.setStyle(message, {
+                        position: 'fixed',
+                        right: (window.innerWidth - modalRect.right + 5) + 'px',
+                        top: (modalRect.top + 30) + 'px',
+                        width: (modalRect.width - 10) + 'px',
+                        fontFamily: 'Monospaced',
+                        fontSize: '10px',
+                        color: 'var(--shade-4)',
+                        zIndex: '7003',
+                        lineHeight: '1.4',
+                        wordWrap: 'break-word',
+                        opacity: '0',
+                        transition: 'opacity 0.2s ease-in',
+                        textAlign: 'right'
+                    });
+                    HTML.body.appendChild(message);
+
+                    // Force reflow and fade in
+                    backButton.offsetHeight;
+                    HTML.setStyle(backButton, { opacity: '1' });
+                    HTML.setStyle(message, { opacity: '1' });
+
+                    // Back button logic
+                    backButton.onclick = () => {
+                        // Fade out back button and message
+                        HTML.setStyle(backButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                        HTML.setStyle(message, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+
+                        setTimeout(() => {
+                            // Remove back button and message
+                            if (backButton.parentNode) HTML.body.removeChild(backButton);
+                            if (message.parentNode) HTML.body.removeChild(message);
+
+                            // Prepare original elements for fade-in
+                            HTML.setStyle(settingsText, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
+                            HTML.setStyle(timeFormatLabel, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
+                            HTML.setStyle(bottomButtonsContainer, { display: 'flex', opacity: '0', transition: 'opacity 0.2s ease-in' });
+
+                            // Re-create selector
+                            createSelector(
+                                ['24hr', 'AM/PM'],
+                                'horizontal',
+                                'timeFormatSelector',
+                                modalRect.width - 145,
+                                modalRect.top + 20,
+                                72, 20, 7002, 'Monospaced', 10,
+                                toggleAmPmOr24,
+                                user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',
+                                0.9, 'right'
+                            );
+                            
+                            // Force reflow and fade in
+                            settingsText.offsetHeight;
+                            HTML.setStyle(settingsText, { opacity: '1' });
+                            HTML.setStyle(timeFormatLabel, { opacity: '1' });
+                            HTML.setStyle(bottomButtonsContainer, { opacity: '1' });
+
+                        }, 200);
+                    };
+
+                    backButton.onmouseenter = () => {
+                        HTML.setStyle(backButton, { backgroundColor: 'var(--shade-2)' });
+                    };
+                    backButton.onmouseleave = () => {
+                        HTML.setStyle(backButton, { backgroundColor: 'var(--shade-1)' });
+                    };
+                }, 200);
+            };
+
+            bottomButtonsContainer.appendChild(logoutButton);
+            bottomButtonsContainer.appendChild(featureRequestButton);
+            HTML.body.appendChild(bottomButtonsContainer);
         }
     }, 400);
 }
@@ -7145,7 +7289,9 @@ function closeSettingsModal() {
     // Fade out settings text, time format label, and logout button
     const settingsText = HTML.getElementUnsafely('settingsText');
     const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
-    const logoutButton = HTML.getElementUnsafely('logoutButton');
+    const bottomButtonsContainer = HTML.getElementUnsafely('bottomButtonsContainer');
+    const featureRequestBackButton = HTML.getElementUnsafely('featureRequestBackButton');
+    const featureRequestMessage = HTML.getElementUnsafely('featureRequestMessage');
     
     if (settingsText) {
         HTML.setStyle(settingsText, {
@@ -7171,18 +7317,26 @@ function closeSettingsModal() {
         }, 200);
     }
     
-    if (logoutButton) {
-        HTML.setStyle(logoutButton, {
+    if (bottomButtonsContainer) {
+        HTML.setStyle(bottomButtonsContainer, {
             opacity: '0',
             transition: 'opacity 0.2s ease-out'
         });
         setTimeout(() => {
-            if (logoutButton && logoutButton.parentNode) {
-                HTML.body.removeChild(logoutButton);
+            if (bottomButtonsContainer && bottomButtonsContainer.parentNode) {
+                HTML.body.removeChild(bottomButtonsContainer);
             }
         }, 200);
     }
     
+    if (featureRequestBackButton) {
+        HTML.body.removeChild(featureRequestBackButton);
+    }
+
+    if (featureRequestMessage) {
+        HTML.body.removeChild(featureRequestMessage);
+    }
+
     if (settingsModal) {
         // Reset gear z-index
         HTML.setStyle(gearIcon, {
@@ -7549,6 +7703,9 @@ function slideSignInButtonOffScreen() {
     const signInButton = HTML.getElementUnsafely('signInButton');
     if (!signInButton) return;
     
+    // Start the gear spin animation 500ms after the genie animation begins
+    setTimeout(animateGearSpin, 500);
+    
     // Attempt to locate the settings gear button so we can animate towards it
     const settingsButton = HTML.getElementUnsafely('settingsButton');
     
@@ -7578,6 +7735,57 @@ function slideSignInButtonOffScreen() {
             HTML.body.removeChild(signInButton);
         }
     }, 850);
+}
+
+function animateGearSpin() {
+    const gearIcon = HTML.getElementUnsafely('gearIcon');
+    if (!gearIcon) return;
+    
+    // Get the current base rotation
+    const startRotation = window.gearBaseRotation || 0;
+    
+    // Define the spin animation - starts fast and decelerates
+    // Total of 3 full rotations (1080 degrees) plus some extra for effect - counterclockwise
+    const totalSpinRotation = -(1080 + 180); // 3.5 full rotations counterclockwise
+    const finalRotation = startRotation + totalSpinRotation;
+    
+    // Update the global base rotation to the final value
+    window.updateGearBaseRotation(finalRotation);
+    
+    // Create keyframes for the decelerating spin animation
+    const animationDuration = 1200; // 1.2 seconds, slightly longer than genie animation
+    const startTime = performance.now();
+    
+    function animateStep(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / animationDuration, 1);
+        
+        // Ease-out cubic animation for deceleration effect
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        // Calculate current rotation
+        const currentRotation = startRotation + (totalSpinRotation * easeProgress);
+        
+        // Apply the rotation
+        HTML.setStyle(gearIcon, {
+            transform: `rotate(${currentRotation}deg)`,
+            transition: 'none' // Remove transition during manual animation
+        });
+        
+        // Continue animation if not complete
+        if (progress < 1) {
+            requestAnimationFrame(animateStep);
+        } else {
+            // Restore transition for normal hover/click behavior
+            HTML.setStyle(gearIcon, {
+                transform: `rotate(${finalRotation}deg)`,
+                transition: 'transform 0.3s ease'
+            });
+        }
+    }
+    
+    // Start the animation
+    requestAnimationFrame(animateStep);
 }
 
 function closeSignInModal(slideButtonOffScreen = false) {
@@ -8254,6 +8462,13 @@ function initSettingsButton() {
     // Track if gear animation is in progress
     let gearAnimating = false;
     
+    // Make baseRotation accessible globally for genie animation
+    window.gearBaseRotation = baseRotation;
+    window.updateGearBaseRotation = (newRotation) => {
+        baseRotation = newRotation;
+        window.gearBaseRotation = baseRotation;
+    };
+    
     // Settings button (background for gear - uses modal z-index for seamless transition)
     let settingsButton = HTML.make('div');
     HTML.setId(settingsButton, 'settingsButton');
@@ -8280,7 +8495,7 @@ function initSettingsButton() {
                 }
                 </style>
             </defs>
-            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1.1.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.2,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
+            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1.1.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.6.9,1.1,1.1,1.6.7,3.4,1.3,5.4,2,.6,.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
         </svg>
     `
     
@@ -8314,6 +8529,7 @@ function initSettingsButton() {
         toggleSettings();
         // Increment base rotation by 60 degrees on each click
         baseRotation += 60;
+        window.updateGearBaseRotation(baseRotation);
         // Update the gear rotation immediately to show the change
         HTML.setStyle(gearIcon, { 
             transform: `rotate(${baseRotation + 60}deg)` 
@@ -8326,8 +8542,10 @@ function initSettingsButton() {
     };
     
     settingsButton.onmouseenter = () => {
+        // Use the potentially updated base rotation
+        const currentBase = window.gearBaseRotation || baseRotation;
         HTML.setStyle(gearIcon, { 
-            transform: `rotate(${baseRotation + 60}deg)` 
+            transform: `rotate(${currentBase + 60}deg)` 
         });
         HTML.setStyle(settingsButton, {
             backgroundColor: 'var(--shade-2)'
@@ -8335,8 +8553,10 @@ function initSettingsButton() {
     };
     
     settingsButton.onmouseleave = () => {
+        // Use the potentially updated base rotation
+        const currentBase = window.gearBaseRotation || baseRotation;
         HTML.setStyle(gearIcon, { 
-            transform: `rotate(${baseRotation}deg)` 
+            transform: `rotate(${currentBase}deg)` 
         });
         HTML.setStyle(settingsButton, {
             backgroundColor: 'var(--shade-1)'
