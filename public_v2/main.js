@@ -5459,10 +5459,29 @@ function renderTimeIndicator(onSchedule) {
     const timeMarker = HTML.make('div');
     HTML.setId(timeMarker, 'time-marker');
     const timeMarkerHeight = 2;
+    
+    // Determine if this day is a rightmost day
+    const numberOfDays = LocalData.get('numberOfDays');
+    const isStacking = LocalData.get('stacking');
+    let isRightmostDay = false;
+    
+    if (isStacking) {
+        // In stacking mode, there are two rightmost days (one per row)
+        const topRowRightmost = Math.floor(numberOfDays / 2) - 1;
+        const bottomRowRightmost = numberOfDays - 1;
+        isRightmostDay = (todayIndex === topRowRightmost || todayIndex === bottomRowRightmost);
+    } else {
+        // In non-stacking mode, only the last day is rightmost
+        isRightmostDay = (todayIndex === numberOfDays - 1);
+    }
+    
+    // Extend time marker to divider line if not rightmost day
+    const timeMarkerWidth = isRightmostDay ? dayColumnDimensions.width : dayColumnDimensions.width + 7;
+    
     HTML.setStyle(timeMarker, {
         position: 'fixed',
         left: String(dayColumnDimensions.left) + 'px',
-        width: String(dayColumnDimensions.width) + 'px',
+        width: String(timeMarkerWidth) + 'px',
         top: String(positionY) + 'px',
         height: '2px',
         backgroundColor: vibrantRedColor,
