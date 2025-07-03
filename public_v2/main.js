@@ -6701,6 +6701,38 @@ async function loadFonts() {
 }
 
 async function init() {
+    // Check for OAuth callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const userId = urlParams.get('id');
+    const error = urlParams.get('error');
+    
+    if (error) {
+        console.error('OAuth error:', error);
+        alert('Sign in failed. Please try again.');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (token && userId) {
+        // OAuth success - store token and user info
+        LocalData.set('token', token);
+        LocalData.set('signedIn', true);
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Load user data from server
+        try {
+            user = await loadUserData();
+            if (user) {
+                user.userId = userId;
+                await saveUserData(user);
+                log('Google OAuth sign in successful');
+            }
+        } catch (error) {
+            log('Error loading user data after OAuth: ' + error.message);
+        }
+    }
+    
     // Initialize user data
     await initUserData();
     
@@ -7573,7 +7605,8 @@ function openSignInModal() {
         });
         
         googleButton.onclick = () => {
-            // TODO: Implement Google sign in
+            // Redirect to Google OAuth
+            window.location.href = 'https://scribblit-production.unrono.workers.dev/auth/google';
         };
         googleButton.onmouseenter = () => {
             HTML.setStyle(googleButton, { backgroundColor: 'var(--shade-2)' });
