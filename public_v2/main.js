@@ -31,6 +31,12 @@ document.addEventListener('keydown', (e) => {
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         navigateCalendar('right', e.shiftKey);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        toggleNumberOfCalendarDays(true, e.shiftKey);
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        toggleNumberOfCalendarDays(false, e.shiftKey);
     }
 });
 
@@ -4770,23 +4776,33 @@ function renderDividers() {
     }
 }
 
-function toggleNumberOfCalendarDays(increment) {
+function toggleNumberOfCalendarDays(increment, shiftHeld = false) {
     const currentDays = LocalData.get('numberOfDays');
     ASSERT(type(currentDays, Int));
     ASSERT(1 <= currentDays && currentDays <= 7);
     
     let newValue;
-    if (increment) {
-        if (currentDays === 7) {
-            newValue = 1;
+    if (shiftHeld) {
+        // Shift behavior: go directly to extremes
+        if (increment) {
+            newValue = 7; // Go to max (7) when shift + top half
         } else {
-            newValue = currentDays + 1;
+            newValue = 1; // Go to min (1) when shift + bottom half
         }
     } else {
-        if (currentDays === 1) {
-            newValue = 7;
+        // Normal behavior: cycle through values
+        if (increment) {
+            if (currentDays === 7) {
+                newValue = 1;
+            } else {
+                newValue = currentDays + 1;
+            }
         } else {
-            newValue = currentDays - 1;
+            if (currentDays === 1) {
+                newValue = 7;
+            } else {
+                newValue = currentDays - 1;
+            }
         }
     }
 
@@ -4801,6 +4817,10 @@ function toggleNumberOfCalendarDays(increment) {
 }
 
 function initNumberOfCalendarDaysButton() {
+    // Track hover state for top and bottom halves
+    let isHoveringTop = false;
+    let isHoveringBottom = false;
+    
     // Main button container
     let buttonNumberCalendarDays = HTML.make('div');
     HTML.setId(buttonNumberCalendarDays, 'buttonNumberCalendarDays');
@@ -4869,10 +4889,10 @@ function initNumberOfCalendarDaysButton() {
         transition: 'background-color 0.2s ease'
     });
     
-    // Up triangle
-    let upTriangle = HTML.make('div');
-    HTML.setId(upTriangle, 'buttonUpTriangle');
-    HTML.setStyle(upTriangle, {
+    // First up triangle
+    let upTriangle1 = HTML.make('div');
+    HTML.setId(upTriangle1, 'buttonUpTriangle1');
+    HTML.setStyle(upTriangle1, {
         position: 'absolute',
         top: '25%',
         left: '50%',
@@ -4883,15 +4903,34 @@ function initNumberOfCalendarDaysButton() {
         borderRight: '3px solid transparent',
         borderBottom: '4px solid var(--shade-3)',
         opacity: '0',
-        transition: 'opacity 0.2s ease',
+        transition: 'opacity 0.2s ease, transform 0.2s ease',
         zIndex: '11',
         pointerEvents: 'none'
     });
     
-    // Down triangle
-    let downTriangle = HTML.make('div');
-    HTML.setId(downTriangle, 'buttonDownTriangle');
-    HTML.setStyle(downTriangle, {
+    // Second up triangle
+    let upTriangle2 = HTML.make('div');
+    HTML.setId(upTriangle2, 'buttonUpTriangle2');
+    HTML.setStyle(upTriangle2, {
+        position: 'absolute',
+        top: '25%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '0',
+        height: '0',
+        borderLeft: '3px solid transparent',
+        borderRight: '3px solid transparent',
+        borderBottom: '4px solid var(--shade-3)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease, transform 0.2s ease',
+        zIndex: '11',
+        pointerEvents: 'none'
+    });
+    
+    // First down triangle
+    let downTriangle1 = HTML.make('div');
+    HTML.setId(downTriangle1, 'buttonDownTriangle1');
+    HTML.setStyle(downTriangle1, {
         position: 'absolute',
         top: '75%',
         left: '50%',
@@ -4902,45 +4941,151 @@ function initNumberOfCalendarDaysButton() {
         borderRight: '3px solid transparent',
         borderTop: '4px solid var(--shade-3)',
         opacity: '0',
-        transition: 'opacity 0.2s ease',
+        transition: 'opacity 0.2s ease, transform 0.2s ease',
         zIndex: '11',
         pointerEvents: 'none'
     });
     
-    // Event handlers
-    topHalf.onclick = () => toggleNumberOfCalendarDays(true);
-    bottomHalf.onclick = () => toggleNumberOfCalendarDays(false);
+    // Second down triangle
+    let downTriangle2 = HTML.make('div');
+    HTML.setId(downTriangle2, 'buttonDownTriangle2');
+    HTML.setStyle(downTriangle2, {
+        position: 'absolute',
+        top: '75%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '0',
+        height: '0',
+        borderLeft: '3px solid transparent',
+        borderRight: '3px solid transparent',
+        borderTop: '4px solid var(--shade-3)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease, transform 0.2s ease',
+        zIndex: '11',
+        pointerEvents: 'none'
+    });
+    
+    // Function to update triangle positions based on state
+    const updateTopTrianglePositions = () => {
+        if (isHoveringTop && G_shiftKeyState.isHeld) {
+            // Fast-forward mode: spread triangles apart
+            HTML.setStyle(upTriangle1, {
+                transform: 'translate(-50%, -50%) translateY(-2px)',
+                opacity: '1'
+            });
+            HTML.setStyle(upTriangle2, {
+                transform: 'translate(-50%, -50%) translateY(2px)',
+                opacity: '1'
+            });
+        } else if (isHoveringTop) {
+            // Normal hover: triangles together
+            HTML.setStyle(upTriangle1, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '1'
+            });
+            HTML.setStyle(upTriangle2, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '1'
+            });
+        } else {
+            // Not hovering: hide triangles
+            HTML.setStyle(upTriangle1, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '0'
+            });
+            HTML.setStyle(upTriangle2, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '0'
+            });
+        }
+    };
+    
+    const updateBottomTrianglePositions = () => {
+        if (isHoveringBottom && G_shiftKeyState.isHeld) {
+            // Fast-forward mode: spread triangles apart
+            HTML.setStyle(downTriangle1, {
+                transform: 'translate(-50%, -50%) translateY(-2px)',
+                opacity: '1'
+            });
+            HTML.setStyle(downTriangle2, {
+                transform: 'translate(-50%, -50%) translateY(2px)',
+                opacity: '1'
+            });
+        } else if (isHoveringBottom) {
+            // Normal hover: triangles together
+            HTML.setStyle(downTriangle1, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '1'
+            });
+            HTML.setStyle(downTriangle2, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '1'
+            });
+        } else {
+            // Not hovering: hide triangles
+            HTML.setStyle(downTriangle1, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '0'
+            });
+            HTML.setStyle(downTriangle2, {
+                transform: 'translate(-50%, -50%) translateY(0px)',
+                opacity: '0'
+            });
+        }
+    };
+    
+    // Register for shift key state changes
+    registerShiftKeyCallback((shiftHeld) => {
+        updateTopTrianglePositions();
+        updateBottomTrianglePositions();
+    });
+    
+    // Event handlers for top half
+    topHalf.onclick = (e) => {
+        toggleNumberOfCalendarDays(true, e.shiftKey);
+    };
     
     topHalf.onmouseenter = () => {
+        isHoveringTop = true;
         HTML.setStyle(topHalf, { backgroundColor: 'var(--shade-2)' });
-        HTML.setStyle(upTriangle, { opacity: '1' });
         HTML.setStyle(numberDisplay, { opacity: '0.3' });
+        updateTopTrianglePositions();
     };
     
     topHalf.onmouseleave = () => {
+        isHoveringTop = false;
         HTML.setStyle(topHalf, { backgroundColor: 'transparent' });
-        HTML.setStyle(upTriangle, { opacity: '0' });
         HTML.setStyle(numberDisplay, { opacity: '1' });
+        updateTopTrianglePositions();
+    };
+    
+    // Event handlers for bottom half
+    bottomHalf.onclick = (e) => {
+        toggleNumberOfCalendarDays(false, e.shiftKey);
     };
     
     bottomHalf.onmouseenter = () => {
+        isHoveringBottom = true;
         HTML.setStyle(bottomHalf, { backgroundColor: 'var(--shade-2)' });
-        HTML.setStyle(downTriangle, { opacity: '1' });
         HTML.setStyle(numberDisplay, { opacity: '0.3' });
+        updateBottomTrianglePositions();
     };
     
     bottomHalf.onmouseleave = () => {
+        isHoveringBottom = false;
         HTML.setStyle(bottomHalf, { backgroundColor: 'transparent' });
-        HTML.setStyle(downTriangle, { opacity: '0' });
         HTML.setStyle(numberDisplay, { opacity: '1' });
+        updateBottomTrianglePositions();
     };
     
     // Assemble the button
     buttonNumberCalendarDays.appendChild(numberDisplay);
     buttonNumberCalendarDays.appendChild(topHalf);
     buttonNumberCalendarDays.appendChild(bottomHalf);
-    buttonNumberCalendarDays.appendChild(upTriangle);
-    buttonNumberCalendarDays.appendChild(downTriangle);
+    buttonNumberCalendarDays.appendChild(upTriangle1);
+    buttonNumberCalendarDays.appendChild(upTriangle2);
+    buttonNumberCalendarDays.appendChild(downTriangle1);
+    buttonNumberCalendarDays.appendChild(downTriangle2);
     
     HTML.body.appendChild(buttonNumberCalendarDays);
     
