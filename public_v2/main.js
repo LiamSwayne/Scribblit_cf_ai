@@ -3,6 +3,7 @@ LocalData.load();
 
 // start loading fonts immediately on page load
 const fontDefinitions = [
+    // StratfordSerial is the primary font
     { key: 'PrimaryRegular', url: 'https://super-publisher.pages.dev/YOOOOOOOOOOOOO.woff2' },
     { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/Bold.woff2' },
     // { key: 'PrimaryExtraBold', url: 'https://super-publisher.pages.dev/Extrabold.woff2' },
