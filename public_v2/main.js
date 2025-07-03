@@ -25,6 +25,9 @@ document.addEventListener('mousemove', (e) => {
 
 // Calendar navigation keyboard handlers
 document.addEventListener('keydown', (e) => {
+    // Don't process arrow keys when user is typing in text inputs
+    if (currentlyTyping) return;
+    
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
         navigateCalendar('left', e.shiftKey);
@@ -1325,6 +1328,9 @@ let G_shiftKeyState = {
     isHeld: false,
     callbacks: []
 };
+
+// Global typing state management
+let currentlyTyping = false;
 
 // Initialize global shift key tracking
 function initGlobalShiftKeyTracking() {
@@ -5546,12 +5552,13 @@ function renderInputBox() {
         `;
         HTML.head.appendChild(rainbowStyle);
 
-        // Add focus/blur event listeners for rainbow mask fade animation
+        // Add focus/blur event listeners for rainbow mask fade animation and typing state
         inputBox.addEventListener('focus', function() {
             const gradientMask = HTML.getElementUnsafely('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '1';
             }
+            currentlyTyping = true;
         });
 
         inputBox.addEventListener('blur', function() {
@@ -5559,6 +5566,7 @@ function renderInputBox() {
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '0';
             }
+            currentlyTyping = false;
         });
 
         // on change, call this function
@@ -7375,6 +7383,15 @@ function openSignInModal() {
                     padding: '0 8px',
                     outline: 'none',
                 });
+                
+                // Add focus/blur event listeners for typing state
+                emailInput.addEventListener('focus', function() {
+                    currentlyTyping = true;
+                });
+                emailInput.addEventListener('blur', function() {
+                    currentlyTyping = false;
+                });
+                
                 emailFormContainer.appendChild(emailInput);
                 
                 // Create password input field
@@ -7398,6 +7415,15 @@ function openSignInModal() {
                     padding: '0 8px',
                     outline: 'none',
                 });
+                
+                // Add focus/blur event listeners for typing state
+                passwordInput.addEventListener('focus', function() {
+                    currentlyTyping = true;
+                });
+                passwordInput.addEventListener('blur', function() {
+                    currentlyTyping = false;
+                });
+                
                 emailFormContainer.appendChild(passwordInput);
                 
                 // Create sign in button
@@ -7696,6 +7722,15 @@ async function signUp() {
                 padding: '0 8px',
                 outline: 'none',
             });
+            
+            // Add focus/blur event listeners for typing state
+            verificationCodeInput.addEventListener('focus', function() {
+                currentlyTyping = true;
+            });
+            verificationCodeInput.addEventListener('blur', function() {
+                currentlyTyping = false;
+            });
+            
             emailFormContainer.appendChild(verificationCodeInput);
 
             // Change sign-up button to "Verify Email"
