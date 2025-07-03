@@ -7092,12 +7092,12 @@ function openSettingsModal() {
                     HTML.body.appendChild(backButton);
 
                     // Create and show feature request message
-                    const message = HTML.make('div');
-                    HTML.setId(message, 'featureRequestMessage');
-                    message.innerHTML = "Send your feature request to seamanwily@gmail.com. This is my personal email, and I read and reply to literally every Scribblit user.";
-                    HTML.setStyle(message, {
+                    const messageLine1 = HTML.make('div');
+                    HTML.setId(messageLine1, 'featureRequestMessage1');
+                    messageLine1.textContent = 'Send your feature request to';
+                    HTML.setStyle(messageLine1, {
                         position: 'fixed',
-                        right: (14) + 'px',
+                        right: '14px',
                         top: '36px',
                         width: (modalWidth - 10) + 'px',
                         fontFamily: 'Monospaced',
@@ -7112,23 +7112,76 @@ function openSettingsModal() {
                         opacity: '0',
                         transition: 'opacity 0.2s ease-in',
                     });
-                    HTML.body.appendChild(message);
+
+                    const emailLink = HTML.make('a');
+                    HTML.setId(emailLink, 'featureRequestEmailLink');
+                    emailLink.href = 'mailto:seamanwily@gmail.com';
+                    emailLink.textContent = 'seamanwily@gmail.com';
+                    HTML.setStyle(emailLink, {
+                        position: 'fixed',
+                        right: '14px',
+                        top: (36 + 14) + 'px', // one line below first message
+                        width: (modalWidth - 10) + 'px',
+                        fontFamily: 'Monospaced',
+                        fontSize: '10px',
+                        color: '#0066ff',
+                        textDecoration: 'underline',
+                        zIndex: '7003',
+                        lineHeight: '1.4',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
+                        opacity: '0',
+                        transition: 'opacity 0.2s ease-in',
+                    });
+
+                    const messageLine2 = HTML.make('div');
+                    HTML.setId(messageLine2, 'featureRequestMessage2');
+                    messageLine2.textContent = 'This is my personal email, and I read and reply to literally every Scribblit user.';
+                    HTML.setStyle(messageLine2, {
+                        position: 'fixed',
+                        right: '14px',
+                        top: (36 + 28) + 'px', // two lines below first message
+                        width: (modalWidth - 10) + 'px',
+                        fontFamily: 'Monospaced',
+                        fontSize: '10px',
+                        color: 'var(--shade-4)',
+                        zIndex: '7003',
+                        lineHeight: '1.4',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
+                        opacity: '0',
+                        transition: 'opacity 0.2s ease-in',
+                    });
+
+                    HTML.body.appendChild(messageLine1);
+                    HTML.body.appendChild(emailLink);
+                    HTML.body.appendChild(messageLine2);
 
                     // Force reflow and fade in
                     backButton.offsetHeight;
                     HTML.setStyle(backButton, { opacity: '1' });
-                    HTML.setStyle(message, { opacity: '1' });
+                    HTML.setStyle(messageLine1, { opacity: '1' });
+                    HTML.setStyle(emailLink, { opacity: '1' });
+                    HTML.setStyle(messageLine2, { opacity: '1' });
 
                     // Back button logic
                     backButton.onclick = () => {
-                        // Fade out back button and message
+                        // Fade out back button and messages
                         HTML.setStyle(backButton, { opacity: '0', transition: 'opacity 0.2s ease-out' });
-                        HTML.setStyle(message, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                        HTML.setStyle(messageLine1, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                        HTML.setStyle(emailLink, { opacity: '0', transition: 'opacity 0.2s ease-out' });
+                        HTML.setStyle(messageLine2, { opacity: '0', transition: 'opacity 0.2s ease-out' });
 
                         setTimeout(() => {
-                            // Remove back button and message
+                            // Remove back button and messages
                             if (backButton.parentNode) HTML.body.removeChild(backButton);
-                            if (message.parentNode) HTML.body.removeChild(message);
+                            if (messageLine1.parentNode) HTML.body.removeChild(messageLine1);
+                            if (emailLink.parentNode) HTML.body.removeChild(emailLink);
+                            if (messageLine2.parentNode) HTML.body.removeChild(messageLine2);
 
                             // Prepare original elements for fade-in
                             HTML.setStyle(settingsText, { display: 'block', opacity: '0', transition: 'opacity 0.2s ease-in' });
@@ -7232,7 +7285,9 @@ function closeSettingsModal() {
     const logoutButton = HTML.getElementUnsafely('logoutButton');
     const featureRequestButton = HTML.getElementUnsafely('featureRequestButton');
     const featureRequestBackButton = HTML.getElementUnsafely('featureRequestBackButton');
-    const featureRequestMessage = HTML.getElementUnsafely('featureRequestMessage');
+    const featureRequestMessage1 = HTML.getElementUnsafely('featureRequestMessage1');
+    const featureRequestEmailLink = HTML.getElementUnsafely('featureRequestEmailLink');
+    const featureRequestMessage2 = HTML.getElementUnsafely('featureRequestMessage2');
     
     if (settingsText) {
         HTML.setStyle(settingsText, {
@@ -7286,8 +7341,14 @@ function closeSettingsModal() {
         HTML.body.removeChild(featureRequestBackButton);
     }
 
-    if (featureRequestMessage) {
-        HTML.body.removeChild(featureRequestMessage);
+    if (featureRequestMessage1) {
+        HTML.body.removeChild(featureRequestMessage1);
+    }
+    if (featureRequestEmailLink) {
+        HTML.body.removeChild(featureRequestEmailLink);
+    }
+    if (featureRequestMessage2) {
+        HTML.body.removeChild(featureRequestMessage2);
     }
 
     if (settingsModal) {
