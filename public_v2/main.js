@@ -4871,7 +4871,7 @@ function toggleNumberOfCalendarDays(increment, shiftHeld = false) {
     let numberDisplay = HTML.getElement('buttonNumberDisplay');
     numberDisplay.textContent = String(newValue);
     
-    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
+    // Note: No need to save user data since numberOfDays is LocalData (device-specific)
     render();
     updateTaskListBottomGradient(true); // update the bottom gradient
     
@@ -5264,7 +5264,7 @@ function toggleAmPmOr24(formatSelection) {
 function toggleStacking() {
     ASSERT(type(LocalData.get('stacking'), Boolean));
     LocalData.set('stacking', !LocalData.get('stacking'));
-    saveUserData(user).catch(error => log("Error saving user data: " + error.message));
+    // Note: No need to save user data since stacking is LocalData (device-specific)
     render();
     updateTaskListBottomGradient(true); // update instantly when toggling stacking
 }
