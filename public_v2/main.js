@@ -3129,6 +3129,18 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
         const staleElement = HTML.getElementUnsafely(`day${dayIndex}segment${i}`);
         if (staleElement) {
             staleElement.remove();
+            
+            // Also clean up associated overlay elements
+            const staleBorderOverlay = HTML.getElementUnsafely(`day${dayIndex}segment${i}_borderOverlay`);
+            if (staleBorderOverlay) {
+                staleBorderOverlay.remove();
+            }
+            
+            const staleTextOverlay = HTML.getElementUnsafely(`day${dayIndex}segment${i}_textOverlay`);
+            if (staleTextOverlay) {
+                staleTextOverlay.remove();
+            }
+            
             i++;
         } else {
             break;
@@ -4583,6 +4595,18 @@ function renderCalendar(days) {
                 const staleElement = HTML.getElementUnsafely(`day${i}segment${j}`);
                 if (staleElement) {
                     staleElement.remove();
+                    
+                    // Also clean up associated overlay elements
+                    const staleBorderOverlay = HTML.getElementUnsafely(`day${i}segment${j}_borderOverlay`);
+                    if (staleBorderOverlay) {
+                        staleBorderOverlay.remove();
+                    }
+                    
+                    const staleTextOverlay = HTML.getElementUnsafely(`day${i}segment${j}_textOverlay`);
+                    if (staleTextOverlay) {
+                        staleTextOverlay.remove();
+                    }
+                    
                     j++;
                 } else {
                     break;
@@ -6990,12 +7014,12 @@ function openSettingsModal() {
         if (LocalData.get('signedIn')) {
             const logoutButton = HTML.make('button');
             HTML.setId(logoutButton, 'logoutButton');
-            logoutButton.textContent = 'log out';
+            logoutButton.textContent = 'log out?';
             
             HTML.setStyle(logoutButton, {
                 position: 'fixed',
                 left: (modalRect.left + 5) + 'px',
-                top: (modalRect.top + modalHeight - 10 - 20) + 'px', // 10px from bottom, 20px button height
+                top: (modalRect.top + modalHeight - 21) + 'px',
                 width: '60px',
                 height: '20px',
                 fontFamily: 'Monospace',
