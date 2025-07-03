@@ -1259,6 +1259,10 @@ const settingsGearZIndex = 7001; // above settings modal but below settings moda
 const signInModalZIndex = 7002; // above settings modal
 const signInButtonZIndex = 7003; // above sign-in modal
 const signInTextZIndex = 7004; // above sign-in modal
+// ADD: z-index constants for the pro button elements
+const proButtonZIndex = 7005; // above sign-in text; below overlay/text
+const proOverlayZIndex = 7006; // gradient overlay between background and text
+const proTextZIndex = 7007; // highest element in pro button stack
 
 // Calendar navigation functions
 function navigateCalendar(direction, shiftHeld = false) {
@@ -6745,6 +6749,7 @@ async function init() {
     initLeftNavigationButton();
     initSettingsButton();
     initSignInButton();
+    initProButton();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
@@ -6911,6 +6916,27 @@ function openSettingsModal() {
     if (signInText) {
         HTML.setStyle(signInText, {
             zIndex: String(signInTextZIndex - 200)
+        });
+    }
+    
+    // Also move pro button (if present) below the modal
+    const proButtonElem = HTML.getElementUnsafely('proButton');
+    const proOverlayElem = HTML.getElementUnsafely('proOverlay');
+    const proTextElem = HTML.getElementUnsafely('proText');
+    
+    if (proButtonElem) {
+        HTML.setStyle(proButtonElem, {
+            zIndex: String(proButtonZIndex - 200)
+        });
+    }
+    if (proOverlayElem) {
+        HTML.setStyle(proOverlayElem, {
+            zIndex: String(proOverlayZIndex - 200)
+        });
+    }
+    if (proTextElem) {
+        HTML.setStyle(proTextElem, {
+            zIndex: String(proTextZIndex - 200)
         });
     }
     
@@ -7480,6 +7506,27 @@ function closeSettingsModal() {
         if (signInText) {
             HTML.setStyle(signInText, {
                 zIndex: String(signInTextZIndex)
+            });
+        }
+        
+        // restore pro button (if present) to its normal z-index
+        const proButtonElem = HTML.getElementUnsafely('proButton');
+        const proOverlayElem = HTML.getElementUnsafely('proOverlay');
+        const proTextElem = HTML.getElementUnsafely('proText');
+        
+        if (proButtonElem) {
+            HTML.setStyle(proButtonElem, {
+                zIndex: String(proButtonZIndex)
+            });
+        }
+        if (proOverlayElem) {
+            HTML.setStyle(proOverlayElem, {
+                zIndex: String(proOverlayZIndex)
+            });
+        }
+        if (proTextElem) {
+            HTML.setStyle(proTextElem, {
+                zIndex: String(proTextZIndex)
             });
         }
         
@@ -8754,6 +8801,100 @@ function initSignInButton() {
     // Assemble the button
     signInButton.appendChild(signInText);
     HTML.body.appendChild(signInButton);
+}
+
+// appears when user is signed in and on free plan
+function initProButton() {
+    // Only show the button if the user is signed in AND on the free plan
+    if (!LocalData.get('signedIn') || !user || user.plan !== 'free') {
+        return;
+    }
+
+    // Width based on the text "pro" with a little padding
+    const proButtonWidth = measureTextWidth('pro', 'Monospaced', 11) + 10;
+
+    // Common right offset identical to where the sign-in button would have been
+    const rightOffset = windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4;
+
+    // Grey background container
+    const proButton = HTML.make('div');
+    HTML.setId(proButton, 'proButton');
+    HTML.setStyle(proButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(rightOffset) + 'px',
+        width: String(proButtonWidth) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+        zIndex: String(proButtonZIndex)
+    });
+
+    // Gradient overlay (initially invisible)
+    const proOverlay = HTML.make('div');
+    HTML.setId(proOverlay, 'proOverlay');
+    HTML.setStyle(proOverlay, {
+        position: 'absolute',
+        top: '6px',
+        right: String(rightOffset) + 'px',
+        width: String(proButtonWidth) + 'px',
+        height: String(headerButtonSize) + 'px',
+        pointerEvents: 'none',
+        borderRadius: '4px',
+        background: 'linear-gradient(to right, var(--accent-0), var(--accent-1))',
+        opacity: '0',
+        transition: 'opacity 0.3s ease',
+        zIndex: String(proOverlayZIndex)
+    });
+
+    // Text element (separate div, on top of overlay)
+    const proText = HTML.make('div');
+    HTML.setId(proText, 'proText');
+    HTML.setStyle(proText, {
+        position: 'absolute',
+        top: '6px',
+        right: String(rightOffset) + 'px',
+        width: String(proButtonWidth) + 'px',
+        height: String(headerButtonSize) + 'px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '11px',
+        fontFamily: 'Monospaced',
+        color: 'var(--shade-3)',
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        transition: 'color 0.3s ease',
+        zIndex: String(proTextZIndex)
+    });
+    proText.textContent = 'pro';
+
+    // Hover interaction handled on background div
+    proButton.onmouseenter = () => {
+        HTML.setStyle(proButton, { backgroundColor: 'var(--shade-2)' });
+        HTML.setStyle(proOverlay, { opacity: '1' });
+        HTML.setStyle(proText, { color: 'var(--shade-4)' });
+    };
+
+    proButton.onmouseleave = () => {
+        HTML.setStyle(proButton, { backgroundColor: 'var(--shade-1)' });
+        HTML.setStyle(proOverlay, { opacity: '0' });
+        HTML.setStyle(proText, { color: 'var(--shade-3)' });
+    };
+
+    // Optional: click handler (placeholder)
+    proButton.onclick = () => {
+        log('pro upgrade clicked');
+        // TODO: open upgrade modal / redirect to billing
+    };
+
+    // Append all three elements (order matters for stacking)
+    HTML.body.appendChild(proButton);
+    HTML.body.appendChild(proOverlay);
+    HTML.body.appendChild(proText);
 }
 
 function initLeftNavigationButton() {
