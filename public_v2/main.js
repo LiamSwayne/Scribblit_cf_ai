@@ -4771,7 +4771,7 @@ function renderDividers() {
             height: `${hDividerHeight}px`,
             backgroundColor: 'var(--shade-2)',
             borderRadius: `${hDividerBorderRadius}px`,
-            zIndex: '350'
+            zIndex: '6300'
         });
         HTML.body.appendChild(hDivider);
 
@@ -4800,7 +4800,7 @@ function renderDividers() {
                 height: `${vDividerHeight}px`,
                 backgroundColor: 'var(--shade-2)',
                 borderRadius: `${vDividerBorderRadius}px`,
-                zIndex: '350'
+                zIndex: '6300'
             });
             HTML.body.appendChild(vDivider);
         }
@@ -4826,7 +4826,7 @@ function renderDividers() {
                 height: `${vDividerHeight}px`,
                 backgroundColor: 'var(--shade-2)',
                 borderRadius: `${vDividerBorderRadius}px`,
-                zIndex: '350'
+                zIndex: '6300'
             });
             HTML.body.appendChild(vDivider);
         }
@@ -5379,11 +5379,6 @@ function renderTimeIndicator(onSchedule) {
     currentMin = DateTime.local().minute;
 
     // 1. Remove existing time indicator elements
-    let existingContainer = HTML.getElementUnsafely('time-indicator-container');
-    if (exists(existingContainer)) {
-        existingContainer.remove();
-    }
-    // Fallback cleanup for old structure (can be removed after ensuring all users have updated)
     let existingMarker = HTML.getElementUnsafely('time-marker');
     if (exists(existingMarker)) {
         existingMarker.remove();
@@ -5460,52 +5455,41 @@ function renderTimeIndicator(onSchedule) {
 
     const positionY = timedEventAreaTop + (timeProportion * timedEventAreaHeight);
 
-    // 5. Create container with timed calendar area dimensions and clipping
-    const timeIndicatorContainer = HTML.make('div');
-    HTML.setId(timeIndicatorContainer, 'time-indicator-container');
-    HTML.setStyle(timeIndicatorContainer, {
-        position: 'fixed',
-        left: String(dayColumnDimensions.left) + 'px',
-        top: String(timedEventAreaTop) + 'px',
-        width: String(dayColumnDimensions.width) + 'px',
-        height: String(timedEventAreaHeight) + 'px',
-        overflow: 'hidden',
-        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441), // on top of all reminders
-        pointerEvents: 'none',
-    });
-    HTML.body.appendChild(timeIndicatorContainer);
-
-    // 6. Create time marker line as child of container
+    // 5. Create time marker line directly on body
     const timeMarker = HTML.make('div');
     HTML.setId(timeMarker, 'time-marker');
     const timeMarkerHeight = 2;
     HTML.setStyle(timeMarker, {
-        position: 'absolute',
-        left: '0px',
-        width: '100%',
-        top: String(positionY - timedEventAreaTop) + 'px',
+        position: 'fixed',
+        left: String(dayColumnDimensions.left) + 'px',
+        width: String(dayColumnDimensions.width) + 'px',
+        top: String(positionY) + 'px',
         height: '2px',
         backgroundColor: vibrantRedColor,
         opacity: '0.33',
+        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441), // on top of all reminders
+        pointerEvents: 'none',
     });
-    timeIndicatorContainer.appendChild(timeMarker);
+    HTML.body.appendChild(timeMarker);
 
-    // 7. Create time triangle as child of container
+    // 6. Create time triangle directly on body
     const timeTriangle = HTML.make('div');
     HTML.setId(timeTriangle, 'time-triangle');
     const timeTriangleHeight = 16;
     const timeTriangleWidth = 10;
     HTML.setStyle(timeTriangle, {
-        position: 'absolute',
-        left: '0px',
-        top: String(positionY - timedEventAreaTop - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)) + 'px',
+        position: 'fixed',
+        left: String(dayColumnDimensions.left - 5) + 'px',
+        top: String(positionY - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)) + 'px',
         width: '0px',
         height: '0px',
         borderLeft: String(timeTriangleWidth) + 'px solid ' + vibrantRedColor,
         borderTop: String(timeTriangleHeight / 2) + 'px solid transparent',
         borderBottom: String(timeTriangleHeight / 2) + 'px solid transparent',
+        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441), // on top of all reminders
+        pointerEvents: 'none',
     });
-    timeIndicatorContainer.appendChild(timeTriangle);
+    HTML.body.appendChild(timeTriangle);
 }
 
 function renderInputBox() {
