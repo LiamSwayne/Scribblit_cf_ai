@@ -1342,7 +1342,6 @@ class User {
     }
 
     static fromJson(json) {
-        log(json);
         ASSERT(exists(json));
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));
