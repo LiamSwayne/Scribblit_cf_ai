@@ -39,9 +39,13 @@ jobs:
           secrets: |
             SENDGRID_API_KEY
             SECRET_KEY
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       
       - name: Deploy Pages
         uses: cloudflare/pages-action@v1

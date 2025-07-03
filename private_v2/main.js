@@ -418,6 +418,122 @@ export default {
                     return SEND(err.message || err.toString(), 500);
                 }
 
+            case '/auth/google':
+                {
+                    if (request.method !== 'GET') {
+                        return SEND({ error: 'Method not allowed' }, 405);
+                    }
+                    
+                    const state = crypto.randomUUID();
+                    const googleAuthUrl = `https://accounts.google.com/oauth/authorize?` +
+                        `response_type=code&` +
+                        `client_id=${env.GOOGLE_CLIENT_ID}&` +
+                        `redirect_uri=${encodeURIComponent(SERVER_URL + 'auth/google/callback')}&` +
+                        `scope=${encodeURIComponent('openid email')}&` +
+                        `state=${state}`;
+                    
+                    return Response.redirect(googleAuthUrl, 302);
+                }
+
+            case '/auth/google/callback':
+                {
+                    if (request.method !== 'GET') {
+                        return SEND({ error: 'Method not allowed' }, 405);
+                    }
+                    
+                    try {
+                        const { searchParams } = new URL(request.url);
+                        const code = searchParams.get('code');
+                        const error = searchParams.get('error');
+                        
+                        if (error) {
+                            return Response.redirect(`https://${PAGES_DOMAIN}/?error=oauth_error`, 302);
+                        }
+                        
+                        if (!code) {
+                            return Response.redirect(`https://${PAGES_DOMAIN}/?error=no_code`, 302);
+                        }
+                        
+                        // Exchange code for access token
+                        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: new URLSearchParams({
+                                code,
+                                client_id: env.GOOGLE_CLIENT_ID,
+                                client_secret: env.GOOGLE_CLIENT_SECRET,
+                                redirect_uri: SERVER_URL + 'auth/google/callback',
+                                grant_type: 'authorization_code',
+                            }),
+                        });
+                        
+                        const tokenData = await tokenResponse.json();
+                        
+                        if (!tokenData.access_token) {
+                            return Response.redirect(`https://${PAGES_DOMAIN}/?error=token_error`, 302);
+                        }
+                        
+                        // Get user info from Google
+                        const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                            headers: {
+                                'Authorization': `Bearer ${tokenData.access_token}`,
+                            },
+                        });
+                        
+                        const googleUser = await userResponse.json();
+                        
+                        if (!googleUser.email) {
+                            return Response.redirect(`https://${PAGES_DOMAIN}/?error=no_email`, 302);
+                        }
+                        
+                        // Check if user exists
+                        let user = await env.DB.prepare('SELECT user_id, email, verified_email, data FROM users WHERE email = ?')
+                            .bind(googleUser.email).first();
+                        
+                        let user_id;
+                        
+                        if (user) {
+                            // Update existing user to use Google OAuth
+                            user_id = user.user_id;
+                            await env.DB.prepare(
+                                'UPDATE users SET provider = ?, provider_id = ?, verified_email = ? WHERE email = ?'
+                            ).bind('google', googleUser.id, true, googleUser.email).run();
+                        } else {
+                            // Create new user
+                            user_id = crypto.randomUUID().replaceAll('-', '').slice(0, 8);
+                            await env.DB.prepare(
+                                `INSERT INTO users (user_id, email, verified_email, data, dataspec, usage, timestamp, plan, payment_times, login_attempts, provider, provider_id)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            ).bind(
+                                user_id,
+                                googleUser.email,
+                                true, // verified_email
+                                '{}', // data
+                                1, // dataspec
+                                0, // usage
+                                Date.now(), // timestamp
+                                'free', // plan
+                                '[]', // payment_times
+                                '[]', // login_attempts
+                                'google', // provider
+                                googleUser.id // provider_id
+                            ).run();
+                        }
+                        
+                        // Generate JWT token
+                        const token = await generateToken(googleUser.email, env.SECRET_KEY);
+                        
+                        // Redirect to frontend with token
+                        return Response.redirect(`https://${PAGES_DOMAIN}/?token=${token}&id=${user_id}`, 302);
+                        
+                    } catch (err) {
+                        console.error('Google OAuth callback error:', err);
+                        return Response.redirect(`https://${PAGES_DOMAIN}/?error=callback_error`, 302);
+                    }
+                }
+
             case '/test-email-integration':
                 if (request.method !== 'GET') {
                     return SEND({
