@@ -1,32 +1,29 @@
-const SERVER_DOMAIN_ROOT = 'scribblit-production.unrono.workers.dev';
+const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
 const SERVER_DOMAIN = 'app.scribbl.it';
 const PAGES_DOMAIN = 'scribblit2.pages.dev';
 
-function SEND(request, data = null, status = 200, extraHeaders = {}) {
-    // Grab whatever Origin the browser sent
-    const origin = request.headers.get("Origin");
-    // If you really want to lock it down, test origin against a whitelist here.
-    // Otherwise, just echo it (or fall back to "*")
-    const allowOrigin = origin || "*";
-  
+function SEND(data, status = 200, headers = {}) {
     const corsHeaders = {
-      "Access-Control-Allow-Origin": allowOrigin,
-      "Vary": "Origin",  // very important for caching proxies
-      "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      // if you ever send cookies or auth headers back, you'll need:
-      // "Access-Control-Allow-Credentials": "true",
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
-  
-    let body = data;
-    const headers = { ...corsHeaders, ...extraHeaders };
-    if (data !== null && typeof data === "object") {
-      body = JSON.stringify(data);
-      headers["Content-Type"] = headers["Content-Type"] || "application/json";
+
+    if (typeof data === 'object' && data !== null) {
+        data = JSON.stringify(data);
+        if (!headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        }
     }
-  
-    return new Response(body, { status, headers });
-  }
+
+    return new Response(data, {
+        status,
+        headers: {
+            ...corsHeaders,
+            ...headers
+        },
+    });
+}
 
 async function hash(password, salt = "") {
     const encoder = new TextEncoder();
@@ -93,13 +90,13 @@ export default {
         const url = new URL(request.url);
 
         if (request.method === 'OPTIONS') {
-            return SEND(request, null, 204);
+            return SEND(null, 204);
         }
 
         switch (url.pathname) {
             case '/signup':
                 {
-                    if (request.method !== 'POST') return SEND(request, {
+                    if (request.method !== 'POST') return SEND({
                         error: 'Method not allowed'
                     }, 405);
 
@@ -110,19 +107,19 @@ export default {
                         } = await request.json();
 
                         if (!email || !password) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Email and password are required.'
                             }, 400);
                         }
                         if (password.length < 8) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Password must be at least 8 characters long.'
                             }, 400);
                         }
 
                         const existingUser = await env.DB.prepare('SELECT user_id, email, verified_email, data FROM users WHERE email = ?').bind(email).first();
                         if (existingUser && existingUser.verified_email) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'User with this email already exists.'
                             }, 409);
                         }
@@ -174,14 +171,14 @@ export default {
                         const emailContent = `Your verification code is: ${verification_code}`;
                         await sendEmail(env.SENDGRID_API_KEY, email, 'Verify your email for Scribblit', emailContent);
 
-                        return SEND(request, {
+                        return SEND({
                             message: 'Verification code sent to your email.',
                             id: user_id
                         });
 
                     } catch (err) {
                         console.error('Signup error:', err);
-                        return SEND(request, {
+                        return SEND({
                             error: 'Failed to process signup request.'
                         }, 500);
                     }
@@ -189,7 +186,7 @@ export default {
 
             case '/verify-email':
                 {
-                    if (request.method !== 'POST') return SEND(request, {
+                    if (request.method !== 'POST') return SEND({
                         error: 'Method not allowed'
                     }, 405);
                     try {
@@ -198,7 +195,7 @@ export default {
                             code
                         } = await request.json();
                         if (!email || !code) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Email and verification code are required.'
                             }, 400);
                         }
@@ -206,13 +203,13 @@ export default {
                         const user = await env.DB.prepare('SELECT user_id, data, verified_email FROM users WHERE email = ?').bind(email).first();
 
                         if (!user) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'User not found.'
                             }, 404);
                         }
 
                         if (user.verified_email) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Email is already verified.'
                             }, 400);
                         }
@@ -220,13 +217,13 @@ export default {
                         const userData = JSON.parse(user.data);
 
                         if (!userData.verification_code_expires_at || Date.now() > userData.verification_code_expires_at) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Verification code has expired.'
                             }, 400);
                         }
 
                         if (userData.verification_code !== code) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Invalid verification code.'
                             }, 400);
                         }
@@ -239,14 +236,14 @@ export default {
                         ).bind(true, "{}", email).run();
     
                         const token = await generateToken(email, env.SECRET_KEY);
-                        return SEND(request, {
+                        return SEND({
                             token,
                             id: user.user_id
                         });
 
                     } catch (err) {
                         console.error('Email verification error:', err);
-                        return SEND(request, {
+                        return SEND({
                             error: 'Failed to process email verification.'
                         }, 500);
                     }
@@ -254,7 +251,7 @@ export default {
 
             case '/login':
                 {
-                    if (request.method !== 'POST') return SEND(request, {
+                    if (request.method !== 'POST') return SEND({
                         error: 'Method not allowed'
                     }, 405);
 
@@ -264,40 +261,40 @@ export default {
                             password
                         } = await request.json();
                         if (!email || !password) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Email and password are required.'
                             }, 400);
                         }
 
                         const user = await env.DB.prepare('SELECT user_id, password_hash, salt, verified_email FROM users WHERE email = ?').bind(email).first();
                         if (!user) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Invalid credentials.'
                             }, 401);
                         }
 
                         if (!user.verified_email) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Please verify your email before logging in.'
                             }, 401);
                         }
 
                         const hashedPassword = await hash(password, user.salt);
                         if (user.password_hash !== hashedPassword) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Invalid credentials.'
                             }, 401);
                         }
 
                         const token = await generateToken(email, env.SECRET_KEY);
-                        return SEND(request, {
+                        return SEND({
                             token,
                             id: user.user_id
                         });
 
                     } catch (err) {
                         console.error('Login error:', err);
-                        return SEND(request, {
+                        return SEND({
                             error: 'Failed to process login request.'
                         }, 500);
                     }
@@ -305,14 +302,14 @@ export default {
 
             case '/get-user':
                 {
-                    if (request.method !== 'GET') return SEND(request, {
+                    if (request.method !== 'GET') return SEND({
                         error: 'Method Not Allowed'
                     }, 405);
 
                     try {
                         const authHeader = request.headers.get('Authorization');
                         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Authorization header is missing or invalid.'
                             }, 401);
                         }
@@ -321,7 +318,7 @@ export default {
                         const email = await verifyToken(token, env.SECRET_KEY);
 
                         if (!email) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'Invalid or expired token.'
                             }, 401);
                         }
@@ -331,7 +328,7 @@ export default {
                         ).bind(email).first();
 
                         if (!userResult) {
-                            return SEND(request, {
+                            return SEND({
                                 error: 'User not found.'
                             }, 404);
                         }
@@ -350,14 +347,14 @@ export default {
 
                         const newToken = await generateToken(email, env.SECRET_KEY);
 
-                        return SEND(request, {
+                        return SEND({
                             user: userJson,
                             token: newToken
                         });
 
                     } catch (err) {
                         console.error('Get user error:', err);
-                        return SEND(request, {
+                        return SEND({
                             error: 'Failed to get user data.'
                         }, 500);
                     }
@@ -365,17 +362,17 @@ export default {
 
             case '/update-user':
                 {
-                    if (request.method !== 'POST') return SEND(request, { error: 'Method Not Allowed' }, 405);
+                    if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
 
                     try {
                         const authHeader = request.headers.get('Authorization');
                         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                            return SEND(request, { error: 'Authorization header is missing or invalid.' }, 401);
+                            return SEND({ error: 'Authorization header is missing or invalid.' }, 401);
                         }
                         const token = authHeader.substring(7);
                         const email = await verifyToken(token, env.SECRET_KEY);
                         if (!email) {
-                            return SEND(request, { error: 'Invalid or expired token.' }, 401);
+                            return SEND({ error: 'Invalid or expired token.' }, 401);
                         }
 
                         const {
@@ -385,7 +382,7 @@ export default {
                         } = await request.json();
 
                         if (typeof data !== 'string' || typeof dataspec !== 'number' || typeof timestamp !== 'number') {
-                            return SEND(request, { error: 'Invalid user data.' }, 400);
+                            return SEND({ error: 'Invalid user data.' }, 400);
                         }
 
                         await env.DB.prepare(
@@ -397,16 +394,16 @@ export default {
                             email
                         ).run();
 
-                        return SEND(request, { success: true });
+                        return SEND({ success: true });
                     } catch (err) {
                         console.error('Update user error:', err);
-                        return SEND(request, { error: 'Failed to update user data.' }, 500);
+                        return SEND({ error: 'Failed to update user data.' }, 500);
                     }
                 }
 
             case '/send-email':
                 if (request.method !== 'POST') {
-                    return SEND(request, {
+                    return SEND({
                         error: 'Method Not Allowed'
                     }, 405);
                 }
@@ -417,15 +414,15 @@ export default {
                         content
                     } = await request.json();
                     await sendEmail(env.SENDGRID_API_KEY, to, subject, content);
-                    return SEND(request, 'Email sent', 200);
+                    return SEND('Email sent', 200);
                 } catch (err) {
-                    return SEND(request, err.message || err.toString(), 500);
+                    return SEND(err.message || err.toString(), 500);
                 }
 
             case '/auth/google':
                 {
                     if (request.method !== 'GET') {
-                        return SEND(request, { error: 'Method not allowed' }, 405);
+                        return SEND({ error: 'Method not allowed' }, 405);
                     }
                     
                     const state = crypto.randomUUID();
@@ -442,7 +439,7 @@ export default {
             case '/auth/google/callback':
                 {
                     if (request.method !== 'GET') {
-                        return SEND(request, { error: 'Method not allowed' }, 405);
+                        return SEND({ error: 'Method not allowed' }, 405);
                     }
                     
                     try {
@@ -540,7 +537,7 @@ export default {
 
             case '/test-email-integration':
                 if (request.method !== 'GET') {
-                    return SEND(request, {
+                    return SEND({
                         error: 'Method Not Allowed'
                     }, 405);
                 }
@@ -551,13 +548,13 @@ export default {
                         'Test Integration',
                         'This is a test email from your Cloudflare Worker. If you see this, the SendGrid integration is working.'
                     );
-                    return SEND(request, 'Test email sent', 200);
+                    return SEND('Test email sent', 200);
                 } catch (err) {
-                    return SEND(request, err.message || err.toString(), 500);
+                    return SEND(err.message || err.toString(), 500);
                 }
 
             default:
-                return SEND(request, {
+                return SEND({
                     error: 'Endpoint not found'
                 }, 404);
         }
