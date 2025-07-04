@@ -1,6 +1,7 @@
 const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
 const SERVER_DOMAIN = 'app.scribbl.it';
-const PAGES_DOMAIN = 'scribblit2.pages.dev';
+const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
+const PAGES_DOMAIN = 'scribbl.it';
 
 function SEND(data, status = 200, headers = {}) {
     const corsHeaders = {
