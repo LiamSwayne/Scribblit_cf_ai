@@ -6314,7 +6314,7 @@ function updateInputBoxGradients(instant) {
     
     if (!exists(bottomGradientEl)) {
         bottomGradientEl = HTML.make('div');
-        HTML.setId(bottomGradientId, bottomGradientId);
+        HTML.setId(bottomGradientEl, bottomGradientId);
         HTML.body.appendChild(bottomGradientEl);
         HTML.setStyle(bottomGradientEl, {
             opacity: '0',
