@@ -48,7 +48,7 @@ document.addEventListener('keydown', (e) => {
 const SERVER_DOMAIN_ROOT = 'scribblit-production.unrono.workers.dev';
 const SERVER_PRODUCTION_DOMAIN = 'app.scribbl.it';
 // when testing, use the root domain since the other one doesn't allow this origin
-const SERVER_DOMAIN = window.location.origin == 'file://'? SERVER_DOMAIN_ROOT : SERVER_PRODUCTION_DOMAIN;
+const SERVER_DOMAIN = SERVER_PRODUCTION_DOMAIN;
 const PAGES_DOMAIN = 'scribblit2.pages.dev';
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
@@ -168,6 +168,7 @@ async function loadUserData() {
                             serverUser = User.fromJson(serverResponse.user);
                         } catch (parseError) {
                             log("ERROR parsing server user data: " + parseError.message);
+                            serverUser = null;
                         }
                     }
                     
@@ -8176,10 +8177,6 @@ async function verifyEmail() {
         });
 
         const data = await response.json();
-        
-        // Log the full response for debugging
-        log('Verify email response:', data);
-        log('Response status:', response.status);
 
         if (response.ok && data.token && data.id) {
             // Store auth token
