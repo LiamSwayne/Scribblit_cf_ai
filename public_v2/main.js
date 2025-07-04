@@ -980,18 +980,6 @@ function createFakeEntityArray() {
         ),
 
         new Entity(
-            'reminder-108',
-            'pentuple reminder',
-            '',
-            new ReminderData([
-                new NonRecurringReminderInstance(
-                    tomorrow, // date
-                    new TimeField(20, 15)
-                )
-            ])
-        ),
-
-        new Entity(
             'reminder-109',
             'pentuple reminder',
             '',
@@ -7900,11 +7888,13 @@ function slideSignInButtonOffScreen() {
         opacity: '0'
     });
 
-    // Remove the element after the animation completes
+    // Remove the element after the animation completes and reveal pro button
     setTimeout(() => {
         if (signInButton && signInButton.parentNode) {
             HTML.body.removeChild(signInButton);
         }
+        // After genie animation, drop the pro button into view
+        initProButton(true);
     }, 850);
 }
 
@@ -8232,6 +8222,17 @@ function logout() {
     
     // Show sign-in button again
     initSignInButton();
+
+    // Remove pro button if it exists
+    const proButtonElem = HTML.getElementUnsafely('proButton');
+    const proOverlayElem = HTML.getElementUnsafely('proOverlay');
+    const proTextElem = HTML.getElementUnsafely('proText');
+
+    [proButtonElem, proOverlayElem, proTextElem].forEach(elem => {
+        if (elem && elem.parentNode) {
+            elem.parentNode.removeChild(elem);
+        }
+    });
 
     render();
     
@@ -8804,7 +8805,10 @@ function initSignInButton() {
 }
 
 // appears when user is signed in and on free plan
-function initProButton() {
+function initProButton(animateFromTop = false) {
+    // Prevent duplicate creation
+    if (HTML.getElementUnsafely('proButton')) return;
+
     // Only show the button if the user is signed in AND on the free plan
     if (!LocalData.get('signedIn') || !user || user.plan !== 'free') {
         return;
@@ -8816,12 +8820,16 @@ function initProButton() {
     // Common right offset identical to where the sign-in button would have been
     const rightOffset = windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4;
 
+    // Starting top position
+    const finalTopPx = 6;
+    const startTopPx = -(headerButtonSize + 10);
+
     // Grey background container
     const proButton = HTML.make('div');
     HTML.setId(proButton, 'proButton');
     HTML.setStyle(proButton, {
         position: 'absolute',
-        top: '6px',
+        top: (animateFromTop ? String(startTopPx) : String(finalTopPx)) + 'px',
         right: String(rightOffset) + 'px',
         width: String(proButtonWidth) + 'px',
         height: String(headerButtonSize) + 'px',
@@ -8829,7 +8837,7 @@ function initProButton() {
         borderRadius: '4px',
         userSelect: 'none',
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: `all 0.3s ease${animateFromTop ? ', top 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : ''}`,
         zIndex: String(proButtonZIndex)
     });
 
@@ -8838,7 +8846,7 @@ function initProButton() {
     HTML.setId(proOverlay, 'proOverlay');
     HTML.setStyle(proOverlay, {
         position: 'absolute',
-        top: '6px',
+        top: (animateFromTop ? String(startTopPx) : String(finalTopPx)) + 'px',
         right: String(rightOffset) + 'px',
         width: String(proButtonWidth) + 'px',
         height: String(headerButtonSize) + 'px',
@@ -8846,7 +8854,7 @@ function initProButton() {
         borderRadius: '4px',
         background: 'linear-gradient(to right, var(--accent-0), var(--accent-1))',
         opacity: '0',
-        transition: 'opacity 0.3s ease',
+        transition: `opacity 0.3s ease${animateFromTop ? ', top 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : ''}`,
         zIndex: String(proOverlayZIndex)
     });
 
@@ -8855,7 +8863,7 @@ function initProButton() {
     HTML.setId(proText, 'proText');
     HTML.setStyle(proText, {
         position: 'absolute',
-        top: '6px',
+        top: (animateFromTop ? String(startTopPx) : String(finalTopPx)) + 'px',
         right: String(rightOffset) + 'px',
         width: String(proButtonWidth) + 'px',
         height: String(headerButtonSize) + 'px',
@@ -8867,7 +8875,7 @@ function initProButton() {
         color: 'var(--shade-3)',
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
-        transition: 'color 0.3s ease',
+        transition: `color 0.3s ease${animateFromTop ? ', top 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : ''}`,
         zIndex: String(proTextZIndex)
     });
     proText.textContent = 'pro';
@@ -8885,7 +8893,7 @@ function initProButton() {
         HTML.setStyle(proText, { color: 'var(--shade-3)' });
     };
 
-    // Optional: click handler (placeholder)
+    // Click handler (placeholder)
     proButton.onclick = () => {
         log('pro upgrade clicked');
         // TODO: open upgrade modal / redirect to billing
@@ -8895,7 +8903,16 @@ function initProButton() {
     HTML.body.appendChild(proButton);
     HTML.body.appendChild(proOverlay);
     HTML.body.appendChild(proText);
-}
+
+    // Trigger drop-down animation on next frame
+    if (animateFromTop) {
+        requestAnimationFrame(() => {
+            HTML.setStyle(proButton, { top: String(finalTopPx) + 'px' });
+            HTML.setStyle(proOverlay, { top: String(finalTopPx) + 'px' });
+            HTML.setStyle(proText, { top: String(finalTopPx) + 'px' });
+        });
+    }
+ }
 
 function initLeftNavigationButton() {
     // Track hover state for this button
