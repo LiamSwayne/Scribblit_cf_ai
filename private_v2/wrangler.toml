@@ -7,5 +7,5 @@ binding = "DB"
 database_name = "scribblit"
 database_id = "f9c0de3c-de14-45f6-acc1-3563e63fd84e"
 
-route = "app.scribbl.it/*"
+route = "app.scribbl.it"
 zone_id = "f7ff3b69f5d8a4fd2a1b7af116001e44"
