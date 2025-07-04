@@ -1,4 +1,5 @@
-const SERVER_DOMAIN = 'scribblit-production.unrono.workers.dev';
+const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
+const SERVER_DOMAIN = 'app.scribbl.it';
 const PAGES_DOMAIN = 'scribblit2.pages.dev';
 
 function SEND(data, status = 200, headers = {}) {
@@ -425,7 +426,7 @@ export default {
                     }
                     
                     const state = crypto.randomUUID();
-                    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+                    const googleAuthUrl = `https://accounts.google.com/oauth/authorize?` +
                         `response_type=code&` +
                         `client_id=${env.GOOGLE_CLIENT_ID}&` +
                         `redirect_uri=${encodeURIComponent('https://' + SERVER_DOMAIN + '/auth/google/callback')}&` +
