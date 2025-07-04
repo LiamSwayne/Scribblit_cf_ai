@@ -7706,33 +7706,20 @@ function openSignInModal() {
                     HTML.body.removeChild(emailButton);
                 }
                 
-                // Create a container for the email form elements
-                const emailFormContainer = HTML.make('div');
-                HTML.setId(emailFormContainer, 'emailFormContainer');
-                HTML.setStyle(emailFormContainer, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 30) + 'px',
-                    width: '252px',
-                    height: '114px',
-                    zIndex: String(signInTextZIndex + 101),
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease-in'
-                });
-                HTML.body.appendChild(emailFormContainer);
-                
                 // Create email input field
                 const emailInput = HTML.make('input');
                 HTML.setId(emailInput, 'signInEmailInput');
                 emailInput.type = 'email';
                 emailInput.placeholder = 'Email';
+
+                let signInFieldInputHeight = 30;
                 
                 HTML.setStyle(emailInput, {
-                    position: 'absolute',
-                    left: '0px',
-                    top: '0px',
-                    width: 'calc(100% - 16px)',
-                    height: '28px',
+                    position: 'fixed',
+                    right: (window.innerWidth - modalRect.right + 10) + 'px',
+                    top: (modalRect.top + 30) + 'px',
+                    width: String(modalWidth - 34) + 'px',
+                    height: String(signInFieldInputHeight) + 'px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
                     color: 'var(--shade-4)',
@@ -7741,6 +7728,9 @@ function openSignInModal() {
                     borderRadius: '3px',
                     padding: '0 8px',
                     outline: 'none',
+                    zIndex: String(signInTextZIndex + 101),
+                    opacity: '0',
+                    transition: 'opacity 0.3s ease-in'
                 });
                 
                 // Add focus/blur event listeners for typing state
@@ -7751,7 +7741,7 @@ function openSignInModal() {
                     currentlyTyping = false;
                 });
                 
-                emailFormContainer.appendChild(emailInput);
+                HTML.body.appendChild(emailInput);
                 
                 // Create password input field
                 const passwordInput = HTML.make('input');
@@ -7760,11 +7750,11 @@ function openSignInModal() {
                 passwordInput.placeholder = 'Password';
                 
                 HTML.setStyle(passwordInput, {
-                    position: 'absolute',
-                    left: '0px',
-                    top: '40px',
-                    width: 'calc(100% - 16px)',
-                    height: '28px',
+                    position: 'fixed',
+                    right: (window.innerWidth - modalRect.right + 10) + 'px',
+                    top: (modalRect.top + 30 + 42) + 'px',
+                    width: String(modalWidth - 34) + 'px',
+                    height: String(signInFieldInputHeight) + 'px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
                     color: 'var(--shade-4)',
@@ -7773,6 +7763,9 @@ function openSignInModal() {
                     borderRadius: '3px',
                     padding: '0 8px',
                     outline: 'none',
+                    zIndex: String(signInTextZIndex + 101),
+                    opacity: '0',
+                    transition: 'opacity 0.3s ease-in'
                 });
                 
                 // Add focus/blur event listeners for typing state
@@ -7783,18 +7776,20 @@ function openSignInModal() {
                     currentlyTyping = false;
                 });
                 
-                emailFormContainer.appendChild(passwordInput);
+                HTML.body.appendChild(passwordInput);
                 
                 // Create sign in button
                 const signInActionButton = HTML.make('button');
                 HTML.setId(signInActionButton, 'signInActionButton');
                 signInActionButton.textContent = 'Sign In';
                 
+                let signInSignUpButtonWidth = ((modalWidth - 34) / 2) + 5;
+
                 HTML.setStyle(signInActionButton, {
-                    position: 'absolute',
-                    left: '0px',
-                    bottom: '0px',
-                    width: 'calc(50% - 5px)',
+                    position: 'fixed',
+                    right: (window.innerWidth - modalRect.right + 149) + 'px',
+                    top: (modalRect.top + 30 + 114 - 32) + 'px',
+                    width: String(signInSignUpButtonWidth) + 'px',
                     height: '32px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
@@ -7804,6 +7799,9 @@ function openSignInModal() {
                     borderRadius: '3px',
                     cursor: 'pointer',
                     transition: 'background-color 0.2s ease',
+                    zIndex: String(signInTextZIndex + 101),
+                    opacity: '0',
+                    transition: 'opacity 0.3s ease-in, background-color 0.2s ease'
                 });
                 
                 signInActionButton.onclick = () => signIn();
@@ -7814,7 +7812,7 @@ function openSignInModal() {
                     HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-1)' });
                 };
                 
-                emailFormContainer.appendChild(signInActionButton);
+                HTML.body.appendChild(signInActionButton);
                 
                 // Create sign up button
                 const signUpActionButton = HTML.make('button');
@@ -7822,10 +7820,10 @@ function openSignInModal() {
                 signUpActionButton.textContent = 'Sign Up';
                 
                 HTML.setStyle(signUpActionButton, {
-                    position: 'absolute',
-                    right: '0px',
-                    bottom: '0px',
-                    width: 'calc(50% - 5px)',
+                    position: 'fixed',
+                    right: (window.innerWidth - modalRect.right + 10) + 'px',
+                    top: (modalRect.top + 30 + 114 - 32) + 'px',
+                    width: String(signInSignUpButtonWidth) + 'px',
                     height: '32px',
                     fontFamily: 'Monospace',
                     fontSize: '12px',
@@ -7835,6 +7833,9 @@ function openSignInModal() {
                     borderRadius: '3px',
                     cursor: 'pointer',
                     transition: 'background-color 0.2s ease',
+                    zIndex: String(signInTextZIndex + 101),
+                    opacity: '0',
+                    transition: 'opacity 0.3s ease-in, background-color 0.2s ease'
                 });
                 
                 signUpActionButton.onclick = () => signUp();
@@ -7845,11 +7846,14 @@ function openSignInModal() {
                     HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-1)' });
                 };
                 
-                emailFormContainer.appendChild(signUpActionButton);
+                HTML.body.appendChild(signUpActionButton);
 
-                // Fade in the form
+                // Fade in the form elements
                 setTimeout(() => {
-                    HTML.setStyle(emailFormContainer, { opacity: '1' });
+                    HTML.setStyle(emailInput, { opacity: '1' });
+                    HTML.setStyle(passwordInput, { opacity: '1' });
+                    HTML.setStyle(signInActionButton, { opacity: '1' });
+                    HTML.setStyle(signUpActionButton, { opacity: '1' });
                 }, 10);
 
             }, 300);
@@ -7966,7 +7970,7 @@ function closeSignInModal(slideButtonOffScreen = false) {
     // Get all elements that need to be faded out
     const elementsToFadeOut = [
         'signInGoogleButton', 'signInEmailButton', 
-        'emailFormContainer', 'signInEmailInput', 'signInPasswordInput', 
+        'signInEmailInput', 'signInPasswordInput', 
         'signInActionButton', 'signUpActionButton', 'verificationCodeInput',
         'verifyEmailButton'
     ];
@@ -8121,12 +8125,16 @@ async function signUp() {
             const verificationCodeInput = HTML.make('input');
             HTML.setId(verificationCodeInput, 'verificationCodeInput');
             verificationCodeInput.placeholder = '6-digit code';
-            const emailFormContainer = HTML.getElement('emailFormContainer');
+            
+            // Get the modal rectangle for positioning
+            const signInButton = HTML.getElement('signInButton');
+            const modalRect = signInButton.getBoundingClientRect();
+            
             HTML.setStyle(verificationCodeInput, {
-                position: 'absolute',
-                left: '0px',
-                top: '80px',
-                width: 'calc(100% - 16px)',
+                position: 'fixed',
+                right: (window.innerWidth - modalRect.right + 10) + 'px',
+                top: (modalRect.top + 30 + 80) + 'px',
+                width: '236px',
                 height: '28px',
                 fontFamily: 'Monospace',
                 fontSize: '12px',
@@ -8136,6 +8144,8 @@ async function signUp() {
                 borderRadius: '3px',
                 padding: '0 8px',
                 outline: 'none',
+                zIndex: String(signInTextZIndex + 101),
+                opacity: '1'
             });
             
             // Add focus/blur event listeners for typing state
@@ -8146,7 +8156,7 @@ async function signUp() {
                 currentlyTyping = false;
             });
             
-            emailFormContainer.appendChild(verificationCodeInput);
+            HTML.body.appendChild(verificationCodeInput);
 
             // Change sign-up button to "Verify Email"
             const signUpActionButton = HTML.getElement('signUpActionButton');
