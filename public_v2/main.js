@@ -45,7 +45,9 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-const SERVER_URL = 'https://scribblit-production.unrono.workers.dev';
+const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
+const SERVER_DOMAIN = 'app.scribbl.it';
+const PAGES_DOMAIN = 'scribblit2.pages.dev';
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
 let firstDayInCalendar; // the first day shown in calendar
@@ -79,7 +81,7 @@ async function saveUserData(user) {
             }
             
             ASSERT(type(token, String));
-            const response = await fetch(`${SERVER_URL}/update-user`, {
+            const response = await fetch(`https://${SERVER_DOMAIN}/update-user`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -142,7 +144,7 @@ async function loadUserData() {
             
             // Fetch from server
             try {
-                const response = await fetch(`${SERVER_URL}/get-user`, {
+                const response = await fetch(`https://${SERVER_DOMAIN}/get-user`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -8039,7 +8041,7 @@ function signIn() {
     }
 
     const endpoint = '/login';
-    const url = SERVER_URL + endpoint;
+    const url = `https://${SERVER_DOMAIN}${endpoint}`;
 
     fetch(url, {
         method: 'POST',
@@ -8086,7 +8088,7 @@ async function signUp() {
     const password = passwordInput.value;
 
     try {
-        const response = await fetch(`${SERVER_URL}/signup`, {
+        const response = await fetch(`https://${SERVER_DOMAIN}/signup`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -8163,7 +8165,7 @@ async function verifyEmail() {
     const code = verificationCodeInput.value;
 
     try {
-        const response = await fetch(`${SERVER_URL}/verify-email`, {
+        const response = await fetch(`https://${SERVER_DOMAIN}/verify-email`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
