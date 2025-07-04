@@ -426,7 +426,7 @@ export default {
                     }
                     
                     const state = crypto.randomUUID();
-                    const googleAuthUrl = `https://accounts.google.com/oauth/authorize?` +
+                    const googleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
                         `response_type=code&` +
                         `client_id=${env.GOOGLE_CLIENT_ID}&` +
                         `redirect_uri=${encodeURIComponent('https://' + SERVER_DOMAIN + '/auth/google/callback')}&` +
