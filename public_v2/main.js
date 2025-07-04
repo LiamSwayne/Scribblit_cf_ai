@@ -6314,7 +6314,7 @@ function updateInputBoxGradients(instant) {
     
     if (!exists(bottomGradientEl)) {
         bottomGradientEl = HTML.make('div');
-        HTML.setId(bottomGradientEl, bottomGradientId);
+        HTML.setId(bottomGradientId, bottomGradientId);
         HTML.body.appendChild(bottomGradientEl);
         HTML.setStyle(bottomGradientEl, {
             opacity: '0',
@@ -7972,7 +7972,7 @@ function closeSignInModal(slideButtonOffScreen = false) {
         'signInGoogleButton', 'signInEmailButton', 
         'signInEmailInput', 'signInPasswordInput', 
         'signInActionButton', 'signUpActionButton', 'verificationCodeInput',
-        'verifyEmailButton'
+        'verifyEmailButton', 'verificationContainer', 'verificationInstructionText'
     ];
     
     // Fade out all elements
@@ -8111,61 +8111,168 @@ async function signUp() {
         const data = await response.json();
 
         if (response.ok) {
-            // Grey out email and password fields
-            emailInput.disabled = true;
-            passwordInput.disabled = true;
-            HTML.setStyle(emailInput, { backgroundColor: 'var(--shade-1)', color: 'var(--shade-3)' });
-            HTML.setStyle(passwordInput, { backgroundColor: 'var(--shade-1)', color: 'var(--shade-3)' });
-
-            // Hide sign-in button
+            // Fade out email and password fields, sign in and sign up buttons completely
             const signInActionButton = HTML.getElement('signInActionButton');
-            HTML.setStyle(signInActionButton, { display: 'none' });
-
-            // Create verification code input
-            const verificationCodeInput = HTML.make('input');
-            HTML.setId(verificationCodeInput, 'verificationCodeInput');
-            verificationCodeInput.placeholder = '6-digit code';
+            const signUpActionButton = HTML.getElement('signUpActionButton');
             
+            HTML.setStyle(emailInput, { 
+                opacity: '0',
+                pointerEvents: 'none',
+                transition: 'opacity 0.3s ease'
+            });
+            HTML.setStyle(passwordInput, { 
+                opacity: '0',
+                pointerEvents: 'none',
+                transition: 'opacity 0.3s ease'
+            });
+            HTML.setStyle(signInActionButton, { 
+                opacity: '0',
+                pointerEvents: 'none',
+                transition: 'opacity 0.3s ease'
+            });
+            HTML.setStyle(signUpActionButton, { 
+                opacity: '0',
+                pointerEvents: 'none',
+                transition: 'opacity 0.3s ease'
+            });
+
             // Get the modal rectangle for positioning
             const signInButton = HTML.getElement('signInButton');
             const modalRect = signInButton.getBoundingClientRect();
             
-            HTML.setStyle(verificationCodeInput, {
+            // Create container for the six verification inputs
+            const verificationContainer = HTML.make('div');
+            HTML.setId(verificationContainer, 'verificationContainer');
+            HTML.setStyle(verificationContainer, {
                 position: 'fixed',
-                right: (window.innerWidth - modalRect.right + 10) + 'px',
-                top: (modalRect.top + 30 + 80) + 'px',
+                right: '20px',
+                top: '70px',
                 width: '236px',
-                height: '28px',
-                fontFamily: 'Monospace',
-                fontSize: '12px',
-                color: 'var(--shade-4)',
-                backgroundColor: 'var(--shade-0)',
-                border: '1px solid var(--shade-2)',
-                borderRadius: '3px',
-                padding: '0 8px',
-                outline: 'none',
+                height: '36px',
+                display: 'flex',
+                gap: '8px',
                 zIndex: String(signInTextZIndex + 101),
                 opacity: '1'
             });
-            
-            // Add focus/blur event listeners for typing state
-            verificationCodeInput.addEventListener('focus', function() {
-                currentlyTyping = true;
-            });
-            verificationCodeInput.addEventListener('blur', function() {
-                currentlyTyping = false;
-            });
-            
-            HTML.body.appendChild(verificationCodeInput);
 
-            // Change sign-up button to "Verify Email"
-            const signUpActionButton = HTML.getElement('signUpActionButton');
-            signUpActionButton.textContent = 'Verify Email';
-            signUpActionButton.onclick = () => verifyEmail();
-            HTML.setStyle(signUpActionButton, {
-                width: '100%'
+            // Create and append the verification code instruction text
+            const verificationInstructionText = HTML.make('div');
+            HTML.setId(verificationInstructionText, 'verificationInstructionText');
+            verificationInstructionText.textContent = 'Enter your six digit verification code:';
+            HTML.setStyle(verificationInstructionText, {
+                position: 'fixed',
+                right: '22px',
+                top: String(modalRect.top + 30) + 'px', // Position above the inputs, adjust as needed
+                fontFamily: 'Monospace',
+                fontSize: '11px',
+                color: 'var(--shade-4)',
+                zIndex: String(signInTextZIndex + 101),
+                opacity: '0',
+                transition: 'opacity 0.3s ease-in'
+            });
+            HTML.body.appendChild(verificationInstructionText);
+
+            // Adjust verificationContainer top to make space for the new text
+            HTML.setStyle(verificationContainer, {
+                top: String(modalRect.top + 30 + 12 + 10) + 'px', // 30 (from modal top) + 12 (font size) + 10 (padding)
             });
 
+            // Create six individual character input divs
+            const verificationInputs = [];
+            let currentInputIndex = 0;
+
+            for (let i = 0; i < 6; i++) {
+                const inputDiv = HTML.make('input');
+                HTML.setId(inputDiv, `verificationInput${i}`);
+                inputDiv.type = 'text';
+                inputDiv.maxLength = 1;
+                inputDiv.value = '';
+                
+                HTML.setStyle(inputDiv, {
+                    width: '28px',
+                    height: '36px',
+                    fontFamily: 'Monospace',
+                    fontSize: '14px',
+                    color: 'var(--shade-4)',
+                    backgroundColor: 'var(--shade-0)',
+                    border: '1px solid var(--shade-2)',
+                    borderRadius: '3px',
+                    textAlign: 'center',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    caretColor: 'transparent', // Hide cursor
+                    transition: 'background-color 0.2s ease-in-out' // Smooth transition for background
+                });
+
+                // Add event listeners for navigation and input
+                inputDiv.addEventListener('input', function(e) {
+                    const value = e.target.value;
+                    const numericValue = value.replace(/\D/g, '');
+
+                    // Always ensure only the first digit is kept if input has more than one char (paste scenario)
+                    if (numericValue.length >= 1) {
+                        e.target.value = numericValue.charAt(0);
+                    } else {
+                        e.target.value = ''; // Clear if non-digits or empty input
+                    }
+
+                    // Move to next input if a digit was entered and it's not the last input
+                    if (e.target.value.length === 1 && i < 5) {
+                        verificationInputs[i + 1].focus();
+                    }
+
+                    // After processing the input for the current field, check if all inputs are filled
+                    let code = '';
+                    for (let j = 0; j < 6; j++) {
+                        code += verificationInputs[j].value;
+                    }
+
+                    // If all inputs are filled and form a valid 6-digit code, try to verify
+                    if (code.length === 6 && /^\d{6}$/.test(code)) {
+                        verifyEmail();
+                    }
+                });
+
+                inputDiv.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowRight' && i < 5) {
+                        e.preventDefault(); // Prevent default cursor movement
+                        verificationInputs[i + 1].focus();
+                    } else if (e.key === 'ArrowLeft' && i > 0) {
+                        e.preventDefault(); // Prevent default cursor movement
+                        verificationInputs[i - 1].focus();
+                    } else if (e.key === 'Backspace' && e.target.value === '' && i > 0) {
+                        e.preventDefault(); // Prevent default backspace behavior
+                        verificationInputs[i - 1].focus();
+                        verificationInputs[i - 1].value = ''; // Clear previous input on backspace
+                    } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) { // Check if a single character key (not a modifier)
+                        // Overwrite the current input with the new character
+                        e.target.value = ''; // Clear current value before input event fires
+                    }
+                });
+
+                inputDiv.addEventListener('focus', function() {
+                    currentlyTyping = true;
+                    currentInputIndex = i;
+                    HTML.setStyle(this, { backgroundColor: 'var(--accent-0)' }); // Fade background to accent-0
+                });
+
+                inputDiv.addEventListener('blur', function() {
+                    currentlyTyping = false;
+                    HTML.setStyle(this, { backgroundColor: 'var(--shade-0)' }); // Fade background off
+                });
+
+                verificationInputs.push(inputDiv);
+                verificationContainer.appendChild(inputDiv);
+            }
+
+            HTML.body.appendChild(verificationContainer);
+
+            // Force reflow and fade in the instruction text
+            verificationInstructionText.offsetHeight; // Trigger reflow
+            HTML.setStyle(verificationInstructionText, { opacity: '1' });
+
+            // Focus on first input
+            verificationInputs[0].focus();
 
         } else {
             // TODO: show error message
@@ -8178,9 +8285,23 @@ async function signUp() {
 
 async function verifyEmail() {
     const emailInput = HTML.getElement('signInEmailInput');
-    const verificationCodeInput = HTML.getElement('verificationCodeInput');
     const email = emailInput.value;
-    const code = verificationCodeInput.value;
+    
+    // Collect verification code from six individual inputs
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        const inputElement = HTML.getElement(`verificationInput${i}`);
+        if (inputElement) {
+            code += inputElement.value;
+        }
+    }
+
+    // Validate that we have a complete 6-digit code
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+        console.error('Please enter a complete 6-digit verification code');
+        // TODO: show error message in UI
+        return;
+    }
 
     try {
         const response = await fetch(`https://${SERVER_DOMAIN}/verify-email`, {
@@ -8683,7 +8804,7 @@ function initSettingsButton() {
                 }
                 </style>
             </defs>
-            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1.1.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.2,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
+            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1.1.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.6,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
         </svg>
     `
     
