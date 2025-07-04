@@ -1346,7 +1346,15 @@ class User {
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));
         ASSERT(type(json.data, String));
-        let data = JSON.parse(json.data);
+        let dataString;
+        // the backend returns this if a user was just created
+        if (json.data == '{}') {
+            // use the default user data
+            dataString = User.createDefault().toJson().data;
+        } else {
+            dataString = json.data;
+        }
+        let data = JSON.parse(dataString);
         ASSERT(exists(data.entityArray));
         ASSERT(type(data.entityArray, List(Object)));
         ASSERT(exists(data.settings));
