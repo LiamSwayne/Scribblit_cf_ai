@@ -45,8 +45,9 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
-const SERVER_DOMAIN = 'app.scribbl.it';
+const SERVER_DOMAIN_ROOT = 'scribblit-production.unrono.workers.dev';
+const SERVER_PRODUCTION_DOMAIN = 'app.scribbl.it';
+const SERVER_DOMAIN = window.location.origin == 'null'? SERVER_DOMAIN_ROOT : SERVER_PRODUCTION_DOMAIN;
 const PAGES_DOMAIN = 'scribblit2.pages.dev';
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
