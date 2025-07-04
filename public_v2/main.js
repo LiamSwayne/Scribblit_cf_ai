@@ -52,7 +52,7 @@ const SERVER_DOMAIN = SERVER_PRODUCTION_DOMAIN;
 const PAGES_DOMAIN = 'scribblit2.pages.dev';
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
-let firstDayInCalendar; // the first day shown in calendar
+let firstDayInCalendar = NULL; // the first day shown in calendar
 let taskListManualHeightAdjustment;
 const allDayEventHeight = 18; // height in px for each all-day event
 const columnWidthThreshold = 300; // px
@@ -1231,8 +1231,10 @@ function addFakeEntitiesToUser() {
 async function initUserData() {
     user = await loadUserData();
     applyPalette(user.palette);
-    // Set firstDayInCalendar to today on page load
-    firstDayInCalendar = getDayNDaysFromToday(0);
+    if (firstDayInCalendar == NULL) {
+        // Set firstDayInCalendar to today on page load
+        firstDayInCalendar = getDayNDaysFromToday(0);
+    }
     ASSERT(type(user, User));
 }
 
@@ -1397,6 +1399,9 @@ function registerShiftKeyCallback(callback) {
 // the current days to display
 function currentDays() {
     // firstDayInCalendar must be DateField
+    if (firstDayInCalendar == NULL) {
+        firstDayInCalendar = getDayNDaysFromToday(0);
+    }
     ASSERT(type(firstDayInCalendar, DateField));
     // numberOfCalendarDays must be Int between 1 and 7
     ASSERT(type(LocalData.get('numberOfDays'), Int) && LocalData.get('numberOfDays') >= 1 && LocalData.get('numberOfDays') <= 7);
