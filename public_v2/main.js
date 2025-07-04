@@ -7646,7 +7646,7 @@ function openSignInModal() {
         
         googleButton.onclick = () => {
             // Redirect to Google OAuth
-            window.location.href = 'https://scribblit-production.unrono.workers.dev/auth/google';
+            window.location.href = 'https://' + SERVER_DOMAIN + '/auth/google';
         };
         googleButton.onmouseenter = () => {
             HTML.setStyle(googleButton, { backgroundColor: 'var(--shade-2)' });
