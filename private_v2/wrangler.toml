@@ -10,3 +10,7 @@ database_id = "f9c0de3c-de14-45f6-acc1-3563e63fd84e"
 [[routes]]
 pattern = "app.scribbl.it/*"
 zone_id = "f7ff3b69f5d8a4fd2a1b7af116001e44"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
