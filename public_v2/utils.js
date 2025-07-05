@@ -58,6 +58,10 @@ function wait(ms, func) {
 
 const defaultCutoffUnix = 1947483647; // about the year 2031
 
+function AiReturnedNullField(field) {
+    return field === null || field === undefined || field === '' || field === 'null' || field === 'NULL' || field === 'undefined';
+}
+
 // List type for homogeneous arrays
 class LIST {
     constructor(innerType) {
@@ -218,6 +222,17 @@ class EveryNDaysPattern {
         ASSERT(exists(json));
         return new EveryNDaysPattern(DateField.fromJson(json.initialDate), json.n);
     }
+
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'every_n_days_pattern', "EveryNDaysPattern.fromAiJson: json.type must be 'every_n_days_pattern'");
+        ASSERT(!AiReturnedNullField(json.initial_date), "EveryNDaysPattern.fromAiJson: initial_date is required");
+        ASSERT(!AiReturnedNullField(json.n), "EveryNDaysPattern.fromAiJson: n is required");
+        const initialDate = DateField.fromYYYY_MM_DD(json.initial_date);
+        const n = Number(json.n);
+        ASSERT(type(n, Int) && n > 0, "EveryNDaysPattern.fromAiJson: n must be a positive integer");
+        return new EveryNDaysPattern(initialDate, n);
+    }
 }
 
 // Represents hiding a task until a certain number of days before it's due
@@ -295,6 +310,21 @@ class MonthlyPattern {
         ASSERT(exists(json.months), "MonthlyPattern.fromJson: months property is missing.");
         return new MonthlyPattern(json.day, json.months);
     }
+
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'monthly_pattern', "MonthlyPattern.fromAiJson: json.type must be 'monthly_pattern'");
+        ASSERT(!AiReturnedNullField(json.day), "MonthlyPattern.fromAiJson: day is required");
+        let day = Number(json.day);
+        ASSERT(type(day, Int));
+
+        ASSERT(!AiReturnedNullField(json.months), "MonthlyPattern.fromAiJson: months array is required");
+        const monthsRaw = json.months;
+        ASSERT(Array.isArray(monthsRaw) && monthsRaw.length === 12, "MonthlyPattern.fromAiJson: months must be an array of 12 booleans");
+        const months = monthsRaw.map(m => !!m);
+
+        return new MonthlyPattern(day, months);
+    }
 }
 
 class AnnuallyPattern {
@@ -325,6 +355,17 @@ class AnnuallyPattern {
     static fromJson(json) {
         ASSERT(exists(json));
         return new AnnuallyPattern(json.month, json.day);
+    }
+
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'annually_pattern', "AnnuallyPattern.fromAiJson: json.type must be 'annually_pattern'");
+        ASSERT(!AiReturnedNullField(json.month), "AnnuallyPattern.fromAiJson: month is required");
+        ASSERT(!AiReturnedNullField(json.day), "AnnuallyPattern.fromAiJson: day is required");
+        const month = Number(json.month);
+        const day = Number(json.day);
+        ASSERT(type(month, Int) && type(day, Int));
+        return new AnnuallyPattern(month, day);
     }
 }
 
@@ -361,7 +402,45 @@ class NthWeekdayOfMonthsPattern {
         ASSERT(exists(json));
         ASSERT(exists(json.nthWeekdays), "NthWeekdayOfMonthsPattern.fromJson: nthWeekdays property is missing.");
         ASSERT(exists(json.months), "NthWeekdayOfMonthsPattern.fromJson: months property is missing.");
-        return new NthWeekdayOfMonthsPattern(json.dayOfWeek, nthWeekdays, json.months);
+        return new NthWeekdayOfMonthsPattern(json.dayOfWeek, json.nthWeekdays, json.months);
+    }
+
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'nth_weekday_of_months_pattern', "NthWeekdayOfMonthsPattern.fromAiJson: json.type must be 'nth_weekday_of_months_pattern'");
+
+        // day_of_week: integer 1-7 -> string
+        ASSERT(!AiReturnedNullField(json.day_of_week), "NthWeekdayOfMonthsPattern.fromAiJson: day_of_week is required");
+        const dowNum = Number(json.day_of_week);
+        ASSERT(type(dowNum, Int) && dowNum >= 1 && dowNum <= 7);
+        const dowMap = {1:'monday',2:'tuesday',3:'wednesday',4:'thursday',5:'friday',6:'saturday',7:'sunday'};
+        const dayOfWeek = dowMap[dowNum];
+
+        // weeks_of_month: "last" or array of 4 booleans
+        let nthWeekdays = {};
+        const weeksSpec = json.weeks_of_month;
+        ASSERT(!AiReturnedNullField(weeksSpec), "NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month is required");
+        if (typeof weeksSpec === 'string') {
+            ASSERT(weeksSpec === 'last', "NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month string must be 'last'");
+            nthWeekdays[-1] = true;
+        } else if (Array.isArray(weeksSpec)) {
+            for (let i = 0; i < 4; i++) {
+                const flag = !!weeksSpec[i];
+                if (flag) nthWeekdays[i + 1] = true;
+            }
+            // Ensure at least one true
+            ASSERT(Object.keys(nthWeekdays).length > 0, "NthWeekdayOfMonthsPattern.fromAiJson: at least one week must be true");
+        } else {
+            ASSERT(false, "NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month must be 'last' or array of booleans");
+        }
+
+        // months: array of 12 booleans required
+        ASSERT(!AiReturnedNullField(json.months), "NthWeekdayOfMonthsPattern.fromAiJson: months array is required");
+        const monthsRaw = json.months;
+        ASSERT(Array.isArray(monthsRaw) && monthsRaw.length === 12, "NthWeekdayOfMonthsPattern.fromAiJson: months must be an array of 12 booleans");
+        const months = monthsRaw.map(m => !!m);
+
+        return new NthWeekdayOfMonthsPattern(dayOfWeek, nthWeekdays, months);
     }
 }
 
@@ -496,6 +575,44 @@ class NonRecurringTaskInstance {
             dueTime = TimeField.fromJson(json.dueTime);
         }
         return new NonRecurringTaskInstance(DateField.fromJson(json.date), dueTime, json.completion);
+    }
+
+    // Parse AI-supplied JSON describing a one-off due-date instance.
+    // Expected format:
+    //  { "type": "due_date_instance", "date": "YYYY-MM-DD" | null, "time": "HH:MM" | null }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'due_date_instance', 'NonRecurringTaskInstance.fromAiJson: json.type must be "due_date_instance"');
+
+        // DATE
+        let dateField = NULL;
+        if (!AiReturnedNullField(json.date)) {
+            ASSERT(type(json.date, NonEmptyString), 'NonRecurringTaskInstance.fromAiJson: date must be string YYYY-MM-DD');
+            dateField = DateField.fromYYYY_MM_DD(json.date);
+        }
+
+        // TIME
+        let dueTime = NULL;
+        if (!AiReturnedNullField(json.time)) {
+            const t = json.time;
+            ASSERT(type(t, NonEmptyString), 'NonRecurringTaskInstance.fromAiJson: time must be HH:MM string');
+            const parts = t.split(':');
+            ASSERT(parts.length === 2, 'NonRecurringTaskInstance.fromAiJson: time must be HH:MM');
+            const hour = Number(parts[0]);
+            const minute = Number(parts[1]);
+            ASSERT(type(hour, Int) && type(minute, Int));
+            dueTime = new TimeField(hour, minute);
+        }
+
+        // If date missing but time provided -> assume today (UTC)
+        if (dateField === NULL && dueTime !== NULL) {
+            const now = new Date();
+            dateField = new DateField(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate());
+        }
+
+        ASSERT(dateField !== NULL, 'NonRecurringTaskInstance.fromAiJson: must have either date or time (with implicit today)');
+
+        return new NonRecurringTaskInstance(dateField, dueTime === NULL ? NULL : dueTime, false);
     }
 }
 
@@ -739,6 +856,70 @@ class RecurringTaskInstance {
 
         return new RecurringTaskInstance(datePattern, dueTime, range, json.completion);
     }
+
+    // Parse AI-supplied JSON describing a recurring due-date pattern instance.
+    // Expected format:
+    //  { "type": "due_date_pattern", "pattern": {...}, "time": "HH:MM" | null, "range": "YYYY-MM-DD:YYYY-MM-DD" | integer }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'due_date_pattern', 'RecurringTaskInstance.fromAiJson: json.type must be "due_date_pattern"');
+
+        // --- PATTERN ---
+        ASSERT(exists(json.pattern), 'RecurringTaskInstance.fromAiJson: pattern is required');
+        const pt = json.pattern;
+        ASSERT(type(pt.type, NonEmptyString), 'RecurringTaskInstance.fromAiJson: pattern.type missing');
+        let datePattern;
+        if (pt.type === 'every_n_days_pattern') {
+            datePattern = EveryNDaysPattern.fromAiJson(pt);
+        } else if (pt.type === 'monthly_pattern') {
+            datePattern = MonthlyPattern.fromAiJson(pt);
+        } else if (pt.type === 'annually_pattern') {
+            datePattern = AnnuallyPattern.fromAiJson(pt);
+        } else if (pt.type === 'nth_weekday_of_months_pattern') {
+            datePattern = NthWeekdayOfMonthsPattern.fromAiJson(pt);
+        } else {
+            ASSERT(false, 'RecurringTaskInstance.fromAiJson: unknown pattern.type ' + String(pt.type));
+        }
+
+        // --- TIME ---
+        let dueTime = NULL;
+        if (!AiReturnedNullField(json.time)) {
+            const t = json.time;
+            ASSERT(type(t, NonEmptyString), 'RecurringTaskInstance.fromAiJson: time must be HH:MM string');
+            const parts = t.split(':');
+            ASSERT(parts.length === 2, 'RecurringTaskInstance.fromAiJson: time must be HH:MM');
+            const hour = Number(parts[0]);
+            const minute = Number(parts[1]);
+            ASSERT(type(hour, Int) && type(minute, Int));
+            dueTime = new TimeField(hour, minute);
+        }
+
+        // --- RANGE ---
+        ASSERT(!AiReturnedNullField(json.range), 'RecurringTaskInstance.fromAiJson: range is required');
+        let rangeSpec = json.range;
+        let range;
+        if (typeof rangeSpec === 'string') {
+            const parts = rangeSpec.split(':');
+            ASSERT(parts.length === 2, 'RecurringTaskInstance.fromAiJson: range string must be "start:end"');
+            const startDate = DateField.fromYYYY_MM_DD(parts[0]);
+            let endDate;
+            if (AiReturnedNullField(parts[1]) || parts[1] === '') {
+                endDate = NULL;
+            } else {
+                endDate = DateField.fromYYYY_MM_DD(parts[1]);
+            }
+            range = new DateRange(startDate, endDate);
+        } else {
+            // Expect integer recurrence count
+            const count = Number(rangeSpec);
+            ASSERT(type(count, Int) && count > 0, 'RecurringTaskInstance.fromAiJson: range integer must be positive');
+            // Only valid if pattern provides initialDate
+            ASSERT(type(datePattern, EveryNDaysPattern), 'RecurringTaskInstance.fromAiJson: numeric range only allowed with every_n_days_pattern');
+            range = new RecurrenceCount(datePattern.initialDate, count);
+        }
+
+        return new RecurringTaskInstance(datePattern, dueTime, range, []);
+    }
 }
 
 // Event instances
@@ -829,6 +1010,46 @@ class NonRecurringEventInstance {
             differentEndDate = DateField.fromJson(json.differentEndDate);
         }
         return new NonRecurringEventInstance(DateField.fromJson(json.startDate), startTime, endTime, differentEndDate);
+    }
+
+    // Parse AI-supplied JSON for a singular event occurrence.
+    // Expected format:
+    //  {
+    //    "type": "event_instance",
+    //    "start_date": "YYYY-MM-DD",
+    //    "start_time": "HH:MM",          // required
+    //    "end_time": "HH:MM" | null,      // optional
+    //    "different_end_date": "YYYY-MM-DD" | null // optional
+    //  }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'event_instance', 'NonRecurringEventInstance.fromAiJson: json.type must be "event_instance"');
+
+        // start_date (required)
+        ASSERT(!AiReturnedNullField(json.start_date), 'NonRecurringEventInstance.fromAiJson: start_date is required');
+        const startDate = DateField.fromYYYY_MM_DD(json.start_date);
+
+        // start_time (required)
+        ASSERT(!AiReturnedNullField(json.start_time), 'NonRecurringEventInstance.fromAiJson: start_time is required');
+        const stParts = json.start_time.split(':');
+        ASSERT(stParts.length === 2, 'NonRecurringEventInstance.fromAiJson: start_time must be HH:MM');
+        const startTime = new TimeField(Number(stParts[0]), Number(stParts[1]));
+
+        // end_time (optional)
+        let endTime = NULL;
+        if (!AiReturnedNullField(json.end_time)) {
+            const etParts = json.end_time.split(':');
+            ASSERT(etParts.length === 2, 'NonRecurringEventInstance.fromAiJson: end_time must be HH:MM');
+            endTime = new TimeField(Number(etParts[0]), Number(etParts[1]));
+        }
+
+        // different_end_date (optional)
+        let differentEndDate = NULL;
+        if (!AiReturnedNullField(json.different_end_date)) {
+            differentEndDate = DateField.fromYYYY_MM_DD(json.different_end_date);
+        }
+
+        return new NonRecurringEventInstance(startDate, startTime, endTime, differentEndDate);
     }
 }
 
@@ -939,6 +1160,84 @@ class RecurringEventInstance {
         } else {
             ASSERT(type(json.differentEndDatePattern, Int));
             differentEndDatePattern = json.differentEndDatePattern;
+        }
+
+        return new RecurringEventInstance(startDatePattern, startTime, endTime, range, differentEndDatePattern);
+    }
+
+    // Parse AI-supplied JSON for a recurring event pattern.
+    // Expected format:
+    // {
+    //   "type": "event_pattern",
+    //   "start_date_pattern": { ... },
+    //   "start_time": "HH:MM" | null,
+    //   "end_time": "HH:MM" | null,
+    //   "different_end_date_offset": int | null,
+    //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
+    // }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'event_pattern', 'RecurringEventInstance.fromAiJson: json.type must be "event_pattern"');
+
+        // --- PATTERN ---
+        ASSERT(exists(json.start_date_pattern), 'RecurringEventInstance.fromAiJson: start_date_pattern required');
+        const p = json.start_date_pattern;
+        let startDatePattern;
+        if (p.type === 'every_n_days_pattern') {
+            startDatePattern = EveryNDaysPattern.fromAiJson(p);
+        } else if (p.type === 'monthly_pattern') {
+            startDatePattern = MonthlyPattern.fromAiJson(p);
+        } else if (p.type === 'annually_pattern') {
+            startDatePattern = AnnuallyPattern.fromAiJson(p);
+        } else if (p.type === 'nth_weekday_of_months_pattern') {
+            startDatePattern = NthWeekdayOfMonthsPattern.fromAiJson(p);
+        } else {
+            ASSERT(false, 'RecurringEventInstance.fromAiJson: unknown start_date_pattern.type ' + String(p.type));
+        }
+
+        // --- TIMES ---
+        let startTime = NULL;
+        if (!AiReturnedNullField(json.start_time)) {
+            const parts = json.start_time.split(':');
+            ASSERT(parts.length === 2, 'RecurringEventInstance.fromAiJson: start_time must be HH:MM');
+            startTime = new TimeField(Number(parts[0]), Number(parts[1]));
+        }
+
+        let endTime = NULL;
+        if (!AiReturnedNullField(json.end_time)) {
+            const parts = json.end_time.split(':');
+            ASSERT(parts.length === 2, 'RecurringEventInstance.fromAiJson: end_time must be HH:MM');
+            endTime = new TimeField(Number(parts[0]), Number(parts[1]));
+        }
+
+        // --- different_end_date_offset ---
+        let differentEndDatePattern = NULL;
+        if (!AiReturnedNullField(json.different_end_date_offset)) {
+            const off = Number(json.different_end_date_offset);
+            ASSERT(type(off, Int) && off > 0, 'RecurringEventInstance.fromAiJson: different_end_date_offset must be positive int');
+            differentEndDatePattern = off;
+        }
+
+        // --- RANGE ---
+        ASSERT(!AiReturnedNullField(json.range), 'RecurringEventInstance.fromAiJson: range is required');
+        let range;
+        if (typeof json.range === 'string') {
+            const parts = json.range.split(':');
+            ASSERT(parts.length === 2, 'RecurringEventInstance.fromAiJson: range string must be "start:end"');
+            const startDate = DateField.fromYYYY_MM_DD(parts[0]);
+            let endDate;
+            if (AiReturnedNullField(parts[1]) || parts[1] === '') {
+                endDate = NULL;
+            } else {
+                endDate = DateField.fromYYYY_MM_DD(parts[1]);
+            }
+            range = new DateRange(startDate, endDate);
+        } else {
+            const count = Number(json.range);
+            ASSERT(type(count, Int) && count > 0, 'RecurringEventInstance.fromAiJson: numeric range must be positive integer');
+            // Only allow numeric recurrence for patterns that contain an initial date
+            ASSERT(p.type === 'every_n_days_pattern', 'RecurringEventInstance.fromAiJson: numeric range only allowed with every_n_days_pattern');
+            range = new RecurrenceCount(startDatePattern.initialDate, count);
         }
 
         return new RecurringEventInstance(startDatePattern, startTime, endTime, range, differentEndDatePattern);
@@ -1073,6 +1372,50 @@ class TaskData {
         }
         return new TaskData(instances, hideUntil, json.showOverdue, workSessions);
     }
+
+    // Parse AI-supplied JSON for a task structure (uppermost level for a task).
+    // Expected minimal schema (per docs):
+    // {
+    //   "type": "task",
+    //   "instances": [ { ... } ],
+    //   "work_sessions": [ ... ] // optional
+    // }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'task', 'TaskData.fromAiJson: json.type must be "task"');
+
+        // --- INSTANCES ---
+        ASSERT(Array.isArray(json.instances) && json.instances.length > 0, 'TaskData.fromAiJson: instances array required');
+        const instances = [];
+        for (const inst of json.instances) {
+            ASSERT(exists(inst) && type(inst.type, NonEmptyString), 'TaskData.fromAiJson: each instance needs a type');
+            if (inst.type === 'due_date_instance') {
+                instances.push(NonRecurringTaskInstance.fromAiJson(inst));
+            } else if (inst.type === 'due_date_pattern') {
+                instances.push(RecurringTaskInstance.fromAiJson(inst));
+            } else {
+                ASSERT(false, 'TaskData.fromAiJson: unknown instance type ' + String(inst.type));
+            }
+        }
+
+        // --- WORK SESSIONS ---
+        let workSessions = [];
+        if (!AiReturnedNullField(json.work_sessions)) {
+            ASSERT(Array.isArray(json.work_sessions), 'TaskData.fromAiJson: work_sessions must be array');
+            for (const ws of json.work_sessions) {
+                ASSERT(exists(ws) && type(ws.type, NonEmptyString), 'TaskData.fromAiJson: each work_session needs a type');
+                if (ws.type === 'event_instance') {
+                    workSessions.push(NonRecurringEventInstance.fromAiJson(ws));
+                } else if (ws.type === 'event_pattern') {
+                    workSessions.push(RecurringEventInstance.fromAiJson(ws));
+                } else {
+                    ASSERT(false, 'TaskData.fromAiJson: unknown work_session type ' + String(ws.type));
+                }
+            }
+        }
+
+        return new TaskData(instances, NULL, true, workSessions);
+    }
 }
 
 class EventData {
@@ -1108,6 +1451,32 @@ class EventData {
         }
         return new EventData(instances);
     }
+
+    // Parse AI-supplied JSON for an event structure.
+    // Schema:
+    // {
+    //   "type": "event",
+    //   "instances": [ { ... } ]
+    // }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'event', 'EventData.fromAiJson: json.type must be "event"');
+
+        ASSERT(Array.isArray(json.instances) && json.instances.length > 0, 'EventData.fromAiJson: instances array required');
+        const instances = [];
+        for (const inst of json.instances) {
+            ASSERT(exists(inst) && type(inst.type, NonEmptyString), 'EventData.fromAiJson: each instance needs a type');
+            if (inst.type === 'event_instance') {
+                instances.push(NonRecurringEventInstance.fromAiJson(inst));
+            } else if (inst.type === 'event_pattern') {
+                instances.push(RecurringEventInstance.fromAiJson(inst));
+            } else {
+                ASSERT(false, 'EventData.fromAiJson: unknown instance type ' + String(inst.type));
+            }
+        }
+
+        return new EventData(instances);
+    }
 }
 
 // Reminder Instances
@@ -1132,6 +1501,19 @@ class NonRecurringReminderInstance {
     static fromJson(json) {
         ASSERT(exists(json));
         return new NonRecurringReminderInstance(DateField.fromJson(json.date), TimeField.fromJson(json.time));
+    }
+
+    // AI JSON: { "type":"reminder_instance", "date":"YYYY-MM-DD", "time":"HH:MM" }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'reminder_instance', 'NonRecurringReminderInstance.fromAiJson: json.type must be "reminder_instance"');
+        ASSERT(!AiReturnedNullField(json.date), 'NonRecurringReminderInstance.fromAiJson: date required');
+        ASSERT(!AiReturnedNullField(json.time), 'NonRecurringReminderInstance.fromAiJson: time required');
+        const date = DateField.fromYYYY_MM_DD(json.date);
+        const parts = json.time.split(':');
+        ASSERT(parts.length === 2, 'NonRecurringReminderInstance.fromAiJson: time must be HH:MM');
+        const time = new TimeField(Number(parts[0]), Number(parts[1]));
+        return new NonRecurringReminderInstance(date, time);
     }
 }
 
@@ -1184,6 +1566,60 @@ class RecurringReminderInstance {
 
         return new RecurringReminderInstance(datePattern, time, range);
     }
+
+    // AI JSON: {
+    //   "type": "reminder_pattern",
+    //   "date_pattern": { ... },
+    //   "time": "HH:MM",
+    //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
+    // }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'reminder_pattern', 'RecurringReminderInstance.fromAiJson: json.type must be "reminder_pattern"');
+        ASSERT(exists(json.date_pattern), 'RecurringReminderInstance.fromAiJson: date_pattern required');
+        const dp = json.date_pattern;
+        let datePattern;
+        if (dp.type === 'every_n_days_pattern') {
+            datePattern = EveryNDaysPattern.fromAiJson(dp);
+        } else if (dp.type === 'monthly_pattern') {
+            datePattern = MonthlyPattern.fromAiJson(dp);
+        } else if (dp.type === 'annually_pattern') {
+            datePattern = AnnuallyPattern.fromAiJson(dp);
+        } else if (dp.type === 'nth_weekday_of_months_pattern') {
+            datePattern = NthWeekdayOfMonthsPattern.fromAiJson(dp);
+        } else {
+            ASSERT(false, 'RecurringReminderInstance.fromAiJson: unknown date_pattern.type ' + String(dp.type));
+        }
+
+        // time mandatory for reminders
+        ASSERT(!AiReturnedNullField(json.time), 'RecurringReminderInstance.fromAiJson: time required');
+        const parts = json.time.split(':');
+        ASSERT(parts.length === 2, 'RecurringReminderInstance.fromAiJson: time must be HH:MM');
+        const time = new TimeField(Number(parts[0]), Number(parts[1]));
+
+        // range mandatory
+        ASSERT(!AiReturnedNullField(json.range), 'RecurringReminderInstance.fromAiJson: range required');
+        let range;
+        if (typeof json.range === 'string') {
+            const rparts = json.range.split(':');
+            ASSERT(rparts.length === 2, 'RecurringReminderInstance.fromAiJson: range string must be "start:end"');
+            const startDate = DateField.fromYYYY_MM_DD(rparts[0]);
+            let endDate;
+            if (AiReturnedNullField(rparts[1]) || rparts[1] === '') {
+                endDate = NULL;
+            } else {
+                endDate = DateField.fromYYYY_MM_DD(rparts[1]);
+            }
+            range = new DateRange(startDate, endDate);
+        } else {
+            const count = Number(json.range);
+            ASSERT(type(count, Int) && count > 0, 'RecurringReminderInstance.fromAiJson: numeric range must positive int');
+            ASSERT(dp.type === 'every_n_days_pattern', 'RecurringReminderInstance.fromAiJson: numeric range only allowed with every_n_days_pattern');
+            range = new RecurrenceCount(datePattern.initialDate, count);
+        }
+
+        return new RecurringReminderInstance(datePattern, time, range);
+    }
 }
 
 class ReminderData {
@@ -1214,6 +1650,25 @@ class ReminderData {
                 instances.push(RecurringReminderInstance.fromJson(instanceJson));
             } else {
                 ASSERT(false, 'Unknown instance type in ReminderData.fromJson');
+            }
+        }
+        return new ReminderData(instances);
+    }
+
+    // AI JSON schema: { "type":"reminder", "instances": [ ... ] }
+    static fromAiJson(json) {
+        ASSERT(exists(json));
+        ASSERT(json.type === 'reminder', 'ReminderData.fromAiJson: json.type must be "reminder"');
+        ASSERT(Array.isArray(json.instances) && json.instances.length > 0, 'ReminderData.fromAiJson: instances array required');
+        const instances = [];
+        for (const inst of json.instances) {
+            ASSERT(exists(inst) && type(inst.type, NonEmptyString), 'ReminderData.fromAiJson: each instance needs a type');
+            if (inst.type === 'reminder_instance') {
+                instances.push(NonRecurringReminderInstance.fromAiJson(inst));
+            } else if (inst.type === 'reminder_pattern') {
+                instances.push(RecurringReminderInstance.fromAiJson(inst));
+            } else {
+                ASSERT(false, 'ReminderData.fromAiJson: unknown instance type ' + String(inst.type));
             }
         }
         return new ReminderData(instances);
@@ -1259,6 +1714,44 @@ class Entity {
             ASSERT(false, 'Unknown data type in Entity.fromJson.');
         }
         return new Entity(json.id, json.name, json.description, data);
+    }
+
+    // Utility to generate a simple unique ID (timestamp + random)
+    static _generateId() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let id = '';
+        for (let i = 0; i < 8; i++) {
+            id += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return id;
+    }
+
+    // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
+    // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
+    static fromAiJson(aiArray) {
+        ASSERT(Array.isArray(aiArray), 'Entity.fromAiJson: expected an array');
+        const entities = [];
+        for (const obj of aiArray) {
+            ASSERT(exists(obj) && type(obj.type, NonEmptyString), 'Entity.fromAiJson: each item must have a type');
+            ASSERT(!AiReturnedNullField(obj.name), 'Entity.fromAiJson: each item must have a name');
+            const name = obj.name;
+            const description = AiReturnedNullField(obj.description) ? '' : obj.description;
+
+            let data;
+            if (obj.type === 'task') {
+                data = TaskData.fromAiJson(obj);
+            } else if (obj.type === 'event') {
+                data = EventData.fromAiJson(obj);
+            } else if (obj.type === 'reminder') {
+                data = ReminderData.fromAiJson(obj);
+            } else {
+                ASSERT(false, 'Entity.fromAiJson: unknown item type ' + String(obj.type));
+            }
+
+            const id = Entity._generateId();
+            entities.push(new Entity(id, name, description, data));
+        }
+        return entities;
     }
 }
 
