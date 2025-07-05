@@ -1,16 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
-
 const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
 const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
 const PAGES_DOMAIN = 'scribbl.it';
-
-// ranked from first choice to last choice
-// use the backups one after another
-let models = [
-    "cerebras_qwen_3_32b",
-    "gemini_2.5_flash_lite"
-]
 
 function SEND(data, status = 200, headers = {}) {
     const corsHeaders = {
@@ -95,53 +86,7 @@ async function generateToken(email, secret_key) {
     return `${payloadBase64}.${signatureBase64}`;
 }
 
-async function callAiModel(userPrompt, fileArray, env) {
-    let userSubmittedFiles = Array.isArray(fileArray) && fileArray.length > 0;
-    // Gemini supports files, Cerebras does not
-    if (true) {
-        const genAI = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-
-        // Build parts: initial text prompt plus file-derived parts
-        const parts = [{ text: userPrompt }].concat(fileArray);
-
-        const response = await genAI.models.generateContent({
-            model: "gemini-2.5-flash-lite-preview-06-17",
-            contents: [
-                {
-                    role: "user",
-                    parts,
-                },
-            ],
-        });
-
-        console.log("Gemini response: " + response.text);
-
-        // GoogleGenAI SDK returns .text directly on response
-        return response.text;
-    } else {
-        const requestBody = {
-            model: 'qwen-3-32b',
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-            ],
-            max_tokens: 8192,
-            stream: false,
-        };
-        const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${env.CEREBRAS_API_KEY}`,
-            },
-            body: JSON.stringify(requestBody),
-        });
-        const result = await response.json();
-        return result.choices?.[0]?.message?.content || '';
-    }
-}
-
-const system_prompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
+const systemPrompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
 
 Task JSON:
 {
@@ -229,6 +174,63 @@ Reminder JSON:
 }
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
+
+async function callAiModel(userPrompt, fileArray, env) {
+    let userSubmittedFiles = Array.isArray(fileArray) && fileArray.length > 0;
+    // Gemini supports files, Cerebras does not
+    if (userSubmittedFiles) {
+        // Build the contents array: one entry per file, then your user prompt as text
+        const contents = fileArray.map(f => ({
+            file: { fileName: f.fileName },
+            mimeType: f.mimeType
+        }));
+        contents.push({
+            mimeType: 'text/plain',
+            value: userPrompt
+        });
+
+        // Call Gemini's Files‐enabled endpoint
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${env.GEMINI_API_KEY}`;
+        const body = {
+            model: 'gemini-2.5-flash-lite-preview-06-17',
+            system_instruction: {
+                parts: [{ text: systemPrompt }]
+            },
+            contents
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        const data = await response.json();
+        // extract the text from Gemini’s response
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        return parts.map(p => p.text || "").join("");
+    } else {
+        const requestBody = {
+            model: 'qwen-3-32b',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            max_tokens: 8192,
+            stream: false,
+        };
+        const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${env.CEREBRAS_API_KEY}`,
+            },
+            body: JSON.stringify(requestBody),
+        });
+        const result = await response.json();
+        return result.choices?.[0]?.message?.content || '';
+    }
+}
 
 export default {
     async fetch(request, env) {
