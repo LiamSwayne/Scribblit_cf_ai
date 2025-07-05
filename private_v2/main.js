@@ -176,62 +176,100 @@ Reminder JSON:
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
 
 async function callAiModel(userPrompt, fileArray, env) {
-    let userSubmittedFiles = Array.isArray(fileArray) && fileArray.length > 0;
-    // Gemini supports files, Cerebras does not
-    if (true) {
-        // Build the contents array: one entry per file, then your user prompt as text
-        const contents = fileArray.map(f => ({
-            file: { fileName: f.fileName },
-            mimeType: f.mimeType
-        }));
-        contents.push({
-            mimeType: 'text/plain',
-            value: userPrompt
-        });
+    // Build the text part first
+    const parts = [{ text: userPrompt }];
 
-        // Call Gemini's Files‐enabled endpoint
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${env.GEMINI_API_KEY}`;
-        const body = {
-            model: 'gemini-2.5-flash-lite-preview-06-17',
-            system_instruction: {
-                parts: [{ text: systemPrompt }]
-            },
-            contents
-        };
+    // Upload each supplied file (simple direct upload) and append to parts
+    if (Array.isArray(fileArray) && fileArray.length > 0) {
+        for (const f of fileArray) {
+            try {
+                const mimeType = f.mimeType || 'application/octet-stream';
 
-        const response = await fetch(url, {
+                // Convert the supplied data to an ArrayBuffer that fetch can consume
+                let buffer;
+                if (f.data instanceof ArrayBuffer) {
+                    buffer = f.data;
+                } else if (f.data instanceof Uint8Array) {
+                    buffer = f.data.buffer;
+                } else if (typeof f.data === 'string') {
+                    // Assume base-64 encoded string
+                    const bin = atob(f.data);
+                    const bytes = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                    buffer = bytes.buffer;
+                } else if (f.data?.arrayBuffer) { // Blob/File from FormData
+                    buffer = await f.data.arrayBuffer();
+                } else {
+                    throw new Error('Unsupported file format supplied to callAiModel');
+                }
+
+                // Perform the direct upload (<20 MB) to Gemini Files API
+                const uploadRes = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${env.GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': mimeType },
+                    body: buffer,
+                });
+                const uploadJson = await uploadRes.json();
+                const uri = uploadJson?.file?.uri;
+                if (!uri) {
+                    console.log('Gemini file upload failed', uploadJson);
+                    continue; // Skip this file but continue processing others
+                }
+
+                // Append a file_data part referencing the uploaded URI
+                parts.push({
+                    file_data: {
+                        mime_type: mimeType,
+                        file_uri: uri,
+                    },
+                });
+            } catch (err) {
+                console.error('Error uploading file to Gemini:', err);
+            }
+        }
+    }
+
+    // Prepare the generation request body
+    const body = {
+        model: 'gemini-2.5-flash-lite-preview-06-17',
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ parts }],
+    };
+
+    try {
+        const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${env.GEMINI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         });
-
-        const data = await response.json();
-        console.log("Gemini response: ");
-        console.log(data);
-        // extract the text from Gemini’s response
-        const parts = data?.candidates?.[0]?.content?.parts || [];
-        return parts.map(p => p.text || "").join("");
-    } else {
-        const requestBody = {
-            model: 'qwen-3-32b',
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-            ],
-            max_tokens: 8192,
-            stream: false,
-        };
-        const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${env.CEREBRAS_API_KEY}`,
-            },
-            body: JSON.stringify(requestBody),
-        });
-        const result = await response.json();
-        return result.choices?.[0]?.message?.content || '';
+        const genJson = await genRes.json();
+        console.log('Gemini response:', genJson);
+        const outParts = genJson?.candidates?.[0]?.content?.parts || [];
+        return outParts.map(p => p.text || '').join('');
+    } catch (err) {
+        console.error('callAiModel Gemini path error:', err);
     }
+
+    // ------------------- Fallback to Cerebras on failure -------------------
+    const fallbackRequest = {
+        model: 'qwen-3-32b',
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 8192,
+        stream: false,
+    };
+    const resp = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${env.CEREBRAS_API_KEY}`,
+        },
+        body: JSON.stringify(fallbackRequest),
+    });
+    const result = await resp.json();
+    return result.choices?.[0]?.message?.content || '';
 }
 
 export default {
