@@ -36,6 +36,7 @@ jobs:
             GOOGLE_CLIENT_SECRET
             CEREBRAS_API_KEY
             XAI_API_KEY
+            GEMINI_API_KEY
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -43,6 +44,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: Deploy pages
         uses: cloudflare/pages-action@v1

@@ -3,6 +3,13 @@ const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
 const PAGES_DOMAIN = 'scribbl.it';
 
+// ranked from first choice to last choice
+// use the backups one after another
+let models = [
+    "cerebras_qwen_3_32b",
+    "gemini_2.5_flash_lite"
+]
+
 function SEND(data, status = 200, headers = {}) {
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
