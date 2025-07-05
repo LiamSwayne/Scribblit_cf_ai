@@ -86,18 +86,7 @@ async function generateToken(email, secret_key) {
     return `${payloadBase64}.${signatureBase64}`;
 }
 
-function generatePrompt() {
-    const date = new Date();
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-
-    const formatted_time_and_date = `${year}-${month}-${day} ${hour}:${minute}`;
-
-    return `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
+const system_prompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
 
 Task JSON:
 {
@@ -134,7 +123,7 @@ Task JSON:
 					"months": // array of 12 booleans for if the pattern is enabled for that month.
 				}
 		    "time": "HH:MM" // OPTIONAL
-		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end or integer for n times total across this instance.
+		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
 	    }
 	]
 	"work_sessions": [ // OPTIONAL
@@ -184,11 +173,7 @@ Reminder JSON:
 	]
 }
 
-Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. If the user's input is incomprehensible you can return an empty array.
-
-The current time and date is: ${formatted_time_and_date}
-`
-}
+Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. If the user's input is incomprehensible you can return an empty array.`
 
 export default {
     async fetch(request, env) {
@@ -656,6 +641,50 @@ export default {
                     return SEND('Test email sent', 200);
                 } catch (err) {
                     return SEND(err.message || err.toString(), 500);
+                }
+
+            case '/ai/parse':
+                {
+                    if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
+                    try {
+                        const userText = await request.text();
+                        if (!userText || userText.trim().length === 0) {
+                            return SEND({ error: 'Empty request body' }, 400);
+                        }
+
+                        const requestBody = {
+                            model: 'qwen-3-32b',
+                            messages: [
+                                { role: 'system', content: system_prompt },
+                                { role: 'user', content: userText }
+                            ],
+                            max_tokens: 8192,
+                            temperature: 0.6,
+                            stream: false
+                        };
+
+                        const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${env.CEREBRAS_API_KEY}`
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+
+                        if (!response.ok) {
+                            const errorBody = await response.text();
+                            console.error(`Cerebras API error: ${response.status} - ${errorBody}`);
+                            return SEND({ error: 'AI processing failed' }, 562);
+                        }
+
+                        const result = await response.json();
+                        const aiOutput = result.choices?.[0]?.message?.content || '';
+                        return SEND(aiOutput, 200, 'text-no-content-type');
+                    } catch (err) {
+                        console.error('AI parse error:', err);
+                        return SEND({ error: 'Failed to process AI request' }, 563);
+                    }
                 }
 
             default:
