@@ -23,6 +23,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           
+      # Install Node dependencies (including @google/genai) for the Worker so Wrangler bundles them
+      - name: Install private_v2 dependencies
+        working-directory: private_v2
+        run: npm ci
+          
       - name: Deploy private_v2 worker (with secrets)
         uses: cloudflare/wrangler-action@v3
         with:
