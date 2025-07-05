@@ -178,7 +178,7 @@ Don't forget to have commas in the JSON. You will return nothing but an array of
 async function callAiModel(userPrompt, fileArray, env) {
     let userSubmittedFiles = Array.isArray(fileArray) && fileArray.length > 0;
     // Gemini supports files, Cerebras does not
-    if (userSubmittedFiles) {
+    if (true) {
         // Build the contents array: one entry per file, then your user prompt as text
         const contents = fileArray.map(f => ({
             file: { fileName: f.fileName },
