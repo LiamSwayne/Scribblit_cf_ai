@@ -1772,7 +1772,15 @@ class Entity {
             }
 
             const id = Entity._generateId();
-            entities.push(new Entity(id, name, description, data));
+            let newEntity = NULL;
+            try {
+                newEntity = new Entity(id, name, description, data);
+            } catch (e) {
+                log("Entity.fromAiJson: error creating entity " + id + " " + name + " " + description + " " + data);
+                log(e);
+                continue;
+            }
+            entities.push(newEntity);
         }
         return entities;
     }
