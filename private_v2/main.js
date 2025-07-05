@@ -206,6 +206,8 @@ async function callAiModel(userPrompt, fileArray, env) {
         });
 
         const data = await response.json();
+        console.log("Gemini response: ");
+        console.log(data);
         // extract the text from Gemini’s response
         const parts = data?.candidates?.[0]?.content?.parts || [];
         return parts.map(p => p.text || "").join("");
