@@ -175,83 +175,72 @@ Reminder JSON:
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
 
-async function callAiModel(userPrompt, fileArray, env) {
-    // Gemini supports files, Cerebras does not
-    if (Array.isArray(fileArray) && fileArray.length > 0) {
-        // Build the text part first
+async function callGeminiModel(modelName, userPrompt, fileArray, env) {
+    if (modelName !== 'gemini-2.5-flash-lite-preview-06-17') {
+        throw new Error('Unsupported Gemini model: ' + modelName);
+    }
+    try {
         const parts = [{ text: userPrompt }];
-
-        // Upload each supplied file (simple direct upload) and append to parts
-        for (const f of fileArray) {
-            try {
-                const mimeType = f.mimeType || 'application/octet-stream';
-
-                // Convert the supplied data to an ArrayBuffer that fetch can consume
-                let buffer;
-                if (f.data instanceof ArrayBuffer) {
-                    buffer = f.data;
-                } else if (f.data instanceof Uint8Array) {
-                    buffer = f.data.buffer;
-                } else if (typeof f.data === 'string') {
-                    // Assume base-64 encoded string
-                    const bin = atob(f.data);
-                    const bytes = new Uint8Array(bin.length);
-                    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                    buffer = bytes.buffer;
-                } else if (f.data?.arrayBuffer) { // Blob/File from FormData
-                    buffer = await f.data.arrayBuffer();
-                } else {
-                    throw new Error('Unsupported file format supplied to callAiModel');
+        if (Array.isArray(fileArray)) {
+            for (const f of fileArray) {
+                try {
+                    const mimeType = f.mimeType || 'application/octet-stream';
+                    let buffer;
+                    if (f.data instanceof ArrayBuffer) {
+                        buffer = f.data;
+                    } else if (f.data instanceof Uint8Array) {
+                        buffer = f.data.buffer;
+                    } else if (typeof f.data === 'string') {
+                        const bin = atob(f.data);
+                        const bytes = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                        buffer = bytes.buffer;
+                    } else if (f.data?.arrayBuffer) {
+                        buffer = await f.data.arrayBuffer();
+                    } else {
+                        throw new Error('Unsupported file format supplied to Gemini');
+                    }
+                    const uploadRes = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${env.GEMINI_API_KEY}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': mimeType },
+                        body: buffer,
+                    });
+                    const uploadJson = await uploadRes.json();
+                    const uri = uploadJson?.file?.uri;
+                    if (uri) {
+                        parts.push({ file_data: { mime_type: mimeType, file_uri: uri } });
+                    }
+                } catch (fileErr) {
+                    console.error('Gemini file upload error:', fileErr);
                 }
-
-                // Perform the direct upload (<20 MB) to Gemini Files API
-                const uploadRes = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${env.GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': mimeType },
-                    body: buffer,
-                });
-                const uploadJson = await uploadRes.json();
-                const uri = uploadJson?.file?.uri;
-                if (!uri) {
-                    console.log('Gemini file upload failed' + uploadJson);
-                    continue; // Skip this file but continue processing others
-                }
-
-                // Append a file_data part referencing the uploaded URI
-                parts.push({
-                    file_data: {
-                        mime_type: mimeType,
-                        file_uri: uri,
-                    },
-                });
-            } catch (err) {
-                console.error('Error uploading file to Gemini:' + err);
             }
         }
-
-        // Prepare the generation request body
         const body = {
-            model: 'gemini-2.5-flash-lite-preview-06-17',
+            model: modelName,
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents: [{ parts }],
         };
+        const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${env.GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const genJson = await genRes.json();
+        const outParts = genJson?.candidates?.[0]?.content?.parts || [];
+        return outParts.map(p => p.text || '').join('');
+    } catch (err) {
+        console.error('Gemini model error:', err);
+        return '';
+    }
+}
 
-        try {
-            const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${env.GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-            const genJson = await genRes.json();
-            console.log('Gemini response:' + genJson);
-            const outParts = genJson?.candidates?.[0]?.content?.parts || [];
-            return outParts.map(p => p.text || '').join('');
-        } catch (err) {
-            console.error('callAiModel Gemini path error:' + err);
-        }
-    } else {
+async function callCerebrasModel(modelName, userPrompt, env) {
+    if (modelName !== 'qwen-3-32b') {
+        throw new Error('Unsupported Cerebras model: ' + modelName);
+    }
+    try {
         const cerebrasRequest = {
-            model: 'qwen-3-32b',
+            model: modelName,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
@@ -269,6 +258,56 @@ async function callAiModel(userPrompt, fileArray, env) {
         });
         const result = await resp.json();
         return result.choices?.[0]?.message?.content || '';
+    } catch (err) {
+        console.error('Cerebras model error:', err);
+        return '';
+    }
+}
+
+async function callGroqModel(modelName, userPrompt, env) {
+    if (modelName !== 'llama-3.3-70b-versatile') {
+        throw new Error('Unsupported Groq model: ' + modelName);
+    }
+    try {
+        const groqRequest = {
+            model: modelName,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            max_tokens: 8192,
+            stream: false,
+        };
+        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${env.GROQ_API_KEY}`,
+            },
+            body: JSON.stringify(groqRequest),
+        });
+        const groqResult = await groqResp.json();
+        return groqResult.choices?.[0]?.message?.content || '';
+    } catch (err) {
+        console.error('Groq model error:', err);
+        return '';
+    }
+}
+
+async function callAiModel(userPrompt, fileArray, env) {
+    try {
+        if (Array.isArray(fileArray) && fileArray.length > 0) {
+            return await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, fileArray, env);
+        } else {
+            let content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
+            if (content && content.trim() !== '') {
+                return content;
+            }
+            return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
+        }
+    } catch (err) {
+        console.error('callAiModel error:', err);
+        return '';
     }
 }
 
