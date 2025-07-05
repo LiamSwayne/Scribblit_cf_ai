@@ -22,15 +22,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Deploy legacy worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: 'legacy_private'
           
-      - name: Deploy private_v2 Worker (with secret)
+      - name: Deploy private_v2 Worker (with secrets)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -55,3 +48,10 @@ jobs:
           projectName: 'scribblit2'
           directory: 'public_v2'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy legacy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'legacy_private'
