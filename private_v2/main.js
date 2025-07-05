@@ -173,7 +173,7 @@ Reminder JSON:
 	]
 }
 
-Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. If the user's input is incomprehensible you can return an empty array.`
+Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
 
 export default {
     async fetch(request, env) {

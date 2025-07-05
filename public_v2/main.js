@@ -8372,7 +8372,7 @@ async function signUp() {
                 position: 'fixed',
                 right: '22px',
                 top: String(modalRect.top + 50) + 'px', // Position above the inputs, adjust as needed
-                fontFamily: 'Monospace',
+                fontFamily: 'Monospaced',
                 fontSize: '11px',
                 color: 'var(--shade-4)',
                 zIndex: String(signInTextZIndex + 101),
@@ -8388,7 +8388,6 @@ async function signUp() {
 
             // Create six individual character input divs
             const verificationInputs = [];
-            let currentInputIndex = 0;
 
             for (let i = 0; i < 6; i++) {
                 const inputDiv = HTML.make('input');
@@ -8400,7 +8399,7 @@ async function signUp() {
                 HTML.setStyle(inputDiv, {
                     width: '28px',
                     height: '36px',
-                    fontFamily: 'Monospace',
+                    fontFamily: 'Monospaced',
                     fontSize: '14px',
                     color: 'var(--shade-4)',
                     backgroundColor: 'var(--shade-0)',
@@ -8461,7 +8460,6 @@ async function signUp() {
 
                 inputDiv.addEventListener('focus', function() {
                     currentlyTyping = true;
-                    currentInputIndex = i;
                     HTML.setStyle(this, { backgroundColor: 'var(--accent-0)' }); // Fade background to accent-0
                 });
 
@@ -8619,13 +8617,89 @@ function processInput() {
     if (inputText === '') return;
     
     log("Processing input: " + inputText);
-    
-    // TODO: Add your input processing logic here
-    // For now, just clear the input box as an example
-    inputBox.value = '';
-    
-    // Re-render to update the input box height and task list
-    render();
+
+    (async () => {
+        try {
+            // Prepare enriched text with date,time,dayOfWeek
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0,10); // YYYY-MM-DD
+            const timeStr = now.toTimeString().slice(0,5); // HH:MM (24h)
+            const dayOfWeekString = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
+            const userTextWithDateInformation = `Today is ${dayOfWeekString}, ${dateStr}, ${timeStr}.\n\n${inputText}`;
+
+            log("Enriched text: " + userTextWithDateInformation);
+
+            // Send to backend AI endpoint
+            const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: userTextWithDateInformation
+            });
+
+            if (!response.ok) {
+                console.error('AI parse request failed', await response.text());
+                return; // keep input for debugging
+            }
+
+            const aiText = await response.text();
+            log("AI response: " + aiText);
+            let cleanedText = aiText;
+
+            // we can remove the model thinking, all that matters is the output
+            // maybe the user would like to see this?
+            // maybe in pro mode we store this locally so they can look at it and feel more "in control"
+            const thinkClose = '</think>';
+            const idx = cleanedText.indexOf(thinkClose);
+            if (idx !== -1) {
+                cleanedText = cleanedText.substring(idx + thinkClose.length).trim();
+            }
+            cleanedText = cleanedText.trim();
+
+            // sometimes the ai puts it in a code block
+            if (cleanedText.startsWith('```json')) {
+                cleanedText = cleanedText.substring(7).trim();
+            }
+            if (cleanedText.endsWith('```')) {
+                cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
+            }
+
+            let aiJson;
+            try {
+                aiJson = JSON.parse(cleanedText);
+            } catch (e) {
+                log('Failed to JSON.parse AI response after cleaning', cleanedText);
+                return;
+            }
+
+            // Convert to internal entities
+            let entities;
+            try {
+                entities = Entity.fromAiJson(aiJson);
+            } catch (e) {
+                log('Failed to convert AI JSON to entities', e);
+                return;
+            }
+
+            if (entities.length === 0) {
+                log('AI returned empty array');
+                return;
+            }
+
+            // Add to user
+            for (const ent of entities) {
+                user.entityArray.push(ent);
+            }
+            user.timestamp = Date.now();
+
+            // Clear input box
+            inputBox.value = '';
+
+            // Re-render UI
+            render();
+        } catch (err) {
+            log("processInput error: " + err.message);
+        }
+    })();
 }
 
 // Creates a multiple choice selector with smooth transitions
