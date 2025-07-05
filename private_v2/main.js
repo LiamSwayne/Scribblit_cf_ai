@@ -307,6 +307,7 @@ async function callAiModel(userPrompt, fileArray, env) {
             return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env, fileArray);
         } else {
             let content;
+            /*
             // 1st choice
             content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
@@ -318,6 +319,7 @@ async function callAiModel(userPrompt, fileArray, env) {
             if (content && content.trim() !== '') {
                 return content;
             }
+                */
 
             // 3rd choice
             content = await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
