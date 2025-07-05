@@ -98,7 +98,7 @@ async function generateToken(email, secret_key) {
 async function callAiModel(userPrompt, fileArray, env) {
     let userSubmittedFiles = Array.isArray(fileArray) && fileArray.length > 0;
     // Gemini supports files, Cerebras does not
-    if (userSubmittedFiles) {
+    if (true) {
         const genAI = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 
         // Build parts: initial text prompt plus file-derived parts
