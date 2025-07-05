@@ -60,8 +60,6 @@ const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
-// Added to track user-dropped attachments
-let attachedFiles = [];
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -5707,9 +5705,6 @@ function renderInputBox() {
 
     // Update input box gradients
     updateInputBoxGradients(false);
-
-    // Re-position / show attached file count indicator
-    updateAttachedFileCount();
 }
 
 // are there any incomplete tasks in the range?
@@ -6753,8 +6748,6 @@ async function init() {
     initSettingsButton();
     initSignInButton();
     initProButton();
-    // Initialize drag-and-drop overlay & listeners
-    initDragAndDrop();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
