@@ -212,7 +212,7 @@ async function callAiModel(userPrompt, fileArray, env) {
                 const uploadJson = await uploadRes.json();
                 const uri = uploadJson?.file?.uri;
                 if (!uri) {
-                    console.log('Gemini file upload failed', uploadJson);
+                    console.log('Gemini file upload failed' + uploadJson);
                     continue; // Skip this file but continue processing others
                 }
 
@@ -224,52 +224,51 @@ async function callAiModel(userPrompt, fileArray, env) {
                     },
                 });
             } catch (err) {
-                console.error('Error uploading file to Gemini:', err);
+                console.error('Error uploading file to Gemini:' + err);
             }
         }
-    }
 
-    // Prepare the generation request body
-    const body = {
-        model: 'gemini-2.5-flash-lite-preview-06-17',
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ parts }],
-    };
+        // Prepare the generation request body
+        const body = {
+            model: 'gemini-2.5-flash-lite-preview-06-17',
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ parts }],
+        };
 
-    try {
-        const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${env.GEMINI_API_KEY}`, {
+        try {
+            const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${env.GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const genJson = await genRes.json();
+            console.log('Gemini response:' + genJson);
+            const outParts = genJson?.candidates?.[0]?.content?.parts || [];
+            return outParts.map(p => p.text || '').join('');
+        } catch (err) {
+            console.error('callAiModel Gemini path error:' + err);
+        }
+    } else {
+        const cerebrasRequest = {
+            model: 'qwen-3-32b',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            max_tokens: 8192,
+            stream: false,
+        };
+        const resp = await fetch('https://api.cerebras.ai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${env.CEREBRAS_API_KEY}`,
+            },
+            body: JSON.stringify(cerebrasRequest),
         });
-        const genJson = await genRes.json();
-        console.log('Gemini response:', genJson);
-        const outParts = genJson?.candidates?.[0]?.content?.parts || [];
-        return outParts.map(p => p.text || '').join('');
-    } catch (err) {
-        console.error('callAiModel Gemini path error:', err);
+        const result = await resp.json();
+        return result.choices?.[0]?.message?.content || '';
     }
-
-    // ------------------- Fallback to Cerebras on failure -------------------
-    const fallbackRequest = {
-        model: 'qwen-3-32b',
-        messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 8192,
-        stream: false,
-    };
-    const resp = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.CEREBRAS_API_KEY}`,
-        },
-        body: JSON.stringify(fallbackRequest),
-    });
-    const result = await resp.json();
-    return result.choices?.[0]?.message?.content || '';
 }
 
 export default {
