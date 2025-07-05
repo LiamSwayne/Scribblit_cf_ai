@@ -8632,8 +8632,11 @@ function processInput() {
             // Send to backend AI endpoint
             const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: userTextWithDateInformation
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: userTextWithDateInformation,
+                    fileArray: []
+                })
             });
 
             if (!response.ok) {

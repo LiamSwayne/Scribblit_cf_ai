@@ -704,17 +704,11 @@ export default {
                 {
                     if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
                     try {
-                        let userText = '';
-                        let fileArray = [];
-                        try {
-                            const data = await request.json();
-                            userText = data.prompt || data.userText || '';
-                            fileArray = data.fileArray || [];
-                        } catch (_) {
-                            userText = await request.text();
-                        }
+                        const data = await request.json();
+                        const userText = data.prompt;
+                        const fileArray = data.fileArray;
 
-                        if (!userText || userText.trim().length === 0) {
+                        if (userText == null || userText.length === 0) {
                             return SEND({ error: 'Empty request body' }, 400);
                         }
 
