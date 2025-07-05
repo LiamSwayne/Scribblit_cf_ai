@@ -175,46 +175,12 @@ Reminder JSON:
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
 
-async function callGeminiModel(modelName, userPrompt, fileArray, env) {
+async function callGeminiModel(modelName, userPrompt, env) {
     if (modelName !== 'gemini-2.5-flash-lite-preview-06-17') {
         throw new Error('Unsupported Gemini model: ' + modelName);
     }
     try {
         const parts = [{ text: userPrompt }];
-        if (Array.isArray(fileArray)) {
-            for (const f of fileArray) {
-                try {
-                    const mimeType = f.mimeType || 'application/octet-stream';
-                    let buffer;
-                    if (f.data instanceof ArrayBuffer) {
-                        buffer = f.data;
-                    } else if (f.data instanceof Uint8Array) {
-                        buffer = f.data.buffer;
-                    } else if (typeof f.data === 'string') {
-                        const bin = atob(f.data);
-                        const bytes = new Uint8Array(bin.length);
-                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                        buffer = bytes.buffer;
-                    } else if (f.data?.arrayBuffer) {
-                        buffer = await f.data.arrayBuffer();
-                    } else {
-                        throw new Error('Unsupported file format supplied to Gemini');
-                    }
-                    const uploadRes = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${env.GEMINI_API_KEY}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': mimeType },
-                        body: buffer,
-                    });
-                    const uploadJson = await uploadRes.json();
-                    const uri = uploadJson?.file?.uri;
-                    if (uri) {
-                        parts.push({ file_data: { mime_type: mimeType, file_uri: uri } });
-                    }
-                } catch (fileErr) {
-                    console.error('Gemini file upload error:', fileErr);
-                }
-            }
-        }
         const body = {
             model: modelName,
             system_instruction: { parts: [{ text: systemPrompt }] },
@@ -297,12 +263,22 @@ async function callGroqModel(modelName, userPrompt, env) {
 async function callAiModel(userPrompt, fileArray, env) {
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
-            return await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, fileArray, env);
+            // Only Groq supports files
+            return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
         } else {
+            // 1st choice
             let content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
+
+            // 2nd choice
+            let content = await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, env);
+            if (content && content.trim() !== '') {
+                return content;
+            }
+
+            // 3rd choice
             return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
         }
     } catch (err) {
