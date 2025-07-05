@@ -713,6 +713,8 @@ export default {
                         }
 
                         const aiOutput = await callAiModel(userText, fileArray, env);
+                        console.log("AI output: ");
+                        console.log(aiOutput);
                         return SEND(aiOutput, 200, 'text-no-content-type');
                     } catch (err) {
                         console.error('AI parse error:', err);
