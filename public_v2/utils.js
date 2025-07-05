@@ -931,7 +931,7 @@ class NonRecurringEventInstance {
         ASSERT(type(endTime, Union(TimeField, NULL)));
         ASSERT(type(differentEndDate, Union(DateField, NULL)));
 
-            // If both start and end times are provided, validate end is after start on same day
+        // If both start and end times are provided, validate end is after start on same day
         if (startTime !== NULL && endTime !== NULL && differentEndDate === NULL) {
             const startMinutes = startTime.hour * 60 + startTime.minute;
             const endMinutes = endTime.hour * 60 + endTime.minute;
@@ -950,6 +950,11 @@ class NonRecurringEventInstance {
             const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
             const endDateObj = new Date(differentEndDate.year, differentEndDate.month - 1, differentEndDate.day);
             ASSERT(endDateObj > startDateObj);
+        }
+
+        // if start time is not given, end time cannot be given
+        if (startTime === NULL) {
+            ASSERT(endTime === NULL, "If start time is not given, end time must be NULL for NonRecurringEventInstance.");
         }
         
         this.startDate = startDate;
@@ -1017,7 +1022,7 @@ class NonRecurringEventInstance {
     //  {
     //    "type": "event_instance",
     //    "start_date": "YYYY-MM-DD",
-    //    "start_time": "HH:MM",          // required
+    //    "start_time": "HH:MM",          // optional
     //    "end_time": "HH:MM" | null,      // optional
     //    "different_end_date": "YYYY-MM-DD" | null // optional
     //  }
@@ -1029,11 +1034,13 @@ class NonRecurringEventInstance {
         ASSERT(!AiReturnedNullField(json.start_date), 'NonRecurringEventInstance.fromAiJson: start_date is required');
         const startDate = DateField.fromYYYY_MM_DD(json.start_date);
 
-        // start_time (required)
-        ASSERT(!AiReturnedNullField(json.start_time), 'NonRecurringEventInstance.fromAiJson: start_time is required');
-        const stParts = json.start_time.split(':');
-        ASSERT(stParts.length === 2, 'NonRecurringEventInstance.fromAiJson: start_time must be HH:MM');
-        const startTime = new TimeField(Number(stParts[0]), Number(stParts[1]));
+        // start_time (optional)
+        let startTime = NULL;
+        if (!AiReturnedNullField(json.start_time)) {
+            const stParts = json.start_time.split(':');
+            ASSERT(stParts.length === 2, 'NonRecurringEventInstance.fromAiJson: start_time must be HH:MM');
+            startTime = new TimeField(Number(stParts[0]), Number(stParts[1]));
+        }
 
         // end_time (optional)
         let endTime = NULL;
@@ -1047,6 +1054,14 @@ class NonRecurringEventInstance {
         let differentEndDate = NULL;
         if (!AiReturnedNullField(json.different_end_date)) {
             differentEndDate = DateField.fromYYYY_MM_DD(json.different_end_date);
+        }
+
+        // Validation: if startTime is NULL, endTime must also be NULL. If endTime is NULL, differentEndDate must be NULL.
+        if (startTime === NULL) {
+            ASSERT(endTime === NULL, 'NonRecurringEventInstance.fromAiJson: end_time must be NULL if start_time is NULL');
+        }
+        if (endTime === NULL) {
+            ASSERT(differentEndDate === NULL, 'NonRecurringEventInstance.fromAiJson: different_end_date must be NULL if end_time is NULL');
         }
 
         return new NonRecurringEventInstance(startDate, startTime, endTime, differentEndDate);
@@ -1216,6 +1231,14 @@ class RecurringEventInstance {
             const off = Number(json.different_end_date_offset);
             ASSERT(type(off, Int) && off > 0, 'RecurringEventInstance.fromAiJson: different_end_date_offset must be positive int');
             differentEndDatePattern = off;
+        }
+
+        // Validation: if startTime is NULL, endTime must also be NULL. If endTime is NULL, differentEndDatePattern must be NULL.
+        if (startTime === NULL) {
+            ASSERT(endTime === NULL, 'RecurringEventInstance.fromAiJson: end_time must be NULL if start_time is NULL');
+        }
+        if (endTime === NULL) {
+            ASSERT(differentEndDatePattern === NULL, 'RecurringEventInstance.fromAiJson: different_end_date_offset must be NULL if end_time is NULL');
         }
 
         // --- RANGE ---
