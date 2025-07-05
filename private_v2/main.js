@@ -176,11 +176,12 @@ Reminder JSON:
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
 
 async function callAiModel(userPrompt, fileArray, env) {
-    // Build the text part first
-    const parts = [{ text: userPrompt }];
-
-    // Upload each supplied file (simple direct upload) and append to parts
+    // Gemini supports files, Cerebras does not
     if (Array.isArray(fileArray) && fileArray.length > 0) {
+        // Build the text part first
+        const parts = [{ text: userPrompt }];
+
+        // Upload each supplied file (simple direct upload) and append to parts
         for (const f of fileArray) {
             try {
                 const mimeType = f.mimeType || 'application/octet-stream';
