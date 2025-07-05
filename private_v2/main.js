@@ -254,31 +254,47 @@ async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
     try {
         // If files are provided, handle them as images for vision models
         if (Array.isArray(fileArray) && fileArray.length > 0) {
+            console.log(`Vision processing: ${fileArray.length} files provided`);
+            
             if (modelName === 'qwen/qwen3-32b') {
+                console.log('Error: Qwen model does not support files');
                 return SEND({
                     error: 'Groq does not support files for this model.'
                 }, 482);
             }
 
             // Check if all files are images
+            console.log('Checking file types...');
+            fileArray.forEach((f, i) => {
+                console.log(`File ${i}: name=${f.name}, mimeType=${f.mimeType}, dataType=${typeof f.data}, dataLength=${f.data?.length || 'unknown'}`);
+            });
+            
             const allImages = fileArray.every(f => (f.mimeType || '').startsWith('image/'));
+            console.log(`All files are images: ${allImages}`);
+            
             if (!allImages) {
+                console.log('Error: Non-image files detected');
                 return SEND({ error: 'Only image files are supported right now.' }, 400);
             }
 
             // Convert files to image_url format, limiting to 5 images (Groq's limit)
+            console.log(`Processing ${Math.min(fileArray.length, 5)} images for vision model`);
+            
             const userContent = [
                 { type: 'text', text: userPrompt },
-                ...fileArray.slice(0, 5).map(f => {
+                ...fileArray.slice(0, 5).map((f, i) => {
                     let imageUrl;
+                    console.log(`Processing image ${i}:`);
+                    
                     if (f.data && !isBase64DataURL(f.data)) {
-                        // Convert binary data to base64 data URL
+                        console.log(`  Converting binary data to base64 (${f.data.length} bytes)`);
                         imageUrl = asDataURL(f);
+                        console.log(`  Base64 URL length: ${imageUrl.length}`);
                     } else if (isBase64DataURL(f.data)) {
-                        // Already in base64 format
+                        console.log(`  Already in base64 format (${f.data.length} chars)`);
                         imageUrl = f.data;
                     } else {
-                        // Fallback - treat as URL
+                        console.log(`  Using as URL: ${f.data || f.url}`);
                         imageUrl = f.data || f.url;
                     }
                     
@@ -288,6 +304,8 @@ async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
                     };
                 })
             ];
+
+            console.log(`User content structure: text + ${userContent.length - 1} images`);
 
             const groqRequest = {
                 model: modelName,
@@ -299,6 +317,9 @@ async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
                 stream: false,
             };
 
+            console.log(`Making vision API call to Groq with model: ${modelName}`);
+            console.log(`Request size: ${JSON.stringify(groqRequest).length} chars`);
+
             const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -307,8 +328,15 @@ async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
                 },
                 body: JSON.stringify(groqRequest),
             });
+            
+            console.log(`Groq API response status: ${groqResp.status}`);
             const groqResult = await groqResp.json();
-            return groqResult.choices?.[0]?.message?.content || '';
+            console.log('Groq API response:', JSON.stringify(groqResult));
+            
+            const content = groqResult.choices?.[0]?.message?.content || '';
+            console.log(`Vision response content length: ${content.length}`);
+            
+            return content;
         } else {
             // No files, use regular text completion
             const groqRequest = {
@@ -856,8 +884,7 @@ export default {
                         }
 
                         const aiOutput = await callAiModel(userText, fileArray, env);
-                        console.log("AI output: ");
-                        console.log(aiOutput);
+                        console.log("AI output: " + aiOutput);
                         return SEND(aiOutput, 200, 'text-no-content-type');
                     } catch (err) {
                         console.error('AI parse error:', err);
