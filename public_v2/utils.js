@@ -271,7 +271,7 @@ const HideUntilDayOf = Symbol('HideUntilDayOf');
 class MonthlyPattern {
     constructor(day, months) {
         ASSERT(type(day, Int));
-        ASSERT(day >= 1 && day <= 31);
+        ASSERT((day >= 1 && day <= 31) || day === -1); // -1 means last day of the month
         ASSERT(type(months, List(Boolean)) && months.length === 12, "MonthlyPattern: months must be an array of 12 booleans.");
 
         // check that at least one month is true
