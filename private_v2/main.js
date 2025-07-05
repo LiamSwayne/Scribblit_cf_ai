@@ -1,3 +1,5 @@
+import { GoogleGenAI } from "@google/genai";
+
 const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
 const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
@@ -91,6 +93,52 @@ async function generateToken(email, secret_key) {
     const signature = await crypto.subtle.sign('HMAC', key, data);
     const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
     return `${payloadBase64}.${signatureBase64}`;
+}
+
+async function callAiModel(userPrompt, fileArray, env) {
+    let userSubmittedFiles = Array.isArray(fileArray) && fileArray.length > 0;
+    // Gemini supports files, Cerebras does not
+    if (userSubmittedFiles) {
+        const genAI = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+
+        // Build parts: initial text prompt plus file-derived parts
+        const parts = [{ text: userPrompt }].concat(fileArray);
+
+        const response = await genAI.models.generateContent({
+            model: "gemini-2.5-flash-lite-preview-06-17",
+            contents: [
+                {
+                    role: "user",
+                    parts,
+                },
+            ],
+        });
+
+        console.log("Gemini response: " + response.text);
+
+        // GoogleGenAI SDK returns .text directly on response
+        return response.text;
+    } else {
+        const requestBody = {
+            model: 'qwen-3-32b',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            max_tokens: 8192,
+            stream: false,
+        };
+        const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${env.CEREBRAS_API_KEY}`,
+            },
+            body: JSON.stringify(requestBody),
+        });
+        const result = await response.json();
+        return result.choices?.[0]?.message?.content || '';
+    }
 }
 
 const system_prompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
@@ -654,38 +702,21 @@ export default {
                 {
                     if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
                     try {
-                        const userText = await request.text();
+                        let userText = '';
+                        let fileArray = [];
+                        try {
+                            const data = await request.json();
+                            userText = data.prompt || data.userText || '';
+                            fileArray = data.fileArray || [];
+                        } catch (_) {
+                            userText = await request.text();
+                        }
+
                         if (!userText || userText.trim().length === 0) {
                             return SEND({ error: 'Empty request body' }, 400);
                         }
 
-                        const requestBody = {
-                            model: 'qwen-3-32b',
-                            messages: [
-                                { role: 'system', content: system_prompt },
-                                { role: 'user', content: userText }
-                            ],
-                            max_tokens: 8192,
-                            stream: false
-                        };
-
-                        const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                Authorization: `Bearer ${env.CEREBRAS_API_KEY}`
-                            },
-                            body: JSON.stringify(requestBody)
-                        });
-
-                        if (!response.ok) {
-                            const errorBody = await response.text();
-                            console.error(`Cerebras API error: ${response.status} - ${errorBody}`);
-                            return SEND({ error: `AI processing failed: Cerebras API error: ${response.status} - ${errorBody}` }, 562);
-                        }
-
-                        const result = await response.json();
-                        const aiOutput = result.choices?.[0]?.message?.content || '';
+                        const aiOutput = await callAiModel(userText, fileArray, env);
                         return SEND(aiOutput, 200, 'text-no-content-type');
                     } catch (err) {
                         console.error('AI parse error:', err);
