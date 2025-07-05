@@ -140,7 +140,7 @@ Event JSON:
 		{
 			"type": "event_instance"
 			"start_date": "YYYY-MM-DD", must be included if an end time is given
-			"start_time": "HH:MM"
+			"start_time": "HH:MM" // OPTIONAL, include if the start time is explictly known
 			"end_time": "HH:MM" // OPTIONAL, include if the end time is explictly known
 			"different_end_date": "YYYY-MM-DD" // OPTIONAL, include if the event runs 24/7 and ends on a different date than the start date
 		}
@@ -149,7 +149,7 @@ Event JSON:
 			"start_date_pattern": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
 			"start_time": "HH:MM" // OPTIONAL
 			"end_time": "HH:MM" // OPTIONAL
-			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts
+			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
 			"range": // "YYYY-MM-DD:YYYY-MM-DD" or integer number of times
 		}
 	]
