@@ -1,0 +1,242 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/schemas/ai-tasks-events-reminders.json",
+    "type": "array",
+    "items": {
+      "oneOf": [
+        { "$ref": "#/definitions/task" },
+        { "$ref": "#/definitions/event" },
+        { "$ref": "#/definitions/reminder" }
+      ]
+    },
+    "definitions": {
+      "every_n_days_pattern": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "every_n_days_pattern" },
+          "initial_date": { "type": "string", "format": "date" },
+          "n": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["type", "initial_date", "n"],
+        "additionalProperties": false
+      },
+      "monthly_pattern": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "monthly_pattern" },
+          "day": { "type": "integer", "minimum": -1, "maximum": 31 },
+          "months": {
+            "type": "array",
+            "items": { "type": "boolean" },
+            "minItems": 12,
+            "maxItems": 12
+          }
+        },
+        "required": ["type", "day", "months"],
+        "additionalProperties": false
+      },
+      "annually_pattern": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "annually_pattern" },
+          "month": { "type": "integer", "minimum": 1, "maximum": 12 },
+          "day": { "type": "integer", "minimum": 1, "maximum": 31 }
+        },
+        "required": ["type", "month", "day"],
+        "additionalProperties": false
+      },
+      "nth_weekday_of_months_pattern": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "nth_weekday_of_months_pattern" },
+          "day_of_week": { "type": "integer", "minimum": 1, "maximum": 7 },
+          "weeks_of_month": {
+            "oneOf": [
+              { "type": "string", "const": "last" },
+              {
+                "type": "array",
+                "items": { "type": "boolean" },
+                "minItems": 4,
+                "maxItems": 4
+              }
+            ]
+          },
+          "months": {
+            "type": "array",
+            "items": { "type": "boolean" },
+            "minItems": 12,
+            "maxItems": 12
+          }
+        },
+        "required": ["type", "day_of_week", "weeks_of_month", "months"],
+        "additionalProperties": false
+      },
+      "due_date_instance": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "due_date_instance" },
+          "date": { "type": "string", "format": "date" },
+          "time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" }
+        },
+        "required": ["type"],
+        "additionalProperties": false
+      },
+      "due_date_pattern": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "due_date_pattern" },
+          "pattern": {
+            "oneOf": [
+              { "$ref": "#/definitions/every_n_days_pattern" },
+              { "$ref": "#/definitions/monthly_pattern" },
+              { "$ref": "#/definitions/annually_pattern" },
+              { "$ref": "#/definitions/nth_weekday_of_months_pattern" }
+            ]
+          },
+          "time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" },
+          "range": {
+            "oneOf": [
+              { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}:\\d{4}-\\d{2}-\\d{2}$" },
+              { "type": "integer", "minimum": 1 }
+            ]
+          }
+        },
+        "required": ["type", "pattern"],
+        "additionalProperties": false
+      },
+      "event_instance": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "event_instance" },
+          "start_date": { "type": "string", "format": "date" },
+          "start_time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" },
+          "end_time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" },
+          "different_end_date": { "type": "string", "format": "date" }
+        },
+        "required": ["type", "start_time"],
+        "dependentRequired": { "end_time": ["start_date"] },
+        "additionalProperties": false
+      },
+      "event_pattern": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "event_pattern" },
+          "start_date_pattern": {
+            "oneOf": [
+              { "$ref": "#/definitions/every_n_days_pattern" },
+              { "$ref": "#/definitions/monthly_pattern" },
+              { "$ref": "#/definitions/annually_pattern" },
+              { "$ref": "#/definitions/nth_weekday_of_months_pattern" }
+            ]
+          },
+          "start_time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" },
+          "end_time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" },
+          "different_end_date_offset": { "type": "integer", "minimum": 1 },
+          "range": {
+            "oneOf": [
+              { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}:(\\d{4}-\\d{2}-\\d{2}|null|NULL)?$" },
+              { "type": "integer", "minimum": 1 }
+            ]
+          }
+        },
+        "required": ["type", "start_date_pattern"],
+        "additionalProperties": false
+      },
+      "reminder_instance": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "reminder_instance" },
+          "date": { "type": "string", "format": "date" },
+          "time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" }
+        },
+        "required": ["type", "date", "time"],
+        "additionalProperties": false
+      },
+      "reminder_pattern": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "reminder_pattern" },
+          "date_pattern": {
+            "oneOf": [
+              { "$ref": "#/definitions/every_n_days_pattern" },
+              { "$ref": "#/definitions/monthly_pattern" },
+              { "$ref": "#/definitions/annually_pattern" },
+              { "$ref": "#/definitions/nth_weekday_of_months_pattern" }
+            ]
+          },
+          "time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$" },
+          "range": {
+            "oneOf": [
+              { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}:(\\d{4}-\\d{2}-\\d{2}|null|NULL)?$" },
+              { "type": "integer", "minimum": 1 }
+            ]
+          }
+        },
+        "required": ["type", "date_pattern", "time", "range"],
+        "additionalProperties": false
+      },
+      "task": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "task" },
+          "name": { "type": "string" },
+          "instances": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "$ref": "#/definitions/due_date_instance" },
+                { "$ref": "#/definitions/due_date_pattern" }
+              ]
+            }
+          },
+          "work_sessions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "$ref": "#/definitions/event_instance" },
+                { "$ref": "#/definitions/event_pattern" }
+              ]
+            }
+          }
+        },
+        "required": ["type", "name", "instances"],
+        "additionalProperties": false
+      },
+      "event": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "event" },
+          "name": { "type": "string" },
+          "instances": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "$ref": "#/definitions/event_instance" },
+                { "$ref": "#/definitions/event_pattern" }
+              ]
+            }
+          }
+        },
+        "required": ["type", "name", "instances"],
+        "additionalProperties": false
+      },
+      "reminder": {
+        "type": "object",
+        "properties": {
+          "type": { "const": "reminder" },
+          "name": { "type": "string" },
+          "instances": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "$ref": "#/definitions/reminder_instance" },
+                { "$ref": "#/definitions/reminder_pattern" }
+              ]
+            }
+          }
+        },
+        "required": ["type", "name", "instances"],
+        "additionalProperties": false
+      }
+    }
+  }
