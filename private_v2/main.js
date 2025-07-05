@@ -234,71 +234,104 @@ async function callCerebrasModel(modelName, userPrompt, env) {
     }
 }
 
+// Helper function to convert file to data URL
+function asDataURL({ data, mimeType }) {
+    const bytes = (data instanceof Uint8Array) ? data : new Uint8Array(data);
+    const b64 = btoa(String.fromCharCode(...bytes));
+    return `data:${mimeType};base64,${b64}`;
+}
+
+// Helper function to check if a string is already base64 data URL
+function isBase64DataURL(str) {
+    return typeof str === 'string' && str.startsWith('data:') && str.includes(';base64,');
+}
+
 async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
     console.log("Calling Groq model");
     if (!['qwen/qwen3-32b', 'meta-llama/llama-4-maverick-17b-128e-instruct'].includes(modelName)) {
         throw new Error('Unsupported Groq model: ' + modelName);
     }
     try {
-        // If files are provided, upload them first and collect their IDs
-        let fileIds = [];
+        // If files are provided, handle them as images for vision models
         if (Array.isArray(fileArray) && fileArray.length > 0) {
             if (modelName === 'qwen/qwen3-32b') {
                 return SEND({
                     error: 'Groq does not support files for this model.'
                 }, 482);
             }
-            for (const f of fileArray) {
-                try {
-                    const formData = new FormData();
-                    formData.append('purpose', 'batch'); // Groq currently only supports the "batch" purpose
-                    const byteData = (f.data instanceof Uint8Array) ? f.data : new Uint8Array(f.data);
-                    const blob = new Blob([byteData], { type: f.mimeType || 'application/octet-stream' });
-                    formData.append('file', blob, f.name || 'file');
 
-                    const uploadResp = await fetch('https://api.groq.com/openai/v1/files', {
-                        method: 'POST',
-                        headers: {
-                            Authorization: `Bearer ${env.GROQ_API_KEY}`,
-                        },
-                        body: formData,
-                    });
-                    const uploadJson = await uploadResp.json();
-                    if (uploadJson && uploadJson.id) {
-                        fileIds.push(uploadJson.id);
-                    } else {
-                        console.error('Groq file upload failed:', uploadJson);
-                    }
-                } catch (uploadErr) {
-                    console.error('Groq file upload error:', uploadErr);
-                }
+            // Check if all files are images
+            const allImages = fileArray.every(f => (f.mimeType || '').startsWith('image/'));
+            if (!allImages) {
+                return SEND({ error: 'Only image files are supported right now.' }, 400);
             }
+
+            // Convert files to image_url format, limiting to 5 images (Groq's limit)
+            const userContent = [
+                { type: 'text', text: userPrompt },
+                ...fileArray.slice(0, 5).map(f => {
+                    let imageUrl;
+                    if (f.data && !isBase64DataURL(f.data)) {
+                        // Convert binary data to base64 data URL
+                        imageUrl = asDataURL(f);
+                    } else if (isBase64DataURL(f.data)) {
+                        // Already in base64 format
+                        imageUrl = f.data;
+                    } else {
+                        // Fallback - treat as URL
+                        imageUrl = f.data || f.url;
+                    }
+                    
+                    return {
+                        type: 'image_url',
+                        image_url: { url: imageUrl }
+                    };
+                })
+            ];
+
+            const groqRequest = {
+                model: modelName,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userContent },
+                ],
+                max_tokens: 8192,
+                stream: false,
+            };
+
+            const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${env.GROQ_API_KEY}`,
+                },
+                body: JSON.stringify(groqRequest),
+            });
+            const groqResult = await groqResp.json();
+            return groqResult.choices?.[0]?.message?.content || '';
+        } else {
+            // No files, use regular text completion
+            const groqRequest = {
+                model: modelName,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+                max_tokens: 8192,
+                stream: false,
+            };
+
+            const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${env.GROQ_API_KEY}`,
+                },
+                body: JSON.stringify(groqRequest),
+            });
+            const groqResult = await groqResp.json();
+            return groqResult.choices?.[0]?.message?.content || '';
         }
-
-        const groqRequest = {
-            model: modelName,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-            ],
-            max_tokens: 8192,
-            stream: false,
-        };
-
-        if (fileIds.length > 0) {
-            groqRequest.file_ids = fileIds;
-        }
-
-        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${env.GROQ_API_KEY}`,
-            },
-            body: JSON.stringify(groqRequest),
-        });
-        const groqResult = await groqResp.json();
-        return groqResult.choices?.[0]?.message?.content || '';
     } catch (err) {
         console.error('Groq model error:', err);
         return '';
@@ -308,25 +341,26 @@ async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
 async function callAiModel(userPrompt, fileArray, env) {
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
-            // Only Groq supports files
+            // Use Llama Maverick for files (vision support)
             return await callGroqModel('meta-llama/llama-4-maverick-17b-128e-instruct', userPrompt, env, fileArray);
         } else {
+            // Use Qwen for text-only requests
             let content;
             
-            // 1st choice
+            // 1st choice - Groq Qwen
+            content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
+            if (content && content.trim() !== '') {
+                return content;
+            }
+
+            // 2nd choice - Cerebras
             content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
 
-            // 2nd choice
+            // 3rd choice - Gemini
             content = await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, env);
-            if (content && content.trim() !== '') {
-                return content;
-            }
-
-            // 3rd choice
-            content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
