@@ -176,6 +176,7 @@ Reminder JSON:
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
 
 async function callGeminiModel(modelName, userPrompt, env) {
+    console.log("Calling Gemini model");
     if (modelName !== 'gemini-2.5-flash-lite-preview-06-17') {
         throw new Error('Unsupported Gemini model: ' + modelName);
     }
@@ -192,6 +193,8 @@ async function callGeminiModel(modelName, userPrompt, env) {
             body: JSON.stringify(body),
         });
         const genJson = await genRes.json();
+        console.log("Gemini response: " + genJson);
+        console.log("Gemini response: " + JSON.stringify(genJson));
         const outParts = genJson?.candidates?.[0]?.content?.parts || [];
         return outParts.map(p => p.text || '').join('');
     } catch (err) {
@@ -201,6 +204,7 @@ async function callGeminiModel(modelName, userPrompt, env) {
 }
 
 async function callCerebrasModel(modelName, userPrompt, env) {
+    console.log("Calling Cerebras model");
     if (modelName !== 'qwen-3-32b') {
         throw new Error('Unsupported Cerebras model: ' + modelName);
     }
@@ -230,11 +234,42 @@ async function callCerebrasModel(modelName, userPrompt, env) {
     }
 }
 
-async function callGroqModel(modelName, userPrompt, env) {
+async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
+    console.log("Calling Groq model");
     if (modelName !== 'llama-3.3-70b-versatile') {
         throw new Error('Unsupported Groq model: ' + modelName);
     }
     try {
+        // If files are provided, upload them first and collect their IDs
+        let fileIds = [];
+        if (Array.isArray(fileArray) && fileArray.length > 0) {
+            for (const f of fileArray) {
+                try {
+                    const formData = new FormData();
+                    formData.append('purpose', 'batch'); // Groq currently only supports the "batch" purpose
+                    const byteData = (f.data instanceof Uint8Array) ? f.data : new Uint8Array(f.data);
+                    const blob = new Blob([byteData], { type: f.mimeType || 'application/octet-stream' });
+                    formData.append('file', blob, f.name || 'file');
+
+                    const uploadResp = await fetch('https://api.groq.com/openai/v1/files', {
+                        method: 'POST',
+                        headers: {
+                            Authorization: `Bearer ${env.GROQ_API_KEY}`,
+                        },
+                        body: formData,
+                    });
+                    const uploadJson = await uploadResp.json();
+                    if (uploadJson && uploadJson.id) {
+                        fileIds.push(uploadJson.id);
+                    } else {
+                        console.error('Groq file upload failed:', uploadJson);
+                    }
+                } catch (uploadErr) {
+                    console.error('Groq file upload error:', uploadErr);
+                }
+            }
+        }
+
         const groqRequest = {
             model: modelName,
             messages: [
@@ -244,6 +279,11 @@ async function callGroqModel(modelName, userPrompt, env) {
             max_tokens: 8192,
             stream: false,
         };
+
+        if (fileIds.length > 0) {
+            groqRequest.file_ids = fileIds;
+        }
+
         const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -264,22 +304,30 @@ async function callAiModel(userPrompt, fileArray, env) {
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
             // Only Groq supports files
-            return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
+            return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env, fileArray);
         } else {
+            let content;
             // 1st choice
-            let content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
+            content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
 
             // 2nd choice
-            let content = await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, env);
+            content = await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
 
             // 3rd choice
-            return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
+            content = await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
+            if (content && content.trim() !== '') {
+                return content;
+            }
+
+            return SEND({
+                error: 'Failed to connect to any AI model.'
+            }, 467);
         }
     } catch (err) {
         console.error('callAiModel error:', err);
