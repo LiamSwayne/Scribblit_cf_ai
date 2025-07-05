@@ -14,3 +14,6 @@ zone_id = "f7ff3b69f5d8a4fd2a1b7af116001e44"
 [observability]
 enabled = true
 head_sampling_rate = 1 # sampling 100% of requests
+
+[observability.logs]
+invocation_logs = true
