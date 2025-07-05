@@ -6887,6 +6887,7 @@ let settingsModal = null;
 
 let signInModalOpen = false;
 let signInModal = null;
+let signInModalState = 'initial'; // 'initial', 'email_input', 'verification'
 
 function toggleSettings() {
     if (settingsModalOpen) {
@@ -7623,6 +7624,9 @@ function openSignInModal() {
         // state may have changed since the timeout was set
         if (!signInModalOpen) return;
 
+        // Set initial state
+        signInModalState = 'initial';
+
         // Get modal position for content positioning
         const modalRect = signInModal.getBoundingClientRect();
         
@@ -7686,178 +7690,13 @@ function openSignInModal() {
         });
         
         emailButton.onclick = () => {
-            // Fade out the Google and Email buttons
-            HTML.setStyle(googleButton, {
-                opacity: '0',
-                transition: 'opacity 0.3s ease-out'
-            });
-            HTML.setStyle(emailButton, {
-                opacity: '0',
-                transition: 'opacity 0.3s ease-out'
-            });
-            
-            // After fade out, show email form
-            setTimeout(() => {
-                // Remove the buttons
-                if (googleButton && googleButton.parentNode) {
-                    HTML.body.removeChild(googleButton);
-                }
-                if (emailButton && emailButton.parentNode) {
-                    HTML.body.removeChild(emailButton);
-                }
-                
-                // Create email input field
-                const emailInput = HTML.make('input');
-                HTML.setId(emailInput, 'signInEmailInput');
-                emailInput.type = 'email';
-                emailInput.placeholder = 'Email';
-
-                let signInFieldInputHeight = 30;
-                
-                HTML.setStyle(emailInput, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 30) + 'px',
-                    width: String(modalWidth - 34) + 'px',
-                    height: String(signInFieldInputHeight) + 'px',
-                    fontFamily: 'Monospace',
-                    fontSize: '12px',
-                    color: 'var(--shade-4)',
-                    backgroundColor: 'var(--shade-0)',
-                    border: '1px solid var(--shade-2)',
-                    borderRadius: '3px',
-                    padding: '0 8px',
-                    outline: 'none',
-                    zIndex: String(signInTextZIndex + 101),
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease-in'
-                });
-                
-                // Add focus/blur event listeners for typing state
-                emailInput.addEventListener('focus', function() {
-                    currentlyTyping = true;
-                });
-                emailInput.addEventListener('blur', function() {
-                    currentlyTyping = false;
-                });
-                
-                HTML.body.appendChild(emailInput);
-                
-                // Create password input field
-                const passwordInput = HTML.make('input');
-                HTML.setId(passwordInput, 'signInPasswordInput');
-                passwordInput.type = 'password';
-                passwordInput.placeholder = 'Password';
-                
-                HTML.setStyle(passwordInput, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 30 + 42) + 'px',
-                    width: String(modalWidth - 34) + 'px',
-                    height: String(signInFieldInputHeight) + 'px',
-                    fontFamily: 'Monospace',
-                    fontSize: '12px',
-                    color: 'var(--shade-4)',
-                    backgroundColor: 'var(--shade-0)',
-                    border: '1px solid var(--shade-2)',
-                    borderRadius: '3px',
-                    padding: '0 8px',
-                    outline: 'none',
-                    zIndex: String(signInTextZIndex + 101),
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease-in'
-                });
-                
-                // Add focus/blur event listeners for typing state
-                passwordInput.addEventListener('focus', function() {
-                    currentlyTyping = true;
-                });
-                passwordInput.addEventListener('blur', function() {
-                    currentlyTyping = false;
-                });
-                
-                HTML.body.appendChild(passwordInput);
-                
-                // Create sign in button
-                const signInActionButton = HTML.make('button');
-                HTML.setId(signInActionButton, 'signInActionButton');
-                signInActionButton.textContent = 'Sign In';
-                
-                let signInSignUpButtonWidth = ((modalWidth - 34) / 2) + 5;
-
-                HTML.setStyle(signInActionButton, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 149) + 'px',
-                    top: (modalRect.top + 30 + 114 - 32) + 'px',
-                    width: String(signInSignUpButtonWidth) + 'px',
-                    height: '32px',
-                    fontFamily: 'Monospace',
-                    fontSize: '12px',
-                    color: 'var(--shade-4)',
-                    backgroundColor: 'var(--shade-1)',
-                    border: '1px solid var(--shade-2)',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s ease',
-                    zIndex: String(signInTextZIndex + 101),
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease-in, background-color 0.2s ease'
-                });
-                
-                signInActionButton.onclick = () => signIn();
-                signInActionButton.onmouseenter = () => {
-                    HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-2)' });
-                };
-                signInActionButton.onmouseleave = () => {
-                    HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-1)' });
-                };
-                
-                HTML.body.appendChild(signInActionButton);
-                
-                // Create sign up button
-                const signUpActionButton = HTML.make('button');
-                HTML.setId(signUpActionButton, 'signUpActionButton');
-                signUpActionButton.textContent = 'Sign Up';
-                
-                HTML.setStyle(signUpActionButton, {
-                    position: 'fixed',
-                    right: (window.innerWidth - modalRect.right + 10) + 'px',
-                    top: (modalRect.top + 30 + 114 - 32) + 'px',
-                    width: String(signInSignUpButtonWidth) + 'px',
-                    height: '32px',
-                    fontFamily: 'Monospace',
-                    fontSize: '12px',
-                    color: 'var(--shade-4)',
-                    backgroundColor: 'var(--shade-1)',
-                    border: '1px solid var(--shade-2)',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s ease',
-                    zIndex: String(signInTextZIndex + 101),
-                    opacity: '0',
-                    transition: 'opacity 0.3s ease-in, background-color 0.2s ease'
-                });
-                
-                signUpActionButton.onclick = () => signUp();
-                signUpActionButton.onmouseenter = () => {
-                    HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-2)' });
-                };
-                signUpActionButton.onmouseleave = () => {
-                    HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-1)' });
-                };
-                
-                HTML.body.appendChild(signUpActionButton);
-
-                // Fade in the form elements
-                setTimeout(() => {
-                    HTML.setStyle(emailInput, { opacity: '1' });
-                    HTML.setStyle(passwordInput, { opacity: '1' });
-                    HTML.setStyle(signInActionButton, { opacity: '1' });
-                    HTML.setStyle(signUpActionButton, { opacity: '1' });
-                }, 10);
-
-            }, 300);
+            // Set state and show email input form
+            signInModalState = 'email_input';
+            showEmailInputForm();
         };
+
+        
+        HTML.body.appendChild(googleButton);
         
         emailButton.onmouseenter = () => {
             HTML.setStyle(emailButton, { backgroundColor: 'var(--shade-2)' });
@@ -7966,13 +7805,15 @@ function animateGearSpin() {
 function closeSignInModal(slideButtonOffScreen = false) {
     if (!signInModalOpen) return;
     signInModalOpen = false;
+    signInModalState = 'initial'; // Reset state when modal closes
     
     // Get all elements that need to be faded out
     const elementsToFadeOut = [
         'signInGoogleButton', 'signInEmailButton', 
         'signInEmailInput', 'signInPasswordInput', 
         'signInActionButton', 'signUpActionButton', 'verificationCodeInput',
-        'verifyEmailButton', 'verificationContainer', 'verificationInstructionText'
+        'verifyEmailButton', 'verificationContainer', 'verificationInstructionText',
+        'signInBackButton'
     ];
     
     // Fade out all elements
@@ -8037,6 +7878,371 @@ function closeSignInModal(slideButtonOffScreen = false) {
     } else if (slideButtonOffScreen) {
         // If no modal exists, start warp immediately after fade
         slideSignInButtonOffScreen();
+    }
+}
+
+// Helper functions for sign-in modal state management
+function showEmailInputForm() {
+    // Fade out Google and Email buttons
+    const googleButton = HTML.getElementUnsafely('signInGoogleButton');
+    const emailButton = HTML.getElementUnsafely('signInEmailButton');
+    
+    if (googleButton) {
+        HTML.setStyle(googleButton, {
+            opacity: '0',
+            transition: 'opacity 0.3s ease-out'
+        });
+    }
+    if (emailButton) {
+        HTML.setStyle(emailButton, {
+            opacity: '0',
+            transition: 'opacity 0.3s ease-out'
+        });
+    }
+    
+    setTimeout(() => {
+        // Remove the buttons
+        if (googleButton && googleButton.parentNode) {
+            HTML.body.removeChild(googleButton);
+        }
+        if (emailButton && emailButton.parentNode) {
+            HTML.body.removeChild(emailButton);
+        }
+        
+        // Get modal position for content positioning
+        const signInModal = HTML.getElement('signInModal');
+        if (!signInModal) return;
+        
+        const modalRect = signInModal.getBoundingClientRect();
+        const modalWidth = modalRect.width;
+        const signInFieldInputHeight = 30;
+        
+        // Create email input field
+        const emailInput = HTML.make('input');
+        HTML.setId(emailInput, 'signInEmailInput');
+        emailInput.type = 'email';
+        emailInput.placeholder = 'Email';
+        
+        HTML.setStyle(emailInput, {
+            position: 'fixed',
+            right: (window.innerWidth - modalRect.right + 10) + 'px',
+            top: (modalRect.top + 30) + 'px',
+            width: String(modalWidth - 34) + 'px',
+            height: String(signInFieldInputHeight) + 'px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-0)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            padding: '0 8px',
+            outline: 'none',
+            zIndex: String(signInTextZIndex + 101),
+            opacity: '0',
+            transition: 'opacity 0.3s ease-in'
+        });
+        
+        emailInput.addEventListener('focus', function() {
+            currentlyTyping = true;
+        });
+        emailInput.addEventListener('blur', function() {
+            currentlyTyping = false;
+        });
+        
+        HTML.body.appendChild(emailInput);
+        
+        // Create password input field
+        const passwordInput = HTML.make('input');
+        HTML.setId(passwordInput, 'signInPasswordInput');
+        passwordInput.type = 'password';
+        passwordInput.placeholder = 'Password';
+        
+        HTML.setStyle(passwordInput, {
+            position: 'fixed',
+            right: (window.innerWidth - modalRect.right + 10) + 'px',
+            top: (modalRect.top + 30 + 42) + 'px',
+            width: String(modalWidth - 34) + 'px',
+            height: String(signInFieldInputHeight) + 'px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-0)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            padding: '0 8px',
+            outline: 'none',
+            zIndex: String(signInTextZIndex + 101),
+            opacity: '0',
+            transition: 'opacity 0.3s ease-in'
+        });
+        
+        passwordInput.addEventListener('focus', function() {
+            currentlyTyping = true;
+        });
+        passwordInput.addEventListener('blur', function() {
+            currentlyTyping = false;
+        });
+        
+        HTML.body.appendChild(passwordInput);
+        
+        // Create sign in button
+        const signInActionButton = HTML.make('button');
+        HTML.setId(signInActionButton, 'signInActionButton');
+        signInActionButton.textContent = 'Sign In';
+        
+        let signInSignUpButtonWidth = ((modalWidth - 34) / 2) + 5;
+        
+        HTML.setStyle(signInActionButton, {
+            position: 'fixed',
+            right: (window.innerWidth - modalRect.right + 149) + 'px',
+            top: (modalRect.top + 30 + 114 - 32) + 'px',
+            width: String(signInSignUpButtonWidth) + 'px',
+            height: '32px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-1)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            zIndex: String(signInTextZIndex + 101),
+            opacity: '0',
+            transition: 'opacity 0.3s ease-in, background-color 0.2s ease'
+        });
+        
+        signInActionButton.onclick = () => signIn();
+        signInActionButton.onmouseenter = () => {
+            HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-2)' });
+        };
+        signInActionButton.onmouseleave = () => {
+            HTML.setStyle(signInActionButton, { backgroundColor: 'var(--shade-1)' });
+        };
+        
+        HTML.body.appendChild(signInActionButton);
+        
+        // Create sign up button
+        const signUpActionButton = HTML.make('button');
+        HTML.setId(signUpActionButton, 'signUpActionButton');
+        signUpActionButton.textContent = 'Sign Up';
+        
+        HTML.setStyle(signUpActionButton, {
+            position: 'fixed',
+            right: (window.innerWidth - modalRect.right + 10) + 'px',
+            top: (modalRect.top + 30 + 114 - 32) + 'px',
+            width: String(signInSignUpButtonWidth) + 'px',
+            height: '32px',
+            fontFamily: 'Monospace',
+            fontSize: '12px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-1)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            zIndex: String(signInTextZIndex + 101),
+            opacity: '0',
+            transition: 'opacity 0.3s ease-in, background-color 0.2s ease'
+        });
+        
+        signUpActionButton.onclick = () => signUp();
+        signUpActionButton.onmouseenter = () => {
+            HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-2)' });
+        };
+        signUpActionButton.onmouseleave = () => {
+            HTML.setStyle(signUpActionButton, { backgroundColor: 'var(--shade-1)' });
+        };
+        
+        HTML.body.appendChild(signUpActionButton);
+        
+        // Create back button
+        const backButton = HTML.make('button');
+        HTML.setId(backButton, 'signInBackButton');
+        backButton.textContent = 'back';
+        HTML.setStyle(backButton, {
+            position: 'fixed',
+            left: (modalRect.left + 10) + 'px',
+            top: (modalRect.top + 10) + 'px',
+            width: '60px',
+            height: '24px',
+            fontFamily: 'Monospace',
+            fontSize: '10px',
+            color: 'var(--shade-4)',
+            backgroundColor: 'var(--shade-1)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            zIndex: String(signInTextZIndex + 102),
+            opacity: '0',
+            transition: 'opacity 0.2s ease, background-color 0.2s ease'
+        });
+        backButton.onmouseenter = () => {
+            HTML.setStyle(backButton, { backgroundColor: 'var(--shade-2)' });
+        };
+        backButton.onmouseleave = () => {
+            HTML.setStyle(backButton, { backgroundColor: 'var(--shade-1)' });
+        };
+        backButton.onclick = () => handleBackButtonClick();
+        
+        HTML.body.appendChild(backButton);
+        
+        // Fade in the form elements
+        setTimeout(() => {
+            HTML.setStyle(emailInput, { opacity: '1' });
+            HTML.setStyle(passwordInput, { opacity: '1' });
+            HTML.setStyle(signInActionButton, { opacity: '1' });
+            HTML.setStyle(signUpActionButton, { opacity: '1' });
+            HTML.setStyle(backButton, { opacity: '1' });
+        }, 10);
+        
+    }, 300);
+}
+
+function showInitialButtons() {
+    // Get modal position for content positioning
+    const signInModal = HTML.getElement('signInModal');
+    if (!signInModal) return;
+    
+    const modalRect = signInModal.getBoundingClientRect();
+    const modalWidth = modalRect.width;
+    
+    // Create Google button
+    const googleButton = HTML.make('button');
+    HTML.setId(googleButton, 'signInGoogleButton');
+    googleButton.textContent = 'Google';
+    
+    HTML.setStyle(googleButton, {
+        position: 'fixed',
+        right: (window.innerWidth - modalRect.right + 10) + 'px',
+        top: (modalRect.top + 30) + 'px',
+        width: ((modalWidth - 30) / 2) + 'px',
+        height: '114px',
+        fontFamily: 'Monospace',
+        fontSize: '12px',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-1)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        cursor: 'pointer',
+        zIndex: String(signInTextZIndex + 101),
+        transition: 'all 0.2s ease',
+        opacity: '0'
+    });
+    
+    googleButton.onclick = () => {
+        window.location.href = 'https://' + SERVER_DOMAIN + '/auth/google';
+    };
+    googleButton.onmouseenter = () => {
+        HTML.setStyle(googleButton, { backgroundColor: 'var(--shade-2)' });
+    };
+    googleButton.onmouseleave = () => {
+        HTML.setStyle(googleButton, { backgroundColor: 'var(--shade-1)' });
+    };
+    
+    HTML.body.appendChild(googleButton);
+    
+    // Create Email button
+    const emailButton = HTML.make('button');
+    HTML.setId(emailButton, 'signInEmailButton');
+    emailButton.textContent = 'Email';
+    
+    HTML.setStyle(emailButton, {
+        position: 'fixed',
+        right: (window.innerWidth - modalRect.right + 20 + ((modalWidth - 30) / 2)) + 'px',
+        top: (modalRect.top + 30) + 'px',
+        width: ((modalWidth - 30) / 2) + 'px',
+        height: '114px',
+        fontFamily: 'Monospace',
+        fontSize: '12px',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-1)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        cursor: 'pointer',
+        zIndex: String(signInTextZIndex + 101),
+        transition: 'all 0.2s ease',
+        opacity: '0'
+    });
+    
+    emailButton.onclick = () => {
+        signInModalState = 'email_input';
+        showEmailInputForm();
+    };
+    emailButton.onmouseenter = () => {
+        HTML.setStyle(emailButton, { backgroundColor: 'var(--shade-2)' });
+    };
+    emailButton.onmouseleave = () => {
+        HTML.setStyle(emailButton, { backgroundColor: 'var(--shade-1)' });
+    };
+    
+    HTML.body.appendChild(emailButton);
+    
+    // Fade them in
+    setTimeout(() => {
+        HTML.setStyle(googleButton, { opacity: '1' });
+        HTML.setStyle(emailButton, { opacity: '1' });
+    }, 10);
+}
+
+function handleBackButtonClick() {
+    if (signInModalState === 'verification') {
+        // Go back to email input form
+        signInModalState = 'email_input';
+        
+        // Hide verification elements
+        const verificationContainer = HTML.getElementUnsafely('verificationContainer');
+        const verificationInstructionText = HTML.getElementUnsafely('verificationInstructionText');
+        
+        [verificationContainer, verificationInstructionText].forEach(el => {
+            if (el) {
+                HTML.setStyle(el, { opacity: '0', pointerEvents: 'none', transition: 'opacity 0.2s ease-out' });
+            }
+        });
+        
+        setTimeout(() => {
+            [verificationContainer, verificationInstructionText].forEach(el => {
+                if (el && el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            });
+        }, 200);
+        
+        // Show email input form elements
+        ['signInEmailInput','signInPasswordInput','signInActionButton','signUpActionButton'].forEach(id => {
+            const el = HTML.getElementUnsafely(id);
+            if (el) {
+                HTML.setStyle(el, { opacity: '1', pointerEvents: 'auto' });
+            }
+        });
+        
+    } else if (signInModalState === 'email_input') {
+        // Go back to initial state
+        signInModalState = 'initial';
+        
+        // Hide email input form elements
+        const elementsToHide = [
+            'signInEmailInput', 'signInPasswordInput',
+            'signInActionButton', 'signUpActionButton', 'signInBackButton'
+        ];
+        
+        elementsToHide.forEach(id => {
+            const el = HTML.getElementUnsafely(id);
+            if (el) {
+                HTML.setStyle(el, { opacity: '0', pointerEvents: 'none', transition: 'opacity 0.2s ease-out' });
+            }
+        });
+        
+        setTimeout(() => {
+            // Remove the old elements after fade
+            elementsToHide.forEach(id => {
+                const el = HTML.getElementUnsafely(id);
+                if (el && el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            });
+            
+            // Show initial buttons
+            showInitialButtons();
+            
+        }, 220);
     }
 }
 
@@ -8140,13 +8346,16 @@ async function signUp() {
             const signInButton = HTML.getElement('signInButton');
             const modalRect = signInButton.getBoundingClientRect();
             
+            // Set state to verification
+            signInModalState = 'verification';
+            
             // Create container for the six verification inputs
             const verificationContainer = HTML.make('div');
             HTML.setId(verificationContainer, 'verificationContainer');
             HTML.setStyle(verificationContainer, {
                 position: 'fixed',
                 right: '20px',
-                top: '70px',
+                top: '90px',
                 width: '236px',
                 height: '36px',
                 display: 'flex',
@@ -8162,7 +8371,7 @@ async function signUp() {
             HTML.setStyle(verificationInstructionText, {
                 position: 'fixed',
                 right: '22px',
-                top: String(modalRect.top + 30) + 'px', // Position above the inputs, adjust as needed
+                top: String(modalRect.top + 50) + 'px', // Position above the inputs, adjust as needed
                 fontFamily: 'Monospace',
                 fontSize: '11px',
                 color: 'var(--shade-4)',
@@ -8172,9 +8381,9 @@ async function signUp() {
             });
             HTML.body.appendChild(verificationInstructionText);
 
-            // Adjust verificationContainer top to make space for the new text
+            // Adjust verificationContainer top to make space for the new text (including extra 20px)
             HTML.setStyle(verificationContainer, {
-                top: String(modalRect.top + 30 + 12 + 10) + 'px', // 30 (from modal top) + 12 (font size) + 10 (padding)
+                top: String(modalRect.top + 30 + 12 + 10 + 20) + 'px',
             });
 
             // Create six individual character input divs
@@ -8804,7 +9013,7 @@ function initSettingsButton() {
                 }
                 </style>
             </defs>
-            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1.1.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.6,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
+            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1,.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.6,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
         </svg>
     `
     
