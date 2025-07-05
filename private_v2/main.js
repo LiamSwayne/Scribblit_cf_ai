@@ -96,7 +96,7 @@ Task JSON:
 	    {
 		    "type": "due_date_instance"
 		    "date": "YYYY-MM-DD" // OPTIONAL. if a time a is given then assume the due date is today
-		    "time": "HH:MM"// OPTIONAL. if it's due today and the current time is past noon assume numbers below 12 are pm, so "at 8" would be assumed "20:00"
+		    "time": "HH:MM"// OPTIONAL. if it's due today and the current time is past noon assume numbers below 12 are pm.
 	    }
 	    {
 		    "type": "due_date_pattern"
