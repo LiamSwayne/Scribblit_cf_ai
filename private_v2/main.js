@@ -236,13 +236,18 @@ async function callCerebrasModel(modelName, userPrompt, env) {
 
 async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
     console.log("Calling Groq model");
-    if (modelName !== 'llama-3.3-70b-versatile') {
+    if (!['qwen/qwen3-32b', 'meta-llama/llama-4-maverick-17b-128e-instruct'].includes(modelName)) {
         throw new Error('Unsupported Groq model: ' + modelName);
     }
     try {
         // If files are provided, upload them first and collect their IDs
         let fileIds = [];
         if (Array.isArray(fileArray) && fileArray.length > 0) {
+            if (modelName === 'qwen/qwen3-32b') {
+                return SEND({
+                    error: 'Groq does not support files for this model.'
+                }, 482);
+            }
             for (const f of fileArray) {
                 try {
                     const formData = new FormData();
@@ -304,10 +309,10 @@ async function callAiModel(userPrompt, fileArray, env) {
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
             // Only Groq supports files
-            return await callGroqModel('llama-3.3-70b-versatile', userPrompt, env, fileArray);
+            return await callGroqModel('meta-llama/llama-4-maverick-17b-128e-instruct', userPrompt, env, fileArray);
         } else {
             let content;
-            /*
+            
             // 1st choice
             content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
@@ -319,10 +324,9 @@ async function callAiModel(userPrompt, fileArray, env) {
             if (content && content.trim() !== '') {
                 return content;
             }
-                */
 
             // 3rd choice
-            content = await callGroqModel('llama-3.3-70b-versatile', userPrompt, env);
+            content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
