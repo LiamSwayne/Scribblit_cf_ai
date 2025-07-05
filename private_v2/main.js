@@ -659,7 +659,6 @@ export default {
                                 { role: 'user', content: userText }
                             ],
                             max_tokens: 8192,
-                            temperature: 0.6,
                             stream: false
                         };
 
@@ -675,7 +674,7 @@ export default {
                         if (!response.ok) {
                             const errorBody = await response.text();
                             console.error(`Cerebras API error: ${response.status} - ${errorBody}`);
-                            return SEND({ error: 'AI processing failed' }, 562);
+                            return SEND({ error: `AI processing failed: Cerebras API error: ${response.status} - ${errorBody}` }, 562);
                         }
 
                         const result = await response.json();
