@@ -1333,6 +1333,106 @@ let G_shiftKeyState = {
 // Global typing state management
 let currentlyTyping = false;
 
+// global array for files attached via drag-and-drop
+let attachedFiles = [];
+
+function updateAttachmentBadge() {
+    const badgeId = 'attachmentBadge';
+    const inputBox = HTML.getElementUnsafely('inputBox');
+    if (!exists(inputBox)) return;
+
+    let badge = HTML.getElementUnsafely(badgeId);
+    if (attachedFiles.length === 0) {
+        if (exists(badge)) badge.remove();
+        return;
+    }
+
+    if (!exists(badge)) {
+        badge = HTML.make('div');
+        HTML.setId(badge, badgeId);
+        HTML.body.appendChild(badge);
+        HTML.setStyle(badge, {
+            position: 'fixed',
+            minWidth: '16px',
+            height: '16px',
+            padding: '0 4px',
+            backgroundColor: 'var(--accent-0)',
+            color: 'var(--shade-4)',
+            borderRadius: '8px',
+            fontFamily: 'PrimaryBold',
+            fontSize: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: '5',
+            pointerEvents: 'none',
+            boxSizing: 'border-box'
+        });
+    }
+
+    badge.textContent = attachedFiles.length;
+
+    const rect = inputBox.getBoundingClientRect();
+    const offset = 4;
+    badge.style.top = (rect.top - offset) + 'px';
+    badge.style.left = (rect.right - badge.offsetWidth + offset) + 'px';
+}
+
+function initDragAndDrop() {
+    const dropTarget = document.body;
+
+    // TODO: add overlay
+    const showOverlay = () => {};
+    const hideOverlay = () => {};
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropTarget.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
+    document.addEventListener('dragenter', (e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+            dragCounter++;
+            showOverlay();
+        }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+            dragCounter = Math.max(0, dragCounter - 1);
+            if (dragCounter === 0) hideOverlay();
+        }
+    });
+
+    dropTarget.addEventListener('drop', async (e) => {
+        const { files } = e.dataTransfer || {};
+        if (!files || files.length === 0) {
+            hideOverlay();
+            dragCounter = 0;
+            return;
+        }
+        for (const file of files) {
+            try {
+                const buffer = await file.arrayBuffer();
+                attachedFiles.push({
+                    name: file.name,
+                    mimeType: file.type || 'application/octet-stream',
+                    data: new Uint8Array(buffer),
+                });
+            } catch (err) {
+                console.error('Error reading dropped file:', err);
+            }
+        }
+        hideOverlay();
+        dragCounter = 0;
+        updateAttachmentBadge();
+    });
+
+    window.addEventListener('resize', updateAttachmentBadge);
+}
+
 // Global mouse position tracking
 let lastMouseX = 0;
 let lastMouseY = 0;
@@ -5705,6 +5805,9 @@ function renderInputBox() {
 
     // Update input box gradients
     updateInputBoxGradients(false);
+
+    // reposition attachment badge
+    updateAttachmentBadge();
 }
 
 // are there any incomplete tasks in the range?
@@ -6748,6 +6851,7 @@ async function init() {
     initSettingsButton();
     initSignInButton();
     initProButton();
+    initDragAndDrop();
     render();
     // refresh every second, the function will exit if it isn't a new minute
     setInterval(() => renderTimeIndicator(true), 1000);
@@ -8635,7 +8739,7 @@ function processInput() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt: userTextWithDateInformation,
-                    fileArray: []
+                    fileArray: attachedFiles
                 })
             });
 
@@ -8693,9 +8797,12 @@ function processInput() {
                 user.entityArray.push(ent);
             }
             user.timestamp = Date.now();
+            saveUserData(user);
 
             // Clear input box
             inputBox.value = '';
+            attachedFiles = [];
+            updateAttachmentBadge();
 
             // Re-render UI
             render();
