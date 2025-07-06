@@ -8811,11 +8811,12 @@ function processInput() {
                 return; // keep input for debugging
             }
 
-            const aiText = await response.text();
+            const { aiOutput, chain } = await response.json();
 
-            log("AI text: " + aiText);
+            log("AI chain: ");
+            log(chain);
 
-            let cleanedText = aiText;
+            let cleanedText = aiOutput;
 
             // we can remove the model thinking, all that matters is the output
             // maybe the user would like to see this?
