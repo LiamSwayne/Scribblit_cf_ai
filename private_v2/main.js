@@ -170,7 +170,7 @@ Event JSON:
 			"start_time": "HH:MM" // OPTIONAL
 			"end_time": "HH:MM" // OPTIONAL
 			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
-			"range": // "YYYY-MM-DD:YYYY-MM-DD" or integer number of times
+			"range": // "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
 		}
 	]
 }
@@ -189,6 +189,7 @@ Reminder JSON:
 			"type": "reminder_pattern"
 			"date": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
 		    "time": "HH:MM"
+		    "range": // "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
 		}
 	]
 }

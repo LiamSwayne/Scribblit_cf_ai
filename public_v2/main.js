@@ -8829,8 +8829,10 @@ function processInput() {
 
             const responseJson = await response.json();
 
-            log("Response JSON: ");
-            log(responseJson);
+            if (responseJson.error && responseJson.error.length > 0) {
+                log("Error: " + responseJson.error);
+                return;
+            }
 
             chain.push(...responseJson.chain);
 

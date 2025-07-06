@@ -1612,7 +1612,7 @@ class RecurringReminderInstance {
 
     // AI JSON: {
     //   "type": "reminder_pattern",
-    //   "date_pattern": { ... },
+    //   "date": { ... },
     //   "time": "HH:MM",
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
