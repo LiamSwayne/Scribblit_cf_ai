@@ -426,9 +426,11 @@ class NthWeekdayOfMonthsPattern {
         const dayOfWeek = dowMap[dowNum];
 
         // weeks_of_month: "last" or array of 4 booleans
-        const weeksSpec = json.weeks_of_month;
+        let weeksSpec = json.weeks_of_month;
         if (type(weeksSpec, String)) {
-            if(weeksSpec !== 'last') {
+            if(weeksSpec === 'last') {
+                weeksSpec = LAST_WEEK_OF_MONTH;
+            } else {
                 log("NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month must be 'last'");
                 return NULL;
             }
@@ -458,7 +460,7 @@ class NthWeekdayOfMonthsPattern {
         }
         const months = monthsRaw.map(m => Boolean(m));
 
-        return new NthWeekdayOfMonthsPattern(dayOfWeek, nthWeekdays, months);
+        return new NthWeekdayOfMonthsPattern(dayOfWeek, weeksSpec, months);
     }
 }
 

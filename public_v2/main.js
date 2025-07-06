@@ -1336,7 +1336,7 @@ let currentlyTyping = false;
 // global array for files attached via drag-and-drop
 let attachedFiles = [];
 
-let inputBoxDefaultPlaceholder = "Scribble your tasks and events here...";
+let inputBoxDefaultPlaceholder = "Scribble tasks, events, and reminders here...";
 // shows when nothing has been typed but there are attached files
 let inputBoxPlaceHolderWithAttachedFiles = "You can send a request to the backend by pressing enter, even if you haven't typed anything...";
 
