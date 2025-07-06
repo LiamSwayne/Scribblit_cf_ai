@@ -8825,14 +8825,11 @@ function processInput() {
                 return; // keep input for debugging
             }
 
-            const { aiOutput, responseChain } = await response.json();
+            const responseJson = await response.json();
 
-            console.log("Response chain: ");
-            console.log(responseChain);
+            chain.push(...responseJson.chain);
 
-            chain.push(...responseChain);
-
-            let cleanedText = aiOutput;
+            let cleanedText = responseJson.aiOutput;
 
             // we can remove the model thinking, all that matters is the output
             // maybe the user would like to see this?
@@ -8927,10 +8924,10 @@ function processInput() {
         } catch (err) {
             log("processInput error: " + err.message);
         }
-    })();
 
-    log("Chain: ");
-    log(chain);
+        log("Chain: ");
+        log(chain);
+    })();
 }
 
 // Creates a multiple choice selector with smooth transitions
