@@ -379,15 +379,22 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
 }
 
 async function callAiModel(userPrompt, fileArray, env) {
+    console.log("userPrompt: " + userPrompt);
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
             // Use Anthropic Claude for files (vision support)
             let descriptionOfFiles = await callAnthropicModel('claude-3-5-haiku-20241022', userPrompt, env, fileArray, fileDescriptionPrompt);
-            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {            
-                let newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
-                console.log("New prompt: " + newPrompt);
-                // use Cerebras
-                return await callCerebrasModel('qwen-3-32b', newPrompt, env);
+            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {   
+                if (userPrompt.trim() === '') {
+                    // use Cerebras
+                    let newPrompt = "I attached some files to my prompt. Here is a description of the files: " + descriptionOfFiles;
+                    return await callCerebrasModel('qwen-3-32b', newPrompt, env);
+                } else {
+                    let newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
+                    console.log("New prompt: " + newPrompt);
+                    // use Cerebras
+                    return await callCerebrasModel('qwen-3-32b', newPrompt, env);
+                }
             } else {
                 // unable to comprehend files
                 return SEND({
