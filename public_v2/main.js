@@ -8771,12 +8771,33 @@ function processInput() {
                 cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
             }
 
-            let aiJson;
+            let aiJson = NULL;
             try {
                 aiJson = JSON.parse(cleanedText);
             } catch (e) {
-                log('Failed to JSON.parse AI response after cleaning', cleanedText);
-                return;
+                // failed to parse, but we can try more
+                // try to split at [ and ] in case the ai prepended or appended text
+                // get index
+                const idx = cleanedText.indexOf('[');
+                if (idx !== -1) {
+                    cleanedText = cleanedText.substring(idx + 1);
+                }
+                try {
+                    aiJson = JSON.parse(cleanedText);
+                } catch (e) {
+                    // now try removing ] at end
+                    const idx = cleanedText.lastIndexOf(']');
+                    if (idx !== -1) {
+                        cleanedText = cleanedText.substring(0, idx);
+                    }
+                    try {
+                        aiJson = JSON.parse(cleanedText);
+                    } catch (e) {
+                        // finally give up
+                        log('Failed to parse AI response after cleaning', cleanedText);
+                        return;
+                    }
+                }
             }
 
             // Convert to internal entities
