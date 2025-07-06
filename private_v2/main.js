@@ -173,7 +173,7 @@ Reminder JSON:
 	]
 }
 
-Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
+Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. Don't include useless stuff in the name, like "!!!" or "due"`
 
 let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Include your description and nothing else.`;
 
