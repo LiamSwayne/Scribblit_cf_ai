@@ -175,6 +175,16 @@ Reminder JSON:
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder.`
 
+let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Include your description and nothing else.`;
+
+function createPromptWithFileDescription(userPrompt, descriptionOfFiles) {
+    return `The user provided some files as context for their prompt. Here is a description of the files:
+${descriptionOfFiles}
+
+User prompt:
+${userPrompt}`;
+}
+
 async function callGeminiModel(modelName, userPrompt, env) {
     console.log("Calling Gemini model");
     if (modelName !== 'gemini-2.5-flash-lite-preview-06-17') {
@@ -233,7 +243,7 @@ async function callCerebrasModel(modelName, userPrompt, env) {
     }
 }
 
-async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
+async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], system_prompt=systemPrompt) {
     if (modelName !== 'claude-3-5-haiku-20241022') {
         throw new Error('Unsupported Anthropic model: ' + modelName);
     }
@@ -291,7 +301,7 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
         body: JSON.stringify({
             model: modelName,
             max_tokens: 1024,
-            system: systemPrompt,
+            system: system_prompt,
             messages: [
                 {
                     role: 'user',
@@ -324,35 +334,47 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
     return '';
 }
 
-async function callGroqModel(modelName, userPrompt, env) {
+async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
     console.log("Calling Groq model");
-    if (modelName !== 'qwen/qwen3-32b') {
-        throw new Error('Unsupported Groq model: ' + modelName);
-    }
-    try {
-        const groqRequest = {
-            model: modelName,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-            ],
-            max_tokens: 8192,
-            stream: false,
-        };
+    if (modelName === 'qwen/qwen3-32b') {
+        if (fileArray && fileArray.length > 0) {
+            // add files to prompt
+            return SEND({
+                error: 'Groq qwen3-32b does not support files.'
+            }, 473);
+        }
+        try {
+            const groqRequest = {
+                model: modelName,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+                max_tokens: 8192,
+                stream: false,
+                reasoing_format: 'hidden' // we don't want to see the model thinking
+            };
 
-        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${env.GROQ_API_KEY}`,
-            },
-            body: JSON.stringify(groqRequest),
-        });
-        const groqResult = await groqResp.json();
-        return groqResult.choices?.[0]?.message?.content || '';
-    } catch (err) {
-        console.error('Groq model error:', err);
-        return '';
+            const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${env.GROQ_API_KEY}`,
+                },
+                body: JSON.stringify(groqRequest),
+            });
+            const groqResult = await groqResp.json();
+            return groqResult.choices?.[0]?.message?.content || '';
+        } catch (err) {
+            console.error('Groq model error:', err);
+            return '';
+        }
+    } else if (modelName === 'meta-llama/llama-4-maverick-17b-128e-instruct') {
+
+    } else {
+        return SEND({
+            error: 'Unsupported Groq model: ' + modelName
+        }, 474);
     }
 }
 
@@ -360,19 +382,30 @@ async function callAiModel(userPrompt, fileArray, env) {
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
             // Use Anthropic Claude for files (vision support)
-            return await callAnthropicModel('claude-3-5-haiku-20241022', userPrompt, env, fileArray);
+            let descriptionOfFiles = await callAnthropicModel('claude-3-5-haiku-20241022', userPrompt, env, fileArray, fileDescriptionPrompt);
+            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {            
+                let newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
+                console.log("New prompt: " + newPrompt);
+                // use Cerebras
+                return await callCerebrasModel('qwen-3-32b', newPrompt, env);
+            } else {
+                // unable to comprehend files
+                return SEND({
+                    error: 'Unable to comprehend files.'
+                }, 475);
+            }
         } else {
             // Use Qwen for text-only requests
             let content;
-            
-            // 1st choice - Groq Qwen
-            content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
+
+            // 2nd choice - Cerebras
+            content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
 
-            // 2nd choice - Cerebras
-            content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
+            // 2nd choice - Groq
+            content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
                 return content;
             }
