@@ -3,6 +3,11 @@ const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
 const PAGES_DOMAIN = 'scribbl.it';
 
+let ANTHROPIC_MODELS = {
+    haiku: 'claude-3-5-haiku-20241022',
+    sonnet: 'claude-sonnet-4-20250514',
+}
+
 function SEND(data, status = 200, headers = {}) {
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
@@ -175,7 +180,7 @@ Reminder JSON:
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. Don't include useless stuff in the name, like "!!!" or "due"`
 
-let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Include your description and nothing else.`;
+let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times.`;
 
 function createPromptWithFileDescription(userPrompt, descriptionOfFiles) {
     return `The user provided some files as context for their prompt. Here is a description of the files:
@@ -244,7 +249,7 @@ async function callCerebrasModel(modelName, userPrompt, env) {
 }
 
 async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], system_prompt=systemPrompt) {
-    if (modelName !== 'claude-3-5-haiku-20241022') {
+    if (!Object.values(ANTHROPIC_MODELS).includes(modelName)) {
         throw new Error('Unsupported Anthropic model: ' + modelName);
     }
 
@@ -263,7 +268,6 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
             const base64Data = file.data;
             const mediaType = file.mimeType || 'application/octet-stream';
             const fileName = file.name;
-            
             // Only add images for now (following the test.sh pattern)
             if (mediaType.startsWith('image/')) {
                 content.push({
@@ -274,9 +278,7 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
                         data: base64Data
                     }
                 });
-            }
-            // For text files, decode base64 and add as text content
-            else if (mediaType.startsWith('text/')) {
+            } else if (mediaType.startsWith('text/')) {
                 try {
                     const textContent = atob(base64Data);
                     content.push({
@@ -286,6 +288,17 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
                 } catch (err) {
                     console.error('Error decoding base64 text file:', err);
                 }
+            } else if (mediaType.startsWith('application/pdf')) {
+                content.push({
+                    type: 'document',
+                    source: {
+                        type: 'base64',
+                        media_type: mediaType,
+                        data: base64Data
+                    }
+                });
+            } else {
+                console.log("Unsupported media type: " + mediaType);
             }
         }
     }
@@ -320,7 +333,8 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
     }
 
     const result = await response.json();
-    console.log("Anthropic result: " + JSON.stringify(result));
+    console.log("Anthropic result: ");
+    console.log(result);
     
     // Handle the response structure: result.content is an array of content objects
     if (result.content && Array.isArray(result.content) && result.content.length > 0) {
@@ -379,11 +393,10 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
 }
 
 async function callAiModel(userPrompt, fileArray, env) {
-    console.log("userPrompt: " + userPrompt);
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
             // Use Anthropic Claude for files (vision support)
-            let descriptionOfFiles = await callAnthropicModel('claude-3-5-haiku-20241022', userPrompt, env, fileArray, fileDescriptionPrompt);
+            let descriptionOfFiles = await callAnthropicModel(ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
             if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {   
                 if (userPrompt.trim() === '') {
                     // use Cerebras

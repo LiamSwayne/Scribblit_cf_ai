@@ -8812,6 +8812,9 @@ function processInput() {
             }
 
             const aiText = await response.text();
+
+            log("AI text: " + aiText);
+
             let cleanedText = aiText;
 
             // we can remove the model thinking, all that matters is the output
@@ -8832,15 +8835,12 @@ function processInput() {
                 cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
             }
 
-            log("Cleaned text: " + cleanedText);
-
             let aiJson = NULL;
             try {
                 aiJson = JSON.parse(cleanedText);
                 log("Successfully parsed AI response after cleaning");
                 log(aiJson);
             } catch (e) {
-                log("Failed to parse AI response after cleaning");
                 // failed to parse, but we can try more
                 // try to split at [ and ] in case the ai prepended or appended text
                 // get index
@@ -8860,7 +8860,6 @@ function processInput() {
                         aiJson = JSON.parse(cleanedText);
                     } catch (e) {
                         // finally give up
-                        log('Failed to parse AI response after cleaning', cleanedText);
                         return;
                     }
                 }
@@ -8870,34 +8869,29 @@ function processInput() {
             let entities = []
             try {
                 if (Array.isArray(aiJson)) {
-                    log("AI JSON is an array");
                     for (const obj of aiJson) {
-                        log("Object: " + obj);
                         try {
                             let attemptedParsing = Entity.fromAiJson(obj);
-                            log("Attempted parsing: ")
-                            log(attemptedParsing);
                             if (attemptedParsing !== NULL) {
                                 entities.push(attemptedParsing);
                             }
                         } catch (e) {
-                            log("Failed to parse object: " + e.message);
                             continue;
                         }
                     }
                 } else {
-                    log("AI JSON is an object");
                     entities = [Entity.fromAiJson(aiJson)];
                 }
             } catch (e) {
-                log('Failed to convert AI JSON to entities', e);
                 return;
             }
 
             if (entities.length === 0) {
-                log('AI returned empty array');
                 return;
             }
+
+            log("Entities: ");
+            log(entities);
 
             // Add to user
             for (const ent of entities) {
