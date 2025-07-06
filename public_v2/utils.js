@@ -35,8 +35,8 @@ let palettes = {
     // TODO: add more palettes
 };
 
-function symbolToJson(symbol) {
-    ASSERT(typeof symbol === 'symbol', "symbolToJson expects a symbol.");
+function symbolToString(symbol) {
+    ASSERT(typeof symbol === 'symbol', "symbolToString expects a symbol.");
     ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for JSONification must have a description.");
     return '$(' + symbol.description + ')';
 }
@@ -144,7 +144,7 @@ class DateField {
         return (new Date(this.year, this.month - 1, this.day)).getTime();
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, DateField));
         return {
             year: this.year,
@@ -154,7 +154,7 @@ class DateField {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         return new DateField(json.year, json.month, json.day);
     }
@@ -182,7 +182,7 @@ class TimeField {
         this.minute = minute;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, TimeField));
         return {
             hour: this.hour,
@@ -191,7 +191,7 @@ class TimeField {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         return new TimeField(json.hour, json.minute);
     }
@@ -209,18 +209,18 @@ class EveryNDaysPattern {
         this.n = n;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, EveryNDaysPattern));
         return {
-            initialDate: this.initialDate.toJson(),
+            initialDate: this.initialDate.encode(),
             n: this.n,
             _type: 'EveryNDaysPattern'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
-        return new EveryNDaysPattern(DateField.fromJson(json.initialDate), json.n);
+        return new EveryNDaysPattern(DateField.decode(json.initialDate), json.n);
     }
 
     static fromAiJson(json) {
@@ -245,7 +245,7 @@ class HideUntilRelative {
         this.value = value;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, HideUntilRelative));
         return {
             value: this.value,
@@ -253,7 +253,7 @@ class HideUntilRelative {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         return new HideUntilRelative(json.value);
     }
@@ -266,17 +266,17 @@ class HideUntilDate {
         this.date = date;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, HideUntilDate));
         return {
-            date: this.date.toJson(),
+            date: this.date.encode(),
             _type: 'HideUntilDate'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
-        return new HideUntilDate(DateField.fromJson(json.date));
+        return new HideUntilDate(DateField.decode(json.date));
     }
 }
 
@@ -296,7 +296,7 @@ class MonthlyPattern {
         this.months = months;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, MonthlyPattern));
         return {
             day: this.day,
@@ -305,9 +305,9 @@ class MonthlyPattern {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
-        ASSERT(exists(json.months), "MonthlyPattern.fromJson: months property is missing.");
+        ASSERT(exists(json.months), "MonthlyPattern.decode: months property is missing.");
         return new MonthlyPattern(json.day, json.months);
     }
 
@@ -343,7 +343,7 @@ class AnnuallyPattern {
         this.day = day;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, AnnuallyPattern));
         return {
             month: this.month,
@@ -352,7 +352,7 @@ class AnnuallyPattern {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         return new AnnuallyPattern(json.month, json.day);
     }
@@ -386,7 +386,7 @@ class NthWeekdayOfMonthsPattern {
         this.months = months;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, NthWeekdayOfMonthsPattern));
         return {
             dayOfWeek: this.dayOfWeek,
@@ -396,10 +396,10 @@ class NthWeekdayOfMonthsPattern {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
-        ASSERT(exists(json.nthWeekdays), "NthWeekdayOfMonthsPattern.fromJson: nthWeekdays property is missing.");
-        ASSERT(exists(json.months), "NthWeekdayOfMonthsPattern.fromJson: months property is missing.");
+        ASSERT(exists(json.nthWeekdays), "NthWeekdayOfMonthsPattern.decode: nthWeekdays property is missing.");
+        ASSERT(exists(json.months), "NthWeekdayOfMonthsPattern.decode: months property is missing.");
         return new NthWeekdayOfMonthsPattern(json.dayOfWeek, json.nthWeekdays, json.months);
     }
 
@@ -482,30 +482,30 @@ class DateRange {
         this.endDate = endDate;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, DateRange));
         let endDateJson;
         if (this.endDate === NULL) {
             endDateJson = NULL;
         } else {
-            endDateJson = this.endDate.toJson();
+            endDateJson = this.endDate.encode();
         }
         return {
-            startDate: this.startDate.toJson(),
+            startDate: this.startDate.encode(),
             endDate: endDateJson,
             _type: 'DateRange'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let endDate;
-        if (json.endDate === symbolToJson(NULL)) {
+        if (json.endDate === symbolToString(NULL)) {
             endDate = NULL;
         } else {
-            endDate = DateField.fromJson(json.endDate);
+            endDate = DateField.decode(json.endDate);
         }
-        return new DateRange(DateField.fromJson(json.startDate), endDate);
+        return new DateRange(DateField.decode(json.startDate), endDate);
     }
 }
 
@@ -519,18 +519,18 @@ class RecurrenceCount {
         this.count = count;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, RecurrenceCount));
         return {
-            initialDate: this.initialDate.toJson(),
+            initialDate: this.initialDate.encode(),
             count: this.count,
             _type: 'RecurrenceCount'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
-        return new RecurrenceCount(DateField.fromJson(json.initialDate), json.count);
+        return new RecurrenceCount(DateField.decode(json.initialDate), json.count);
     }
 }
 
@@ -570,31 +570,31 @@ class NonRecurringTaskInstance {
         return this.completion;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, NonRecurringTaskInstance));
         let dueTimeJson;
         if (this.dueTime === NULL) {
-            dueTimeJson = symbolToJson(NULL);
+            dueTimeJson = symbolToString(NULL);
         } else {
-            dueTimeJson = this.dueTime.toJson();
+            dueTimeJson = this.dueTime.encode();
         }
         return {
-            date: this.date.toJson(),
+            date: this.date.encode(),
             dueTime: dueTimeJson,
             completion: this.completion,
             _type: 'NonRecurringTaskInstance'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let dueTime;
-        if (json.dueTime === symbolToJson(NULL)) {
+        if (json.dueTime === symbolToString(NULL)) {
             dueTime = NULL;
         } else {
-            dueTime = TimeField.fromJson(json.dueTime);
+            dueTime = TimeField.decode(json.dueTime);
         }
-        return new NonRecurringTaskInstance(DateField.fromJson(json.date), dueTime, json.completion);
+        return new NonRecurringTaskInstance(DateField.decode(json.date), dueTime, json.completion);
     }
 
     // Parse AI-supplied JSON describing a one-off due-date instance.
@@ -826,52 +826,52 @@ class RecurringTaskInstance {
         return true;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, RecurringTaskInstance));
         let dueTimeJson;
         if (this.dueTime === NULL) {
-            dueTimeJson = symbolToJson(NULL);
+            dueTimeJson = symbolToString(NULL);
         } else {
-            dueTimeJson = this.dueTime.toJson();
+            dueTimeJson = this.dueTime.encode();
         }
         return {
-            datePattern: this.datePattern.toJson(),
+            datePattern: this.datePattern.encode(),
             dueTime: dueTimeJson,
-            range: this.range.toJson(),
+            range: this.range.encode(),
             completion: this.completion,
             _type: 'RecurringTaskInstance'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let dueTime;
-        if (json.dueTime === symbolToJson(NULL)) {
+        if (json.dueTime === symbolToString(NULL)) {
             dueTime = NULL;
         } else {
-            dueTime = TimeField.fromJson(json.dueTime);
+            dueTime = TimeField.decode(json.dueTime);
         }
         
         let datePattern;
         if (json.datePattern._type === 'EveryNDaysPattern') {
-            datePattern = EveryNDaysPattern.fromJson(json.datePattern);
+            datePattern = EveryNDaysPattern.decode(json.datePattern);
         } else if (json.datePattern._type === 'MonthlyPattern') {
-            datePattern = MonthlyPattern.fromJson(json.datePattern);
+            datePattern = MonthlyPattern.decode(json.datePattern);
         } else if (json.datePattern._type === 'AnnuallyPattern') {
-            datePattern = AnnuallyPattern.fromJson(json.datePattern);
+            datePattern = AnnuallyPattern.decode(json.datePattern);
         } else if (json.datePattern._type === 'NthWeekdayOfMonthsPattern') {
-            datePattern = NthWeekdayOfMonthsPattern.fromJson(json.datePattern);
+            datePattern = NthWeekdayOfMonthsPattern.decode(json.datePattern);
         } else {
-            ASSERT(false, 'Unknown datePattern type in RecurringTaskInstance.fromJson');
+            ASSERT(false, 'Unknown datePattern type in RecurringTaskInstance.decode');
         }
 
         let range;
         if (json.range._type === 'DateRange') {
-            range = DateRange.fromJson(json.range);
+            range = DateRange.decode(json.range);
         } else if (json.range._type === 'RecurrenceCount') {
-            range = RecurrenceCount.fromJson(json.range);
+            range = RecurrenceCount.decode(json.range);
         } else {
-            ASSERT(false, 'Unknown range type in RecurringTaskInstance.fromJson');
+            ASSERT(false, 'Unknown range type in RecurringTaskInstance.decode');
         }
 
         return new RecurringTaskInstance(datePattern, dueTime, range, json.completion);
@@ -983,28 +983,28 @@ class NonRecurringEventInstance {
         this.differentEndDate = differentEndDate;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, NonRecurringEventInstance));
         let startTimeJson;
         if (this.startTime === NULL) {
-            startTimeJson = symbolToJson(NULL);
+            startTimeJson = symbolToString(NULL);
         } else {
-            startTimeJson = this.startTime.toJson();
+            startTimeJson = this.startTime.encode();
         }
         let endTimeJson;
         if (this.endTime === NULL) {
-            endTimeJson = symbolToJson(NULL);
+            endTimeJson = symbolToString(NULL);
         } else {
-            endTimeJson = this.endTime.toJson();
+            endTimeJson = this.endTime.encode();
         }
         let differentEndDateJson;
         if (this.differentEndDate === NULL) {
-            differentEndDateJson = symbolToJson(NULL);
+            differentEndDateJson = symbolToString(NULL);
         } else {
-            differentEndDateJson = this.differentEndDate.toJson();
+            differentEndDateJson = this.differentEndDate.encode();
         }
         return {
-            startDate: this.startDate.toJson(),
+            startDate: this.startDate.encode(),
             startTime: startTimeJson,
             endTime: endTimeJson,
             differentEndDate: differentEndDateJson,
@@ -1012,29 +1012,29 @@ class NonRecurringEventInstance {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let startTime;
-        if (json.startTime === symbolToJson(NULL)) {
+        if (json.startTime === symbolToString(NULL)) {
             startTime = NULL;
         } else {
-            startTime = TimeField.fromJson(json.startTime);
+            startTime = TimeField.decode(json.startTime);
         }
 
         let endTime;
-        if (json.endTime === symbolToJson(NULL)) {
+        if (json.endTime === symbolToString(NULL)) {
             endTime = NULL;
         } else {
-            endTime = TimeField.fromJson(json.endTime);
+            endTime = TimeField.decode(json.endTime);
         }
 
         let differentEndDate;
-        if (json.differentEndDate === symbolToJson(NULL)) {
+        if (json.differentEndDate === symbolToString(NULL)) {
             differentEndDate = NULL;
         } else {
-            differentEndDate = DateField.fromJson(json.differentEndDate);
+            differentEndDate = DateField.decode(json.differentEndDate);
         }
-        return new NonRecurringEventInstance(DateField.fromJson(json.startDate), startTime, endTime, differentEndDate);
+        return new NonRecurringEventInstance(DateField.decode(json.startDate), startTime, endTime, differentEndDate);
     }
 
     // Parse AI-supplied JSON for a singular event occurrence.
@@ -1119,78 +1119,78 @@ class RecurringEventInstance {
         this.differentEndDatePattern = differentEndDatePattern;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, RecurringEventInstance));
         let startTimeJson;
         if (this.startTime === NULL) {
-            startTimeJson = symbolToJson(NULL);
+            startTimeJson = symbolToString(NULL);
         } else {
-            startTimeJson = this.startTime.toJson();
+            startTimeJson = this.startTime.encode();
         }
         let endTimeJson;
         if (this.endTime === NULL) {
-            endTimeJson = symbolToJson(NULL);
+            endTimeJson = symbolToString(NULL);
         } else {
-            endTimeJson = this.endTime.toJson();
+            endTimeJson = this.endTime.encode();
         }
         let differentEndDatePatternJson;
         if (this.differentEndDatePattern === NULL) {
-            differentEndDatePatternJson = symbolToJson(NULL);
+            differentEndDatePatternJson = symbolToString(NULL);
         } else {
             differentEndDatePatternJson = this.differentEndDatePattern;
         }
 
         return {
-            startDatePattern: this.startDatePattern.toJson(),
+            startDatePattern: this.startDatePattern.encode(),
             startTime: startTimeJson,
             endTime: endTimeJson,
-            range: this.range.toJson(),
+            range: this.range.encode(),
             differentEndDatePattern: differentEndDatePatternJson,
             _type: 'RecurringEventInstance'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let startDatePattern;
         if (json.startDatePattern._type === 'EveryNDaysPattern') {
-            startDatePattern = EveryNDaysPattern.fromJson(json.startDatePattern);
+            startDatePattern = EveryNDaysPattern.decode(json.startDatePattern);
         } else if (json.startDatePattern._type === 'MonthlyPattern') {
-            startDatePattern = MonthlyPattern.fromJson(json.startDatePattern);
+            startDatePattern = MonthlyPattern.decode(json.startDatePattern);
         } else if (json.startDatePattern._type === 'AnnuallyPattern') {
-            startDatePattern = AnnuallyPattern.fromJson(json.startDatePattern);
+            startDatePattern = AnnuallyPattern.decode(json.startDatePattern);
         } else if (json.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
-            startDatePattern = NthWeekdayOfMonthsPattern.fromJson(json.startDatePattern);
+            startDatePattern = NthWeekdayOfMonthsPattern.decode(json.startDatePattern);
         } else {
-            ASSERT(false, 'Unknown startDatePattern type in RecurringEventInstance.fromJson');
+            ASSERT(false, 'Unknown startDatePattern type in RecurringEventInstance.decode');
         }
 
         let startTime;
-        if (json.startTime === symbolToJson(NULL)) {
+        if (json.startTime === symbolToString(NULL)) {
             startTime = NULL;
         } else {
-            startTime = TimeField.fromJson(json.startTime);
+            startTime = TimeField.decode(json.startTime);
         }
 
         let endTime;
-        if (json.endTime === symbolToJson(NULL)) {
+        if (json.endTime === symbolToString(NULL)) {
             endTime = NULL;
         } else {
-            endTime = TimeField.fromJson(json.endTime);
+            endTime = TimeField.decode(json.endTime);
         }
 
         let range;
         if (json.range._type === 'DateRange') {
-            range = DateRange.fromJson(json.range);
+            range = DateRange.decode(json.range);
         } else if (json.range._type === 'RecurrenceCount') {
-            range = RecurrenceCount.fromJson(json.range);
+            range = RecurrenceCount.decode(json.range);
         } else {
-            ASSERT(false, 'Unknown range type in RecurringEventInstance.fromJson');
+            ASSERT(false, 'Unknown range type in RecurringEventInstance.decode');
         }
         
         // differentEndDatePattern can be NULL
         let differentEndDatePattern;
-        if (json.differentEndDatePattern === symbolToJson(NULL)) {
+        if (json.differentEndDatePattern === symbolToString(NULL)) {
             differentEndDatePattern = NULL;
         } else {
             ASSERT(type(json.differentEndDatePattern, Int));
@@ -1350,23 +1350,23 @@ class TaskData {
         return true;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, TaskData));
         let instancesJson = [];
         for (const instance of this.instances) {
-            instancesJson.push(instance.toJson());
+            instancesJson.push(instance.encode());
         }
         let hideUntilJson;
         if (this.hideUntil === NULL) {
-            hideUntilJson = symbolToJson(NULL);
+            hideUntilJson = symbolToString(NULL);
         } else if (this.hideUntil === HideUntilDayOf) {
-            hideUntilJson = symbolToJson(HideUntilDayOf);
+            hideUntilJson = symbolToString(HideUntilDayOf);
         } else {
-            hideUntilJson = this.hideUntil.toJson();
+            hideUntilJson = this.hideUntil.encode();
         }
         let workSessionsJson = [];
         for (const session of this.workSessions) {
-            workSessionsJson.push(session.toJson());
+            workSessionsJson.push(session.encode());
         }
         return {
             instances: instancesJson,
@@ -1377,40 +1377,40 @@ class TaskData {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let instances = [];
         for (const instanceJson of json.instances) {
             if (instanceJson._type === 'NonRecurringTaskInstance') {
-                instances.push(NonRecurringTaskInstance.fromJson(instanceJson));
+                instances.push(NonRecurringTaskInstance.decode(instanceJson));
             } else if (instanceJson._type === 'RecurringTaskInstance') {
-                instances.push(RecurringTaskInstance.fromJson(instanceJson));
+                instances.push(RecurringTaskInstance.decode(instanceJson));
             } else {
-                ASSERT(false, 'Unknown instance type in TaskData.fromJson');
+                ASSERT(false, 'Unknown instance type in TaskData.decode');
             }
         }
         let hideUntil;
-        if (json.hideUntil === symbolToJson(NULL)) {
+        if (json.hideUntil === symbolToString(NULL)) {
             hideUntil = NULL;
-        } else if (json.hideUntil === symbolToJson(HideUntilDayOf)) {
+        } else if (json.hideUntil === symbolToString(HideUntilDayOf)) {
             hideUntil = HideUntilDayOf;
         } else if (json.hideUntil._type === 'HideUntilRelative') {
-            hideUntil = HideUntilRelative.fromJson(json.hideUntil);
+            hideUntil = HideUntilRelative.decode(json.hideUntil);
         } else if (json.hideUntil._type === 'HideUntilDate') {
-            hideUntil = HideUntilDate.fromJson(json.hideUntil);
+            hideUntil = HideUntilDate.decode(json.hideUntil);
         } else {
-            ASSERT(false, 'Unknown hideUntil type in TaskData.fromJson');
+            ASSERT(false, 'Unknown hideUntil type in TaskData.decode');
         }
         let workSessions = [];
         ASSERT(Array.isArray(json.workSessions));
         for (const sessionJson of json.workSessions) {
             ASSERT(exists(sessionJson));
             if (sessionJson._type === 'NonRecurringEventInstance') {
-                workSessions.push(NonRecurringEventInstance.fromJson(sessionJson));
+                workSessions.push(NonRecurringEventInstance.decode(sessionJson));
             } else if (sessionJson._type === 'RecurringEventInstance') {
-                workSessions.push(RecurringEventInstance.fromJson(sessionJson));
+                workSessions.push(RecurringEventInstance.decode(sessionJson));
             } else {
-                ASSERT(false, 'Unknown workSession type in TaskData.fromJson');
+                ASSERT(false, 'Unknown workSession type in TaskData.decode');
             }
         }
         return new TaskData(instances, hideUntil, json.showOverdue, workSessions);
@@ -1468,11 +1468,11 @@ class EventData {
         this.instances = instances;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, EventData));
         let instancesJson = [];
         for (const instance of this.instances) {
-            instancesJson.push(instance.toJson());
+            instancesJson.push(instance.encode());
         }
         return {
             instances: instancesJson,
@@ -1480,16 +1480,16 @@ class EventData {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let instances = [];
         for (const instanceJson of json.instances) {
             if (instanceJson._type === 'NonRecurringEventInstance') {
-                instances.push(NonRecurringEventInstance.fromJson(instanceJson));
+                instances.push(NonRecurringEventInstance.decode(instanceJson));
             } else if (instanceJson._type === 'RecurringEventInstance') {
-                instances.push(RecurringEventInstance.fromJson(instanceJson));
+                instances.push(RecurringEventInstance.decode(instanceJson));
             } else {
-                ASSERT(false, 'Unknown instance type in EventData.fromJson');
+                ASSERT(false, 'Unknown instance type in EventData.decode');
             }
         }
         return new EventData(instances);
@@ -1532,18 +1532,18 @@ class NonRecurringReminderInstance {
         this.time = time;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, NonRecurringReminderInstance));
         return {
-            date: this.date.toJson(),
-            time: this.time.toJson(),
+            date: this.date.encode(),
+            time: this.time.encode(),
             _type: 'NonRecurringReminderInstance'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
-        return new NonRecurringReminderInstance(DateField.fromJson(json.date), TimeField.fromJson(json.time));
+        return new NonRecurringReminderInstance(DateField.decode(json.date), TimeField.decode(json.time));
     }
 
     // AI JSON: { "type":"reminder_instance", "date":"YYYY-MM-DD", "time":"HH:MM" }
@@ -1571,40 +1571,40 @@ class RecurringReminderInstance {
         this.range = range;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, RecurringReminderInstance));
         return {
-            datePattern: this.datePattern.toJson(),
-            time: this.time.toJson(),
-            range: this.range.toJson(),
+            datePattern: this.datePattern.encode(),
+            time: this.time.encode(),
+            range: this.range.encode(),
             _type: 'RecurringReminderInstance'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json) && exists(json.datePattern));
         let datePattern;
         if (json.datePattern._type === 'EveryNDaysPattern') {
-            datePattern = EveryNDaysPattern.fromJson(json.datePattern);
+            datePattern = EveryNDaysPattern.decode(json.datePattern);
         } else if (json.datePattern._type === 'MonthlyPattern') {
-            datePattern = MonthlyPattern.fromJson(json.datePattern);
+            datePattern = MonthlyPattern.decode(json.datePattern);
         } else if (json.datePattern._type === 'AnnuallyPattern') {
-            datePattern = AnnuallyPattern.fromJson(json.datePattern);
+            datePattern = AnnuallyPattern.decode(json.datePattern);
         } else if (json.datePattern._type === 'NthWeekdayOfMonthsPattern') {
-            datePattern = NthWeekdayOfMonthsPattern.fromJson(json.datePattern);
+            datePattern = NthWeekdayOfMonthsPattern.decode(json.datePattern);
         } else {
-            ASSERT(false, 'Unknown datePattern type in RecurringReminderInstance.fromJson');
+            ASSERT(false, 'Unknown datePattern type in RecurringReminderInstance.decode');
         }
 
-        let time = TimeField.fromJson(json.time);
+        let time = TimeField.decode(json.time);
 
         let range;
         if (json.range._type === 'DateRange') {
-            range = DateRange.fromJson(json.range);
+            range = DateRange.decode(json.range);
         } else if (json.range._type === 'RecurrenceCount') {
-            range = RecurrenceCount.fromJson(json.range);
+            range = RecurrenceCount.decode(json.range);
         } else {
-            ASSERT(false, 'Unknown range type in RecurringReminderInstance.fromJson');
+            ASSERT(false, 'Unknown range type in RecurringReminderInstance.decode');
         }
 
         return new RecurringReminderInstance(datePattern, time, range);
@@ -1612,26 +1612,31 @@ class RecurringReminderInstance {
 
     // AI JSON: {
     //   "type": "reminder_pattern",
-    //   "date": { ... },
+    //   "date_pattern": every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern
     //   "time": "HH:MM",
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
     static fromAiJson(json) {
         ASSERT(exists(json));
         ASSERT(json.type === 'reminder_pattern', 'RecurringReminderInstance.fromAiJson: json.type must be "reminder_pattern"');
+
+        // the ai may have accidentally used "date" instead of "date_pattern"
+        if (exists(json.date)) {
+            json.date_pattern = json.date;
+        }
+
         ASSERT(exists(json.date_pattern), 'RecurringReminderInstance.fromAiJson: date_pattern required');
-        const dp = json.date_pattern;
         let datePattern;
-        if (dp.type === 'every_n_days_pattern') {
-            datePattern = EveryNDaysPattern.fromAiJson(dp);
-        } else if (dp.type === 'monthly_pattern') {
-            datePattern = MonthlyPattern.fromAiJson(dp);
-        } else if (dp.type === 'annually_pattern') {
-            datePattern = AnnuallyPattern.fromAiJson(dp);
-        } else if (dp.type === 'nth_weekday_of_months_pattern') {
-            datePattern = NthWeekdayOfMonthsPattern.fromAiJson(dp);
+        if (json.date_pattern.type === 'every_n_days_pattern') {
+            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
+        } else if (json.date_pattern.type === 'monthly_pattern') {
+            datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
+        } else if (json.date_pattern.type === 'annually_pattern') {
+            datePattern = AnnuallyPattern.fromAiJson(json.date_pattern);
+        } else if (json.date_pattern.type === 'nth_weekday_of_months_pattern') {
+            datePattern = NthWeekdayOfMonthsPattern.fromAiJson(json.date_pattern);
         } else {
-            ASSERT(false, 'RecurringReminderInstance.fromAiJson: unknown date_pattern.type ' + String(dp.type));
+            ASSERT(false, 'RecurringReminderInstance.fromAiJson: unknown date_pattern.type ' + String(json.date_pattern.type));
         }
 
         // time mandatory for reminders
@@ -1643,7 +1648,7 @@ class RecurringReminderInstance {
         // range mandatory
         ASSERT(!AiReturnedNullField(json.range), 'RecurringReminderInstance.fromAiJson: range required');
         let range;
-        if (typeof json.range === 'string') {
+        if (type(json.range, String)) {
             const rparts = json.range.split(':');
             ASSERT(rparts.length === 2, 'RecurringReminderInstance.fromAiJson: range string must be "start:end"');
             const startDate = DateField.fromYYYY_MM_DD(rparts[0]);
@@ -1657,7 +1662,7 @@ class RecurringReminderInstance {
         } else {
             const count = Number(json.range);
             ASSERT(type(count, Int) && count > 0, 'RecurringReminderInstance.fromAiJson: numeric range must positive int');
-            ASSERT(dp.type === 'every_n_days_pattern', 'RecurringReminderInstance.fromAiJson: numeric range only allowed with every_n_days_pattern');
+            ASSERT(json.date_pattern.type === 'every_n_days_pattern', 'RecurringReminderInstance.fromAiJson: numeric range only allowed with every_n_days_pattern');
             range = new RecurrenceCount(datePattern.initialDate, count);
         }
 
@@ -1671,11 +1676,11 @@ class ReminderData {
         this.instances = instances;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, ReminderData));
         let instancesJson = [];
         for (const instance of this.instances) {
-            instancesJson.push(instance.toJson());
+            instancesJson.push(instance.encode());
         }
         return {
             instances: instancesJson,
@@ -1683,16 +1688,16 @@ class ReminderData {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         let instances = [];
         for (const instanceJson of json.instances) {
             if (instanceJson._type === 'NonRecurringReminderInstance') {
-                instances.push(NonRecurringReminderInstance.fromJson(instanceJson));
+                instances.push(NonRecurringReminderInstance.decode(instanceJson));
             } else if (instanceJson._type === 'RecurringReminderInstance') {
-                instances.push(RecurringReminderInstance.fromJson(instanceJson));
+                instances.push(RecurringReminderInstance.decode(instanceJson));
             } else {
-                ASSERT(false, 'Unknown instance type in ReminderData.fromJson');
+                ASSERT(false, 'Unknown instance type in ReminderData.decode');
             }
         }
         return new ReminderData(instances);
@@ -1733,28 +1738,28 @@ class Entity {
         this.data = data;
     }
 
-    toJson() {
+    encode() {
         ASSERT(type(this, Entity));
         return {
             id: this.id,
             name: this.name,
             description: this.description,
-            data: this.data.toJson(),
+            data: this.data.encode(),
             _type: 'Entity'
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json) && exists(json.data));
         let data;
         if (json.data._type === 'TaskData') {
-            data = TaskData.fromJson(json.data);
+            data = TaskData.decode(json.data);
         } else if (json.data._type === 'EventData') {
-            data = EventData.fromJson(json.data);
+            data = EventData.decode(json.data);
         } else if (json.data._type === 'ReminderData') {
-            data = ReminderData.fromJson(json.data);
+            data = ReminderData.decode(json.data);
         } else {
-            ASSERT(false, 'Unknown data type in Entity.fromJson.');
+            ASSERT(false, 'Unknown data type in Entity.decode.');
         }
         return new Entity(json.id, json.name, json.description, data);
     }
@@ -1804,6 +1809,229 @@ class Entity {
         } else {
             return NULL;
         }
+    }
+}
+
+// nodes are the individual steps in the chain (type defined farther down)
+class RequestNode {
+    constructor(model, typeOfPrompt, response, duration, reasoning) {
+        ASSERT(type(model, String));
+        ASSERT(type(typeOfPrompt, String));
+        ASSERT(type(response, String));
+        ASSERT(type(duration, Int));
+        ASSERT(type(reasoning, Boolean));
+        this.model = model;
+        this.typeOfPrompt = typeOfPrompt;
+        this.response = response;
+        this.duration = duration;
+        this.reasoning = reasoning;
+    }
+
+    encode() {
+        ASSERT(type(this, RequestNode));
+        return {
+            model: this.model,
+            typeOfPrompt: this.typeOfPrompt,
+            response: this.response,
+            duration: this.duration,
+            reasoning: this.reasoning,
+            _type: 'RequestNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'RequestNode');
+        return new RequestNode(json.model, json.typeOfPrompt, json.response, json.duration, json.reasoning);
+    }
+
+    static fromObject(object) {
+        ASSERT(type(object, Object));
+        ASSERT(exists(object.request));
+        object = object.request;
+        return new RequestNode(object.model, object.typeOfPrompt, object.response, object.duration, object.reasoning);
+    }
+}
+
+class RerouteToModelNode {
+    constructor(model, duration) {
+        ASSERT(type(model, String));
+        ASSERT(type(duration, Int));
+        this.model = model;
+        this.duration = duration;
+    }
+
+    encode() {
+        ASSERT(type(this, RerouteToModelNode));
+        return {
+            model: this.model,
+            duration: this.duration,
+            _type: 'RerouteToModelNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'RerouteToModelNode');
+        return new RerouteToModelNode(json.model, json.duration);
+    }
+
+    static fromObject(object) {
+        ASSERT(type(object, Object));
+        ASSERT(exists(object.rerouteToModel));
+        object = object.rerouteToModel;
+        return new RerouteToModelNode(object.model, object.duration);
+    }
+}
+
+class UserPromptNode {
+    constructor(prompt) {
+        ASSERT(type(prompt, String));
+        this.prompt = prompt;
+    }
+    
+    encode() {
+        ASSERT(type(this, UserPromptNode));
+        return {
+            prompt: this.prompt,
+            _type: 'UserPromptNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'UserPromptNode');
+        return new UserPromptNode(json.prompt);
+    }
+}
+
+class UserAttachmentsNode {
+    constructor(fileNames) {
+        ASSERT(type(fileNames, List(NonEmptyString)));
+        this.fileNames = fileNames;
+    }
+
+    encode() {
+        ASSERT(type(this, UserAttachmentsNode));
+        return {
+            fileNames: this.fileNames,
+            _type: 'UserAttachmentsNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'UserAttachmentsNode');
+        return new UserAttachmentsNode(json.fileNames);
+    }
+}
+
+class ParsingNode {
+    constructor(response, duration) {
+        ASSERT(type(response, Union(String, NULL)));
+        ASSERT(type(duration, Int));
+        this.response = response;
+        this.duration = duration;
+    }
+
+    encode() {
+        ASSERT(type(this, ParsingNode));
+        return {
+            response: this.response,
+            duration: this.duration,
+            _type: 'ParsingNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'ParsingNode');
+        return new ParsingNode(json.response, json.duration);
+    }
+}
+
+class CreatedEntityNode {
+    constructor(json, entity, duration) {
+        ASSERT(type(json, Object));
+        ASSERT(type(entity, Entity));
+        ASSERT(type(duration, Int));
+        this.json = json;
+        this.entity = entity;
+        this.duration = duration;
+    }
+
+    encode() {
+        ASSERT(type(this, CreatedEntityNode));
+        return {
+            json: this.json,
+            entity: this.entity.encode(),
+            duration: this.duration,
+            _type: 'CreatedEntityNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'CreatedEntityNode');
+        return new CreatedEntityNode(json.json, json.entity, json.duration);
+    }
+}
+
+class FailedToCreateEntityNode {
+    constructor(json, duration) {
+        ASSERT(type(json, Object));
+        ASSERT(type(duration, Int));
+        this.json = json;
+        this.duration = duration;
+    }
+
+    encode() {
+        ASSERT(type(this, FailedToCreateEntityNode));
+        return {
+            json: this.json,
+            duration: this.duration,
+            _type: 'FailedToCreateEntityNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'FailedToCreateEntityNode');
+        return new FailedToCreateEntityNode(json.json, json.duration);
+    }
+}
+
+// chain of events involved in a single user AI request
+class Chain {
+    constructor() {
+        this.chain = [];
+        this.initializationTime = Date.now();
+    }
+    
+    add(node) {
+        ASSERT(type(node, Union(RequestNode, RerouteToModelNode, UserPromptNode, UserAttachmentsNode, ParsingNode, CreatedEntityNode, FailedToCreateEntityNode)));
+        this.chain.push(node);
+    }
+
+    addNodeObject(nodeObject) {
+        ASSERT(type(nodeObject, Object));
+        if (exists(nodeObject.request)) {
+            this.chain.push(RequestNode.fromObject(nodeObject));
+        } else if (exists(nodeObject.rerouteToModel)) {
+            this.chain.push(RerouteToModelNode.fromObject(nodeObject));
+        } else {
+            ASSERT(false, 'Chain.addNodeObject: unknown node type ' + JSON.stringify(nodeObject));
+        }
+    }
+    
+    encode() {
+        ASSERT(type(this, Chain));
+        // TODO
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        // TODO
     }
 }
 
@@ -1860,11 +2088,11 @@ class User {
     // dataspec integer is just so we can migrate data
     // note that we also don't store LocalData, which is basically
     // prefernces on a per-device basis, not a per-user basis
-    toJson() {
+    encode() {
         ASSERT(type(this, User));
         let entityArrayJson = [];
         for (const entity of this.entityArray) {
-            entityArrayJson.push(entity.toJson());
+            entityArrayJson.push(entity.encode());
         }
         return {
             // this is all stored as a single string in the DB
@@ -1875,8 +2103,8 @@ class User {
                 palette: this.palette,
             }),
             // these have their own columns in the DB
-            userId: this.userId === NULL ? symbolToJson(NULL) : this.userId,
-            email: this.email === NULL ? symbolToJson(NULL) : this.email,
+            userId: this.userId === NULL ? symbolToString(NULL) : this.userId,
+            email: this.email === NULL ? symbolToString(NULL) : this.email,
             dataspec: 1, // first dataspec version
             usage: this.usage,
             timestamp: this.timestamp,
@@ -1886,7 +2114,7 @@ class User {
         };
     }
 
-    static fromJson(json) {
+    static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));
@@ -1895,7 +2123,7 @@ class User {
         // the backend returns this if a user was just created
         if (json.data == '{}') {
             // use the default user data
-            dataString = User.createDefault().toJson().data;
+            dataString = User.createDefault().encode().data;
         } else {
             dataString = json.data;
         }
@@ -1915,8 +2143,8 @@ class User {
         ASSERT(data.palette.shades.length === 5);
         ASSERT(data.palette.events.length === 5);
         ASSERT(type(json.dataspec, Int));
-        ASSERT(json.userId === symbolToJson(NULL) || type(json.userId, String));
-        ASSERT(json.email === symbolToJson(NULL) || type(json.email, String));
+        ASSERT(json.userId === symbolToString(NULL) || type(json.userId, String));
+        ASSERT(json.email === symbolToString(NULL) || type(json.email, String));
         ASSERT(type(json.usage, Int));
         ASSERT(json.usage >= 0);
         ASSERT(type(json.timestamp, Int));
@@ -1931,7 +2159,7 @@ class User {
         if (json.dataspec === 1) {
             let entityArray = [];
             for (const entityJson of data.entityArray) {
-                entityArray.push(Entity.fromJson(entityJson));
+                entityArray.push(Entity.decode(entityJson));
             }
 
             return new User(
@@ -2023,7 +2251,7 @@ class FilteredSegmentOfDayInstance {
         this.ui = ui;
     }
 
-    // No toJson or fromJson because these aren't stored long-term
+    // No encode or decode because these aren't stored long-term
 }
 
 // FilteredAllDayInstance class for calendar rendering (all-day section)
@@ -2051,7 +2279,7 @@ class FilteredAllDayInstance {
         this.ui = ui;
     }
 
-    // No toJson or fromJson needed
+    // No encode or decode needed
 }
 
 // FilteredReminderInstance class for calendar rendering
@@ -2074,7 +2302,7 @@ class FilteredReminderInstance {
         this.ui = ui;
     }
 
-    // No toJson or fromJson needed
+    // No encode or decode needed
 }
 
 // LocalData class for managing local storage state
@@ -2291,7 +2519,7 @@ function type(thing, sometype) {
         try { new DateRange(thing.startDate, thing.endDate); return true; } catch (e) { return false; }
     } else if (sometype === RecurrenceCount) {
         if (!(thing instanceof RecurrenceCount)) return false;
-        try { new RecurrenceCount(DateField.fromJson(thing.initialDate), thing.count); return true; } catch (e) { return false; }
+        try { new RecurrenceCount(DateField.decode(thing.initialDate), thing.count); return true; } catch (e) { return false; }
     } else if (sometype === NonRecurringTaskInstance) {
         if (!(thing instanceof NonRecurringTaskInstance)) return false;
         try { new NonRecurringTaskInstance(thing.date, thing.dueTime, thing.completion); return true; } catch (e) { return false; }
@@ -2334,6 +2562,30 @@ function type(thing, sometype) {
     } else if (sometype === User) {
         if (!(thing instanceof User)) return false;
         try { new User(thing.entityArray, thing.settings, thing.palette, thing.userId, thing.email, thing.usage, thing.timestamp, thing.plan, []); return true; } catch (e) { return false; }
+    } else if (sometype === Chain) {
+        if (!(thing instanceof Chain)) return false;
+        try { new Chain(thing.chain, thing.initializationTime); return true; } catch (e) { return false; }
+    } else if (sometype === RequestNode) {
+        if (!(thing instanceof RequestNode)) return false;
+        try { new RequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.duration, thing.reasoning); return true; } catch (e) { return false; }
+    } else if (sometype === RerouteToModelNode) {
+        if (!(thing instanceof RerouteToModelNode)) return false;
+        try { new RerouteToModelNode(thing.model, thing.duration); return true; } catch (e) { return false; }
+    } else if (sometype === UserPromptNode) {
+        if (!(thing instanceof UserPromptNode)) return false;
+        try { new UserPromptNode(thing.prompt); return true; } catch (e) { return false; }
+    } else if (sometype === UserAttachmentsNode) {
+        if (!(thing instanceof UserAttachmentsNode)) return false;
+        try { new UserAttachmentsNode(thing.fileNames); return true; } catch (e) { return false; }
+    } else if (sometype === ParsingNode) {
+        if (!(thing instanceof ParsingNode)) return false;
+        try { new ParsingNode(thing.response, thing.duration); return true; } catch (e) { return false; }
+    } else if (sometype === CreatedEntityNode) {
+        if (!(thing instanceof CreatedEntityNode)) return false;
+        try { new CreatedEntityNode(thing.json, thing.entity, thing.duration); return true; } catch (e) { return false; }
+    } else if (sometype === FailedToCreateEntityNode) {
+        if (!(thing instanceof FailedToCreateEntityNode)) return false;
+        try { new FailedToCreateEntityNode(thing.json, thing.duration); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';

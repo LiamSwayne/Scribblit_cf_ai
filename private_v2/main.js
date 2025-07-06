@@ -187,7 +187,7 @@ Reminder JSON:
 		}
 		{
 			"type": "reminder_pattern"
-			"date": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
+			"date_pattern": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
 		    "time": "HH:MM"
 		    "range": // "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
 		}
@@ -472,9 +472,9 @@ async function callAiModel(userPrompt, fileArray, env) {
         let content;
         // chain is the whole reasoning process
         // each object has either:
-        //   request: model, type of prompt, response, duration, and reasoning boolean
+        //   request: model, typeOfPrompt, response, duration, and reasoning boolean
         //   or
-        //   reroute_to_model: model, duration (we failed to connect, so this is the next model to try)
+        //   rerouteToModel: model, duration (we failed to connect, so this is the next model to try)
         //   or
         //   user_prompt: user_prompt (the user's prompt)
         //   or
@@ -484,7 +484,7 @@ async function callAiModel(userPrompt, fileArray, env) {
 
         // user prompt and file array are added to the chain on the frontend
 
-        // keeping track of how long each request takes
+        // keeping track of unix time each step starts and ends at
         let startTime = 0;
         let duration = 0;
 
@@ -499,13 +499,13 @@ async function callAiModel(userPrompt, fileArray, env) {
             if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
                 chain.push({request: {
                         model: MODELS.GEMINI_MODELS.flash,
-                        type_of_prompt: 'file_description',
+                        typeOfPrompt: 'file_description',
                         response: descriptionOfFiles,
                         duration: duration,
                         reasoning: false
                 }});
             } else {
-                chain.push({reroute_to_model: {
+                chain.push({rerouteToModel: {
                     model: MODELS.ANTHROPIC_MODELS.sonnet,
                     duration: duration
                 }});
@@ -518,7 +518,7 @@ async function callAiModel(userPrompt, fileArray, env) {
                 if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
                     chain.push({request: {
                         model: MODELS.ANTHROPIC_MODELS.sonnet,
-                        type_of_prompt: 'file_description',
+                        typeOfPrompt: 'file_description',
                         response: descriptionOfFiles,
                         duration: duration,
                         reasoning: false
@@ -548,13 +548,13 @@ async function callAiModel(userPrompt, fileArray, env) {
             if (content && content.trim() !== '') {
                 chain.push({request: {
                     model: MODELS.GEMINI_MODELS.flash,
-                    type_of_prompt: 'convert_files_to_entities',
+                    typeOfPrompt: 'convert_files_to_entities',
                     response: content,
                     duration: duration,
                     reasoning: true
                 }});
             } else {
-                chain.push({reroute_to_model: {
+                chain.push({rerouteToModel: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
                     duration: duration
                 }});
@@ -565,13 +565,13 @@ async function callAiModel(userPrompt, fileArray, env) {
                 if (content && content.trim() !== '') {
                     chain.push({request: {
                         model: MODELS.CEREBRAS_MODELS.qwen3,
-                        type_of_prompt: 'convert_files_to_entities',
+                        typeOfPrompt: 'convert_files_to_entities',
                         response: content,
                         duration: duration,
                         reasoning: false
                     }});
                 } else {
-                    chain.push({reroute_to_model: {
+                    chain.push({rerouteToModel: {
                         model: MODELS.GROQ_MODELS.qwen3,
                         duration: duration
                     }});
@@ -582,7 +582,7 @@ async function callAiModel(userPrompt, fileArray, env) {
                     if (content && content.trim() !== '') {
                         chain.push({request: {
                             model: MODELS.GROQ_MODELS.qwen3,
-                            type_of_prompt: 'convert_files_to_entities',
+                            typeOfPrompt: 'convert_files_to_entities',
                             response: content,
                             duration: duration,
                             reasoning: false
@@ -598,40 +598,51 @@ async function callAiModel(userPrompt, fileArray, env) {
             // Use Qwen for text-only requests
 
             // 1st choice - Cerebras
+            startTime = Date.now();
             content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
+            duration = Date.now() - startTime;
             if (content && content.trim() !== '') {
-                chain.push({
+                chain.push({request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
-                    type_of_prompt: 'convert_text_to_entities',
+                    typeOfPrompt: 'convert_text_to_entities',
                     response: content,
+                    duration: duration,
                     reasoning: false
-                });
+                }});
             } else {
-                chain.push({
-                    reroute_to_model: MODELS.GROQ_MODELS.qwen3
-                });
+                chain.push({rerouteToModel: {
+                    model: MODELS.GROQ_MODELS.qwen3,
+                    duration: duration
+                }});
                 // 2nd choice - Groq
+                startTime = Date.now();
                 content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
+                duration = Date.now() - startTime;
                 if (content && content.trim() !== '') {
-                    chain.push({
+                    chain.push({request: {
                         model: MODELS.GROQ_MODELS.qwen3,
-                        type_of_prompt: 'convert_text_to_entities',
+                        typeOfPrompt: 'convert_text_to_entities',
                         response: content,
+                        duration: duration,
                         reasoning: false
-                    });
+                    }});
                 } else {
-                    chain.push({
-                        reroute_to_model: MODELS.GEMINI_MODELS.flash
-                    });
+                    chain.push({rerouteToModel: {
+                        model: MODELS.GEMINI_MODELS.flash,
+                        duration: duration
+                    }});
                     // 3rd choice - Gemini
+                    startTime = Date.now();
                     content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, systemPrompt, false);
+                    duration = Date.now() - startTime;
                     if (content && content.trim() !== '') {
-                        chain.push({
+                        chain.push({request: {
                             model: MODELS.GEMINI_MODELS.flash,
-                            type_of_prompt: 'convert_text_to_entities',
+                            typeOfPrompt: 'convert_text_to_entities',
                             response: content,
+                            duration: duration,
                             reasoning: false
-                        });
+                        }});
                     } else {
                         return SEND({
                             error: 'Failed to connect to any AI model.'
