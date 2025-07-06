@@ -8829,6 +8829,9 @@ function processInput() {
 
             const responseJson = await response.json();
 
+            log("Response JSON: ");
+            log(responseJson);
+
             chain.push(...responseJson.chain);
 
             let cleanedText = responseJson.aiOutput;

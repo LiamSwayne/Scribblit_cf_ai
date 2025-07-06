@@ -960,7 +960,7 @@ class NonRecurringEventInstance {
 
         // If endTime is NULL, differentEndDate must also be NULL
         if (endTime === NULL) {
-            ASSERT(differentEndDate === NULL, "If endTime is NULL, differentEndDate must also be NULL for NonRecurringEventInstance.");
+            ASSERT(differentEndDate === NULL, "If endTime is NULL, differentEndDate must also be NULL for NonRecurringEventInstance. Arguments:" + JSON.stringify({startDate, startTime, endTime, differentEndDate}));
         }
         
         ASSERT(type(differentEndDate, Union(DateField, NULL)));

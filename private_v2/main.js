@@ -269,8 +269,8 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
             }
         } else {
             body.generation_config = {
-                reasoning_config: {
-                    reasoning_budget: 0 // no thinking
+                thinking_config: {
+                    thinking_budget: 0 // no thinking
                 }
             }
         }
