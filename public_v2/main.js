@@ -1422,6 +1422,22 @@ function initDragAndDrop() {
                     mimeType: file.type || 'application/octet-stream',
                     data: base64Data,
                 });
+                updateAttachmentBadge();
+                // change placeholder of input box
+                let inputBox = HTML.getElement('inputBox');
+                if (inputBox.value === '' && inputBox.placeholder === inputBoxDefaultPlaceholder) {
+                    // remove letters one by one
+                    for (let i = 0; i < inputBoxDefaultPlaceholder.length; i++) {
+                        inputBox.placeholder = inputBoxDefaultPlaceholder.substring(0, inputBoxDefaultPlaceholder.length - i);
+                        await new Promise(resolve => setTimeout(resolve, 20));
+                    }
+                    for (let i = 0; i < inputBoxPlaceHolderWithAttachedFiles.length; i++) {
+                        inputBox.placeholder = inputBoxPlaceHolderWithAttachedFiles.substring(0, i + 1);
+                        await new Promise(resolve => setTimeout(resolve, 20));
+                    }
+                } else {
+                    inputBox.placeholder = inputBoxDefaultPlaceholder;
+                }
             } catch (err) {
                 console.error('Error reading dropped file:', err);
             }
@@ -5609,13 +5625,17 @@ function renderTimeIndicator(onSchedule) {
     HTML.body.appendChild(timeTriangle);
 }
 
+let inputBoxDefaultPlaceholder = "Scribble your tasks and events here...";
+// shows when nothing has been typed but there are attached files
+let inputBoxPlaceHolderWithAttachedFiles = "You can send a request to the backend by pressing enter, even if you haven't typed anything...";
+
 function renderInputBox() {
     let inputBox = HTML.getElementUnsafely('inputBox');
 
     if (!exists(inputBox)) {
         inputBox = HTML.make('textarea');
         HTML.setId(inputBox, 'inputBox');
-        inputBox.placeholder = "Scribble your tasks and events here...";
+        inputBox.placeholder = inputBoxDefaultPlaceholder;
         HTML.body.appendChild(inputBox);
 
         // Create a class to hide the scrollbar
@@ -8719,16 +8739,16 @@ function processInput() {
     const inputBox = HTML.getElement('inputBox');
     
     const inputText = inputBox.value.trim();
-    if (inputText === '') return;
+    if (inputText === '' && attachedFiles.length === 0) return;
     
     log("Processing input: " + inputText);
 
     (async () => {
         try {
-            // Prepare enriched text with date,time,dayOfWeek
+            // Prepare enriched text with date,time,dayOfWeek (all in local timezone)
             const now = new Date();
-            const dateStr = now.toISOString().slice(0,10); // YYYY-MM-DD
-            const timeStr = now.toTimeString().slice(0,5); // HH:MM (24h)
+            const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'); // YYYY-MM-DD in local timezone
+            const timeStr = now.toTimeString().slice(0,5); // HH:MM (24h) in local timezone
             const dayOfWeekString = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
             const userTextWithDateInformation = `Today is ${dayOfWeekString}, ${dateStr}, ${timeStr}.\n\n${inputText}`;
 
@@ -8750,7 +8770,6 @@ function processInput() {
             }
 
             const aiText = await response.text();
-            log("AI response: " + aiText);
             let cleanedText = aiText;
 
             // we can remove the model thinking, all that matters is the output
@@ -8771,10 +8790,15 @@ function processInput() {
                 cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
             }
 
+            log("Cleaned text: " + cleanedText);
+
             let aiJson = NULL;
             try {
                 aiJson = JSON.parse(cleanedText);
+                log("Successfully parsed AI response after cleaning");
+                log(aiJson);
             } catch (e) {
+                log("Failed to parse AI response after cleaning");
                 // failed to parse, but we can try more
                 // try to split at [ and ] in case the ai prepended or appended text
                 // get index
@@ -8801,9 +8825,28 @@ function processInput() {
             }
 
             // Convert to internal entities
-            let entities;
+            let entities = []
             try {
-                entities = Entity.fromAiJson(aiJson);
+                if (Array.isArray(aiJson)) {
+                    log("AI JSON is an array");
+                    for (const obj of aiJson) {
+                        log("Object: " + obj);
+                        try {
+                            let attemptedParsing = Entity.fromAiJson(obj);
+                            log("Attempted parsing: ")
+                            log(attemptedParsing);
+                            if (attemptedParsing !== NULL) {
+                                entities.push(attemptedParsing);
+                            }
+                        } catch (e) {
+                            log("Failed to parse object: " + e.message);
+                            continue;
+                        }
+                    }
+                } else {
+                    log("AI JSON is an object");
+                    entities = [Entity.fromAiJson(aiJson)];
+                }
             } catch (e) {
                 log('Failed to convert AI JSON to entities', e);
                 return;

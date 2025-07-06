@@ -1751,38 +1751,34 @@ class Entity {
 
     // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
     // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
-    static fromAiJson(aiArray) {
-        ASSERT(Array.isArray(aiArray), 'Entity.fromAiJson: expected an array');
-        const entities = [];
-        for (const obj of aiArray) {
-            ASSERT(exists(obj) && type(obj.type, NonEmptyString), 'Entity.fromAiJson: each item must have a type');
-            ASSERT(!AiReturnedNullField(obj.name), 'Entity.fromAiJson: each item must have a name');
-            const name = obj.name;
-            const description = AiReturnedNullField(obj.description) ? '' : obj.description;
+    static fromAiJson(aiObject) {
+        ASSERT(exists(aiObject) && type(aiObject, Object), 'Entity.fromAiJson: expected an object');
+        ASSERT(type(aiObject.type, NonEmptyString), 'Entity.fromAiJson: each item must have a type');
+        ASSERT(!AiReturnedNullField(aiObject.name), 'Entity.fromAiJson: each item must have a name');
+        const name = aiObject.name;
+        const description = AiReturnedNullField(aiObject.description) ? '' : aiObject.description;
 
-            let data;
-            if (obj.type === 'task') {
-                data = TaskData.fromAiJson(obj);
-            } else if (obj.type === 'event') {
-                data = EventData.fromAiJson(obj);
-            } else if (obj.type === 'reminder') {
-                data = ReminderData.fromAiJson(obj);
-            } else {
-                ASSERT(false, 'Entity.fromAiJson: unknown item type ' + String(obj.type));
-            }
-
-            const id = Entity._generateId();
-            let newEntity = NULL;
-            try {
-                newEntity = new Entity(id, name, description, data);
-            } catch (e) {
-                log("Entity.fromAiJson: error creating entity " + id + " " + name + " " + description + " " + data);
-                log(e);
-                continue;
-            }
-            entities.push(newEntity);
+        let data;
+        if (aiObject.type === 'task') {
+            data = TaskData.fromAiJson(aiObject);
+        } else if (aiObject.type === 'event') {
+            data = EventData.fromAiJson(aiObject);
+        } else if (aiObject.type === 'reminder') {
+            data = ReminderData.fromAiJson(aiObject);
+        } else {
+            ASSERT(false, 'Entity.fromAiJson: unknown item type ' + String(aiObject.type));
         }
-        return entities;
+
+        const id = Entity._generateId();
+        let newEntity = NULL;
+        try {
+            newEntity = new Entity(id, name, description, data);
+        } catch (e) {
+            log("Entity.fromAiJson: error creating entity " + id + " " + name + " " + description + " " + data);
+            log(e);
+            return NULL;
+        }
+        return newEntity;
     }
 }
 
