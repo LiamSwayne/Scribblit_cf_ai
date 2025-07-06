@@ -238,32 +238,6 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
         throw new Error('Unsupported Anthropic model: ' + modelName);
     }
 
-    // First, upload files if any are provided
-    const uploadedFiles = [];
-    if (fileArray && fileArray.length > 0) {
-        for (const file of fileArray) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            const uploadResponse = await fetch('https://api.anthropic.com/v1/files', {
-                method: 'POST',
-                headers: {
-                    'x-api-key': env.ANTHROPIC_API_KEY,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-beta': 'files-api-2025-04-14'
-                },
-                body: formData
-            });
-            
-            if (!uploadResponse.ok) {
-                throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
-            }
-            
-            const uploadResult = await uploadResponse.json();
-            uploadedFiles.push(uploadResult);
-        }
-    }
-
     // Prepare the content array
     const content = [
         {
@@ -272,35 +246,37 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
         }
     ];
 
-    // Add uploaded files to content
-    for (const uploadedFile of uploadedFiles) {
-        // Determine content block type based on file type
-        if (uploadedFile.type === 'image/jpeg' || uploadedFile.type === 'image/png' || 
-            uploadedFile.type === 'image/gif' || uploadedFile.type === 'image/webp') {
-            content.push({
-                type: 'image',
-                source: {
-                    type: 'file',
-                    file_id: uploadedFile.id
+    // Add files as base64 encoded content
+    if (fileArray && fileArray.length > 0) {
+        for (const file of fileArray) {
+            // Files are already base64 encoded from frontend
+            const base64Data = file.data;
+            const mediaType = file.mimeType || 'application/octet-stream';
+            const fileName = file.name;
+            
+            // Only add images for now (following the test.sh pattern)
+            if (mediaType.startsWith('image/')) {
+                content.push({
+                    type: 'image',
+                    source: {
+                        type: 'base64',
+                        media_type: mediaType,
+                        data: base64Data
+                    }
+                });
+            }
+            // For text files, decode base64 and add as text content
+            else if (mediaType.startsWith('text/')) {
+                try {
+                    const textContent = atob(base64Data);
+                    content.push({
+                        type: 'text',
+                        text: `File: ${fileName}\nContent:\n${textContent}`
+                    });
+                } catch (err) {
+                    console.error('Error decoding base64 text file:', err);
                 }
-            });
-        } else if (uploadedFile.type === 'application/pdf' || uploadedFile.type === 'text/plain') {
-            content.push({
-                type: 'document',
-                source: {
-                    type: 'file',
-                    file_id: uploadedFile.id
-                }
-            });
-        } else {
-            // For other file types, use container_upload
-            content.push({
-                type: 'container_upload',
-                source: {
-                    type: 'file',
-                    file_id: uploadedFile.id
-                }
-            });
+            }
         }
     }
 
@@ -310,7 +286,6 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
         headers: {
             'x-api-key': env.ANTHROPIC_API_KEY,
             'anthropic-version': '2023-06-01',
-            'anthropic-beta': 'files-api-2025-04-14',
             'content-type': 'application/json'
         },
         body: JSON.stringify({
@@ -327,43 +302,26 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
     });
 
     if (!response.ok) {
-        // Clean up uploaded files before throwing error
-        for (const uploadedFile of uploadedFiles) {
-            try {
-                await fetch(`https://api.anthropic.com/v1/files/${uploadedFile.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'x-api-key': env.ANTHROPIC_API_KEY,
-                        'anthropic-version': '2023-06-01',
-                        'anthropic-beta': 'files-api-2025-04-14'
-                    }
-                });
-            } catch (deleteError) {
-                console.warn(`Failed to delete file ${uploadedFile.id}:`, deleteError);
-            }
-        }
-        throw new Error(`API call failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.log("Anthropic API error: " + errorText);
+        return SEND({
+            error: 'Failed to call Anthropic model: ' + response.statusText
+        }, 471);
     }
 
     const result = await response.json();
-
-    // Clean up uploaded files after successful request
-    for (const uploadedFile of uploadedFiles) {
-        try {
-            await fetch(`https://api.anthropic.com/v1/files/${uploadedFile.id}`, {
-                method: 'DELETE',
-                headers: {
-                    'x-api-key': env.ANTHROPIC_API_KEY,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-beta': 'files-api-2025-04-14'
-                }
-            });
-        } catch (deleteError) {
-            console.warn(`Failed to delete file ${uploadedFile.id}:`, deleteError);
+    console.log("Anthropic result: " + JSON.stringify(result));
+    
+    // Handle the response structure: result.content is an array of content objects
+    if (result.content && Array.isArray(result.content) && result.content.length > 0) {
+        // Find the first text content block
+        const textContent = result.content.find(item => item.type === 'text');
+        if (textContent && textContent.text) {
+            return textContent.text;
         }
     }
-
-    return result;
+    
+    return '';
 }
 
 async function callGroqModel(modelName, userPrompt, env) {
