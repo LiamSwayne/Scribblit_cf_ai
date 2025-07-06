@@ -369,16 +369,14 @@ class AnnuallyPattern {
     }
 }
 
+const LAST_WEEK_OF_MONTH = Symbol('last_week_of_month');
+
 // Nth Weekday of Months Pattern
 class NthWeekdayOfMonthsPattern {
     constructor(dayOfWeek, nthWeekdays, months) {
         ASSERT(type(dayOfWeek, DAY_OF_WEEK), "NthWeekdayOfMonthsPattern: dayOfWeek must be a DAY_OF_WEEK value (e.g. 'monday').");
-        ASSERT(type(nthWeekdays, Dict(Int, Boolean)), "NthWeekdayOfMonthsPattern: nthWeekdays must be a dictionary mapping integers to booleans.");
-        const validNKeys = [1, 2, 3, 4, -1];
-        for (const key in nthWeekdays) {
-            ASSERT(validNKeys.includes(Number(key)), `NthWeekdayOfMonthsPattern: invalid key ${key} in nthWeekdays. Valid keys are 1, 2, 3, 4, -1.`);
-        }
-        ASSERT(Object.keys(nthWeekdays).length > 0 && Object.values(nthWeekdays).some(val => val === true), "NthWeekdayOfMonthsPattern: nthWeekdays must not be empty and at least one value must be true.");
+        
+        ASSERT(type(nthWeekdays, LAST_WEEK_OF_MONTH) || (type(nthWeekdays, List(Boolean)) && nthWeekdays.length === 4 && nthWeekdays.some(week => week)), "NthWeekdayOfMonthsPattern: nthWeekdays must be an array of 4 booleans and at least one value must be true. Or it must be the symbol LAST_WEEK_OF_MONTH.");
 
         ASSERT(type(months, List(Boolean)) && months.length === 12, "NthWeekdayOfMonthsPattern: months must be an array of 12 booleans.");
         ASSERT(months.some(month => month), "NthWeekdayOfMonthsPattern: at least one month must be true.");
@@ -406,39 +404,59 @@ class NthWeekdayOfMonthsPattern {
     }
 
     static fromAiJson(json) {
-        ASSERT(exists(json));
-        ASSERT(json.type === 'nth_weekday_of_months_pattern', "NthWeekdayOfMonthsPattern.fromAiJson: json.type must be 'nth_weekday_of_months_pattern'");
+        if(!exists(json)) {
+            return NULL;
+        }
+        
+        if(json.type !== 'nth_weekday_of_months_pattern') {
+            return NULL;
+        }
 
         // day_of_week: integer 1-7 -> string
-        ASSERT(!AiReturnedNullField(json.day_of_week), "NthWeekdayOfMonthsPattern.fromAiJson: day_of_week is required");
+        if(AiReturnedNullField(json.day_of_week)) {
+            log("NthWeekdayOfMonthsPattern.fromAiJson: day_of_week is null");
+            return NULL;
+        }
         const dowNum = Number(json.day_of_week);
-        ASSERT(type(dowNum, Int) && dowNum >= 1 && dowNum <= 7);
+        if(!(type(dowNum, Int) && dowNum >= 1 && dowNum <= 7)) {
+            log("NthWeekdayOfMonthsPattern.fromAiJson: day_of_week is not a valid integer 1-7");
+            return NULL;
+        }
         const dowMap = {1:'monday',2:'tuesday',3:'wednesday',4:'thursday',5:'friday',6:'saturday',7:'sunday'};
         const dayOfWeek = dowMap[dowNum];
 
         // weeks_of_month: "last" or array of 4 booleans
-        let nthWeekdays = {};
         const weeksSpec = json.weeks_of_month;
-        ASSERT(!AiReturnedNullField(weeksSpec), "NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month is required");
-        if (typeof weeksSpec === 'string') {
-            ASSERT(weeksSpec === 'last', "NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month string must be 'last'");
-            nthWeekdays[-1] = true;
-        } else if (Array.isArray(weeksSpec)) {
-            for (let i = 0; i < 4; i++) {
-                const flag = !!weeksSpec[i];
-                if (flag) nthWeekdays[i + 1] = true;
+        if (type(weeksSpec, String)) {
+            if(weeksSpec !== 'last') {
+                log("NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month must be 'last'");
+                return NULL;
             }
-            // Ensure at least one true
-            ASSERT(Object.keys(nthWeekdays).length > 0, "NthWeekdayOfMonthsPattern.fromAiJson: at least one week must be true");
+        } else if (type(weeksSpec, List(Boolean))) {
+            if(weeksSpec.length !== 4) {
+                log("NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month must be 'last' or array of 4 booleans");
+                return NULL;
+            }
+            if(!weeksSpec.some(week => week)) {
+                log("NthWeekdayOfMonthsPattern.fromAiJson: at least one week must be true");
+                return NULL;
+            }
         } else {
-            ASSERT(false, "NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month must be 'last' or array of booleans");
+            log("NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month is not a valid type");
+            return NULL;
         }
 
         // months: array of 12 booleans required
-        ASSERT(!AiReturnedNullField(json.months), "NthWeekdayOfMonthsPattern.fromAiJson: months array is required");
+        if(AiReturnedNullField(json.months)) {
+            log("NthWeekdayOfMonthsPattern.fromAiJson: months array is null");
+            return NULL;
+        }
         const monthsRaw = json.months;
-        ASSERT(Array.isArray(monthsRaw) && monthsRaw.length === 12, "NthWeekdayOfMonthsPattern.fromAiJson: months must be an array of 12 booleans");
-        const months = monthsRaw.map(m => !!m);
+        if(!(type(monthsRaw, List(Boolean)) && monthsRaw.length === 12)) {
+            log("NthWeekdayOfMonthsPattern.fromAiJson: months must be an array of 12 booleans");
+            return NULL;
+        }
+        const months = monthsRaw.map(m => Boolean(m));
 
         return new NthWeekdayOfMonthsPattern(dayOfWeek, nthWeekdays, months);
     }
@@ -2356,8 +2374,14 @@ function type(thing, sometype) {
         const dow = thing;
         const valid = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         return valid.includes(dow);
-    } else if (sometype === TaskWorkSessionKind || sometype === EventInstanceKind || sometype === ReminderInstanceKind) {
-        return typeof thing === 'symbol' && (thing === TaskWorkSessionKind || thing === EventInstanceKind || thing === ReminderInstanceKind);
+    } else if (sometype === TaskWorkSessionKind) {
+        return typeof thing === 'symbol' && thing === TaskWorkSessionKind;
+    } else if (sometype === EventInstanceKind) {
+        return typeof thing === 'symbol' && thing === EventInstanceKind;
+    } else if (sometype === ReminderInstanceKind) {
+        return typeof thing === 'symbol' && thing === ReminderInstanceKind;
+    } else if (sometype === LAST_WEEK_OF_MONTH) {
+        return typeof thing === 'symbol' && thing === LAST_WEEK_OF_MONTH;
     } else {
         return thing instanceof sometype;
     }
