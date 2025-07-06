@@ -1416,10 +1416,11 @@ function initDragAndDrop() {
         for (const file of files) {
             try {
                 const buffer = await file.arrayBuffer();
+                const base64Data = btoa(String.fromCharCode(...new Uint8Array(buffer)));
                 attachedFiles.push({
                     name: file.name,
                     mimeType: file.type || 'application/octet-stream',
-                    data: new Uint8Array(buffer),
+                    data: base64Data,
                 });
             } catch (err) {
                 console.error('Error reading dropped file:', err);
