@@ -1336,6 +1336,50 @@ let currentlyTyping = false;
 // global array for files attached via drag-and-drop
 let attachedFiles = [];
 
+let inputBoxDefaultPlaceholder = "Scribble your tasks and events here...";
+// shows when nothing has been typed but there are attached files
+let inputBoxPlaceHolderWithAttachedFiles = "You can send a request to the backend by pressing enter, even if you haven't typed anything...";
+
+// the text we are "approaching" with the animation
+let goalPlaceholderText = inputBoxDefaultPlaceholder;
+let currentlyRunningPlaceholderAnimation = false;
+async function updateInputBoxPlaceholder(goalText) {
+    ASSERT(type(goalText, String));
+    goalPlaceholderText = goalText;
+
+    if (currentlyRunningPlaceholderAnimation) {
+        return;
+    }
+    currentlyRunningPlaceholderAnimation = true;
+    
+    // change placeholder of input box
+    let inputBox = HTML.getElement('inputBox');
+
+    while (inputBox.placeholder !== goalPlaceholderText) {
+        if (inputBox.placeholder.length > goalPlaceholderText.length) {
+            // remove the last character
+            inputBox.placeholder = inputBox.placeholder.substring(0, inputBox.placeholder.length - 1);
+        } else if (inputBox.placeholder.length === goalPlaceholderText.length) {
+            if (inputBox.placeholder === goalPlaceholderText) {
+                break;
+            } else {
+                // the placeholder text is not the same as the goal text, so remove the last character
+                inputBox.placeholder = inputBox.placeholder.substring(0, inputBox.placeholder.length - 1);
+            }
+        } else {
+            if (inputBox.placeholder.length === 0 || inputBox.placeholder.substring(0, inputBox.placeholder.length - 1) === goalPlaceholderText.substring(0, inputBox.placeholder.length - 1)) {
+                // add the next character
+                inputBox.placeholder = goalPlaceholderText.substring(0, inputBox.placeholder.length + 1);
+            } else {
+                // keep removing characters until the last character is the same
+                inputBox.placeholder = inputBox.placeholder.substring(0, inputBox.placeholder.length - 1);
+            }
+        }
+        await new Promise(resolve => setTimeout(resolve, 15));
+    }
+    currentlyRunningPlaceholderAnimation = false;
+}
+
 function updateAttachmentBadge() {
     const badgeId = 'attachmentBadge';
     const inputBox = HTML.getElementUnsafely('inputBox');
@@ -1415,29 +1459,18 @@ function initDragAndDrop() {
         }
         for (const file of files) {
             try {
-                const buffer = await file.arrayBuffer();
-                const base64Data = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+                const base64Data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
                 attachedFiles.push({
                     name: file.name,
                     mimeType: file.type || 'application/octet-stream',
                     data: base64Data,
                 });
                 updateAttachmentBadge();
-                // change placeholder of input box
-                let inputBox = HTML.getElement('inputBox');
-                if (inputBox.value === '' && inputBox.placeholder === inputBoxDefaultPlaceholder) {
-                    // remove letters one by one
-                    for (let i = 0; i < inputBoxDefaultPlaceholder.length; i++) {
-                        inputBox.placeholder = inputBoxDefaultPlaceholder.substring(0, inputBoxDefaultPlaceholder.length - i);
-                        await new Promise(resolve => setTimeout(resolve, 20));
-                    }
-                    for (let i = 0; i < inputBoxPlaceHolderWithAttachedFiles.length; i++) {
-                        inputBox.placeholder = inputBoxPlaceHolderWithAttachedFiles.substring(0, i + 1);
-                        await new Promise(resolve => setTimeout(resolve, 20));
-                    }
-                } else {
-                    inputBox.placeholder = inputBoxDefaultPlaceholder;
-                }
             } catch (err) {
                 console.error('Error reading dropped file:', err);
             }
@@ -1445,6 +1478,12 @@ function initDragAndDrop() {
         hideOverlay();
         dragCounter = 0;
         updateAttachmentBadge();
+
+        if (attachedFiles.length > 0) {
+            updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
+        } else {
+            updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
+        }
     });
 
     window.addEventListener('resize', updateAttachmentBadge);
@@ -5625,10 +5664,6 @@ function renderTimeIndicator(onSchedule) {
     HTML.body.appendChild(timeTriangle);
 }
 
-let inputBoxDefaultPlaceholder = "Scribble your tasks and events here...";
-// shows when nothing has been typed but there are attached files
-let inputBoxPlaceHolderWithAttachedFiles = "You can send a request to the backend by pressing enter, even if you haven't typed anything...";
-
 function renderInputBox() {
     let inputBox = HTML.getElementUnsafely('inputBox');
 
@@ -8740,8 +8775,17 @@ function processInput() {
     
     const inputText = inputBox.value.trim();
     if (inputText === '' && attachedFiles.length === 0) return;
-    
-    log("Processing input: " + inputText);
+
+    // there is some input, so clear it
+    inputBox.value = '';
+
+    // if there are attached files, take them
+    let fileArray = [...attachedFiles];
+    attachedFiles = [];
+
+    // input has been cleared, so update the placeholder to the default
+    updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
+    updateAttachmentBadge();
 
     (async () => {
         try {
@@ -8752,15 +8796,13 @@ function processInput() {
             const dayOfWeekString = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
             const userTextWithDateInformation = `Today is ${dayOfWeekString}, ${dateStr}, ${timeStr}.\n\n${inputText}`;
 
-            log("Enriched text: " + userTextWithDateInformation);
-
             // Send to backend AI endpoint
             const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt: userTextWithDateInformation,
-                    fileArray: attachedFiles
+                    fileArray: fileArray
                 })
             });
 
