@@ -8787,6 +8787,20 @@ function processInput() {
     updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
     updateAttachmentBadge();
 
+    let chain = [];
+
+    if (inputText.trim() !== '') {
+        chain.push({
+            user_prompt: inputText
+        });
+    }
+    if (fileArray && fileArray.length > 0) {
+        let fileNames = fileArray.map(file => file.name);
+        chain.push({
+            user_attachments: fileNames
+        });
+    }
+
     (async () => {
         try {
             // Prepare enriched text with date,time,dayOfWeek (all in local timezone)
@@ -8811,10 +8825,9 @@ function processInput() {
                 return; // keep input for debugging
             }
 
-            const { aiOutput, chain } = await response.json();
+            const { aiOutput, responseChain } = await response.json();
 
-            log("AI chain: ");
-            log(chain);
+            chain.push(...responseChain);
 
             let cleanedText = aiOutput;
 
@@ -8912,6 +8925,9 @@ function processInput() {
             log("processInput error: " + err.message);
         }
     })();
+
+    log("Chain: ");
+    log(chain);
 }
 
 // Creates a multiple choice selector with smooth transitions

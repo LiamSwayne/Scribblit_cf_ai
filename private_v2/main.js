@@ -479,16 +479,7 @@ async function callAiModel(userPrompt, fileArray, env) {
         // we want to include reroutes in the chain
         let chain = [];
 
-        if (userPrompt.trim() !== '') {
-            chain.push({
-                user_prompt: userPrompt
-            });
-        }
-        if (fileArray && fileArray.length > 0) {
-            chain.push({
-                user_attachments: fileArray
-            });
-        }
+        // user prompt and file array are added to the chain on the frontend
 
         if (Array.isArray(fileArray) && fileArray.length > 0) {
             let descriptionOfFiles;
