@@ -68,7 +68,7 @@ async function saveUserData(user) {
     ASSERT(type(LocalData.get('signedIn'), Boolean));
     // ms timestamp
     user.timestamp = Date.now();
-    const userJson = user.toJson();
+    const userJson = user.encode();
     
     // Always save to localStorage as backup
     localStorage.setItem("userData", JSON.stringify(userJson));
@@ -129,7 +129,7 @@ async function loadUserData() {
                 const userDataLocal = localStorage.getItem("userData");
                 if (userDataLocal) {
                     const userJsonLocal = JSON.parse(userDataLocal);
-                    return User.fromJson(userJsonLocal);
+                    return User.decode(userJsonLocal);
                 } else {
                     return User.createDefault();
                 }
@@ -165,7 +165,7 @@ async function loadUserData() {
                     let serverUser = null;
                     if (serverResponse.user) {
                         try {
-                            serverUser = User.fromJson(serverResponse.user);
+                            serverUser = User.decode(serverResponse.user);
                         } catch (parseError) {
                             log("ERROR parsing server user data: " + parseError.message);
                             serverUser = null;
@@ -179,7 +179,7 @@ async function loadUserData() {
                         ASSERT(type(userJsonLocal, Object));
                         
                         // Create a proper merged user without modifying the original serverUser
-                        const localUser = User.fromJson(userJsonLocal);
+                        const localUser = User.decode(userJsonLocal);
                         for (const entity of localUser.entityArray) {
                             if (!serverUser.entityArray.some(e => e.id === entity.id)) {
                                 serverUser.entityArray.push(entity);
@@ -192,7 +192,7 @@ async function loadUserData() {
                         return serverUser;
                     } else if (userJsonLocal) {
                         log("Using local user data (no server data available)");
-                        return User.fromJson(userJsonLocal);
+                        return User.decode(userJsonLocal);
                     } else {
                         log("No user data available, creating default user");
                         return User.createDefault();
@@ -212,7 +212,7 @@ async function loadUserData() {
                     // Use local data as fallback
                     if (userJsonLocal) {
                         log("Using local user data as fallback");
-                        return User.fromJson(userJsonLocal);
+                        return User.decode(userJsonLocal);
                     } else {
                         return User.createDefault();
                     }
@@ -224,7 +224,7 @@ async function loadUserData() {
                 // Use local data as fallback
                 if (userJsonLocal) {
                     log("Using local user data as fallback");
-                    return User.fromJson(userJsonLocal);
+                    return User.decode(userJsonLocal);
                 } else {
                     return User.createDefault();
                 }
@@ -239,7 +239,7 @@ async function loadUserData() {
             const userDataLocal = localStorage.getItem("userData");
             if (userDataLocal) {
                 const userJsonLocal = JSON.parse(userDataLocal);
-                return User.fromJson(userJsonLocal);
+                return User.decode(userJsonLocal);
             }
         } catch (error) {
             log("ERROR parsing local user data: " + error.message);
@@ -2329,51 +2329,53 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
             // We need to iterate through months, find the Nth occurrences of dayOfWeek.
 
             let foundNext = false;
-            while (!foundNext && (recurrenceEndDateTime === NULL || currentDateTime <= recurrenceEndDateTime)) {
-                currentDateTime = currentDateTime.plus({ days: 1 }); // Increment day by day to find the next match
-
-                if (recurrenceEndDateTime !== NULL && currentDateTime > recurrenceEndDateTime) {
+            let searchStartDateTime = currentDateTime.plus({ days: 1 }); // Start searching from the next day to avoid double counting
+            
+            while (!foundNext && (recurrenceEndDateTime === NULL || searchStartDateTime <= recurrenceEndDateTime)) {
+                if (recurrenceEndDateTime !== NULL && searchStartDateTime > recurrenceEndDateTime) {
                     break; // Exceeded end date
                 }
 
-                const currentMonthIndex = currentDateTime.month - 1; // 0-indexed
+                const currentMonthIndex = searchStartDateTime.month - 1; // 0-indexed
                 if (!pattern.months[currentMonthIndex]) {
                     // If current month is not active, skip to the next month
                     // Ensure day of month does not cause issues (e.g. Jan 31 to Feb)
-                    currentDateTime = currentDateTime.plus({ months: 1 }).set({ day: 1 });
+                    searchStartDateTime = searchStartDateTime.plus({ months: 1 }).set({ day: 1 });
                     continue;
                 }
 
-                // Check if currentDateTime's day of week matches pattern.dayOfWeek
+                // Check if searchStartDateTime's day of week matches pattern.dayOfWeek
                 // Luxon's weekday is 1 (Mon) to 7 (Sun)
-                const luxonWeekday = currentDateTime.weekday;
+                const luxonWeekday = searchStartDateTime.weekday;
                 const patternWeekdayStr = pattern.dayOfWeek; // 'monday', 'tuesday', etc.
                 let patternLuxonWeekday = dayOfWeekStringToIndex(patternWeekdayStr);
 
                 if (luxonWeekday === patternLuxonWeekday) {
                     // It's the correct day of the week, now check if it's the Nth occurrence
-                    const dayOfMonth = currentDateTime.day;
+                    const dayOfMonth = searchStartDateTime.day;
                     const weekNumberInMonth = Math.ceil(dayOfMonth / 7); // 1st, 2nd, 3rd, 4th, 5th week
 
                     // Check for last weekday of month (-1)
                     if (type(pattern.nthWeekdays, LAST_WEEK_OF_MONTH)) {
-                        const nextSameWeekdayInMonth = currentDateTime.plus({ weeks: 1 });
-                        if (nextSameWeekdayInMonth.month !== currentDateTime.month) { // currentDateTime is the last one
-                             // Check if this date is after the original startDateTime of the loop to avoid double counting
-                            if (currentDateTime > DateTime.fromMillis(dates[dates.length-1])) {
-                                foundNext = true;
-                            }
+                        const nextSameWeekdayInMonth = searchStartDateTime.plus({ weeks: 1 });
+                        if (nextSameWeekdayInMonth.month !== searchStartDateTime.month) { // searchStartDateTime is the last one
+                            currentDateTime = searchStartDateTime;
+                            foundNext = true;
                         }
                     } else if (type(pattern.nthWeekdays, List(Boolean))) {
                         // Check for specific nth weekdays (1, 2, 3, 4)
-                        if (pattern.nthWeekdays[weekNumberInMonth]) {
-                            if (currentDateTime > DateTime.fromMillis(dates[dates.length-1])) {
-                                foundNext = true;
-                            }
+                        if (weekNumberInMonth >= 1 && weekNumberInMonth <= 4 && pattern.nthWeekdays[weekNumberInMonth - 1]) {
+                            currentDateTime = searchStartDateTime;
+                            foundNext = true;
                         }
                     }
                 }
-                if (currentDateTime.year > startDateTime.year + 10 && dates.length < 2) { // Prevent excessively long searches if pattern is sparse
+                
+                if (!foundNext) {
+                    searchStartDateTime = searchStartDateTime.plus({ days: 1 }); // Increment day by day to find the next match
+                }
+                
+                if (searchStartDateTime.year > startDateTime.year + 10 && dates.length < 2) { // Prevent excessively long searches if pattern is sparse
                      log("Warning: NthWeekdayOfMonthsPattern might be too sparse or never occur. Breaking search.");
                      currentDateTime = recurrenceEndDateTime ? recurrenceEndDateTime.plus({days: 1}) : currentDateTime.plus({years: 10}); // force exit
                      break;
@@ -8789,18 +8791,14 @@ function processInput() {
     updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
     updateAttachmentBadge();
 
-    let chain = [];
+    let chain = new Chain();
 
     if (inputText.trim() !== '') {
-        chain.push({
-            user_prompt: inputText
-        });
+        chain.add(new UserPromptNode(inputText));
     }
     if (fileArray && fileArray.length > 0) {
         let fileNames = fileArray.map(file => file.name);
-        chain.push({
-            user_attachments: fileNames
-        });
+        chain.add(new UserAttachmentsNode(fileNames));
     }
 
     (async () => {
@@ -8834,7 +8832,9 @@ function processInput() {
                 return;
             }
 
-            chain.push(...responseJson.chain);
+            for (const nodeJson of responseJson.chain) {
+                chain.addNodeObject(nodeJson);
+            }
 
             let cleanedText = responseJson.aiOutput;
 
@@ -8857,16 +8857,9 @@ function processInput() {
             }
 
             let aiJson = NULL;
+            let startTime = Date.now();
             try {
-                let startTime = Date.now();
                 aiJson = JSON.parse(cleanedText);
-                let duration = Date.now() - startTime;
-                chain.push({
-                    parsing: {
-                        response: aiJson,
-                        duration: duration
-                    }
-                });
             } catch (e) {
                 // failed to parse, but we can try more
                 // try to split at [ and ] in case the ai prepended or appended text
@@ -8892,71 +8885,55 @@ function processInput() {
                 }
             }
 
+            chain.add(new ParsingNode(cleanedText, Date.now() - startTime));
+
             // Convert to internal entities
-            let entities = []
+            let newEntities = []
             try {
                 if (Array.isArray(aiJson)) {
                     for (const obj of aiJson) {
                         let startTime = Date.now();
                         try {
-                            let attemptedParsing = Entity.fromAiJson(obj);
-                            if (attemptedParsing === NULL) {
-                                chain.push({failed_to_create_entity: {
-                                    response: obj,
-                                    duration: Date.now() - startTime
-                                }});
+                            let parsedEntity = Entity.fromAiJson(obj);
+                            if (parsedEntity === NULL) {
+                                chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
                             } else {
-                                chain.push({created_entity: {
-                                    response: attemptedParsing,
-                                    duration: Date.now() - startTime
-                                }});
-                                entities.push(attemptedParsing);
+                                chain.add(new CreatedEntityNode(obj, parsedEntity, Date.now() - startTime));
+                                newEntities.push(parsedEntity);
                             }
                         } catch (e) {
-                            chain.push({failed_to_create_entity: {
-                                response: obj,
-                                duration: Date.now() - startTime
-                            }});
+                            chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
                             continue;
                         }
                     }
                 } else {
                     let startTime = Date.now();
-                    let attemptedParsing = NULL;
+                    let parsedEntity = NULL;
                     try {
-                        attemptedParsing = Entity.fromAiJson(aiJson);
+                        parsedEntity = Entity.fromAiJson(aiJson);
                     } catch (e) {
-                        chain.push({failed_to_create_entity: {
-                            response: aiJson,
-                            duration: Date.now() - startTime
-                        }});
+                        chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
                     }
-                    if (attemptedParsing === NULL) {
-                        chain.push({failed_to_create_entity: {
-                            response: aiJson,
-                            duration: Date.now() - startTime
-                        }});
+                    if (parsedEntity === NULL) {
+                        chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
                     } else {
-                        chain.push({created_entity: {
-                            response: attemptedParsing,
-                            duration: Date.now() - startTime
-                        }});
-                        entities.push(attemptedParsing);
+                        chain.add(new CreatedEntityNode(aiJson, parsedEntity, Date.now() - startTime));
+                        newEntities.push(parsedEntity);
                     }
                 }
             } catch (e) {
                 return;
             }
 
-            if (entities.length === 0) {
+            if (newEntities.length === 0) {
                 return;
             }
 
             log("Entities: ");
-            log(entities);
+            log(newEntities);
 
             // Add to user
-            for (const ent of entities) {
+            for (const ent of newEntities) {
                 user.entityArray.push(ent);
             }
             user.timestamp = Date.now();
