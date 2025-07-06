@@ -192,13 +192,53 @@ User prompt:
 ${userPrompt}`;
 }
 
-async function callGeminiModel(modelName, userPrompt, env) {
+async function callGeminiModel(modelName, userPrompt, env, fileArray=[]) {
     console.log("Calling Gemini model");
     if (modelName !== 'gemini-2.5-flash-lite-preview-06-17') {
         throw new Error('Unsupported Gemini model: ' + modelName);
     }
     try {
         const parts = [{ text: userPrompt }];
+        
+        // Add files to the parts array
+        if (fileArray && fileArray.length > 0) {
+            for (const file of fileArray) {
+                const base64Data = file.data;
+                const mediaType = file.mimeType || 'application/octet-stream';
+                const fileName = file.name;
+                
+                if (mediaType.startsWith('image/')) {
+                    // Add image using inline data
+                    parts.push({
+                        inlineData: {
+                            mimeType: mediaType,
+                            data: base64Data
+                        }
+                    });
+                } else if (mediaType.startsWith('text/')) {
+                    try {
+                        // Decode text file and add as text
+                        const textContent = atob(base64Data);
+                        parts.push({
+                            text: `File: ${fileName}\nContent:\n${textContent}`
+                        });
+                    } catch (err) {
+                        console.error('Error decoding base64 text file:', err);
+                    }
+                } else if (mediaType.startsWith('application/pdf')) {
+                    // Add PDF using inline data
+                    parts.push({
+                        inlineData: {
+                            mimeType: mediaType,
+                            data: base64Data
+                        }
+                    });
+                } else {
+                    console.log("Unsupported media type for Gemini: " + mediaType);
+                }
+            }
+        }
+        
         const body = {
             model: modelName,
             system_instruction: { parts: [{ text: systemPrompt }] },
@@ -397,6 +437,9 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
 async function callAiModel(userPrompt, fileArray, env) {
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
+            // 1st choice - gemini flash
+            
+            // 2nd choice - claude sonnet
             // Use Anthropic Claude for files (vision support)
             let descriptionOfFiles = await callAnthropicModel(ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
             if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {   
@@ -440,7 +483,7 @@ async function callAiModel(userPrompt, fileArray, env) {
             }
 
             // 3rd choice - Gemini
-            content = await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, env);
+            content = await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, env, fileArray);
             if (content && content.trim() !== '') {
                 return content;
             }
