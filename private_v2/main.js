@@ -182,6 +182,8 @@ Don't forget to have commas in the JSON. You will return nothing but an array of
 
 let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text.`;
 
+let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to be more readable. Each title should be in sentence case. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
+
 function createPromptWithFileDescription(userPrompt, descriptionOfFiles) {
     return `The user provided some files as context for their prompt. Here is a description of the files:
 ${descriptionOfFiles}
@@ -398,16 +400,23 @@ async function callAiModel(userPrompt, fileArray, env) {
             // Use Anthropic Claude for files (vision support)
             let descriptionOfFiles = await callAnthropicModel(ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
             if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {   
+                let newPrompt;
+                let content;
                 if (userPrompt.trim() === '') {
-                    // use Cerebras
-                    let newPrompt = "I attached some files to my prompt. Here is a description of the files: " + descriptionOfFiles;
-                    return await callCerebrasModel('qwen-3-32b', newPrompt, env);
+                    // no user prompt, so just use the files to generate a new prompt
+                    newPrompt = "I attached some files to my prompt. Here is a description of the files: " + descriptionOfFiles;
                 } else {
-                    let newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
-                    console.log("New prompt: " + newPrompt);
-                    // use Cerebras
-                    return await callCerebrasModel('qwen-3-32b', newPrompt, env);
+                    newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
                 }
+
+                // use Cerebras
+                content = await callCerebrasModel('qwen-3-32b', newPrompt, env);
+                if (content && content.trim() !== '') {
+                    return content;
+                }
+
+                // call groq with the same model if that failed
+                content = await callGroqModel('qwen/qwen3-32b', newPrompt, env);
             } else {
                 // unable to comprehend files
                 return SEND({
