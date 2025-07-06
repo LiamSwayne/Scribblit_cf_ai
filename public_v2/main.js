@@ -2356,7 +2356,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
                     const weekNumberInMonth = Math.ceil(dayOfMonth / 7); // 1st, 2nd, 3rd, 4th, 5th week
 
                     // Check for last weekday of month (-1)
-                    if (pattern.nthWeekdays[-1]) {
+                    if (type(pattern.nthWeekdays, LAST_WEEK_OF_MONTH)) {
                         const nextSameWeekdayInMonth = currentDateTime.plus({ weeks: 1 });
                         if (nextSameWeekdayInMonth.month !== currentDateTime.month) { // currentDateTime is the last one
                              // Check if this date is after the original startDateTime of the loop to avoid double counting
@@ -2364,12 +2364,12 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
                                 foundNext = true;
                             }
                         }
-                    }
-
-                    // Check for specific nth weekdays (1, 2, 3, 4)
-                    if (pattern.nthWeekdays[weekNumberInMonth]) {
-                         if (currentDateTime > DateTime.fromMillis(dates[dates.length-1])) {
-                            foundNext = true;
+                    } else if (type(pattern.nthWeekdays, List(Boolean))) {
+                        // Check for specific nth weekdays (1, 2, 3, 4)
+                        if (pattern.nthWeekdays[weekNumberInMonth]) {
+                            if (currentDateTime > DateTime.fromMillis(dates[dates.length-1])) {
+                                foundNext = true;
+                            }
                         }
                     }
                 }
@@ -8776,6 +8776,8 @@ function processInput() {
     const inputText = inputBox.value.trim();
     if (inputText === '' && attachedFiles.length === 0) return;
 
+    log("AI request triggered");
+
     // there is some input, so clear it
     inputBox.value = '';
 
@@ -8851,9 +8853,15 @@ function processInput() {
 
             let aiJson = NULL;
             try {
+                let startTime = Date.now();
                 aiJson = JSON.parse(cleanedText);
-                log("Successfully parsed AI response after cleaning");
-                log(aiJson);
+                let duration = Date.now() - startTime;
+                chain.push({
+                    parsing: {
+                        response: aiJson,
+                        duration: duration
+                    }
+                });
             } catch (e) {
                 // failed to parse, but we can try more
                 // try to split at [ and ] in case the ai prepended or appended text
@@ -8884,17 +8892,52 @@ function processInput() {
             try {
                 if (Array.isArray(aiJson)) {
                     for (const obj of aiJson) {
+                        let startTime = Date.now();
                         try {
                             let attemptedParsing = Entity.fromAiJson(obj);
-                            if (attemptedParsing !== NULL) {
+                            if (attemptedParsing === NULL) {
+                                chain.push({failed_to_create_entity: {
+                                    response: obj,
+                                    duration: Date.now() - startTime
+                                }});
+                            } else {
+                                chain.push({created_entity: {
+                                    response: attemptedParsing,
+                                    duration: Date.now() - startTime
+                                }});
                                 entities.push(attemptedParsing);
                             }
                         } catch (e) {
+                            chain.push({failed_to_create_entity: {
+                                response: obj,
+                                duration: Date.now() - startTime
+                            }});
                             continue;
                         }
                     }
                 } else {
-                    entities = [Entity.fromAiJson(aiJson)];
+                    let startTime = Date.now();
+                    let attemptedParsing = NULL;
+                    try {
+                        attemptedParsing = Entity.fromAiJson(aiJson);
+                    } catch (e) {
+                        chain.push({failed_to_create_entity: {
+                            response: aiJson,
+                            duration: Date.now() - startTime
+                        }});
+                    }
+                    if (attemptedParsing === NULL) {
+                        chain.push({failed_to_create_entity: {
+                            response: aiJson,
+                            duration: Date.now() - startTime
+                        }});
+                    } else {
+                        chain.push({created_entity: {
+                            response: attemptedParsing,
+                            duration: Date.now() - startTime
+                        }});
+                        entities.push(attemptedParsing);
+                    }
                 }
             } catch (e) {
                 return;
