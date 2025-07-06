@@ -3,9 +3,24 @@ const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
 const PAGES_DOMAIN = 'scribbl.it';
 
-let ANTHROPIC_MODELS = {
-    haiku: 'claude-3-5-haiku-20241022',
-    sonnet: 'claude-sonnet-4-20250514',
+let MODELS = {
+    GEMINI_MODELS: {
+        flash: 'gemini-2.5-flash',
+        flash_lite: 'gemini-2.5-flash-lite-preview-06-17'
+    },
+    
+    ANTHROPIC_MODELS: {
+        haiku: 'claude-3-5-haiku-20241022',
+        sonnet: 'claude-sonnet-4-20250514'
+    },
+    
+    GROQ_MODELS: {
+        qwen3: 'qwen/qwen3-32b'
+    },
+    
+    CEREBRAS_MODELS: {
+        qwen3: 'qwen-3-32b'
+    }
 }
 
 function SEND(data, status = 200, headers = {}) {
@@ -180,7 +195,7 @@ Reminder JSON:
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. Don't include useless stuff in the name, like "!!!" or "due"`
 
-let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text.`;
+let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text. A different AI handles the user's prompt, but it may be helpful context for you. Your job is not to handle the user's request, only to describe the files.`;
 
 let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to be more readable. Each title should be in sentence case. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
 
@@ -192,9 +207,10 @@ User prompt:
 ${userPrompt}`;
 }
 
-async function callGeminiModel(modelName, userPrompt, env, fileArray=[]) {
+async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_prompt=systemPrompt, reasoning) {
     console.log("Calling Gemini model");
-    if (modelName !== 'gemini-2.5-flash-lite-preview-06-17') {
+    console.log(userPrompt);
+    if (!Object.values(MODELS.GEMINI_MODELS).includes(modelName)) {
         throw new Error('Unsupported Gemini model: ' + modelName);
     }
     try {
@@ -241,16 +257,30 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[]) {
         
         const body = {
             model: modelName,
-            system_instruction: { parts: [{ text: systemPrompt }] },
+            system_instruction: { parts: [{ text: system_prompt }] },
             contents: [{ parts }],
         };
+
+        if (reasoning) {
+            body.generation_config = {
+                thinking_config: {
+                    thinking_budget: -1 // let the model decide how long to think for
+                }
+            }
+        } else {
+            body.generation_config = {
+                thinking_budget: 0 // no thinking
+            }
+        }
+
         const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${env.GEMINI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         });
+        console.log("Gemini response: ");
         const genJson = await genRes.json();
-        console.log("Gemini response: " + genJson);
+        console.log(genJson);
         const outParts = genJson?.candidates?.[0]?.content?.parts || [];
         return outParts.map(p => p.text || '').join('');
     } catch (err) {
@@ -436,62 +466,169 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
 
 async function callAiModel(userPrompt, fileArray, env) {
     try {
+        let content;
+        // chain is the whole reasoning process
+        // each object has either:
+        //   model, type of prompt, response, and reasoning boolean
+        //   or
+        //   reroute_to_model (we failed to connect, so this is the next model to try)
+        //   or
+        //   user_prompt (the user's prompt)
+        //   or
+        //   user_attachments
+        // we want to include reroutes in the chain
+        let chain = [];
+
+        if (userPrompt.trim() !== '') {
+            chain.push({
+                user_prompt: userPrompt
+            });
+        }
+        if (fileArray && fileArray.length > 0) {
+            chain.push({
+                user_attachments: fileArray
+            });
+        }
+
         if (Array.isArray(fileArray) && fileArray.length > 0) {
+            let descriptionOfFiles;
+            // STEP 1: get description of files
             // 1st choice - gemini flash
-            
-            // 2nd choice - claude sonnet
-            // Use Anthropic Claude for files (vision support)
-            let descriptionOfFiles = await callAnthropicModel(ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
-            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {   
-                let newPrompt;
-                let content;
-                if (userPrompt.trim() === '') {
-                    // no user prompt, so just use the files to generate a new prompt
-                    newPrompt = "I attached some files to my prompt. Here is a description of the files: " + descriptionOfFiles;
-                } else {
-                    newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
-                }
+            descriptionOfFiles = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, false);
 
-                // use Cerebras
-                content = await callCerebrasModel('qwen-3-32b', newPrompt, env);
-                if (content && content.trim() !== '') {
-                    return content;
-                }
-
-                // call groq with the same model if that failed
-                content = await callGroqModel('qwen/qwen3-32b', newPrompt, env);
+            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+                chain.push({
+                    model: MODELS.GEMINI_MODELS.flash,
+                    type_of_prompt: 'file_description',
+                    response: descriptionOfFiles,
+                    reasoning: false
+                });
             } else {
-                // unable to comprehend files
-                return SEND({
-                    error: 'Unable to comprehend files.'
-                }, 475);
+                chain.push({
+                    reroute_to_model: MODELS.ANTHROPIC_MODELS.sonnet
+                });
+                // 2nd choice - claude sonnet
+                // Use Anthropic Claude for files (vision support)
+                descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
+
+                if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+                    chain.push({
+                        model: MODELS.ANTHROPIC_MODELS.sonnet,
+                        type_of_prompt: 'file_description',
+                        response: descriptionOfFiles,
+                        reasoning: false
+                    });
+                } else {
+                    // unable to comprehend files
+                    return SEND({
+                        error: 'Unable to comprehend files.'
+                    }, 475);
+                }
+            }
+
+            // STEP 2: parse json including file descriptions context
+            let newPrompt;
+            if (userPrompt.trim() === '') {
+                // no user prompt, so just use the files to generate a new prompt
+                newPrompt = "I attached some files to my prompt. Here is a description of the files: " + descriptionOfFiles;
+            } else {
+                newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
+            }
+
+            // use Gemini Flash Reasoning because file tasks are generally the hardest kind of requests
+            content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, systemPrompt, true);
+
+            if (content && content.trim() !== '') {
+                chain.push({
+                    model: MODELS.GEMINI_MODELS.flash,
+                    type_of_prompt: 'convert_files_to_entities',
+                    response: content,
+                    reasoning: true
+                });
+            } else {
+                chain.push({
+                    reroute_to_model: MODELS.CEREBRAS_MODELS.qwen3
+                });
+                // 2nd choice - Cerebras
+                content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+                if (content && content.trim() !== '') {
+                    chain.push({
+                        model: MODELS.CEREBRAS_MODELS.qwen3,
+                        type_of_prompt: 'convert_files_to_entities',
+                        response: content,
+                        reasoning: false
+                    });
+                } else {
+                    chain.push({
+                        reroute_to_model: MODELS.GROQ_MODELS.qwen3
+                    });
+                    // 3rd choice - Groq
+                    content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+                    if (content && content.trim() !== '') {
+                        chain.push({
+                            model: MODELS.GROQ_MODELS.qwen3,
+                            type_of_prompt: 'convert_files_to_entities',
+                            response: content,
+                            reasoning: false
+                        });
+                    } else {
+                        return SEND({
+                            error: 'Failed to connect to any AI model.'
+                        }, 467);
+                    }
+                }
             }
         } else {
             // Use Qwen for text-only requests
-            let content;
 
-            // 2nd choice - Cerebras
+            // 1st choice - Cerebras
             content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
             if (content && content.trim() !== '') {
-                return content;
+                chain.push({
+                    model: MODELS.CEREBRAS_MODELS.qwen3,
+                    type_of_prompt: 'convert_text_to_entities',
+                    response: content,
+                    reasoning: false
+                });
+            } else {
+                chain.push({
+                    reroute_to_model: MODELS.GROQ_MODELS.qwen3
+                });
+                // 2nd choice - Groq
+                content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
+                if (content && content.trim() !== '') {
+                    chain.push({
+                        model: MODELS.GROQ_MODELS.qwen3,
+                        type_of_prompt: 'convert_text_to_entities',
+                        response: content,
+                        reasoning: false
+                    });
+                } else {
+                    chain.push({
+                        reroute_to_model: MODELS.GEMINI_MODELS.flash
+                    });
+                    // 3rd choice - Gemini
+                    content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, systemPrompt, false);
+                    if (content && content.trim() !== '') {
+                        chain.push({
+                            model: MODELS.GEMINI_MODELS.flash,
+                            type_of_prompt: 'convert_text_to_entities',
+                            response: content,
+                            reasoning: false
+                        });
+                    } else {
+                        return SEND({
+                            error: 'Failed to connect to any AI model.'
+                        }, 467);
+                    }
+                }
             }
-
-            // 2nd choice - Groq
-            content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
-            if (content && content.trim() !== '') {
-                return content;
-            }
-
-            // 3rd choice - Gemini
-            content = await callGeminiModel('gemini-2.5-flash-lite-preview-06-17', userPrompt, env, fileArray);
-            if (content && content.trim() !== '') {
-                return content;
-            }
-
-            return SEND({
-                error: 'Failed to connect to any AI model.'
-            }, 467);
         }
+
+        return {
+            aiOutput: content,
+            chain: chain
+        };
     } catch (err) {
         console.error('callAiModel error:', err);
         return SEND({
@@ -980,9 +1117,12 @@ export default {
                             return SEND({ error: 'Empty request body' }, 400);
                         }
 
-                        const aiOutput = await callAiModel(userText, fileArray, env);
+                        const { aiOutput, chain } = await callAiModel(userText, fileArray, env);
                         console.log("AI output: " + aiOutput);
-                        return SEND(aiOutput, 200);
+                        return SEND({
+                            aiOutput: aiOutput,
+                            chain: chain
+                        }, 200);
                     } catch (err) {
                         console.error('AI parse error:', err);
                         return SEND({ error: 'Failed to process AI request: ' + err.message }, 563);

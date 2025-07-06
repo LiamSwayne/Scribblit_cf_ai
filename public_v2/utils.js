@@ -1778,7 +1778,12 @@ class Entity {
             log(e);
             return NULL;
         }
-        return newEntity;
+
+        if (type(newEntity, Entity)) {
+            return newEntity;
+        } else {
+            return NULL;
+        }
     }
 }
 
