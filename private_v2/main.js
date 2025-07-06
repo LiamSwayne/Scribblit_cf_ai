@@ -194,7 +194,6 @@ async function callGeminiModel(modelName, userPrompt, env) {
         });
         const genJson = await genRes.json();
         console.log("Gemini response: " + genJson);
-        console.log("Gemini response: " + JSON.stringify(genJson));
         const outParts = genJson?.candidates?.[0]?.content?.parts || [];
         return outParts.map(p => p.text || '').join('');
     } catch (err) {
@@ -234,132 +233,165 @@ async function callCerebrasModel(modelName, userPrompt, env) {
     }
 }
 
-// Helper function to convert file to data URL
-function asDataURL({ data, mimeType }) {
-    const bytes = (data instanceof Uint8Array) ? data : new Uint8Array(data);
-    const b64 = btoa(String.fromCharCode(...bytes));
-    return `data:${mimeType};base64,${b64}`;
+async function callAnthropicModel(modelName, userPrompt, env, fileArray=[]) {
+    if (modelName !== 'claude-3-5-haiku-20241022') {
+        throw new Error('Unsupported Anthropic model: ' + modelName);
+    }
+
+    // First, upload files if any are provided
+    const uploadedFiles = [];
+    if (fileArray && fileArray.length > 0) {
+        for (const file of fileArray) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const uploadResponse = await fetch('https://api.anthropic.com/v1/files', {
+                method: 'POST',
+                headers: {
+                    'x-api-key': env.ANTHROPIC_API_KEY,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-beta': 'files-api-2025-04-14'
+                },
+                body: formData
+            });
+            
+            if (!uploadResponse.ok) {
+                throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
+            }
+            
+            const uploadResult = await uploadResponse.json();
+            uploadedFiles.push(uploadResult);
+        }
+    }
+
+    // Prepare the content array
+    const content = [
+        {
+            type: 'text',
+            text: userPrompt
+        }
+    ];
+
+    // Add uploaded files to content
+    for (const uploadedFile of uploadedFiles) {
+        // Determine content block type based on file type
+        if (uploadedFile.type === 'image/jpeg' || uploadedFile.type === 'image/png' || 
+            uploadedFile.type === 'image/gif' || uploadedFile.type === 'image/webp') {
+            content.push({
+                type: 'image',
+                source: {
+                    type: 'file',
+                    file_id: uploadedFile.id
+                }
+            });
+        } else if (uploadedFile.type === 'application/pdf' || uploadedFile.type === 'text/plain') {
+            content.push({
+                type: 'document',
+                source: {
+                    type: 'file',
+                    file_id: uploadedFile.id
+                }
+            });
+        } else {
+            // For other file types, use container_upload
+            content.push({
+                type: 'container_upload',
+                source: {
+                    type: 'file',
+                    file_id: uploadedFile.id
+                }
+            });
+        }
+    }
+
+    // Make the API call
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'x-api-key': env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'anthropic-beta': 'files-api-2025-04-14',
+            'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: modelName,
+            max_tokens: 1024,
+            system: systemPrompt,
+            messages: [
+                {
+                    role: 'user',
+                    content: content
+                }
+            ]
+        })
+    });
+
+    if (!response.ok) {
+        // Clean up uploaded files before throwing error
+        for (const uploadedFile of uploadedFiles) {
+            try {
+                await fetch(`https://api.anthropic.com/v1/files/${uploadedFile.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'x-api-key': env.ANTHROPIC_API_KEY,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-beta': 'files-api-2025-04-14'
+                    }
+                });
+            } catch (deleteError) {
+                console.warn(`Failed to delete file ${uploadedFile.id}:`, deleteError);
+            }
+        }
+        throw new Error(`API call failed: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+
+    // Clean up uploaded files after successful request
+    for (const uploadedFile of uploadedFiles) {
+        try {
+            await fetch(`https://api.anthropic.com/v1/files/${uploadedFile.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'x-api-key': env.ANTHROPIC_API_KEY,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-beta': 'files-api-2025-04-14'
+                }
+            });
+        } catch (deleteError) {
+            console.warn(`Failed to delete file ${uploadedFile.id}:`, deleteError);
+        }
+    }
+
+    return result;
 }
 
-// Helper function to check if a string is already base64 data URL
-function isBase64DataURL(str) {
-    return typeof str === 'string' && str.startsWith('data:') && str.includes(';base64,');
-}
-
-async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
+async function callGroqModel(modelName, userPrompt, env) {
     console.log("Calling Groq model");
-    if (!['qwen/qwen3-32b', 'meta-llama/llama-4-maverick-17b-128e-instruct'].includes(modelName)) {
+    if (modelName !== 'qwen/qwen3-32b') {
         throw new Error('Unsupported Groq model: ' + modelName);
     }
     try {
-        // If files are provided, handle them as images for vision models
-        if (Array.isArray(fileArray) && fileArray.length > 0) {
-            console.log(`Vision processing: ${fileArray.length} files provided`);
-            
-            if (modelName === 'qwen/qwen3-32b') {
-                console.log('Error: Qwen model does not support files');
-                return SEND({
-                    error: 'Groq does not support files for this model.'
-                }, 482);
-            }
+        const groqRequest = {
+            model: modelName,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            max_tokens: 8192,
+            stream: false,
+        };
 
-            // Check if all files are images
-            console.log('Checking file types...');
-            fileArray.forEach((f, i) => {
-                console.log(`File ${i}: name=${f.name}, mimeType=${f.mimeType}, dataType=${typeof f.data}, dataLength=${f.data?.length || 'unknown'}`);
-            });
-            
-            const allImages = fileArray.every(f => (f.mimeType || '').startsWith('image/'));
-            console.log(`All files are images: ${allImages}`);
-            
-            if (!allImages) {
-                console.log('Error: Non-image files detected');
-                return SEND({ error: 'Only image files are supported right now.' }, 400);
-            }
-
-            // Convert files to image_url format, limiting to 5 images (Groq's limit)
-            console.log(`Processing ${Math.min(fileArray.length, 5)} images for vision model`);
-            
-            const userContent = [
-                { type: 'text', text: userPrompt },
-                ...fileArray.slice(0, 5).map((f, i) => {
-                    let imageUrl;
-                    console.log(`Processing image ${i}:`);
-                    
-                    if (f.data && !isBase64DataURL(f.data)) {
-                        console.log(`  Converting binary data to base64 (${f.data.length} bytes)`);
-                        imageUrl = asDataURL(f);
-                        console.log(`  Base64 URL length: ${imageUrl.length}`);
-                    } else if (isBase64DataURL(f.data)) {
-                        console.log(`  Already in base64 format (${f.data.length} chars)`);
-                        imageUrl = f.data;
-                    } else {
-                        console.log(`  Using as URL: ${f.data || f.url}`);
-                        imageUrl = f.data || f.url;
-                    }
-                    
-                    return {
-                        type: 'image_url',
-                        image_url: { url: imageUrl }
-                    };
-                })
-            ];
-
-            console.log(`User content structure: text + ${userContent.length - 1} images`);
-
-            const groqRequest = {
-                model: modelName,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userContent },
-                ],
-                max_tokens: 8192,
-                stream: false,
-            };
-
-            console.log(`Making vision API call to Groq with model: ${modelName}`);
-            console.log(`Request size: ${JSON.stringify(groqRequest).length} chars`);
-
-            const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${env.GROQ_API_KEY}`,
-                },
-                body: JSON.stringify(groqRequest),
-            });
-            
-            console.log(`Groq API response status: ${groqResp.status}`);
-            const groqResult = await groqResp.json();
-            console.log('Groq API response:', JSON.stringify(groqResult));
-            
-            const content = groqResult.choices?.[0]?.message?.content || '';
-            console.log(`Vision response content length: ${content.length}`);
-            
-            return content;
-        } else {
-            // No files, use regular text completion
-            const groqRequest = {
-                model: modelName,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt },
-                ],
-                max_tokens: 8192,
-                stream: false,
-            };
-
-            const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${env.GROQ_API_KEY}`,
-                },
-                body: JSON.stringify(groqRequest),
-            });
-            const groqResult = await groqResp.json();
-            return groqResult.choices?.[0]?.message?.content || '';
-        }
+        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${env.GROQ_API_KEY}`,
+            },
+            body: JSON.stringify(groqRequest),
+        });
+        const groqResult = await groqResp.json();
+        return groqResult.choices?.[0]?.message?.content || '';
     } catch (err) {
         console.error('Groq model error:', err);
         return '';
@@ -369,8 +401,8 @@ async function callGroqModel(modelName, userPrompt, env, fileArray = []) {
 async function callAiModel(userPrompt, fileArray, env) {
     try {
         if (Array.isArray(fileArray) && fileArray.length > 0) {
-            // Use Llama Maverick for files (vision support)
-            return await callGroqModel('meta-llama/llama-4-maverick-17b-128e-instruct', userPrompt, env, fileArray);
+            // Use Anthropic Claude for files (vision support)
+            return await callAnthropicModel('claude-3-5-haiku-20241022', userPrompt, env, fileArray);
         } else {
             // Use Qwen for text-only requests
             let content;
@@ -399,7 +431,9 @@ async function callAiModel(userPrompt, fileArray, env) {
         }
     } catch (err) {
         console.error('callAiModel error:', err);
-        return '';
+        return SEND({
+            error: 'Error in callAiModel: ' + err.message
+        }, 467);
     }
 }
 
@@ -885,10 +919,10 @@ export default {
 
                         const aiOutput = await callAiModel(userText, fileArray, env);
                         console.log("AI output: " + aiOutput);
-                        return SEND(aiOutput, 200, 'text-no-content-type');
+                        return SEND(aiOutput, 200);
                     } catch (err) {
                         console.error('AI parse error:', err);
-                        return SEND({ error: 'Failed to process AI request' }, 563);
+                        return SEND({ error: 'Failed to process AI request: ' + err.message }, 563);
                     }
                 }
 
