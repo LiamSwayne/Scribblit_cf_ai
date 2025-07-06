@@ -180,7 +180,7 @@ Reminder JSON:
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. Don't include useless stuff in the name, like "!!!" or "due"`
 
-let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times.`;
+let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text.`;
 
 function createPromptWithFileDescription(userPrompt, descriptionOfFiles) {
     return `The user provided some files as context for their prompt. Here is a description of the files:
@@ -334,7 +334,7 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
 
     const result = await response.json();
     console.log("Anthropic result: ");
-    console.log(result);
+    console.log(result.content[0].text);
     
     // Handle the response structure: result.content is an array of content objects
     if (result.content && Array.isArray(result.content) && result.content.length > 0) {
