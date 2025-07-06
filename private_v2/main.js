@@ -269,7 +269,9 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
             }
         } else {
             body.generation_config = {
-                thinking_budget: 0 // no thinking
+                reasoning_config: {
+                    reasoning_budget: 0 // no thinking
+                }
             }
         }
 
@@ -321,7 +323,7 @@ async function callCerebrasModel(modelName, userPrompt, env) {
 }
 
 async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], system_prompt=systemPrompt) {
-    if (!Object.values(ANTHROPIC_MODELS).includes(modelName)) {
+    if (!Object.values(MODELS.ANTHROPIC_MODELS).includes(modelName)) {
         throw new Error('Unsupported Anthropic model: ' + modelName);
     }
 
@@ -438,7 +440,7 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
                 ],
                 max_tokens: 8192,
                 stream: false,
-                reasoing_format: 'hidden' // we don't want to see the model thinking
+                reasoning_format: 'raw' // we don't want to see the model thinking
             };
 
             const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
