@@ -9123,10 +9123,9 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         cleanedSimplifiedEntities.push(entity);
     }
 
-    // Merge duplicate simplified entities
-    let mergedSimplifiedEntities = [];
+    // Get task names
     let taskNames = new Set();
-    for (const entity of simplifiedEntitiesJson) {
+    for (const entity of cleanedSimplifiedEntities) {
         const kind = Object.keys(entity)[0];
         const name = entity[kind];
 
@@ -9134,18 +9133,19 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             entity.mayHaveWorkSession = false;
             taskNames.add(name);
         }
+    }
 
-        let found = false;
-        for (const simplifiedEntity of mergedSimplifiedEntities) {
-            ASSERT(type(simplifiedEntity, Object));
-            if (simplifiedEntity.kind === kind && simplifiedEntity.name === name) {
-                // same kind and name so we can skip adding this one
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
+    // Merge duplicate simplified entities
+    let mergedSimplifiedEntities = [];
+    const seenEntities = new Set();
+    for (const entity of cleanedSimplifiedEntities) {
+        const kind = Object.keys(entity)[0];
+        const name = entity[kind];
+        const identifier = `${kind}:${name}`;
+
+        if (!seenEntities.has(identifier)) {
             mergedSimplifiedEntities.push(entity);
+            seenEntities.add(identifier);
         }
     }
 
