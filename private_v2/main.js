@@ -817,6 +817,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         }
     }
 
+    // never include the file array beyond this point because we include the description of it instead
     // STEP 2: Convert to JSON
     if (strategy === 'single_chain') {
         const newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
@@ -868,7 +869,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         const newPrompt = 'I attached some files to my prompt. Here is a description of the files: ' + descriptionOfFiles;
 
         startTime = Date.now();
-        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, filesOnlyExtractSimplifiedEntitiesPrompt, true);
+        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, [], filesOnlyExtractSimplifiedEntitiesPrompt, true);
         content = geminiResult.response;
         thoughts = geminiResult.thoughts;
 
@@ -956,7 +957,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         const newPrompt = `I extracted an entity from some files. Here is a description of the files it came from: ${descriptionOfFiles}. The entity I extracted is a ${entityType} named "${entityName}". `;
 
         startTime = Date.now();
-        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, expansionPrompt, true);
+        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, [], expansionPrompt, true);
         content = geminiResult.response;
         thoughts = geminiResult.thoughts;
 
