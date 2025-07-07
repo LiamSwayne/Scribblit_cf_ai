@@ -9103,6 +9103,27 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         }
     }
 
+    // remove invalid entities
+    let cleanedSimplifiedEntities = [];
+    for (const entity of simplifiedEntitiesJson) {
+        const kind = Object.keys(entity)[0];
+        const name = entity[kind];
+        
+        if (!exists(kind) || !exists(name)) {
+            continue;
+        }
+
+        if (!['task', 'event', 'reminder'].includes(kind)) {
+            continue;
+        }
+
+        if (!name || name === '') {
+            continue;
+        }
+
+        cleanedSimplifiedEntities.push(entity);
+    }
+
     // Merge duplicate simplified entities
     let mergedSimplifiedEntities = [];
     let taskNames = new Set();
@@ -9166,6 +9187,9 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
         uniqueSimplifiedEntities.push(simplifiedEntity);
     }
+
+    log('uniqueSimplifiedEntities: ');
+    log(uniqueSimplifiedEntities);
 
     // Step 2: Expand simplified entities in parallel
     const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
