@@ -9072,8 +9072,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         return;
     }
 
-    if (!exists(responseJson1.promptIncludingDescription)) {
-        log("Error: promptIncludingDescription is required for step_by_step:1/2 strategy.");
+    if (!exists(responseJson1.promptForStep2)) {
+        log("Error: promptForStep2 is required for step_by_step:1/2 strategy.");
         return;
     }
 
@@ -9173,7 +9173,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                prompt: responseJson1.promptIncludingDescription,
+                prompt: responseJson1.promptForStep2,
                 fileArray: [],
                 strategy: STRATEGIES.STEP_BY_STEP + ':2/2',
                 simplifiedEntity: simplifiedEntity
