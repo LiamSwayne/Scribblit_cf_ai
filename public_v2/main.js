@@ -8833,7 +8833,7 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
         }
     }
 
-    chain.add(new ProcessingNode(cleanedText, Date.now() - startTime, "Extraction JSON from AI output"));
+    chain.add(new ProcessingNode(cleanedText, Date.now() - startTime, "Extracting JSON from AI output"));
 
     return aiJson;
 }
@@ -8856,9 +8856,6 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     }
 
     const responseJson = await response.json();
-
-    log("Response JSON: ");
-    log(responseJson);
 
     if (responseJson.error && responseJson.error.length > 0) {
         log("Error: " + responseJson.error);
@@ -8908,6 +8905,46 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
 
     log("Entities: ");
     log(newEntities);
+
+    // Merge entities with the same name
+    let entitiesByName = {};
+    for (const ent of newEntities) {
+        const lowerCaseName = ent.name.toLowerCase();
+        if (entitiesByName[lowerCaseName]) {
+            entitiesByName[lowerCaseName].push(ent);
+        } else {
+            entitiesByName[lowerCaseName] = [ent];
+        }
+    }
+
+    let finalEntities = [];
+    for (const name in entitiesByName) {
+        const group = entitiesByName[name];
+        let primaryEntity = group[0];
+
+        if (group.length > 1) {
+            for (let i = 1; i < group.length; i++) {
+                let secondaryEntity = group[i];
+                
+                if (primaryEntity.data._type === secondaryEntity.data._type) {
+                    // merge instances
+                    if (primaryEntity.data.instances && secondaryEntity.data.instances) {
+                        primaryEntity.data.instances.push(...secondaryEntity.data.instances);
+                    }
+
+                    // merge work sessions
+                    if (type(primaryEntity.data, TaskData) && primaryEntity.data.workSessions && secondaryEntity.data.workSessions) {
+                         primaryEntity.data.workSessions.push(...secondaryEntity.data.workSessions);
+                    }
+                    chain.add(new MergeEntitiesNode(primaryEntity, secondaryEntity, 0));
+                } else {
+                    finalEntities.push(secondaryEntity);
+                }
+            }
+        }
+        finalEntities.push(primaryEntity);
+    }
+    newEntities = finalEntities;
 
     let idsOfNewEntities = newEntities.map(ent => ent.id);
 
@@ -8978,6 +9015,9 @@ function processInput() {
         } else {
             ASSERT(false, "Invalid strategy: " + strategy);
         }
+
+        // TODO: API request asking model to rename entities HIGH PRIORITY
+        // just takes in name and kind of entity, and applies common sense, like remove "Complete" from "Complete homework"
 
         // TODO: query the user's existing entities to see if any of them match the new entities
         // if it seems like the ai has created an entity that the user already has, delete the new entity
