@@ -2474,27 +2474,27 @@ class RequestNode {
 }
 
 class ThinkingRequestNode {
-    constructor(model, typeOfPrompt, response, thinking, duration) {
+    constructor(model, typeOfPrompt, response, thoughts, duration) {
         ASSERT(type(model, String));
         ASSERT(type(typeOfPrompt, String));
         ASSERT(type(response, String));
-        ASSERT(type(thinking, Union(String, NULL))); // NULL if the thinking was unfindable
+        ASSERT(type(thoughts, Union(String, NULL))); // NULL if the thinking was unfindable
         ASSERT(type(duration, Int));
         this.model = model;
         this.typeOfPrompt = typeOfPrompt;
         this.response = response;
-        this.thinking = thinking;
+        this.thoughts = thoughts;
         this.duration = duration;
     }
 
     encode() {
         ASSERT(type(this, ThinkingRequestNode));
-        let thinkingString = this.thinking === NULL ? symbolToString(NULL) : this.thinking;
+        let thoughtsString = this.thoughts === NULL ? symbolToString(NULL) : this.thoughts;
         return {
             model: this.model,
             typeOfPrompt: this.typeOfPrompt,
             response: this.response,
-            thinking: thinkingString,
+            thoughts: thoughtsString,
             duration: this.duration,
             _type: 'ThinkingRequestNode'
         };
@@ -2503,15 +2503,15 @@ class ThinkingRequestNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'ThinkingRequestNode');
-        let thinking = json.thinking === symbolToString(NULL) ? NULL : json.thinking;
-        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thinking, json.duration);
+        let thoughts = json.thoughts === symbolToString(NULL) ? NULL : json.thoughts;
+        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thoughts, json.duration);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.thinking_request));
         object = object.thinking_request;
-        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thinking, object.duration);
+        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thoughts, object.duration);
     }
 }
 
@@ -2666,6 +2666,35 @@ class FailedToCreateEntityNode {
     }
 }
 
+class MergeEntitiesNode {
+    constructor(entity1, entity2, duration) {
+        this.entity1 = entity1;
+        this.entity2 = entity2;
+        this.duration = duration;
+    }
+
+    encode() {
+        ASSERT(type(this, MergeEntitiesNode));
+        return {
+            entity1: this.entity1.encode(),
+            entity2: this.entity2.encode(),
+            duration: this.duration,
+            _type: 'MergeEntitiesNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'MergeEntitiesNode');
+        let entity1 = Entity.decode(json.entity1);
+        let entity2 = Entity.decode(json.entity2);
+        if (!entity1 || !entity2) {
+            return NULL;
+        }
+        return new MergeEntitiesNode(entity1, entity2, json.duration);
+    }
+}
+
 // chain of events involved in a single user AI request
 class Chain {
     constructor() {
@@ -2674,7 +2703,17 @@ class Chain {
     }
     
     add(node) {
-        ASSERT(type(node, Union(RequestNode, ThinkingRequestNode, RerouteToModelNode, UserPromptNode, UserAttachmentsNode, ProcessingNode, CreatedEntityNode, FailedToCreateEntityNode)));
+        ASSERT(type(node, Union(
+            RequestNode,
+            ThinkingRequestNode,
+            RerouteToModelNode,
+            UserPromptNode,
+            UserAttachmentsNode,
+            ProcessingNode,
+            CreatedEntityNode,
+            FailedToCreateEntityNode,
+            MergeEntitiesNode
+        )));
         this.chain.push(node);
     }
 
@@ -2683,17 +2722,17 @@ class Chain {
         if (exists(nodeObject.request)) {
             this.chain.push(RequestNode.fromJson(nodeObject));
         } else if (exists(nodeObject.thinking_request)) {
-            if (!exists(nodeObject.thinking_request.thinking)) {
+            if (!exists(nodeObject.thinking_request.thoughts)) {
                 // the thinking hasn't been parse yet
                 if (nodeObject.thinking_request.response.includes('<think>') && nodeObject.thinking_request.response.includes('</think>')) {
                     // we have a thinking tag in the response
                     let content = nodeObject.thinking_request.response.split('<think>')[1];
                     let [thinking, response] = content.split('</think>');
-                    nodeObject.thinking_request.thinking = thinking.trim();
+                    nodeObject.thinking_request.thoughts = thinking.trim();
                     nodeObject.thinking_request.response = response.trim();
                 } else {
                     // just let the thinking be NULL if it was unfindable
-                    nodeObject.thinking_request.thinking = NULL;
+                    nodeObject.thinking_request.thoughts = NULL;
                 }
             }
             this.chain.push(ThinkingRequestNode.fromJson(nodeObject));
@@ -3264,6 +3303,9 @@ function type(thing, sometype) {
     } else if (sometype === FailedToCreateEntityNode) {
         if (!(thing instanceof FailedToCreateEntityNode)) return false;
         try { new FailedToCreateEntityNode(thing.json, thing.duration); return true; } catch (e) { return false; }
+    } else if (sometype === MergeEntitiesNode) {
+        if (!(thing instanceof MergeEntitiesNode)) return false;
+        try { new MergeEntitiesNode(thing.entity1, thing.entity2, thing.duration); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';
