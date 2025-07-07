@@ -977,7 +977,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             return SEND({ error: 'mayHaveWorkSession is required for step_by_step:2/2 strategy running on a task.' }, 480);
         }
 
-        // the userPrompt contains the original prompt, time and date, and the description of files generated in step 1
+        // the userPrompt contains the user's originalprompt, the time and date, and the description of files generated in step 1
         // now we append
         // the userPrompt is the same for all 2/2 requests, but each has a different entity name
         // put the entity name at the end so the long description gets cached
@@ -1057,7 +1057,8 @@ async function callAiModel(userPrompt, fileArray, env, strategy, simplifiedEntit
         const promptProvided = userPrompt && userPrompt.trim() !== '';
         const filesProvided = Array.isArray(fileArray) && fileArray.length > 0;
 
-        if (promptProvided && filesProvided) {
+        // step 2/2 has the files described in the prompt
+        if ((promptProvided && filesProvided) || strategy === 'step_by_step:2/2') {
             return await handlePromptWithFiles(userPrompt, fileArray, env, strategy, simplifiedEntity);
         } else if (promptProvided) {
             return await handlePromptOnly(userPrompt, env);
