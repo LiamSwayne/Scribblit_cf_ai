@@ -129,6 +129,10 @@ class DateField {
         
         ASSERT(type(day, Int));
         ASSERT(day >= 1 && day <= 31);
+
+        if (month === 2 && day > 29) {
+            ASSERT(false, "DateField constructor: February has at most 29 days");
+        }
         
         // Additional validation for days in month (including leap years)
         const daysInMonth = new Date(year, month, 0).getDate();
@@ -191,6 +195,22 @@ class DateField {
         } catch (e) {
             return NULL;
         }
+    }
+
+    static unsafeConstruct(year, month, day) {
+        if(!type(year, Int) || !type(month, Int) || !type(day, Int)) {
+            return NULL;
+        }
+
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+            return NULL;
+        }
+
+        if (month === 2 && day > 29) {
+            return NULL;
+        }
+
+        return new DateField(year, month, day);
     }
 }
 
@@ -589,8 +609,8 @@ class DateRange {
             
         // Convert to Date objects for comparison
         if (endDate !== NULL) {
-            const startDateObj = new Date(startDate.year, startDate.month - 1, startDate.day);
-            const endDateObj = new Date(endDate.year, endDate.month - 1, endDate.day);
+            const endDateObj = endDate.toUnixTimestamp();
+            const startDateObj = startDate.toUnixTimestamp();
             ASSERT(endDateObj >= startDateObj);
         }
         
@@ -622,6 +642,23 @@ class DateRange {
             endDate = DateField.decode(json.endDate);
         }
         return new DateRange(DateField.decode(json.startDate), endDate);
+    }
+
+    static unsafeConstruct(startDate, endDate) {
+        if(!type(startDate, DateField)) {
+            return NULL;
+        }
+        if(!type(endDate, Union(DateField, NULL))) {
+            return NULL;
+        }
+
+        if(endDate !== NULL) {
+            if(endDate.toUnixTimestamp() < startDate.toUnixTimestamp()) {
+                return NULL;
+            }
+        }
+
+        return new DateRange(startDate, endDate);
     }
 }
 
@@ -1135,9 +1172,8 @@ class RecurringTaskInstance {
                 }
             }
             
-            try {
-                range = new DateRange(startDate, endDate);
-            } catch (e) {
+            range = DateRange.unsafeConstruct(startDate, endDate);
+            if (range === NULL) {
                 log('RecurringTaskInstance.fromAiJson: error creating date range');
                 return NULL;
             }
@@ -1633,9 +1669,8 @@ class RecurringEventInstance {
                 }
             }
             
-            try {
-                range = new DateRange(startDate, endDate);
-            } catch (e) {
+            range = DateRange.unsafeConstruct(startDate, endDate);
+            if (range === NULL) {
                 log('RecurringEventInstance.fromAiJson: error creating date range');
                 return NULL;
             }
@@ -2188,9 +2223,8 @@ class RecurringReminderInstance {
                     return NULL;
                 }
             }
-            try {
-                range = new DateRange(startDate, endDate);
-            } catch (e) {
+            range = DateRange.unsafeConstruct(startDate, endDate);
+            if (range === NULL) {
                 log('RecurringReminderInstance.fromAiJson: error creating DateRange');
                 return NULL;
             }
