@@ -2478,7 +2478,7 @@ class ThinkingRequestNode {
         ASSERT(type(model, String));
         ASSERT(type(typeOfPrompt, String));
         ASSERT(type(response, String));
-        ASSERT(type(thinking, String));
+        ASSERT(type(thinking, Union(String, NULL))); // NULL if the thinking was unfindable
         ASSERT(type(duration, Int));
         this.model = model;
         this.typeOfPrompt = typeOfPrompt;
@@ -2489,11 +2489,12 @@ class ThinkingRequestNode {
 
     encode() {
         ASSERT(type(this, ThinkingRequestNode));
+        let thinkingString = this.thinking === NULL ? symbolToString(NULL) : this.thinking;
         return {
             model: this.model,
             typeOfPrompt: this.typeOfPrompt,
             response: this.response,
-            thinking: this.thinking,
+            thinking: thinkingString,
             duration: this.duration,
             _type: 'ThinkingRequestNode'
         };
@@ -2502,7 +2503,8 @@ class ThinkingRequestNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'ThinkingRequestNode');
-        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, json.thinking, json.duration);
+        let thinking = json.thinking === symbolToString(NULL) ? NULL : json.thinking;
+        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thinking, json.duration);
     }
 
     static fromJson(object) {
@@ -2683,6 +2685,16 @@ class Chain {
         } else if (exists(nodeObject.thinking_request)) {
             if (!exists(nodeObject.thinking_request.thinking)) {
                 // the thinking hasn't been parse yet
+                if (nodeObject.thinking_request.response.includes('<think>') && nodeObject.thinking_request.response.includes('</think>')) {
+                    // we have a thinking tag in the response
+                    let content = nodeObject.thinking_request.response.split('<think>')[1];
+                    let [thinking, response] = content.split('</think>');
+                    nodeObject.thinking_request.thinking = thinking.trim();
+                    nodeObject.thinking_request.response = response.trim();
+                } else {
+                    // just let the thinking be NULL if it was unfindable
+                    nodeObject.thinking_request.thinking = NULL;
+                }
             }
             this.chain.push(ThinkingRequestNode.fromJson(nodeObject));
         } else if (exists(nodeObject.rerouteToModel)) {
@@ -3113,8 +3125,12 @@ class LocalData {
 
 // type checking function
 function type(thing, sometype) {
-    ASSERT(exists(thing), "found thing that doesn't exist while type checking: " + String(thing));
-    ASSERT(exists(sometype), "found some type that doesn't exist while type checking: " + String(sometype));
+    if (!exists(thing)) {
+        return false;
+    }
+    if (!exists(sometype)) {
+        return false;
+    }
     if (sometype === NULL) {
         return thing === NULL;
     } else if (sometype instanceof LIST) {
