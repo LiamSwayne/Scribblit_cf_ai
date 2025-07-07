@@ -50,6 +50,11 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
+      - name: Minify JS files
+        run: |
+          npm install terser
+          find public_v2 -name "*.js" ! -name "*.min.js" -exec npx terser {} -c -m -o {} \;
+
       - name: Deploy pages
         uses: cloudflare/pages-action@v1
         with:
