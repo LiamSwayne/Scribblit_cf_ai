@@ -8838,6 +8838,115 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     return aiJson;
 }
 
+function mergeEntities(entityArray, chain) {
+    ASSERT(type(entityArray, List(Entity)));
+    // Group entities by type
+    let tasksByName = {};
+    let eventsByName = {};
+    let remindersByName = {};
+
+    for (const ent of entityArray) {
+        const lowerCaseName = ent.name.toLowerCase();
+
+        if (type(ent.data, TaskData)) {
+            if (!tasksByName[lowerCaseName]) tasksByName[lowerCaseName] = [];
+            tasksByName[lowerCaseName].push(ent);
+        } else if (type(ent.data, EventData)) {
+            if (!eventsByName[lowerCaseName]) eventsByName[lowerCaseName] = [];
+            eventsByName[lowerCaseName].push(ent);
+        } else if (type(ent.data, ReminderData)) {
+            if (!remindersByName[lowerCaseName]) remindersByName[lowerCaseName] = [];
+            remindersByName[lowerCaseName].push(ent);
+        }
+    }
+
+    let finalEntities = [];
+
+    // Process tasks and merge events with the same name into them as work sessions
+    for (const name in tasksByName) {
+        let mergedEntities = [Entity.decode(tasksByName[name][0].encode())];
+        const taskGroup = tasksByName[name];
+        let primaryTask = taskGroup[0];
+
+        // Merge tasks with the same name
+        if (taskGroup.length > 1) {
+            for (let i = 1; i < taskGroup.length; i++) {
+                let secondaryTask = taskGroup[i];
+                mergedEntities.push(Entity.decode(secondaryTask.encode()));
+                primaryTask.data.instances.push(...secondaryTask.data.instances);
+                primaryTask.data.workSessions.push(...secondaryTask.data.workSessions);
+            }
+        }
+
+        // Check for events with the same name to convert to work sessions
+        if (eventsByName[name]) {
+            const eventGroup = eventsByName[name];
+            let primaryEvent = eventGroup[0];
+            // Merge events with the same name first
+            if (eventGroup.length > 1) {
+                mergedEntities.push(Entity.decode(primaryEvent.encode()));
+                for (let i = 1; i < eventGroup.length; i++) {
+                    let secondaryEvent = eventGroup[i];
+                    mergedEntities.push(Entity.decode(secondaryEvent.encode()));
+                    primaryEvent.data.instances.push(...secondaryEvent.data.instances);
+                }
+            }
+            
+            // Convert event instances to work sessions for the task
+            primaryTask.data.workSessions.push(...primaryEvent.data.instances);
+            
+            delete eventsByName[name];
+        }
+
+        if (mergedEntities.length > 1) {
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryTask, 0));
+        }
+        finalEntities.push(primaryTask);
+    }
+
+    // Process remaining events
+    for (const name in eventsByName) {
+        let mergedEntities = [Entity.decode(eventsByName[name][0].encode())];
+        const eventGroup = eventsByName[name];
+        let primaryEvent = eventGroup[0];
+
+        if (eventGroup.length > 1) {
+            for (let i = 1; i < eventGroup.length; i++) {
+                let secondaryEvent = eventGroup[i];
+                mergedEntities.push(Entity.decode(secondaryEvent.encode()));
+                primaryEvent.data.instances.push(...secondaryEvent.data.instances);
+            }
+        }
+
+        if (mergedEntities.length > 1) {
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryEvent, 0));
+        }
+        finalEntities.push(primaryEvent);
+    }
+
+    // Process reminders
+    for (const name in remindersByName) {
+        let mergedEntities = [Entity.decode(remindersByName[name][0].encode())];
+        const reminderGroup = remindersByName[name];
+        let primaryReminder = reminderGroup[0];
+
+        if (reminderGroup.length > 1) {
+            for (let i = 1; i < reminderGroup.length; i++) {
+                let secondaryReminder = reminderGroup[i];
+                mergedEntities.push(Entity.decode(secondaryReminder.encode()));
+                primaryReminder.data.instances.push(...secondaryReminder.data.instances);
+            }
+        }
+
+        if (mergedEntities.length > 1) {
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryReminder, 0));
+        }
+        finalEntities.push(primaryReminder);
+    }
+
+    return finalEntities;
+}
+
 async function singleChainAiRequest(inputText, fileArray, chain) {
     // Send to backend AI endpoint
     const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
@@ -8906,45 +9015,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     log("Entities: ");
     log(newEntities);
 
-    // Merge entities with the same name
-    let entitiesByName = {};
-    for (const ent of newEntities) {
-        const lowerCaseName = ent.name.toLowerCase();
-        if (entitiesByName[lowerCaseName]) {
-            entitiesByName[lowerCaseName].push(ent);
-        } else {
-            entitiesByName[lowerCaseName] = [ent];
-        }
-    }
-
-    let finalEntities = [];
-    for (const name in entitiesByName) {
-        const group = entitiesByName[name];
-        let primaryEntity = group[0];
-
-        if (group.length > 1) {
-            for (let i = 1; i < group.length; i++) {
-                let secondaryEntity = group[i];
-                
-                if (primaryEntity.data._type === secondaryEntity.data._type) {
-                    // merge instances
-                    if (primaryEntity.data.instances && secondaryEntity.data.instances) {
-                        primaryEntity.data.instances.push(...secondaryEntity.data.instances);
-                    }
-
-                    // merge work sessions
-                    if (type(primaryEntity.data, TaskData) && primaryEntity.data.workSessions && secondaryEntity.data.workSessions) {
-                         primaryEntity.data.workSessions.push(...secondaryEntity.data.workSessions);
-                    }
-                    chain.add(new MergeEntitiesNode(primaryEntity, secondaryEntity, 0));
-                } else {
-                    finalEntities.push(secondaryEntity);
-                }
-            }
-        }
-        finalEntities.push(primaryEntity);
-    }
-    newEntities = finalEntities;
+    newEntities = mergeEntities(newEntities, chain);
 
     let idsOfNewEntities = newEntities.map(ent => ent.id);
 

@@ -2667,17 +2667,30 @@ class FailedToCreateEntityNode {
 }
 
 class MergeEntitiesNode {
-    constructor(entity1, entity2, duration) {
-        this.entity1 = entity1;
-        this.entity2 = entity2;
+    constructor(entityArray, result, duration) {
+        ASSERT(type(entityArray, List(Entity)));
+        ASSERT(entityArray.length >= 2);
+        ASSERT(type(result, Entity));
+        ASSERT(type(duration, Int));
+        ASSERT(duration >= 0);
+
+        // create copies of the entities
+        let entityArrayCopy = [];
+        for (const entity of entityArray) {
+            entityArrayCopy.push(Entity.decode(entity.encode()));
+        }
+        let resultCopy = Entity.decode(result.encode());
+
+        this.entityArray = entityArrayCopy;
+        this.result = resultCopy;
         this.duration = duration;
     }
 
     encode() {
         ASSERT(type(this, MergeEntitiesNode));
         return {
-            entity1: this.entity1.encode(),
-            entity2: this.entity2.encode(),
+            entityArray: this.entityArray.map(entity => entity.encode()),
+            result: this.result.encode(),
             duration: this.duration,
             _type: 'MergeEntitiesNode'
         };
@@ -2686,12 +2699,15 @@ class MergeEntitiesNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'MergeEntitiesNode');
-        let entity1 = Entity.decode(json.entity1);
-        let entity2 = Entity.decode(json.entity2);
-        if (!entity1 || !entity2) {
-            return NULL;
+        let entityArray = [];
+        for (const entityJson of json.entityArray) {
+            entityArray.push(Entity.decode(entityJson));
         }
-        return new MergeEntitiesNode(entity1, entity2, json.duration);
+        ASSERT(type(entityArray, List(Entity)));
+        ASSERT(entityArray.length >= 2);
+        let result = Entity.decode(json.result);
+        ASSERT(type(result, Entity));
+        return new MergeEntitiesNode(entity1, entity2, result, json.duration);
     }
 }
 
