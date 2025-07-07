@@ -1001,9 +1001,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         }
 
         startTime = Date.now();
-        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], expansionPrompt, true);
-        content = geminiResult.response;
-        thoughts = geminiResult.thoughts;
+        let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], expansionPrompt, true);
+        let content = geminiResult.response;
+        let thoughts = geminiResult.thoughts;
 
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
