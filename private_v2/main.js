@@ -532,6 +532,7 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
         let response = [];
 
         for (const part of outParts) {
+            // boolean
             if (part.thought) {
                 thoughts.push(part.text);
             } else {
@@ -545,6 +546,7 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
         };
     } catch (err) {
         console.error('Gemini model error:', err);
+        // empty response triggers reroute to another model
         return { response: '', thoughts: '' };
     }
 }
@@ -576,6 +578,7 @@ async function callCerebrasModel(modelName, userPrompt, env) {
         return result.choices?.[0]?.message?.content || '';
     } catch (err) {
         console.error('Cerebras model error:', err);
+        // empty response triggers reroute to another model
         return '';
     }
 }
@@ -659,9 +662,8 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
     if (!response.ok) {
         const errorText = await response.text();
         console.log("Anthropic API error: " + errorText);
-        return SEND({
-            error: 'Failed to call Anthropic model: ' + response.statusText
-        }, 471);
+        // empty response triggers reroute to another model
+        return '';
     }
 
     const result = await response.json();
@@ -716,7 +718,10 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
             return '';
         }
     } else if (modelName === 'meta-llama/llama-4-maverick-17b-128e-instruct') {
-
+        // TODO: implement Maverick
+        return SEND({
+            error: 'Maverick is not implemented yet.'
+        }, 474);
     } else {
         return SEND({
             error: 'Unsupported Groq model: ' + modelName
@@ -767,7 +772,7 @@ async function handlePromptOnly(userPrompt, env) {
                     endTime: Date.now()
                 }});
             } else {
-                throw new Error('Failed to connect to any AI model.');
+                return SEND({ error: 'Failed to connect to any AI model.' }, 481);
             }
         }
     }
@@ -782,7 +787,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
 
     // STEP 1: Describe files
     startTime = Date.now();
-    let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, '', env, fileArray, fileDescriptionPrompt, true);
+    let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, true);
     let descriptionOfFiles = geminiResult.response;
     let thoughts = geminiResult.thoughts;
 
@@ -798,7 +803,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
     } else {
         chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
         startTime = Date.now();
-        descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, '', env, fileArray, fileDescriptionPrompt);
+        descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
         if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
             chain.push({ request: {
                 model: MODELS.ANTHROPIC_MODELS.sonnet,
@@ -808,7 +813,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 endTime: Date.now()
             }});
         } else {
-            throw new Error('Unable to comprehend files.');
+            return SEND({ error: 'Unable to comprehend files.' }, 482);
         }
     }
 
@@ -945,7 +950,10 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             return SEND({ error: 'Invalid entity type for expansion: ' + entityType }, 476);
         }
 
-        const newPrompt = `I have a ${entityType} named "${entityName}". Here is a description of the files it came from: ${descriptionOfFiles}`;
+        // put the entity name at the end so the long description gets cached
+        // Gemini auto-caches prefixes. The desciption is being passed for every entity extracted from this document, possible 20+ times.
+        // Putting the unique entity name at the beginning would prevent the prefix from being cached.
+        const newPrompt = `I extracted an entity from some files. Here is a description of the files it came from: ${descriptionOfFiles}. The entity I extracted is a ${entityType} named "${entityName}". `;
 
         startTime = Date.now();
         geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, expansionPrompt, true);
