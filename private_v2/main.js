@@ -728,44 +728,43 @@ async function handlePromptOnly(userPrompt, env) {
     let content;
     let chain = [];
     let startTime = 0;
-    let duration = 0;
 
     // 1st choice – Cerebras Qwen3
     startTime = Date.now();
     content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env);
-    duration = Date.now() - startTime;
     if (content && content.trim() !== '') {
         chain.push({ thinking_request: {
             model: MODELS.CEREBRAS_MODELS.qwen3,
             typeOfPrompt: 'convert_text_to_entities',
             response: content,
-            duration
+            startTime,
+            endTime: Date.now()
         }});
     } else {
-        chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+        chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
         // 2nd choice – Groq Qwen3
         startTime = Date.now();
         content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env);
-        duration = Date.now() - startTime;
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
                 model: MODELS.GROQ_MODELS.qwen3,
                 typeOfPrompt: 'convert_text_to_entities',
                 response: content,
-                duration
+                startTime,
+                endTime: Date.now()
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.GEMINI_MODELS.flash, duration }});
+            chain.push({ rerouteToModel: { model: MODELS.GEMINI_MODELS.flash, startTime, endTime: Date.now() }});
             // 3rd choice – Gemini Flash
             startTime = Date.now();
             content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
-            duration = Date.now() - startTime;
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.GEMINI_MODELS.flash,
                     typeOfPrompt: 'convert_text_to_entities',
                     response: content,
-                    duration
+                    startTime,
+                    endTime: Date.now()
                 }});
             } else {
                 throw new Error('Failed to connect to any AI model.');
@@ -780,14 +779,12 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
     let content;
     let chain = [];
     let startTime = 0;
-    let duration = 0;
 
     // STEP 1: Describe files
     startTime = Date.now();
     let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, '', env, fileArray, fileDescriptionPrompt, true);
     let descriptionOfFiles = geminiResult.response;
     let thoughts = geminiResult.thoughts;
-    duration = Date.now() - startTime;
 
     if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
         chain.push({ thinking_request: {
@@ -795,19 +792,20 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             typeOfPrompt: 'file_description',
             response: descriptionOfFiles,
             thoughts: thoughts,
-            duration
+            startTime,
+            endTime: Date.now()
         }});
     } else {
-        chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, duration }});
+        chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
         startTime = Date.now();
         descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, '', env, fileArray, fileDescriptionPrompt);
-        duration = Date.now() - startTime;
         if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
             chain.push({ request: {
                 model: MODELS.ANTHROPIC_MODELS.sonnet,
                 typeOfPrompt: 'file_description',
                 response: descriptionOfFiles,
-                duration
+                startTime,
+                endTime: Date.now()
             }});
         } else {
             throw new Error('Unable to comprehend files.');
@@ -822,7 +820,6 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, [], constructEntitiesPrompt, true);
         content = geminiResult.response;
         thoughts = geminiResult.thoughts;
-        duration = Date.now() - startTime;
 
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
@@ -830,31 +827,32 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 typeOfPrompt: 'convert_files_to_entities',
                 response: content,
                 thoughts: thoughts,
-                duration
+                startTime,
+                endTime: Date.now()
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, duration }});
+            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
             content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
-            duration = Date.now() - startTime;
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
                     typeOfPrompt: 'convert_files_to_entities',
                     response: content,
-                    duration
+                    startTime,
+                    endTime: Date.now()
                 }});
             } else {
-                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
                 content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
-                duration = Date.now() - startTime;
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
                         typeOfPrompt: 'convert_files_to_entities',
                         response: content,
-                        duration
+                        startTime,
+                        endTime: Date.now()
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model for entity conversion.' }, 481);
@@ -868,7 +866,6 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, filesOnlyExtractSimplifiedEntitiesPrompt, true);
         content = geminiResult.response;
         thoughts = geminiResult.thoughts;
-        duration = Date.now() - startTime;
 
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
@@ -876,31 +873,32 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 typeOfPrompt: 'extract_simplified_entities',
                 response: content,
                 thoughts: thoughts,
-                duration
+                startTime,
+                endTime: Date.now()
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, duration }});
+            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
             content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
-            duration = Date.now() - startTime;
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
                     typeOfPrompt: 'extract_simplified_entities',
                     response: content,
-                    duration
+                    startTime,
+                    endTime: Date.now()
                 }});
             } else {
-                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
                 content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
-                duration = Date.now() - startTime;
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
                         typeOfPrompt: 'extract_simplified_entities',
                         response: content,
-                        duration
+                        startTime,
+                        endTime: Date.now()
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model for simplified entity extraction.' }, 481);
@@ -953,7 +951,6 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, expansionPrompt, true);
         content = geminiResult.response;
         thoughts = geminiResult.thoughts;
-        duration = Date.now() - startTime;
 
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
@@ -961,31 +958,32 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 typeOfPrompt: 'expand_simplified_entity',
                 response: content,
                 thoughts: thoughts,
-                duration
+                startTime,
+                endTime: Date.now()
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, duration }});
+            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
             content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
-            duration = Date.now() - startTime;
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
                     typeOfPrompt: 'expand_simplified_entity',
                     response: content,
-                    duration
+                    startTime,
+                    endTime: Date.now()
                 }});
             } else {
-                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
                 content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
-                duration = Date.now() - startTime;
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
                         typeOfPrompt: 'expand_simplified_entity',
                         response: content,
-                        duration
+                        startTime,
+                        endTime: Date.now()
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model for entity expansion.' }, 481);

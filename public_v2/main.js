@@ -64,8 +64,7 @@ let STRATEGIES = {
     SINGLE_CHAIN: 'single_chain',
     STEP_BY_STEP: 'step_by_step'
 }
-// which strategy to use for AI parsing
-let strategy = STRATEGIES.SINGLE_CHAIN;
+let activeStrategy = NULL;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -8782,7 +8781,6 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     ASSERT(outermostJsonCharacters.length === 2);
     ASSERT(outermostJsonCharacters === '[]' || outermostJsonCharacters === '{}');
 
-    // extraction json from AI output
     let startTime = Date.now();
     let cleanedText = aiOutput;
 
@@ -8833,7 +8831,7 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
         }
     }
 
-    chain.add(new ProcessingNode(cleanedText, Date.now() - startTime, "Extracting JSON from AI output"));
+    chain.add(new ProcessingNode(cleanedText, startTime, "Extracting JSON from AI output"));
 
     if (!aiJson) {
         return NULL;
@@ -8844,6 +8842,7 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
 
 function mergeEntities(entityArray, chain) {
     ASSERT(type(entityArray, List(Entity)));
+
     // Group entities by type
     let tasksByName = {};
     let eventsByName = {};
@@ -8867,6 +8866,7 @@ function mergeEntities(entityArray, chain) {
     let finalEntities = [];
 
     // Process tasks and merge events with the same name into them as work sessions
+    let startTime = Date.now();
     for (const name in tasksByName) {
         let mergedEntities = [Entity.decode(tasksByName[name][0].encode())];
         const taskGroup = tasksByName[name];
@@ -8904,12 +8904,13 @@ function mergeEntities(entityArray, chain) {
         }
 
         if (mergedEntities.length > 1) {
-            chain.add(new MergeEntitiesNode(mergedEntities, primaryTask, 0));
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryTask, startTime));
         }
         finalEntities.push(primaryTask);
     }
 
     // Process remaining events
+    startTime = Date.now();
     for (const name in eventsByName) {
         let mergedEntities = [Entity.decode(eventsByName[name][0].encode())];
         const eventGroup = eventsByName[name];
@@ -8924,12 +8925,13 @@ function mergeEntities(entityArray, chain) {
         }
 
         if (mergedEntities.length > 1) {
-            chain.add(new MergeEntitiesNode(mergedEntities, primaryEvent, 0));
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryEvent, startTime));
         }
         finalEntities.push(primaryEvent);
     }
 
     // Process reminders
+    startTime = Date.now();
     for (const name in remindersByName) {
         let mergedEntities = [Entity.decode(remindersByName[name][0].encode())];
         const reminderGroup = remindersByName[name];
@@ -8944,7 +8946,7 @@ function mergeEntities(entityArray, chain) {
         }
 
         if (mergedEntities.length > 1) {
-            chain.add(new MergeEntitiesNode(mergedEntities, primaryReminder, 0));
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryReminder, startTime));
         }
         finalEntities.push(primaryReminder);
     }
@@ -8998,13 +9000,13 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
                 try {
                     let parsedEntity = Entity.fromAiJson(obj);
                     if (parsedEntity === NULL) {
-                        chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
+                        chain.add(new FailedToCreateEntityNode(obj, startTime));
                     } else {
-                        chain.add(new CreatedEntityNode(obj, parsedEntity, Date.now() - startTime));
+                        chain.add(new CreatedEntityNode(obj, parsedEntity, startTime));
                         newEntities.push(parsedEntity);
                     }
                 } catch (e) {
-                    chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
+                    chain.add(new FailedToCreateEntityNode(obj, startTime));
                     continue;
                 }
             }
@@ -9012,9 +9014,9 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             let startTime = Date.now();
             let parsedEntity = Entity.fromAiJson(aiJson);
             if (parsedEntity === NULL) {
-                chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
+                chain.add(new FailedToCreateEntityNode(aiJson, startTime));
             } else {
-                chain.add(new CreatedEntityNode(aiJson, parsedEntity, Date.now() - startTime));
+                chain.add(new CreatedEntityNode(aiJson, parsedEntity, startTime));
                 newEntities.push(parsedEntity);
             }
         }
@@ -9050,7 +9052,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         body: JSON.stringify({
             prompt: inputText,
             fileArray: fileArray,
-            strategy: 'step_by_step:1/2'
+            strategy: STRATEGIES.STEP_BY_STEP + ':1/2'
         })
     });
 
@@ -9154,7 +9156,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             body: JSON.stringify({
                 prompt: inputText,
                 fileArray: fileArray,
-                strategy: 'step_by_step:2/2',
+                strategy: STRATEGIES.STEP_BY_STEP + ':2/2',
                 simplifiedEntity: simplifiedEntity
             })
         });
@@ -9191,13 +9193,13 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             let startTime = Date.now();
             let parsedEntity = Entity.fromAiJson(aiJson);
             if (parsedEntity === NULL) {
-                chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
+                chain.add(new FailedToCreateEntityNode(aiJson, startTime));
             } else {
-                chain.add(new CreatedEntityNode(aiJson, parsedEntity, Date.now() - startTime));
+                chain.add(new CreatedEntityNode(aiJson, parsedEntity, startTime));
                 newEntities.push(parsedEntity);
             }
         } catch (e) {
-            chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
+            chain.add(new FailedToCreateEntityNode(aiJson, startTime));
         }
     }
 
@@ -9263,13 +9265,16 @@ function processInput() {
     }
 
     (async () => {
-        if (strategy === STRATEGIES.SINGLE_CHAIN) {
-            let idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
-        } else if (strategy === STRATEGIES.STEP_BY_STEP) {
-            // retries until it gets a valid json
-            await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
+        // if there are files, the request is more difficult, so use step by step strategy
+        let startTime = Date.now();
+        if (fileArray.length > 0) {
+            activeStrategy = STRATEGIES.STEP_BY_STEP;
+            chain.add(new StrategySelectionNode(activeStrategy, startTime));
+            let idsOfNewEntities = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
         } else {
-            ASSERT(false, "Invalid strategy: " + strategy);
+            activeStrategy = STRATEGIES.SINGLE_CHAIN;
+            chain.add(new StrategySelectionNode(activeStrategy, startTime));
+            let idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
         }
 
         // TODO: API request asking model to rename entities HIGH PRIORITY
