@@ -9072,6 +9072,21 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         return;
     }
 
+    if (!exists(responseJson1.promptIncludingDescription)) {
+        log("Error: promptIncludingDescription is required for step_by_step:1/2 strategy.");
+        return;
+    }
+
+    if (!exists(responseJson1.aiOutput)) {
+        log("Error: aiOutput is required for step_by_step:1/2 strategy.");
+        return;
+    }
+
+    if (!exists(responseJson1.chain)) {
+        log("Error: chain is required for step_by_step:1/2 strategy.");
+        return;
+    }
+
     // add chain nodes created from tracking requests on the backend
     for (const nodeJson of responseJson1.chain) {
         chain.addNodeFromJson(nodeJson);
@@ -9131,12 +9146,12 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     // may or may not have been processed yet
                     for (const task of uniqueSimplifiedEntities) {
                         if (task.kind === 'task' && task.name === taskName) {
-                            task.data.mayHaveWorkSession = true;
+                            task.mayHaveWorkSession = true;
                         }
                     }
                     for (const task of mergedSimplifiedEntities) {
                         if (task.kind === 'task' && task.name === taskName) {
-                            task.data.mayHaveWorkSession = true;
+                            task.mayHaveWorkSession = true;
                         }
                     }
                 }
@@ -9158,8 +9173,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                prompt: inputText,
-                fileArray: fileArray,
+                prompt: responseJson1.promptIncludingDescription,
+                fileArray: [],
                 strategy: STRATEGIES.STEP_BY_STEP + ':2/2',
                 simplifiedEntity: simplifiedEntity
             })
