@@ -805,10 +805,9 @@ class NonRecurringTaskInstance {
 
         // If date missing but time provided -> assume today (UTC)
         if (dateField === NULL && dueTime !== NULL) {
-            try {
-                const now = new Date();
-                dateField = new DateField(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate());
-            } catch (e) {
+            const now = new Date();
+            dateField = DateField.unsafeConstruct(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate());
+            if (dateField === NULL) {
                 log('NonRecurringTaskInstance.fromAiJson: error creating implicit today date');
                 return NULL;
             }
