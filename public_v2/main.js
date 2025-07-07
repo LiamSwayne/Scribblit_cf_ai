@@ -8833,9 +8833,11 @@ function processInput() {
             }
 
             for (const nodeJson of responseJson.chain) {
-                chain.addNodeObject(nodeJson);
+                chain.addNodeFromJson(nodeJson);
             }
 
+            // extraction json from AI output
+            let startTime = Date.now();
             let cleanedText = responseJson.aiOutput;
 
             // we can remove the model thinking, all that matters is the output
@@ -8856,8 +8858,8 @@ function processInput() {
                 cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
             }
 
+            // extraction json from AI output
             let aiJson = NULL;
-            let startTime = Date.now();
             try {
                 aiJson = JSON.parse(cleanedText);
             } catch (e) {
@@ -8885,7 +8887,7 @@ function processInput() {
                 }
             }
 
-            chain.add(new ParsingNode(cleanedText, Date.now() - startTime));
+            chain.add(new ProcessingNode(cleanedText, Date.now() - startTime, "Extraction JSON from AI output"));
 
             // Convert to internal entities
             let newEntities = []
