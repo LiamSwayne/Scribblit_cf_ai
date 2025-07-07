@@ -216,7 +216,7 @@ Format:
 
 A file may contain many things or just a few. If nothing can be extracted, just return an empty array.
 
-If a task/event/reminder happens multiple times, you only create one of it, even if it is recurring. For example, a task that happens every Tuesday morning and every Friday afternoon should only be one task. Include past events, but not past tasks or reminders. Return nothing but the array.`;
+If a task/event/reminder happens multiple times, you only create one of it, even if it is recurring. For example, a task that happens every Tuesday morning and every Friday afternoon should only be one task. Include past events, but not past tasks or reminders. Unless the user asks, because you should always do what the user wants. Return nothing but the array.`;
 
 let filesOnlyExpandSimplifiedTaskPrompt = `You are an AI that takes in a simplified task JSON and expands it to include all the fields. A task is something that has to be done *by* a certain date/time but can be done before then. The task was found in the attached files that the user expects us to convert to tasks/events/reminders. You are only handling a single task. Here is the task spec:
 
@@ -450,8 +450,6 @@ ${userPrompt}`;
 }
 
 async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_prompt, reasoning) {
-    console.log("Calling Gemini model");
-    console.log(userPrompt);
     if (!Object.values(MODELS.GEMINI_MODELS).includes(modelName)) {
         throw new Error('Unsupported Gemini model: ' + modelName);
     }
@@ -523,9 +521,7 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         });
-        console.log("Gemini response: ");
         const genJson = await genRes.json();
-        console.log(genJson);
         const outParts = genJson?.candidates?.[0]?.content?.parts || [];
 
         let thoughts = [];
@@ -552,7 +548,6 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
 }
 
 async function callCerebrasModel(modelName, userPrompt, env) {
-    console.log("Calling Cerebras model");
     if (modelName !== 'qwen-3-32b') {
         throw new Error('Unsupported Cerebras model: ' + modelName);
     }
@@ -667,8 +662,6 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
     }
 
     const result = await response.json();
-    console.log("Anthropic result: ");
-    console.log(result.content[0].text);
     
     // Handle the response structure: result.content is an array of content objects
     if (result.content && Array.isArray(result.content) && result.content.length > 0) {
@@ -683,7 +676,6 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
 }
 
 async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
-    console.log("Calling Groq model");
     if (modelName === 'qwen/qwen3-32b') {
         if (fileArray && fileArray.length > 0) {
             // add files to prompt
@@ -1555,7 +1547,6 @@ export default {
                         }
 
                         const result = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
-                        console.log("AI output: " + result.aiOutput);
                         return SEND(result, 200);
                     } catch (err) {
                         console.error('AI parse error:', err);
