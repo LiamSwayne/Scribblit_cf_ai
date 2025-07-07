@@ -8878,24 +8878,25 @@ function mergeEntities(entityArray, chain) {
             }
         }
 
-        // Check for events with the same name to convert to work sessions
-        if (eventsByName[name]) {
-            const eventGroup = eventsByName[name];
-            let primaryEvent = eventGroup[0];
-            // Merge events with the same name first
-            if (eventGroup.length > 1) {
-                mergedEntities.push(Entity.decode(primaryEvent.encode()));
-                for (let i = 1; i < eventGroup.length; i++) {
-                    let secondaryEvent = eventGroup[i];
-                    mergedEntities.push(Entity.decode(secondaryEvent.encode()));
-                    primaryEvent.data.instances.push(...secondaryEvent.data.instances);
-                }
+        // Check for events that are work sessions for this task
+        const workSessionEventName = 'work_session: ' + name;
+        if (eventsByName[workSessionEventName]) {
+            const eventGroup = eventsByName[workSessionEventName];
+            const primaryEvent = eventGroup[0];
+
+            for (const event of eventGroup) {
+                mergedEntities.push(Entity.decode(event.encode()));
+            }
+
+            // Merge instances from other events in the group into the primary event
+            for (let i = 1; i < eventGroup.length; i++) {
+                primaryEvent.data.instances.push(...eventGroup[i].data.instances);
             }
             
             // Convert event instances to work sessions for the task
             primaryTask.data.workSessions.push(...primaryEvent.data.instances);
             
-            delete eventsByName[name];
+            delete eventsByName[workSessionEventName];
         }
 
         if (mergedEntities.length > 1) {
