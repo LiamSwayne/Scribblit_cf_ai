@@ -198,7 +198,7 @@ Don't forget to have commas in the JSON. You will return nothing but an array of
 
 let filesOnlyExtractSimplifiedEntitiesPrompt = `You are an AI that takes in the user's files and converts them to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field. Even events that are optional (things to just be aware of) should be included.
 
-There is also a "work session", which is a time when the user has specified they should be working on a specific task. Work sessions are extremely rare. If you see a work session, make an event with the title format "WORK_SESSION: {task name}"
+There is also a "work session", which is a time when the user has specified they should be working on a specific task. Work sessions are extremely rare. If you see a work session, make an "event": "WORK_SESSION: {task name}".
 
 Format:
 [
@@ -257,6 +257,77 @@ Task JSON:
 	    }
 	]
 }
+
+If you cannot find a date you have to consider 2 options: if it's a task that seems like it has a deadline, assume it's due today. If it's a task that doesn't seems like it has a deadline, omit the field.
+
+Never assume what time a task is due. If you can't find a time, or something that heavily suggests a time, omit the time field.
+
+If something is due by today without a specific time, you can just omit the time and the user will just be notified that it's due today. It is better to omit the time than to assume it's a time that's not specified.
+
+You have to capture all of the times this task occurs as one object, using a combination of patterns and individual instances if needed. There is no maximum number of instances.
+
+You only job is to return the json object. Return nothing but the json object.`;
+
+let filesOnlyExpandSimplifiedTaskWithWorkSessionsPrompt = `You are an AI that takes in a simplified task JSON and expands it to include all the fields. A task is something that has to be done *by* a certain date/time but can be done before then. The task was found in the attached files that the user expects us to convert to tasks/events/reminders. You are only handling a single task. Here is the task spec:
+
+Task JSON:
+{
+    "instances": [ // 2 options
+	    {
+		    "type": "due_date_instance"
+		    "date": "YYYY-MM-DD" // OPTIONAL
+		    "time": "HH:MM"// OPTIONAL. if it's due today and the current time is past noon assume numbers below 12 are pm.
+	    }
+	    {
+		    "type": "due_date_pattern"
+		    "pattern": // 4 options
+				{
+					"type": "every_n_days_pattern"
+					"initial_date": "YYYY-MM-DD"
+					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
+				}
+				{
+					"type": "monthly_pattern"
+					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
+					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
+				}
+				{
+					"type": "annually_pattern"
+					"month": // integer 1-12
+					"day": // integer 1-31
+				}
+				{
+					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
+					"day_of_week": // integer 1-7
+					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
+					"months": // array of 12 booleans for if the pattern is enabled for that month.
+				}
+		    "time": "HH:MM" // OPTIONAL
+		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
+	    }
+	]
+	"work_sessions": [ // OPTIONAL
+		// array of objects with types "event_instance" and "event_pattern"
+		// times when the user has said they want to work on the task
+        {
+			"type": "event_instance"
+			"start_date": "YYYY-MM-DD", must be included if an end time is given
+			"start_time": "HH:MM" // OPTIONAL, include if the start time is explictly known
+			"end_time": "HH:MM" // OPTIONAL, include if the end time is explictly known
+			"different_end_date": "YYYY-MM-DD" // OPTIONAL, include if the event runs 24/7 and ends on a different date than the start date
+		}
+		{
+			"type": "event_pattern"
+			"start_date_pattern": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
+			"start_time": "HH:MM" // OPTIONAL
+			"end_time": "HH:MM" // OPTIONAL
+			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
+			"range": // "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
+		}
+	]
+}
+
+Work sessions are very rare, but the ai has detected that this task may have work sessions. Work sessions are times when the user has explicitly said (or indicated in their files) that they want to work on the task. However the ai may have been wrong and there are no work sessions. Just remember to look for them.
 
 If you cannot find a date you have to consider 2 options: if it's a task that seems like it has a deadline, assume it's due today. If it's a task that doesn't seems like it has a deadline, omit the field.
 
@@ -705,7 +776,7 @@ async function handlePromptOnly(userPrompt, env) {
     return { aiOutput: content, chain };
 }
 
-async function handlePromptWithFiles(userPrompt, fileArray, env, strategy) {
+async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simplifiedEntity=null) {
     let content;
     let chain = [];
     let startTime = 0;
@@ -786,7 +857,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy) {
                         duration
                     }});
                 } else {
-                    throw new Error('Failed to connect to any AI model.');
+                    return SEND({ error: 'Failed to connect to any AI model for entity conversion.' }, 481);
                 }
             }
         }
@@ -832,18 +903,42 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy) {
                         duration
                     }});
                 } else {
-                    throw new Error('Failed to connect to any AI model for simplified entity extraction.');
+                    return SEND({ error: 'Failed to connect to any AI model for simplified entity extraction.' }, 481);
                 }
             }
         }
     } else if (strategy.startsWith('step_by_step:2/2')) {
-        const simplifiedEntity = JSON.parse(strategy.split(':')[2]);
+        if (!simplifiedEntity) {
+            return SEND({ error: 'Simplified entity is required for step_by_step:2/2 strategy.' }, 477);
+        }
+        // simplified entity is of the format { "task": "task name" } or { "event": "event name" } or { "reminder": "reminder name" }
         const entityType = Object.keys(simplifiedEntity)[0];
         const entityName = simplifiedEntity[entityType];
+        const mayHaveWorkSession = simplifiedEntity.mayHaveWorkSession;
+
+        if (!entityName || entityName.trim() === '') {
+            return SEND({ error: 'Simplified entity name is required for step_by_step:2/2 strategy.' }, 478);
+        }
+
+        if (!entityType || entityType.trim() === '') {
+            return SEND({ error: 'Simplified entity type is required for step_by_step:2/2 strategy.' }, 479);
+        }
+
+        if (entityType !== 'task' && entityType !== 'event' && entityType !== 'reminder') {
+            return SEND({ error: 'Invalid entity type for expansion: ' + entityType }, 476);
+        }
+
+        if (entityType === 'task' && mayHaveWorkSession === null) {
+            return SEND({ error: 'mayHaveWorkSession is required for step_by_step:2/2 strategy running on a task.' }, 480);
+        }
 
         let expansionPrompt;
         if (entityType === 'task') {
-            expansionPrompt = filesOnlyExpandSimplifiedTaskPrompt;
+            if (mayHaveWorkSession) {
+                expansionPrompt = filesOnlyExpandSimplifiedTaskWithWorkSessionsPrompt;
+            } else {
+                expansionPrompt = filesOnlyExpandSimplifiedTaskPrompt;
+            }
         } else if (entityType === 'event') {
             expansionPrompt = filesOnlyExpandSimplifiedEventPrompt;
         } else if (entityType === 'reminder') {
@@ -893,7 +988,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy) {
                         duration
                     }});
                 } else {
-                    throw new Error('Failed to connect to any AI model for entity expansion.');
+                    return SEND({ error: 'Failed to connect to any AI model for entity expansion.' }, 481);
                 }
             }
         }
@@ -906,13 +1001,13 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy) {
     return { aiOutput: content, chain };
 }
 
-async function callAiModel(userPrompt, fileArray, env, strategy) {
+async function callAiModel(userPrompt, fileArray, env, strategy, simplifiedEntity=null) {
     try {
         const promptProvided = userPrompt && userPrompt.trim() !== '';
         const filesProvided = Array.isArray(fileArray) && fileArray.length > 0;
 
         if (promptProvided && filesProvided) {
-            return await handlePromptWithFiles(userPrompt, fileArray, env, strategy);
+            return await handlePromptWithFiles(userPrompt, fileArray, env, strategy, simplifiedEntity);
         } else if (promptProvided) {
             return await handlePromptOnly(userPrompt, env);
         } else {
@@ -1401,12 +1496,13 @@ export default {
                         const userText = data.prompt;
                         const fileArray = data.fileArray;
                         const strategy = data.strategy;
+                        const simplifiedEntity = data.simplifiedEntity;
 
                         if ((!userText || userText.trim().length === 0) && (!fileArray || fileArray.length === 0)) {
                             return SEND({ error: 'Empty request body' }, 471);
                         }
 
-                        const { aiOutput, chain } = await callAiModel(userText, fileArray, env, strategy);
+                        const { aiOutput, chain } = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
                         console.log("AI output: " + aiOutput);
                         return SEND({
                             aiOutput: aiOutput,
