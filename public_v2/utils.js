@@ -2437,17 +2437,15 @@ class Entity {
 
 // nodes are the individual steps in the chain (type defined farther down)
 class RequestNode {
-    constructor(model, typeOfPrompt, response, duration, reasoning) {
+    constructor(model, typeOfPrompt, response, duration) {
         ASSERT(type(model, String));
         ASSERT(type(typeOfPrompt, String));
         ASSERT(type(response, String));
         ASSERT(type(duration, Int));
-        ASSERT(type(reasoning, Boolean));
         this.model = model;
         this.typeOfPrompt = typeOfPrompt;
         this.response = response;
         this.duration = duration;
-        this.reasoning = reasoning;
     }
 
     encode() {
@@ -2457,7 +2455,6 @@ class RequestNode {
             typeOfPrompt: this.typeOfPrompt,
             response: this.response,
             duration: this.duration,
-            reasoning: this.reasoning,
             _type: 'RequestNode'
         };
     }
@@ -2465,14 +2462,54 @@ class RequestNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'RequestNode');
-        return new RequestNode(json.model, json.typeOfPrompt, json.response, json.duration, json.reasoning);
+        return new RequestNode(json.model, json.typeOfPrompt, json.response, json.duration);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.request));
         object = object.request;
-        return new RequestNode(object.model, object.typeOfPrompt, object.response, object.duration, object.reasoning);
+        return new RequestNode(object.model, object.typeOfPrompt, object.response, object.duration);
+    }
+}
+
+class ThinkingRequestNode {
+    constructor(model, typeOfPrompt, response, thinking, duration) {
+        ASSERT(type(model, String));
+        ASSERT(type(typeOfPrompt, String));
+        ASSERT(type(response, String));
+        ASSERT(type(thinking, String));
+        ASSERT(type(duration, Int));
+        this.model = model;
+        this.typeOfPrompt = typeOfPrompt;
+        this.response = response;
+        this.thinking = thinking;
+        this.duration = duration;
+    }
+
+    encode() {
+        ASSERT(type(this, ThinkingRequestNode));
+        return {
+            model: this.model,
+            typeOfPrompt: this.typeOfPrompt,
+            response: this.response,
+            thinking: this.thinking,
+            duration: this.duration,
+            _type: 'ThinkingRequestNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'ThinkingRequestNode');
+        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, json.thinking, json.duration);
+    }
+
+    static fromJson(object) {
+        ASSERT(type(object, Object));
+        ASSERT(exists(object.thinking_request));
+        object = object.thinking_request;
+        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thinking, object.duration);
     }
 }
 
@@ -2635,7 +2672,7 @@ class Chain {
     }
     
     add(node) {
-        ASSERT(type(node, Union(RequestNode, RerouteToModelNode, UserPromptNode, UserAttachmentsNode, ProcessingNode, CreatedEntityNode, FailedToCreateEntityNode)));
+        ASSERT(type(node, Union(RequestNode, ThinkingRequestNode, RerouteToModelNode, UserPromptNode, UserAttachmentsNode, ProcessingNode, CreatedEntityNode, FailedToCreateEntityNode)));
         this.chain.push(node);
     }
 
@@ -2643,6 +2680,11 @@ class Chain {
         ASSERT(type(nodeObject, Object));
         if (exists(nodeObject.request)) {
             this.chain.push(RequestNode.fromJson(nodeObject));
+        } else if (exists(nodeObject.thinking_request)) {
+            if (!exists(nodeObject.thinking_request.thinking)) {
+                // the thinking hasn't been parse yet
+            }
+            this.chain.push(ThinkingRequestNode.fromJson(nodeObject));
         } else if (exists(nodeObject.rerouteToModel)) {
             this.chain.push(RerouteToModelNode.fromJson(nodeObject));
         } else {
