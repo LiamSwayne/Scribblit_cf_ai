@@ -60,8 +60,12 @@ const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
+let STRATEGIES = {
+    SINGLE_CHAIN: 'single_chain',
+    STEP_BY_STEP: 'step_by_step'
+}
 // which strategy to use for AI parsing
-let strategy = 'single_chain';
+let strategy = STRATEGIES.SINGLE_CHAIN;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -8842,7 +8846,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
         body: JSON.stringify({
             prompt: inputText,
             fileArray: fileArray,
-            strategy: 'single_chain'
+            strategy: STRATEGIES.SINGLE_CHAIN
         })
     });
 
@@ -8853,6 +8857,9 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
 
     const responseJson = await response.json();
 
+    log("Response JSON: ");
+    log(responseJson);
+
     if (responseJson.error && responseJson.error.length > 0) {
         log("Error: " + responseJson.error);
         return;
@@ -8861,6 +8868,9 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     for (const nodeJson of responseJson.chain) {
         chain.addNodeFromJson(nodeJson);
     }
+
+    // we asked the ai for an array of entities, so we need to extract it
+    const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '[]');
 
     // Convert to internal entities
     let newEntities = []
@@ -8883,12 +8893,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = NULL;
-            try {
-                parsedEntity = Entity.fromAiJson(aiJson);
-            } catch (e) {
-                chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
-            }
+            let parsedEntity = Entity.fromAiJson(aiJson);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
             } else {
@@ -8897,26 +8902,29 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             }
         }
     } catch (e) {
-        return;
-    }
-
-    if (newEntities.length === 0) {
+        log("Error creating entities: " + e.message);
         return;
     }
 
     log("Entities: ");
     log(newEntities);
 
-    // Add to user
+    let idsOfNewEntities = newEntities.map(ent => ent.id);
+
+    // add to user
     for (const ent of newEntities) {
         user.entityArray.push(ent);
     }
     user.timestamp = Date.now();
-    saveUserData(user);
+    if (newEntities.length > 0) {
+        saveUserData(user);
+    }
+
+    return idsOfNewEntities;
 }
 
-async function stepByStepPart1AiRequest(inputText, fileArray, chain) {
-    // TODO: implement
+async function stepByStepAiRequest(inputText, fileArray, chain) {
+    
 }
 
 // Process input when Enter key is pressed
@@ -8962,14 +8970,17 @@ function processInput() {
     }
 
     (async () => {
-        if (strategy === 'single_chain') {
-            await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
-        } else if (strategy === 'step_by_step') {
+        if (strategy === STRATEGIES.SINGLE_CHAIN) {
+            let idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
+        } else if (strategy === STRATEGIES.STEP_BY_STEP) {
             // retries until it gets a valid json
             await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
         } else {
             ASSERT(false, "Invalid strategy: " + strategy);
         }
+
+        // TODO: query the user's existing entities to see if any of them match the new entities
+        // if it seems like the ai has created an entity that the user already has, delete the new entity
 
         // Clear input box
         inputBox.value = '';
