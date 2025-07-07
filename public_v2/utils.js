@@ -2375,7 +2375,7 @@ class Entity {
     }
 
     // Utility to generate a simple unique ID (timestamp + random)
-    static _generateId() {
+    static generateId() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         let id = '';
         for (let i = 0; i < 8; i++) {
@@ -2419,7 +2419,7 @@ class Entity {
             return NULL;
         }
 
-        const id = Entity._generateId();
+        const id = Entity.generateId();
         try {
             const newEntity = new Entity(id, name, description, data);
             if(type(newEntity, Entity)) {
@@ -2800,10 +2800,41 @@ class MergeEntitiesNode {
 class Chain {
     constructor() {
         this.chain = [];
-        this.initializationTime = Date.now();
+        this.startTime = Date.now();
+        this.endTime = NULL;
+    }
+
+    validate() {
+        ASSERT(exists(this));
+        ASSERT(type(this.chain, List(Union(
+            StrategySelectionNode,
+            RequestNode,
+            ThinkingRequestNode,
+            RerouteToModelNode,
+            UserPromptNode,
+            UserAttachmentsNode,
+            ProcessingNode,
+            CreatedEntityNode,
+            FailedToCreateEntityNode,
+            MergeEntitiesNode
+        ))));
+        ASSERT(type(this.startTime, Int));
+        ASSERT(this.startTime >= 0);
+        ASSERT(exists(this.endTime));
+        if (this.endTime === NULL) {
+            // valid
+        } else if (type(this.endTime, Int)) {
+            ASSERT(this.endTime >= this.startTime);
+        } else {
+            ASSERT(false, 'Chain.validate: endTime is not a valid type');
+        }
     }
     
     add(node) {
+        this.validate();
+        if (this.endTime !== NULL) {
+            ASSERT(false, 'Chain.add: chain is already complete');
+        }
         ASSERT(type(node, Union(
             StrategySelectionNode,
             RequestNode,
@@ -2820,7 +2851,12 @@ class Chain {
     }
 
     addNodeFromJson(nodeObject) {
+        this.validate();
         ASSERT(type(nodeObject, Object));
+        if (this.endTime !== NULL) {
+            ASSERT(false, 'Chain.addNodeFromJson: chain is already complete');
+        }
+
         if (exists(nodeObject.request)) {
             this.chain.push(RequestNode.fromJson(nodeObject));
         } else if (exists(nodeObject.thinking_request)) {
@@ -2844,9 +2880,14 @@ class Chain {
             ASSERT(false, 'Chain.addNodeObject: unknown node type ' + JSON.stringify(nodeObject));
         }
     }
+
+    complete() {
+        this.validate();
+        this.endTime = Date.now();
+    }
     
     encode() {
-        ASSERT(type(this, Chain));
+        this.validate();
         // TODO
     }
 
