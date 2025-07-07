@@ -190,7 +190,7 @@ async function loadUserData() {
                                 serverUser.entityArray.push(entity);
                             }
                         }
-                        log("merged entity array");
+                        log("Merged local and server entity arrays");
                         return serverUser;
                     } else if (serverUser) {
                         log("Using server user data (no local data available)");
@@ -7427,7 +7427,7 @@ function openSettingsModal() {
 
                     const messageLine2 = HTML.make('div');
                     HTML.setId(messageLine2, 'featureRequestMessage2');
-                    messageLine2.textContent = 'This is my personal email, and I read and reply to literally every Scribblit user.';
+                    messageLine2.textContent = 'This is my personal email, and I read and reply to literally every Scribblit user :)';
                     HTML.setStyle(messageLine2, {
                         position: 'fixed',
                         right: '14px',
