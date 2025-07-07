@@ -785,41 +785,41 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
     let chain = [];
     let startTime = 0;
 
-    // STEP 1: Describe files
-    startTime = Date.now();
-    let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, true);
-    let descriptionOfFiles = geminiResult.response;
-    let thoughts = geminiResult.thoughts;
-
-    if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
-        chain.push({ thinking_request: {
-            model: MODELS.GEMINI_MODELS.flash,
-            typeOfPrompt: 'file_description',
-            response: descriptionOfFiles,
-            thoughts: thoughts,
-            startTime,
-            endTime: Date.now()
-        }});
-    } else {
-        chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
+    if (strategy === 'single_chain') {
+        // STEP 1: Describe files
         startTime = Date.now();
-        descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
+        let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, true);
+        let descriptionOfFiles = geminiResult.response;
+        let thoughts = geminiResult.thoughts;
+
         if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
-            chain.push({ request: {
-                model: MODELS.ANTHROPIC_MODELS.sonnet,
+            chain.push({ thinking_request: {
+                model: MODELS.GEMINI_MODELS.flash,
                 typeOfPrompt: 'file_description',
                 response: descriptionOfFiles,
+                thoughts: thoughts,
                 startTime,
                 endTime: Date.now()
             }});
         } else {
-            return SEND({ error: 'Unable to comprehend files.' }, 482);
+            chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
+            startTime = Date.now();
+            descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
+            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+                chain.push({ request: {
+                    model: MODELS.ANTHROPIC_MODELS.sonnet,
+                    typeOfPrompt: 'file_description',
+                    response: descriptionOfFiles,
+                    startTime,
+                    endTime: Date.now()
+                }});
+            } else {
+                return SEND({ error: 'Unable to comprehend files.' }, 482);
+            }
         }
-    }
 
-    // never include the file array beyond this point because we include the description of it instead
-    // STEP 2: Convert to JSON
-    if (strategy === 'single_chain') {
+        // never include the file array beyond this point because we include the description of it instead
+        // STEP 2: Convert to JSON
         const newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
 
         startTime = Date.now();
@@ -865,7 +865,41 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 }
             }
         }
+        return { aiOutput: content, chain };
     } else if (strategy === 'step_by_step:1/2') {
+        // STEP 1: Describe files
+        startTime = Date.now();
+        let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, true);
+        let descriptionOfFiles = geminiResult.response;
+        let thoughts = geminiResult.thoughts;
+
+        if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+            chain.push({ thinking_request: {
+                model: MODELS.GEMINI_MODELS.flash,
+                typeOfPrompt: 'file_description',
+                response: descriptionOfFiles,
+                thoughts: thoughts,
+                startTime,
+                endTime: Date.now()
+            }});
+        } else {
+            chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
+            startTime = Date.now();
+            descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
+            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+                chain.push({ request: {
+                    model: MODELS.ANTHROPIC_MODELS.sonnet,
+                    typeOfPrompt: 'file_description',
+                    response: descriptionOfFiles,
+                    startTime,
+                    endTime: Date.now()
+                }});
+            } else {
+                return SEND({ error: 'Unable to comprehend files.' }, 482);
+            }
+        }
+
+        // STEP 2: Extract simplified entities
         const newPrompt = 'I attached some files to my prompt. Here is a description of the files: ' + descriptionOfFiles;
 
         startTime = Date.now();
@@ -911,7 +945,22 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 }
             }
         }
+        // on the front-end, it needs description of files so it can be passed to each request in the next step
+        const promptIncludingDescription = `I extracted an entity from some files. Here is a description of the files it came from: ${descriptionOfFiles}.`;
+        // here content is the simplified entity response
+        return { aiOutput: content, chain, promptIncludingDescription };
     } else if (strategy.startsWith('step_by_step:2/2')) {
+        // no files are ever passed in this step
+        
+        // the userPrompt contains the original prompt, time and date, and the description of files generated in step 1
+        // now we append
+        // the userPrompt is the same for all 2/2 requests, but each has a different entity name
+        // put the entity name at the end so the long description gets cached
+        // Gemini auto-caches prefixes. The desciption is being passed for every entity extracted from this document, possible 20+ times.
+        // Putting the unique entity name at the beginning would prevent the prefix from being cached.
+        const newPrompt = `${userPrompt} The entity I extracted is a ${entityType} named "${entityName}".`;
+
+        // GIVEN description of files and simplified entity, expand the simplified entity
         if (!simplifiedEntity) {
             return SEND({ error: 'Simplified entity is required for step_by_step:2/2 strategy.' }, 477);
         }
@@ -951,13 +1000,8 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             return SEND({ error: 'Invalid entity type for expansion: ' + entityType }, 476);
         }
 
-        // put the entity name at the end so the long description gets cached
-        // Gemini auto-caches prefixes. The desciption is being passed for every entity extracted from this document, possible 20+ times.
-        // Putting the unique entity name at the beginning would prevent the prefix from being cached.
-        const newPrompt = `I extracted an entity from some files. Here is a description of the files it came from: ${descriptionOfFiles}. The entity I extracted is a ${entityType} named "${entityName}". `;
-
         startTime = Date.now();
-        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, [], expansionPrompt, true);
+        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], expansionPrompt, true);
         content = geminiResult.response;
         thoughts = geminiResult.thoughts;
 
@@ -973,7 +1017,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
@@ -985,7 +1029,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env);
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
@@ -999,13 +1043,13 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 }
             }
         }
+        // pass back the entity so the front-end knows which response corresponds to which simplified entity
+        return { aiOutput: content, chain, simplifiedEntity };
     } else {
         return SEND({
             error: 'Invalid strategy: ' + strategy
         }, 475);
     }
-
-    return { aiOutput: content, chain };
 }
 
 async function callAiModel(userPrompt, fileArray, env, strategy, simplifiedEntity=null) {
@@ -1509,12 +1553,9 @@ export default {
                             return SEND({ error: 'Empty request body' }, 471);
                         }
 
-                        const { aiOutput, chain } = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
-                        console.log("AI output: " + aiOutput);
-                        return SEND({
-                            aiOutput: aiOutput,
-                            chain: chain
-                        }, 200);
+                        const result = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
+                        console.log("AI output: " + result.aiOutput);
+                        return SEND(result, 200);
                     } catch (err) {
                         console.error('AI parse error:', err);
                         return SEND({ error: 'Failed to process AI request: ' + err.message }, 563);
