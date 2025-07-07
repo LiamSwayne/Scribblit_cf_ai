@@ -9185,8 +9185,6 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             continue;
         }
 
-        log("Chain: ");
-        log(responseJson.chain);
         for (const nodeJson of responseJson.chain) {
             chain.addNodeFromJson(nodeJson);
         }
