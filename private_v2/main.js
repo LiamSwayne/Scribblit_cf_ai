@@ -735,7 +735,8 @@ async function handlePromptOnly(userPrompt, env) {
             typeOfPrompt: 'convert_text_to_entities',
             response: content,
             startTime,
-            endTime: Date.now()
+            endTime: Date.now(),
+            userPrompt: userPrompt
         }});
     } else {
         chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
@@ -748,7 +749,8 @@ async function handlePromptOnly(userPrompt, env) {
                 typeOfPrompt: 'convert_text_to_entities',
                 response: content,
                 startTime,
-                endTime: Date.now()
+                endTime: Date.now(),
+                userPrompt: userPrompt
             }});
         } else {
             chain.push({ rerouteToModel: { model: MODELS.GEMINI_MODELS.flash, startTime, endTime: Date.now() }});
@@ -761,7 +763,9 @@ async function handlePromptOnly(userPrompt, env) {
                     typeOfPrompt: 'convert_text_to_entities',
                     response: content,
                     startTime,
-                    endTime: Date.now()
+                    endTime: Date.now(),
+                    userPrompt: userPrompt,
+                    systemPrompt: constructEntitiesPrompt
                 }});
             } else {
                 return SEND({ error: 'Failed to connect to any AI model.' }, 481);
@@ -791,7 +795,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 response: descriptionOfFiles,
                 thoughts: thoughts,
                 startTime,
-                endTime: Date.now()
+                endTime: Date.now(),
+                userPrompt: userPrompt,
+                systemPrompt: fileDescriptionPrompt
             }});
         } else {
             chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
@@ -803,7 +809,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                     typeOfPrompt: 'file_description',
                     response: descriptionOfFiles,
                     startTime,
-                    endTime: Date.now()
+                    endTime: Date.now(),
+                    userPrompt: userPrompt,
+                    systemPrompt: constructEntitiesPrompt
                 }});
             } else {
                 return SEND({ error: 'Unable to comprehend files.' }, 482);
@@ -826,7 +834,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 response: content,
                 thoughts: thoughts,
                 startTime,
-                endTime: Date.now()
+                endTime: Date.now(),
+                userPrompt: newPrompt,
+                systemPrompt: constructEntitiesPrompt
             }});
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
@@ -838,7 +848,8 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                     typeOfPrompt: 'convert_files_to_entities',
                     response: content,
                     startTime,
-                    endTime: Date.now()
+                    endTime: Date.now(),
+                    userPrompt: newPrompt
                 }});
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
@@ -850,7 +861,8 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                         typeOfPrompt: 'convert_files_to_entities',
                         response: content,
                         startTime,
-                        endTime: Date.now()
+                        endTime: Date.now(),
+                        userPrompt: newPrompt
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model for entity conversion.' }, 481);
@@ -872,7 +884,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 response: descriptionOfFiles,
                 thoughts: thoughts,
                 startTime,
-                endTime: Date.now()
+                endTime: Date.now(),
+                userPrompt: userPrompt,
+                systemPrompt: fileDescriptionPrompt
             }});
         } else {
             chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
@@ -884,7 +898,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                     typeOfPrompt: 'file_description',
                     response: descriptionOfFiles,
                     startTime,
-                    endTime: Date.now()
+                    endTime: Date.now(),
+                    userPrompt: userPrompt,
+                    systemPrompt: fileDescriptionPrompt
                 }});
             } else {
                 return SEND({ error: 'Unable to comprehend files.' }, 482);
@@ -906,7 +922,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 response: content,
                 thoughts: thoughts,
                 startTime,
-                endTime: Date.now()
+                endTime: Date.now(),
+                userPrompt: newPrompt,
+                systemPrompt: filesOnlyExtractSimplifiedEntitiesPrompt
             }});
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
@@ -918,7 +936,8 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                     typeOfPrompt: 'extract_simplified_entities',
                     response: content,
                     startTime,
-                    endTime: Date.now()
+                    endTime: Date.now(),
+                    userPrompt: newPrompt
                 }});
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
@@ -930,7 +949,8 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                         typeOfPrompt: 'extract_simplified_entities',
                         response: content,
                         startTime,
-                        endTime: Date.now()
+                        endTime: Date.now(),
+                        userPrompt: newPrompt
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model for simplified entity extraction.' }, 481);
@@ -938,9 +958,8 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             }
         }
         // on the front-end, it needs description of files so it can be passed to each request in the next step
-        const promptForStep2 = `Here was the user's prompt: ${userPrompt}. Another AI model described the files and extracted a bunch of entities. Your have been given one of the extracted entities, and your job is to provide the complete entity. Here is a description of the files it came from: ${descriptionOfFiles}.`;
         // here content is the simplified entity response
-        return { aiOutput: content, chain, promptForStep2 };
+        return { aiOutput: content, chain, descriptionOfFiles };
     } else if (strategy.startsWith('step_by_step:2/2')) {
         // no files are ever passed in this step
 
@@ -975,7 +994,6 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         // put the entity name at the end so the long description gets cached
         // Gemini auto-caches prefixes. The desciption is being passed for every entity extracted from this document, possible 20+ times.
         // Putting the unique entity name at the beginning would prevent the prefix from being cached.
-        const newPrompt = `${userPrompt} The entity I am supposed to complete is a ${entityType} named "${entityName}".`;
 
         let expansionPrompt;
         if (entityType === 'task') {
@@ -1004,31 +1022,35 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                 response: content,
                 thoughts: thoughts,
                 startTime,
-                endTime: Date.now()
+                endTime: Date.now(),
+                userPrompt: userPrompt,
+                systemPrompt: expansionPrompt
             }});
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
                     typeOfPrompt: 'expand_simplified_entity',
                     response: content,
                     startTime,
-                    endTime: Date.now()
+                    endTime: Date.now(),
+                    userPrompt: userPrompt
                 }});
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env);
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
                         typeOfPrompt: 'expand_simplified_entity',
                         response: content,
                         startTime,
-                        endTime: Date.now()
+                        endTime: Date.now(),
+                        userPrompt: userPrompt
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model for entity expansion.' }, 481);

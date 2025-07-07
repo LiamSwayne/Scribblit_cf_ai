@@ -9071,8 +9071,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         return;
     }
 
-    if (!exists(responseJson1.promptForStep2)) {
-        log("Error: promptForStep2 is required for step_by_step:1/2 strategy.");
+    if (!exists(responseJson1.descriptionOfFiles)) {
+        log("Error: descriptionOfFiles is required for step_by_step:1/2 strategy.");
         return;
     }
 
@@ -9189,14 +9189,19 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
     log('uniqueSimplifiedEntities: ');
     log(uniqueSimplifiedEntities);
+    
+    // this is the really long part that gets cached
+    const basePromptForStep2 = `Here was the user's prompt: ${inputText}. Another AI model described the files and extracted a bunch of entities. Your have been given one of the extracted entities, and your job is to provide the complete entity. Here is a description of the files it came from: ${responseJson1.descriptionOfFiles}. Here are the extracted entities: ${JSON.stringify(uniqueSimplifiedEntities)}.`;
 
     // Step 2: Expand simplified entities in parallel
     const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
+        let promptForStep2 = basePromptForStep2;
+        promptForStep2 += ` Here is the entity you have been given: ${JSON.stringify(simplifiedEntity)}.`;
         return fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                prompt: responseJson1.promptForStep2,
+                prompt: promptForStep2,
                 fileArray: [],
                 strategy: STRATEGIES.STEP_BY_STEP + ':2/2',
                 simplifiedEntity: simplifiedEntity
@@ -9230,9 +9235,6 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             return;
         }
 
-        log("Response " + i + ": ");
-        log(responseJson);
-
         if (responseJson.error && responseJson.error.length > 0) {
             log("Error: " + responseJson.error);
             continue;
@@ -9250,8 +9252,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             return;
         }
 
-        const simplifiedEntityType = Object.keys(simplifiedEntity)[0];
-        const simplifiedEntityName = simplifiedEntity[simplifiedEntityType];
+        const simplifiedEntityType = Object.keys(responseJson.simplifiedEntity)[0];
+        const simplifiedEntityName = responseJson.simplifiedEntity[simplifiedEntityType];
 
         try {
             let startTime = Date.now();
