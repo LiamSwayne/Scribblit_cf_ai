@@ -2436,16 +2436,54 @@ class Entity {
 }
 
 // nodes are the individual steps in the chain (type defined farther down)
+class StrategySelectionNode {
+    // unix start and end times
+    constructor(strategy, startTime, endTime=NULL) {
+        ASSERT(type(strategy, String));
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Union(Int, NULL)));
+        this.strategy = strategy;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
+    }
+
+    encode() {
+        ASSERT(type(this, StrategySelectionNode));
+        return {
+            strategy: this.strategy,
+            startTime: this.startTime,
+            endTime: this.endTime,
+            _type: 'StrategySelectionNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'StrategySelectionNode');
+        return new StrategySelectionNode(json.strategy, json.startTime, json.endTime);
+    }
+}
+
 class RequestNode {
-    constructor(model, typeOfPrompt, response, duration) {
+    constructor(model, typeOfPrompt, response, startTime, endTime=NULL) {
         ASSERT(type(model, String));
         ASSERT(type(typeOfPrompt, String));
         ASSERT(type(response, String));
-        ASSERT(type(duration, Int));
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Union(Int, NULL)));
         this.model = model;
         this.typeOfPrompt = typeOfPrompt;
         this.response = response;
-        this.duration = duration;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
     }
 
     encode() {
@@ -2454,7 +2492,8 @@ class RequestNode {
             model: this.model,
             typeOfPrompt: this.typeOfPrompt,
             response: this.response,
-            duration: this.duration,
+            startTime: this.startTime,
+            endTime: this.endTime,
             _type: 'RequestNode'
         };
     }
@@ -2462,29 +2501,35 @@ class RequestNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'RequestNode');
-        return new RequestNode(json.model, json.typeOfPrompt, json.response, json.duration);
+        return new RequestNode(json.model, json.typeOfPrompt, json.response, json.startTime, json.endTime);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.request));
         object = object.request;
-        return new RequestNode(object.model, object.typeOfPrompt, object.response, object.duration);
+        return new RequestNode(object.model, object.typeOfPrompt, object.response, object.startTime, object.endTime);
     }
 }
 
 class ThinkingRequestNode {
-    constructor(model, typeOfPrompt, response, thoughts, duration) {
+    constructor(model, typeOfPrompt, response, thoughts, startTime, endTime=NULL) {
         ASSERT(type(model, String));
         ASSERT(type(typeOfPrompt, String));
         ASSERT(type(response, String));
         ASSERT(type(thoughts, Union(String, NULL))); // NULL if the thinking was unfindable
-        ASSERT(type(duration, Int));
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Union(Int, NULL)));
         this.model = model;
         this.typeOfPrompt = typeOfPrompt;
         this.response = response;
         this.thoughts = thoughts;
-        this.duration = duration;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
     }
 
     encode() {
@@ -2495,7 +2540,8 @@ class ThinkingRequestNode {
             typeOfPrompt: this.typeOfPrompt,
             response: this.response,
             thoughts: thoughtsString,
-            duration: this.duration,
+            startTime: this.startTime,
+            endTime: this.endTime,
             _type: 'ThinkingRequestNode'
         };
     }
@@ -2504,30 +2550,37 @@ class ThinkingRequestNode {
         ASSERT(exists(json));
         ASSERT(json._type === 'ThinkingRequestNode');
         let thoughts = json.thoughts === symbolToString(NULL) ? NULL : json.thoughts;
-        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thoughts, json.duration);
+        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thoughts, json.startTime, json.endTime);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.thinking_request));
         object = object.thinking_request;
-        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thoughts, object.duration);
+        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thoughts, object.startTime, object.endTime);
     }
 }
 
 class RerouteToModelNode {
-    constructor(model, duration) {
+    constructor(model, startTime, endTime=NULL) {
         ASSERT(type(model, String));
-        ASSERT(type(duration, Int));
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Union(Int, NULL)));
         this.model = model;
-        this.duration = duration;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
     }
 
     encode() {
         ASSERT(type(this, RerouteToModelNode));
         return {
             model: this.model,
-            duration: this.duration,
+            startTime: this.startTime,
+            endTime: this.endTime,
             _type: 'RerouteToModelNode'
         };
     }
@@ -2535,14 +2588,14 @@ class RerouteToModelNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'RerouteToModelNode');
-        return new RerouteToModelNode(json.model, json.duration);
+        return new RerouteToModelNode(json.model, json.startTime, json.endTime);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.rerouteToModel));
         object = object.rerouteToModel;
-        return new RerouteToModelNode(object.model, object.duration);
+        return new RerouteToModelNode(object.model, object.startTime, object.endTime);
     }
 }
 
@@ -2589,12 +2642,18 @@ class UserAttachmentsNode {
 }
 
 class ProcessingNode {
-    constructor(response, duration, description) {
+    constructor(response, startTime, description, endTime=NULL) {
         ASSERT(type(response, Union(String, NULL)));
-        ASSERT(type(duration, Int));
+        ASSERT(type(startTime, Int));
         ASSERT(type(description, NonEmptyString));
+        ASSERT(type(endTime, Union(Int, NULL)));
         this.response = response;
-        this.duration = duration;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
         this.description = description;
     }
 
@@ -2602,7 +2661,8 @@ class ProcessingNode {
         ASSERT(type(this, ProcessingNode));
         return {
             response: this.response,
-            duration: this.duration,
+            startTime: this.startTime,
+            endTime: this.endTime,
             description: this.description,
             _type: 'ProcessingNode'
         };
@@ -2611,22 +2671,28 @@ class ProcessingNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'ProcessingNode');
-        return new ProcessingNode(json.response, json.duration, json.description);
+        return new ProcessingNode(json.response, json.startTime, json.endTime, json.description);
     }
 }
 
 class CreatedEntityNode {
-    constructor(json, entity, duration) {
+    constructor(json, entity, startTime, endTime=NULL) {
         ASSERT(type(json, Object));
         ASSERT(type(entity, Entity));
-        ASSERT(type(duration, Int));
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Union(Int, NULL)));
 
         // create a copy of the entity
         let entityCopy = Entity.decode(entity.encode());
         
         this.json = json;
         this.entity = entityCopy;
-        this.duration = duration;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
     }
 
     encode() {
@@ -2634,7 +2700,8 @@ class CreatedEntityNode {
         return {
             json: this.json,
             entity: this.entity.encode(),
-            duration: this.duration,
+            startTime: this.startTime,
+            endTime: this.endTime,
             _type: 'CreatedEntityNode'
         };
     }
@@ -2642,23 +2709,30 @@ class CreatedEntityNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'CreatedEntityNode');
-        return new CreatedEntityNode(json.json, json.entity, json.duration);
+        return new CreatedEntityNode(json.json, json.entity, json.startTime, json.endTime);
     }
 }
 
 class FailedToCreateEntityNode {
-    constructor(json, duration) {
+    constructor(json, startTime, endTime=NULL) {
         ASSERT(type(json, Object));
-        ASSERT(type(duration, Int));
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Union(Int, NULL)));
         this.json = json;
-        this.duration = duration;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
     }
 
     encode() {
         ASSERT(type(this, FailedToCreateEntityNode));
         return {
             json: this.json,
-            duration: this.duration,
+            startTime: this.startTime,
+            endTime: this.endTime,
             _type: 'FailedToCreateEntityNode'
         };
     }
@@ -2666,17 +2740,18 @@ class FailedToCreateEntityNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'FailedToCreateEntityNode');
-        return new FailedToCreateEntityNode(json.json, json.duration);
+        return new FailedToCreateEntityNode(json.json, json.startTime, json.endTime);
     }
 }
 
 class MergeEntitiesNode {
-    constructor(entityArray, result, duration) {
+    constructor(entityArray, result, startTime, endTime=NULL) {
         ASSERT(type(entityArray, List(Entity)));
         ASSERT(entityArray.length >= 2);
         ASSERT(type(result, Entity));
-        ASSERT(type(duration, Int));
-        ASSERT(duration >= 0);
+        ASSERT(type(startTime, Int));
+        ASSERT(startTime >= 0);
+        ASSERT(type(endTime, Union(Int, NULL)));
 
         // create copies of the entities
         let entityArrayCopy = [];
@@ -2687,7 +2762,12 @@ class MergeEntitiesNode {
 
         this.entityArray = entityArrayCopy;
         this.result = resultCopy;
-        this.duration = duration;
+        this.startTime = startTime;
+        if (endTime === NULL) {
+            this.endTime = Date.now();
+        } else {
+            this.endTime = endTime;
+        }
     }
 
     encode() {
@@ -2695,7 +2775,8 @@ class MergeEntitiesNode {
         return {
             entityArray: this.entityArray.map(entity => entity.encode()),
             result: this.result.encode(),
-            duration: this.duration,
+            startTime: this.startTime,
+            endTime: this.endTime,
             _type: 'MergeEntitiesNode'
         };
     }
@@ -2711,7 +2792,7 @@ class MergeEntitiesNode {
         ASSERT(entityArray.length >= 2);
         let result = Entity.decode(json.result);
         ASSERT(type(result, Entity));
-        return new MergeEntitiesNode(entity1, entity2, result, json.duration);
+        return new MergeEntitiesNode(entityArray, result, json.startTime, json.endTime);
     }
 }
 
@@ -2724,6 +2805,7 @@ class Chain {
     
     add(node) {
         ASSERT(type(node, Union(
+            StrategySelectionNode,
             RequestNode,
             ThinkingRequestNode,
             RerouteToModelNode,
@@ -3304,10 +3386,10 @@ function type(thing, sometype) {
         try { new Chain(thing.chain, thing.initializationTime); return true; } catch (e) { return false; }
     } else if (sometype === RequestNode) {
         if (!(thing instanceof RequestNode)) return false;
-        try { new RequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.duration, thing.reasoning); return true; } catch (e) { return false; }
+        try { new RequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
     } else if (sometype === RerouteToModelNode) {
         if (!(thing instanceof RerouteToModelNode)) return false;
-        try { new RerouteToModelNode(thing.model, thing.duration); return true; } catch (e) { return false; }
+        try { new RerouteToModelNode(thing.model, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
     } else if (sometype === UserPromptNode) {
         if (!(thing instanceof UserPromptNode)) return false;
         try { new UserPromptNode(thing.prompt); return true; } catch (e) { return false; }
@@ -3316,16 +3398,22 @@ function type(thing, sometype) {
         try { new UserAttachmentsNode(thing.fileNames); return true; } catch (e) { return false; }
     } else if (sometype === ProcessingNode) {
         if (!(thing instanceof ProcessingNode)) return false;
-        try { new ProcessingNode(thing.response, thing.duration, thing.description); return true; } catch (e) { return false; }
+        try { new ProcessingNode(thing.response, thing.startTime, thing.description, thing.endTime); return true; } catch (e) { return false; }
     } else if (sometype === CreatedEntityNode) {
         if (!(thing instanceof CreatedEntityNode)) return false;
-        try { new CreatedEntityNode(thing.json, thing.entity, thing.duration); return true; } catch (e) { return false; }
+        try { new CreatedEntityNode(thing.json, thing.entity, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
     } else if (sometype === FailedToCreateEntityNode) {
         if (!(thing instanceof FailedToCreateEntityNode)) return false;
-        try { new FailedToCreateEntityNode(thing.json, thing.duration); return true; } catch (e) { return false; }
+        try { new FailedToCreateEntityNode(thing.json, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
     } else if (sometype === MergeEntitiesNode) {
         if (!(thing instanceof MergeEntitiesNode)) return false;
-        try { new MergeEntitiesNode(thing.entity1, thing.entity2, thing.duration); return true; } catch (e) { return false; }
+        try { new MergeEntitiesNode(thing.entityArray, thing.result, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
+    } else if (sometype === StrategySelectionNode) {
+        if (!(thing instanceof StrategySelectionNode)) return false;
+        try { new StrategySelectionNode(thing.strategy, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
+    } else if (sometype === ThinkingRequestNode) {
+        if (!(thing instanceof ThinkingRequestNode)) return false;
+        try { new ThinkingRequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.thoughts, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';
