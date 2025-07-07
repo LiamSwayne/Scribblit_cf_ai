@@ -136,7 +136,7 @@ class DateField {
         
         // Additional validation for days in month (including leap years)
         const daysInMonth = new Date(year, month, 0).getDate();
-        ASSERT(day <= daysInMonth);
+        ASSERT(day <= daysInMonth, "DateField constructor: day must be less than or equal to the number of days in the month: " + JSON.stringify({ year, month, day, daysInMonth }));
         
         this.year = year;
         this.month = month;
@@ -3085,7 +3085,7 @@ class FilteredSegmentOfDayInstance {
         ASSERT(type(startDateTime, Int));
         ASSERT(type(endDateTime, Int));
         ASSERT(startDateTime <= endDateTime, "FilteredSegmentOfDayInstance: startDateTime must be less than or equal to endDateTime");
-        ASSERT(type(originalStartDate, DateField));
+        ASSERT(type(originalStartDate, DateField), "FilteredSegmentOfDayInstance: originalStartDate must be a DateField. Received: " + String(originalStartDate));
         ASSERT(type(originalStartTime, Union(TimeField, NULL)));
         ASSERT(type(wrapToPreviousDay, Boolean));
         ASSERT(type(wrapToNextDay, Boolean));
