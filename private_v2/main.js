@@ -216,7 +216,7 @@ Format:
 
 A file may contain many things or just a few. If nothing can be extracted, just return an empty array.
 
-If a task/event/reminder happens multiple times, you only create one of it, even if it is recurring. For example, a task that happens every Tuesday morning and every Friday afternoon should only be one task. Include past events, but not past tasks or reminders. Unless the user asks, because you should always do what the user wants. Return nothing but the array.`;
+If a task/event/reminder happens multiple times, you only create one of it, even if it is recurring. For example, a task that happens every Tuesday morning and every Friday afternoon should only be one task. Include past events, but not past tasks or reminders. Above all other rules do what the user wants. The user submitted this document for conversion, so it is highly likely that they want something returned. Return nothing but the array.`;
 
 let filesOnlyExpandSimplifiedTaskPrompt = `You are an AI that takes in a simplified task JSON and expands it to include all the fields. A task is something that has to be done *by* a certain date/time but can be done before then. The task was found in the attached files that the user expects us to convert to tasks/events/reminders. You are only handling a single task. Here is the task spec:
 
