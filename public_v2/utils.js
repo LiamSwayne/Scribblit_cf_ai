@@ -167,6 +167,31 @@ class DateField {
         const parts = dateString.split('-');
         return new DateField(Number(parts[0]), Number(parts[1]), Number(parts[2]));
     }
+
+    // Unsafe variant: returns NULL instead of throwing assertions on invalid input.
+    static fromYYYY_MM_DDUnsafe(dateString) {
+        if(AiReturnedNullField(dateString)) {
+            return NULL;
+        }
+        if(!type(dateString, YYYY_MM_DD)) {
+            return NULL;
+        }
+        if(dateString.length !== 10 || dateString[4] !== '-' || dateString[7] !== '-') {
+            return NULL;
+        }
+        const parts = dateString.split('-');
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        const day = Number(parts[2]);
+        if(!(type(year, Int) && type(month, Int) && type(day, Int))) {
+            return NULL;
+        }
+        try {
+            return new DateField(year, month, day);
+        } catch (e) {
+            return NULL;
+        }
+    }
 }
 
 // Time
@@ -194,6 +219,16 @@ class TimeField {
     static decode(json) {
         ASSERT(exists(json));
         return new TimeField(json.hour, json.minute);
+    }
+
+    static unsafeConstruct(hour, minute) {
+        if(!type(hour, Int) || !type(minute, Int)) {
+            return NULL;
+        }
+        if(hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+            return NULL;
+        }
+        return new TimeField(hour, minute);
     }
 }
 
@@ -243,10 +278,8 @@ class EveryNDaysPattern {
             return NULL;
         }
         
-        let initialDate;
-        try {
-            initialDate = DateField.fromYYYY_MM_DD(json.initial_date);
-        } catch (e) {
+        let initialDate = DateField.fromYYYY_MM_DDUnsafe(json.initial_date);
+        if (initialDate === NULL) {
             log("EveryNDaysPattern.fromAiJson: invalid initial_date format");
             return NULL;
         }
@@ -700,9 +733,8 @@ class NonRecurringTaskInstance {
                 log('NonRecurringTaskInstance.fromAiJson: date must be string YYYY-MM-DD');
                 return NULL;
             }
-            try {
-                dateField = DateField.fromYYYY_MM_DD(json.date);
-            } catch (e) {
+            dateField = DateField.fromYYYY_MM_DDUnsafe(json.date);
+            if (dateField === NULL) {
                 log('NonRecurringTaskInstance.fromAiJson: invalid date format');
                 return NULL;
             }
@@ -727,9 +759,8 @@ class NonRecurringTaskInstance {
                 log('NonRecurringTaskInstance.fromAiJson: time parts must be integers');
                 return NULL;
             }
-            try {
-                dueTime = new TimeField(hour, minute);
-            } catch (e) {
+            dueTime = TimeField.unsafeConstruct(hour, minute);
+            if (dueTime === NULL) {
                 log('NonRecurringTaskInstance.fromAiJson: invalid time values');
                 return NULL;
             }
@@ -1065,9 +1096,8 @@ class RecurringTaskInstance {
                 log('RecurringTaskInstance.fromAiJson: time parts must be integers');
                 return NULL;
             }
-            try {
-                dueTime = new TimeField(hour, minute);
-            } catch (e) {
+            dueTime = TimeField.unsafeConstruct(hour, minute);
+            if (dueTime === NULL) {
                 log('RecurringTaskInstance.fromAiJson: invalid time values');
                 return NULL;
             }
@@ -1088,10 +1118,8 @@ class RecurringTaskInstance {
                 return NULL;
             }
             
-            let startDate;
-            try {
-                startDate = DateField.fromYYYY_MM_DD(parts[0]);
-            } catch (e) {
+            const startDate = DateField.fromYYYY_MM_DDUnsafe(parts[0]);
+            if (startDate === NULL) {
                 log('RecurringTaskInstance.fromAiJson: invalid range start date format');
                 return NULL;
             }
@@ -1100,9 +1128,8 @@ class RecurringTaskInstance {
             if (AiReturnedNullField(parts[1]) || parts[1] === '') {
                 endDate = NULL;
             } else {
-                try {
-                    endDate = DateField.fromYYYY_MM_DD(parts[1]);
-                } catch (e) {
+                endDate = DateField.fromYYYY_MM_DDUnsafe(parts[1]);
+                if (endDate === NULL) {
                     log('RecurringTaskInstance.fromAiJson: invalid range end date format');
                     return NULL;
                 }
@@ -1265,10 +1292,8 @@ class NonRecurringEventInstance {
             return NULL;
         }
         
-        let startDate;
-        try {
-            startDate = DateField.fromYYYY_MM_DD(json.start_date);
-        } catch (e) {
+        const startDate = DateField.fromYYYY_MM_DDUnsafe(json.start_date);
+        if (startDate === NULL) {
             log('NonRecurringEventInstance.fromAiJson: invalid start_date format');
             return NULL;
         }
@@ -1287,9 +1312,8 @@ class NonRecurringEventInstance {
                 log('NonRecurringEventInstance.fromAiJson: start_time parts must be integers');
                 return NULL;
             }
-            try {
-                startTime = new TimeField(stHour, stMinute);
-            } catch (e) {
+            startTime = TimeField.unsafeConstruct(stHour, stMinute);
+            if (startTime === NULL) {
                 log('NonRecurringEventInstance.fromAiJson: invalid start_time values');
                 return NULL;
             }
@@ -1309,9 +1333,8 @@ class NonRecurringEventInstance {
                 log('NonRecurringEventInstance.fromAiJson: end_time parts must be integers');
                 return NULL;
             }
-            try {
-                endTime = new TimeField(etHour, etMinute);
-            } catch (e) {
+            endTime = TimeField.unsafeConstruct(etHour, etMinute);
+            if (endTime === NULL) {
                 log('NonRecurringEventInstance.fromAiJson: invalid end_time values');
                 return NULL;
             }
@@ -1320,9 +1343,8 @@ class NonRecurringEventInstance {
         // different_end_date (optional)
         let differentEndDate = NULL;
         if (!AiReturnedNullField(json.different_end_date)) {
-            try {
-                differentEndDate = DateField.fromYYYY_MM_DD(json.different_end_date);
-            } catch (e) {
+            differentEndDate = DateField.fromYYYY_MM_DDUnsafe(json.different_end_date);
+            if (differentEndDate === NULL) {
                 log('NonRecurringEventInstance.fromAiJson: invalid different_end_date format');
                 return NULL;
             }
@@ -1526,9 +1548,8 @@ class RecurringEventInstance {
                 return NULL;
             }
             
-            try {
-                startTime = new TimeField(hour, minute);
-            } catch (e) {
+            startTime = TimeField.unsafeConstruct(hour, minute);
+            if (startTime === NULL) {
                 log('RecurringEventInstance.fromAiJson: invalid start_time values');
                 return NULL;
             }
@@ -1549,9 +1570,8 @@ class RecurringEventInstance {
                 return NULL;
             }
             
-            try {
-                endTime = new TimeField(hour, minute);
-            } catch (e) {
+            endTime = TimeField.unsafeConstruct(hour, minute);
+            if (endTime === NULL) {
                 log('RecurringEventInstance.fromAiJson: invalid end_time values');
                 return NULL;
             }
@@ -1596,10 +1616,8 @@ class RecurringEventInstance {
                 return NULL;
             }
             
-            let startDate;
-            try {
-                startDate = DateField.fromYYYY_MM_DD(parts[0]);
-            } catch (e) {
+            const startDate = DateField.fromYYYY_MM_DDUnsafe(parts[0]);
+            if (startDate === NULL) {
                 log('RecurringEventInstance.fromAiJson: invalid range start date format');
                 return NULL;
             }
@@ -1608,9 +1626,8 @@ class RecurringEventInstance {
             if (AiReturnedNullField(parts[1]) || parts[1] === '') {
                 endDate = NULL;
             } else {
-                try {
-                    endDate = DateField.fromYYYY_MM_DD(parts[1]);
-                } catch (e) {
+                endDate = DateField.fromYYYY_MM_DDUnsafe(parts[1]);
+                if (endDate === NULL) {
                     log('RecurringEventInstance.fromAiJson: invalid range end date format');
                     return NULL;
                 }
@@ -1993,10 +2010,8 @@ class NonRecurringReminderInstance {
             return NULL;
         }
         
-        let date;
-        try {
-            date = DateField.fromYYYY_MM_DD(json.date);
-        } catch (e) {
+        const date = DateField.fromYYYY_MM_DDUnsafe(json.date);
+        if (date === NULL) {
             log("NonRecurringReminderInstance.fromAiJson: invalid date format");
             return NULL;
         }
@@ -2014,10 +2029,8 @@ class NonRecurringReminderInstance {
             return NULL;
         }
         
-        let time;
-        try {
-            time = new TimeField(hour, minute);
-        } catch (e) {
+        let time = TimeField.unsafeConstruct(hour, minute);
+        if (time === NULL) {
             log("NonRecurringReminderInstance.fromAiJson: invalid time values");
             return NULL;
         }
@@ -2142,10 +2155,8 @@ class RecurringReminderInstance {
             log('RecurringReminderInstance.fromAiJson: time parts must be integers');
             return NULL;
         }
-        let time;
-        try {
-            time = new TimeField(hour, minute);
-        } catch (e) {
+        let time = TimeField.unsafeConstruct(hour, minute);
+        if (time === NULL) {
             log('RecurringReminderInstance.fromAiJson: invalid time values');
             return NULL;
         }
@@ -2162,10 +2173,8 @@ class RecurringReminderInstance {
                 log('RecurringReminderInstance.fromAiJson: range string must be "start:end"');
                 return NULL;
             }
-            let startDate;
-            try {
-                startDate = DateField.fromYYYY_MM_DD(rparts[0]);
-            } catch (e) {
+            const startDate = DateField.fromYYYY_MM_DDUnsafe(rparts[0]);
+            if (startDate === NULL) {
                 log('RecurringReminderInstance.fromAiJson: invalid range start date');
                 return NULL;
             }
@@ -2173,9 +2182,8 @@ class RecurringReminderInstance {
             if (AiReturnedNullField(rparts[1]) || rparts[1] === '') {
                 endDate = NULL;
             } else {
-                try {
-                    endDate = DateField.fromYYYY_MM_DD(rparts[1]);
-                } catch (e) {
+                endDate = DateField.fromYYYY_MM_DDUnsafe(rparts[1]);
+                if (endDate === NULL) {
                     log('RecurringReminderInstance.fromAiJson: invalid range end date');
                     return NULL;
                 }
