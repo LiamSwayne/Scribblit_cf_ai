@@ -60,6 +60,8 @@ const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
+// which strategy to use for AI parsing
+let strategy = 'single_chain';
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -8771,6 +8773,152 @@ function measureTextWidth(text, font, fontSize) {
     return width;
 }
 
+function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
+    ASSERT(type(outermostJsonCharacters, String));
+    ASSERT(outermostJsonCharacters.length === 2);
+    ASSERT(outermostJsonCharacters === '[]' || outermostJsonCharacters === '{}');
+
+    // extraction json from AI output
+    let startTime = Date.now();
+    let cleanedText = aiOutput;
+
+    // we can remove the model thinking, all that matters is the output
+    // maybe the user would like to see this?
+    // maybe in pro mode we store this locally so they can look at it and feel more "in control"
+    const thinkClose = '</think>';
+    const idx = cleanedText.indexOf(thinkClose);
+    if (idx !== -1) {
+        cleanedText = cleanedText.substring(idx + thinkClose.length).trim();
+    }
+    cleanedText = cleanedText.trim();
+
+    // sometimes the ai puts it in a code block
+    if (cleanedText.startsWith('```json')) {
+        cleanedText = cleanedText.substring(7).trim();
+    }
+    if (cleanedText.endsWith('```')) {
+        cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
+    }
+
+    // extraction json from AI output
+    let aiJson = NULL;
+    try {
+        aiJson = JSON.parse(cleanedText);
+    } catch (e) {
+        // failed to parse, but we can try more
+        // try to split at [ and ] in case the ai prepended or appended text
+        // get index
+        const idx = cleanedText.indexOf(outermostJsonCharacters[0]);
+        if (idx !== -1) {
+            cleanedText = cleanedText.substring(idx + 1);
+        }
+        try {
+            aiJson = JSON.parse(cleanedText);
+        } catch (e) {
+            // now try removing ] at end
+            const idx = cleanedText.lastIndexOf(outermostJsonCharacters[1]);
+            if (idx !== -1) {
+                cleanedText = cleanedText.substring(0, idx);
+            }
+            try {
+                aiJson = JSON.parse(cleanedText);
+            } catch (e) {
+                // finally give up
+                return NULL;
+            }
+        }
+    }
+
+    chain.add(new ProcessingNode(cleanedText, Date.now() - startTime, "Extraction JSON from AI output"));
+
+    return aiJson;
+}
+
+async function singleChainAiRequest(inputText, fileArray, chain) {
+    // Send to backend AI endpoint
+    const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            prompt: inputText,
+            fileArray: fileArray,
+            strategy: 'single_chain'
+        })
+    });
+
+    if (!response.ok) {
+        console.error('AI parse request failed', await response.text());
+        return; // keep input for debugging
+    }
+
+    const responseJson = await response.json();
+
+    if (responseJson.error && responseJson.error.length > 0) {
+        log("Error: " + responseJson.error);
+        return;
+    }
+
+    for (const nodeJson of responseJson.chain) {
+        chain.addNodeFromJson(nodeJson);
+    }
+
+    // Convert to internal entities
+    let newEntities = []
+    try {
+        if (Array.isArray(aiJson)) {
+            for (const obj of aiJson) {
+                let startTime = Date.now();
+                try {
+                    let parsedEntity = Entity.fromAiJson(obj);
+                    if (parsedEntity === NULL) {
+                        chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
+                    } else {
+                        chain.add(new CreatedEntityNode(obj, parsedEntity, Date.now() - startTime));
+                        newEntities.push(parsedEntity);
+                    }
+                } catch (e) {
+                    chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
+                    continue;
+                }
+            }
+        } else {
+            let startTime = Date.now();
+            let parsedEntity = NULL;
+            try {
+                parsedEntity = Entity.fromAiJson(aiJson);
+            } catch (e) {
+                chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
+            }
+            if (parsedEntity === NULL) {
+                chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
+            } else {
+                chain.add(new CreatedEntityNode(aiJson, parsedEntity, Date.now() - startTime));
+                newEntities.push(parsedEntity);
+            }
+        }
+    } catch (e) {
+        return;
+    }
+
+    if (newEntities.length === 0) {
+        return;
+    }
+
+    log("Entities: ");
+    log(newEntities);
+
+    // Add to user
+    for (const ent of newEntities) {
+        user.entityArray.push(ent);
+    }
+    user.timestamp = Date.now();
+    saveUserData(user);
+}
+
+async function stepByStepPart1AiRequest(inputText, fileArray, chain) {
+    // TODO: implement
+}
+
 // Process input when Enter key is pressed
 function processInput() {
     const inputBox = HTML.getElement('inputBox');
@@ -8801,156 +8949,35 @@ function processInput() {
         chain.add(new UserAttachmentsNode(fileNames));
     }
 
+    // Prepare enriched text with date,time,dayOfWeek (all in local timezone)
+    const now = new Date();
+    const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'); // YYYY-MM-DD in local timezone
+    const timeStr = now.toTimeString().slice(0,5); // HH:MM (24h) in local timezone
+    const dayOfWeekString = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
+    let userTextWithDateInformation;
+    if (inputText.trim() !== '') {
+        userTextWithDateInformation = `Today is ${dayOfWeekString}, ${dateStr}, ${timeStr}.\n\n${inputText}`;
+    } else {
+        userTextWithDateInformation = `Today is ${dayOfWeekString}, ${dateStr}, ${timeStr}.`;
+    }
+
     (async () => {
-        try {
-            // Prepare enriched text with date,time,dayOfWeek (all in local timezone)
-            const now = new Date();
-            const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'); // YYYY-MM-DD in local timezone
-            const timeStr = now.toTimeString().slice(0,5); // HH:MM (24h) in local timezone
-            const dayOfWeekString = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
-            const userTextWithDateInformation = `Today is ${dayOfWeekString}, ${dateStr}, ${timeStr}.\n\n${inputText}`;
-
-            // Send to backend AI endpoint
-            const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: userTextWithDateInformation,
-                    fileArray: fileArray
-                })
-            });
-
-            if (!response.ok) {
-                console.error('AI parse request failed', await response.text());
-                return; // keep input for debugging
-            }
-
-            const responseJson = await response.json();
-
-            if (responseJson.error && responseJson.error.length > 0) {
-                log("Error: " + responseJson.error);
-                return;
-            }
-
-            for (const nodeJson of responseJson.chain) {
-                chain.addNodeFromJson(nodeJson);
-            }
-
-            // extraction json from AI output
-            let startTime = Date.now();
-            let cleanedText = responseJson.aiOutput;
-
-            // we can remove the model thinking, all that matters is the output
-            // maybe the user would like to see this?
-            // maybe in pro mode we store this locally so they can look at it and feel more "in control"
-            const thinkClose = '</think>';
-            const idx = cleanedText.indexOf(thinkClose);
-            if (idx !== -1) {
-                cleanedText = cleanedText.substring(idx + thinkClose.length).trim();
-            }
-            cleanedText = cleanedText.trim();
-
-            // sometimes the ai puts it in a code block
-            if (cleanedText.startsWith('```json')) {
-                cleanedText = cleanedText.substring(7).trim();
-            }
-            if (cleanedText.endsWith('```')) {
-                cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
-            }
-
-            // extraction json from AI output
-            let aiJson = NULL;
-            try {
-                aiJson = JSON.parse(cleanedText);
-            } catch (e) {
-                // failed to parse, but we can try more
-                // try to split at [ and ] in case the ai prepended or appended text
-                // get index
-                const idx = cleanedText.indexOf('[');
-                if (idx !== -1) {
-                    cleanedText = cleanedText.substring(idx + 1);
-                }
-                try {
-                    aiJson = JSON.parse(cleanedText);
-                } catch (e) {
-                    // now try removing ] at end
-                    const idx = cleanedText.lastIndexOf(']');
-                    if (idx !== -1) {
-                        cleanedText = cleanedText.substring(0, idx);
-                    }
-                    try {
-                        aiJson = JSON.parse(cleanedText);
-                    } catch (e) {
-                        // finally give up
-                        return;
-                    }
-                }
-            }
-
-            chain.add(new ProcessingNode(cleanedText, Date.now() - startTime, "Extraction JSON from AI output"));
-
-            // Convert to internal entities
-            let newEntities = []
-            try {
-                if (Array.isArray(aiJson)) {
-                    for (const obj of aiJson) {
-                        let startTime = Date.now();
-                        try {
-                            let parsedEntity = Entity.fromAiJson(obj);
-                            if (parsedEntity === NULL) {
-                                chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
-                            } else {
-                                chain.add(new CreatedEntityNode(obj, parsedEntity, Date.now() - startTime));
-                                newEntities.push(parsedEntity);
-                            }
-                        } catch (e) {
-                            chain.add(new FailedToCreateEntityNode(obj, Date.now() - startTime));
-                            continue;
-                        }
-                    }
-                } else {
-                    let startTime = Date.now();
-                    let parsedEntity = NULL;
-                    try {
-                        parsedEntity = Entity.fromAiJson(aiJson);
-                    } catch (e) {
-                        chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
-                    }
-                    if (parsedEntity === NULL) {
-                        chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
-                    } else {
-                        chain.add(new CreatedEntityNode(aiJson, parsedEntity, Date.now() - startTime));
-                        newEntities.push(parsedEntity);
-                    }
-                }
-            } catch (e) {
-                return;
-            }
-
-            if (newEntities.length === 0) {
-                return;
-            }
-
-            log("Entities: ");
-            log(newEntities);
-
-            // Add to user
-            for (const ent of newEntities) {
-                user.entityArray.push(ent);
-            }
-            user.timestamp = Date.now();
-            saveUserData(user);
-
-            // Clear input box
-            inputBox.value = '';
-            attachedFiles = [];
-            updateAttachmentBadge();
-
-            // Re-render UI
-            render();
-        } catch (err) {
-            log("processInput error: " + err.message);
+        if (strategy === 'single_chain') {
+            await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
+        } else if (strategy === 'step_by_step') {
+            // retries until it gets a valid json
+            await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
+        } else {
+            ASSERT(false, "Invalid strategy: " + strategy);
         }
+
+        // Clear input box
+        inputBox.value = '';
+        attachedFiles = [];
+        updateAttachmentBadge();
+
+        // Re-render UI
+        render();
 
         log("Chain: ");
         log(chain);
