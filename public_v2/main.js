@@ -1486,6 +1486,10 @@ function initDragAndDrop() {
 
         if (attachedFiles.length > 0) {
             updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
+
+            // focus on input box
+            HTML.getElement('inputBox').focus();
+            
         } else {
             updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
         }
@@ -9177,6 +9181,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             continue;
         }
 
+        log("Chain: ");
+        log(responseJson.chain);
         for (const nodeJson of responseJson.chain) {
             chain.addNodeFromJson(nodeJson);
         }
