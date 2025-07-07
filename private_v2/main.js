@@ -951,14 +951,6 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         return { aiOutput: content, chain, promptForStep2 };
     } else if (strategy.startsWith('step_by_step:2/2')) {
         // no files are ever passed in this step
-        
-        // the userPrompt contains the original prompt, time and date, and the description of files generated in step 1
-        // now we append
-        // the userPrompt is the same for all 2/2 requests, but each has a different entity name
-        // put the entity name at the end so the long description gets cached
-        // Gemini auto-caches prefixes. The desciption is being passed for every entity extracted from this document, possible 20+ times.
-        // Putting the unique entity name at the beginning would prevent the prefix from being cached.
-        const newPrompt = `${userPrompt} The entity I am supposed to complete is a ${entityType} named "${entityName}".`;
 
         // GIVEN description of files and simplified entity, expand the simplified entity
         if (!simplifiedEntity) {
@@ -984,6 +976,14 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         if (entityType === 'task' && mayHaveWorkSession === null) {
             return SEND({ error: 'mayHaveWorkSession is required for step_by_step:2/2 strategy running on a task.' }, 480);
         }
+
+        // the userPrompt contains the original prompt, time and date, and the description of files generated in step 1
+        // now we append
+        // the userPrompt is the same for all 2/2 requests, but each has a different entity name
+        // put the entity name at the end so the long description gets cached
+        // Gemini auto-caches prefixes. The desciption is being passed for every entity extracted from this document, possible 20+ times.
+        // Putting the unique entity name at the beginning would prevent the prefix from being cached.
+        const newPrompt = `${userPrompt} The entity I am supposed to complete is a ${entityType} named "${entityName}".`;
 
         let expansionPrompt;
         if (entityType === 'task') {
