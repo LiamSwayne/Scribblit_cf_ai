@@ -106,7 +106,7 @@ async function generateToken(email, secret_key) {
     return `${payloadBase64}.${signatureBase64}`;
 }
 
-const systemPrompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
+const constructEntitiesPrompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
 
 Task JSON:
 {
@@ -196,19 +196,189 @@ Reminder JSON:
 
 Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. Don't include useless stuff in the name, like "!!!" or "due"`
 
+let filesOnlyExtractSimplifiedEntitiesPrompt = `You are an AI that takes in the user's files and converts them to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field. Even events that are optional (things to just be aware of) should be included.
+
+There is also a "work session", which is a time when the user has specified they should be working on a specific task. Work sessions are extremely rare. If you see a work session, make an event with the title format "Work on {task name}"
+
+Format:
+[
+    {
+        "task": "name in sentence case"
+    },
+    {
+        "event": "name in sentence case",
+    },
+    {
+        "reminder": "name in sentence case",
+    }
+    ...
+]
+
+A file may contain many things or just a few. If nothing can be extracted, just return an empty array.
+
+If a task/event/reminder happens multiple times, you only create one of it, even if it is recurring. For example, a task that happens every Tuesday morning and every Friday afternoon should only be one task. Return nothing but the array.`;
+
+let filesOnlyExpandSimplifiedTaskPrompt = `You are an AI that takes in a simplified task JSON and expands it to include all the fields. A task is something that has to be done *by* a certain date/time but can be done before then. The task was found in the attached files that the user expects us to convert to tasks/events/reminders. You are only handling a single task. Here is the task spec:
+
+Task JSON:
+{
+    "instances": [ // 2 options
+	    {
+		    "type": "due_date_instance"
+		    "date": "YYYY-MM-DD" // OPTIONAL
+		    "time": "HH:MM"// OPTIONAL. if it's due today and the current time is past noon assume numbers below 12 are pm.
+	    }
+	    {
+		    "type": "due_date_pattern"
+		    "pattern": // 4 options
+				{
+					"type": "every_n_days_pattern"
+					"initial_date": "YYYY-MM-DD"
+					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
+				}
+				{
+					"type": "monthly_pattern"
+					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
+					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
+				}
+				{
+					"type": "annually_pattern"
+					"month": // integer 1-12
+					"day": // integer 1-31
+				}
+				{
+					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
+					"day_of_week": // integer 1-7
+					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
+					"months": // array of 12 booleans for if the pattern is enabled for that month.
+				}
+		    "time": "HH:MM" // OPTIONAL
+		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
+	    }
+	]
+}
+
+If you cannot find a date you have to consider 2 options: if it's a task that seems like it has a deadline, assume it's due today. If it's a task that doesn't seems like it has a deadline, omit the field.
+
+Never assume what time a task is due. If you can't find a time, or something that heavily suggests a time, omit the time field.
+
+If something is due by today without a specific time, you can just omit the time and the user will just be notified that it's due today. It is better to omit the time than to assume it's a time that's not specified.
+
+You have to capture all of the times this task occurs as one object, using a combination of patterns and individual instances if needed. There is no maximum number of instances.
+
+You only job is to return the json object. Return nothing but the json object.`;
+
+let filesOnlyExpandSimplifiedEventPrompt = `You are an AI that takes in a simplified event JSON and expands it to include all the fields. An event is something that has to be done at a specific date/time and cannot be done before then. The event was found in the attached files that the user expects us to convert to tasks/events/reminders. You are only handling a single event. Here is the event spec:
+
+Event JSON:
+{
+	"instances": [ // 2 options
+		{
+			"type": "event_instance"
+			"start_date": "YYYY-MM-DD", must be included if an end time is given
+			"start_time": "HH:MM" // OPTIONAL, include if the start time is explictly known
+			"end_time": "HH:MM" // OPTIONAL, include if the end time is explictly known
+			"different_end_date": "YYYY-MM-DD" // OPTIONAL, include if the event runs 24/7 and ends on a different date than the start date
+		}
+		{
+			"type": "event_pattern"
+			"start_date_pattern": // 4 options
+				{
+					"type": "every_n_days_pattern"
+					"initial_date": "YYYY-MM-DD"
+					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
+				}
+				{
+					"type": "monthly_pattern"
+					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
+					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
+				}
+				{
+					"type": "annually_pattern"
+					"month": // integer 1-12
+					"day": // integer 1-31
+				}
+				{
+					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
+					"day_of_week": // integer 1-7
+					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
+					"months": // array of 12 booleans for if the pattern is enabled for that month.
+				}
+			"start_time": "HH:MM" // OPTIONAL
+			"end_time": "HH:MM" // OPTIONAL
+			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
+			"range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
+		}
+	]
+}
+
+If the time an event starts and ends in not specified, you can just omit start and end time. If only the start time is specified, you can just omit the end time. If the event lasts multiple days, you use different_end_date or different_end_date_offset to make the event last multiple days. For example, a sleepover from 9pm to 10am the next day would have different_end_date_offset=1.
+
+You have to capture all of the times this event occurs as one object, using a combination of patterns and individual instances if needed. There is no maximum number of instances.
+
+You only job is to return the json object. Return nothing but the json object.`;
+
+let filesOnlyExpandSimplifiedReminderPrompt = `You are an AI that takes in a simplified reminder JSON and expands it to include all the fields. A reminder is something insignificant to be reminded of at a specific time. The reminder was found in the attached files that the user expects us to convert to tasks/events/reminders. You are only handling a single reminder. Here is the reminder spec:
+
+Reminder JSON:
+{
+	"instances": [
+		{
+			"type": "reminder_instance"
+			"date": "YYYY-MM-DD"
+		    "time": "HH:MM"
+		}
+		{
+			"type": "reminder_pattern"
+			"date_pattern": // 4 options
+				{
+					"type": "every_n_days_pattern"
+					"initial_date": "YYYY-MM-DD"
+					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
+				}
+				{
+					"type": "monthly_pattern"
+					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
+					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
+				}
+				{
+					"type": "annually_pattern"
+					"month": // integer 1-12
+					"day": // integer 1-31
+				}
+				{
+					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
+					"day_of_week": // integer 1-7
+					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
+					"months": // array of 12 booleans for if the pattern is enabled for that month.
+				}
+		    "time": "HH:MM"
+		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
+		}
+	]
+}
+
+You have to capture all of the times this reminder occurs as one object, using a combination of patterns and individual instances if needed. There is no maximum number of instances.
+
+You only job is to return the json object. Return nothing but the json object.`;
+
 let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text. A different AI handles the user's prompt, but it may be helpful context for you. Your job is not to handle the user's request, only to describe the files.`;
 
 let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to be more readable. Each title should be in sentence case. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
 
-function createPromptWithFileDescription(userPrompt, descriptionOfFiles) {
+function createPromptWithFileDescription(userPrompt='', descriptionOfFiles) {
+    if (userPrompt && userPrompt.trim() !== '') {
     return `The user provided some files as context for their prompt. Here is a description of the files:
 ${descriptionOfFiles}
 
 User prompt:
 ${userPrompt}`;
+    } else {
+        return 'The user provided some files as context for their prompt. Here is a description of the files:' + descriptionOfFiles;
+    }
 }
 
-async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_prompt=systemPrompt, reasoning) {
+async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_prompt=constructEntitiesPrompt, reasoning) {
     console.log("Calling Gemini model");
     console.log(userPrompt);
     if (!Object.values(MODELS.GEMINI_MODELS).includes(modelName)) {
@@ -301,7 +471,7 @@ async function callCerebrasModel(modelName, userPrompt, env) {
         const cerebrasRequest = {
             model: modelName,
             messages: [
-                { role: 'system', content: systemPrompt },
+                { role: 'system', content: constructEntitiesPrompt },
                 { role: 'user', content: userPrompt },
             ],
             max_tokens: 8192,
@@ -323,7 +493,7 @@ async function callCerebrasModel(modelName, userPrompt, env) {
     }
 }
 
-async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], system_prompt=systemPrompt) {
+async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], system_prompt=constructEntitiesPrompt) {
     if (!Object.values(MODELS.ANTHROPIC_MODELS).includes(modelName)) {
         throw new Error('Unsupported Anthropic model: ' + modelName);
     }
@@ -436,7 +606,7 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
             const groqRequest = {
                 model: modelName,
                 messages: [
-                    { role: 'system', content: systemPrompt },
+                    { role: 'system', content: constructEntitiesPrompt },
                     { role: 'user', content: userPrompt },
                 ],
                 max_tokens: 8192,
@@ -467,200 +637,365 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
     }
 }
 
-async function callAiModel(userPrompt, fileArray, env) {
-    try {
-        let content;
-        // chain is the whole reasoning process
-        // each object has either:
-        //   request: model, typeOfPrompt, response, duration, and reasoning boolean
-        //   or
-        //   rerouteToModel: model, duration (we failed to connect, so this is the next model to try)
-        //   or
-        //   user_prompt: user_prompt (the user's prompt)
-        //   or
-        //   user_attachments: file_names (the user's attachments)
-        // we want to include reroutes in the chain
-        let chain = [];
+async function handlePromptOnly(userPrompt, env) {
+    let content;
+    let chain = [];
+    let startTime = 0;
+    let duration = 0;
 
-        // user prompt and file array are added to the chain on the frontend
-
-        // keeping track of unix time each step starts and ends at
-        let startTime = 0;
-        let duration = 0;
-
-        if (Array.isArray(fileArray) && fileArray.length > 0) {
-            let descriptionOfFiles;
-            // STEP 1: get description of files
-            // 1st choice - gemini flash
+    // 1st choice – Cerebras Qwen3
+    startTime = Date.now();
+    content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env);
+    duration = Date.now() - startTime;
+    if (content && content.trim() !== '') {
+        chain.push({ request: {
+            model: MODELS.CEREBRAS_MODELS.qwen3,
+            typeOfPrompt: 'convert_text_to_entities',
+            response: content,
+            duration,
+            reasoning: true
+        }});
+    } else {
+        chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+        // 2nd choice – Groq Qwen3
+        startTime = Date.now();
+        content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env);
+        duration = Date.now() - startTime;
+        if (content && content.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.GROQ_MODELS.qwen3,
+                typeOfPrompt: 'convert_text_to_entities',
+                response: content,
+                duration,
+                reasoning: true
+            }});
+        } else {
+            chain.push({ rerouteToModel: { model: MODELS.GEMINI_MODELS.flash, duration }});
+            // 3rd choice – Gemini Flash
             startTime = Date.now();
-            descriptionOfFiles = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, false);
+            content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
             duration = Date.now() - startTime;
-
-            if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
-                chain.push({request: {
-                        model: MODELS.GEMINI_MODELS.flash,
-                        typeOfPrompt: 'file_description',
-                        response: descriptionOfFiles,
-                        duration: duration,
-                        reasoning: false
-                }});
-            } else {
-                chain.push({rerouteToModel: {
-                    model: MODELS.ANTHROPIC_MODELS.sonnet,
-                    duration: duration
-                }});
-                // 2nd choice - claude sonnet
-                // Use Anthropic Claude for files (vision support)
-                startTime = Date.now();
-                descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
-                duration = Date.now() - startTime;
-
-                if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
-                    chain.push({request: {
-                        model: MODELS.ANTHROPIC_MODELS.sonnet,
-                        typeOfPrompt: 'file_description',
-                        response: descriptionOfFiles,
-                        duration: duration,
-                        reasoning: false
-                    }});
-                } else {
-                    // unable to comprehend files
-                    return SEND({
-                        error: 'Unable to comprehend files.'
-                    }, 475);
-                }
-            }
-
-            // STEP 2: convert to json including file descriptions as context
-            let newPrompt;
-            if (userPrompt.trim() === '') {
-                // no user prompt, so just use the files to generate a new prompt
-                newPrompt = "I attached some files to my prompt. Here is a description of the files: " + descriptionOfFiles;
-            } else {
-                newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
-            }
-
-            // use Gemini Flash Reasoning because file tasks are generally the hardest kind of requests
-            startTime = Date.now();
-            content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, systemPrompt, true);
-            duration = Date.now() - startTime;
-
             if (content && content.trim() !== '') {
-                chain.push({request: {
+                chain.push({ request: {
                     model: MODELS.GEMINI_MODELS.flash,
-                    typeOfPrompt: 'convert_files_to_entities',
+                    typeOfPrompt: 'convert_text_to_entities',
                     response: content,
-                    duration: duration,
+                    duration,
                     reasoning: true
                 }});
             } else {
-                chain.push({rerouteToModel: {
-                    model: MODELS.CEREBRAS_MODELS.qwen3,
-                    duration: duration
-                }});
-                // 2nd choice - Cerebras
-                startTime = Date.now();
-                content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
-                duration = Date.now() - startTime;
-                if (content && content.trim() !== '') {
-                    chain.push({request: {
-                        model: MODELS.CEREBRAS_MODELS.qwen3,
-                        typeOfPrompt: 'convert_files_to_entities',
-                        response: content,
-                        duration: duration,
-                        reasoning: false
-                    }});
-                } else {
-                    chain.push({rerouteToModel: {
-                        model: MODELS.GROQ_MODELS.qwen3,
-                        duration: duration
-                    }});
-                    // 3rd choice - Groq
-                    startTime = Date.now();
-                    content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
-                    duration = Date.now() - startTime;
-                    if (content && content.trim() !== '') {
-                        chain.push({request: {
-                            model: MODELS.GROQ_MODELS.qwen3,
-                            typeOfPrompt: 'convert_files_to_entities',
-                            response: content,
-                            duration: duration,
-                            reasoning: false
-                        }});
-                    } else {
-                        return SEND({
-                            error: 'Failed to connect to any AI model.'
-                        }, 467);
-                    }
-                }
+                throw new Error('Failed to connect to any AI model.');
             }
-        } else {
-            // Use Qwen for text-only requests
+        }
+    }
 
-            // 1st choice - Cerebras
+    return { aiOutput: content, chain };
+}
+
+async function handleFilesOnly(fileArray, env, strategy) {
+    let content;
+    let chain = [];
+    let startTime = 0;
+    let duration = 0;
+
+    // STEP 1: Describe files
+    startTime = Date.now();
+    let descriptionOfFiles = await callGeminiModel(MODELS.GEMINI_MODELS.flash, '', env, fileArray, fileDescriptionPrompt, false);
+    duration = Date.now() - startTime;
+
+    if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+        chain.push({ request: {
+            model: MODELS.GEMINI_MODELS.flash,
+            typeOfPrompt: 'file_description',
+            response: descriptionOfFiles,
+            duration,
+            reasoning: false
+        }});
+    } else {
+        chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, duration }});
+        startTime = Date.now();
+        descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, '', env, fileArray, fileDescriptionPrompt);
+        duration = Date.now() - startTime;
+        if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.ANTHROPIC_MODELS.sonnet,
+                typeOfPrompt: 'file_description',
+                response: descriptionOfFiles,
+                duration,
+                reasoning: false
+            }});
+        } else {
+            throw new Error('Unable to comprehend files.');
+        }
+    }
+
+    // STEP 2: Convert to JSON
+    if (strategy === 'single_chain') {
+        const newPrompt = createPromptWithFileDescription('', descriptionOfFiles);
+
+        startTime = Date.now();
+        content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, constructEntitiesPrompt, true);
+        duration = Date.now() - startTime;
+
+        if (content && content.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.GEMINI_MODELS.flash,
+                typeOfPrompt: 'convert_files_to_entities',
+                response: content,
+                duration,
+                reasoning: true
+            }});
+        } else {
+            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, duration }});
             startTime = Date.now();
-            content = await callCerebrasModel('qwen-3-32b', userPrompt, env);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
             duration = Date.now() - startTime;
             if (content && content.trim() !== '') {
-                chain.push({request: {
+                chain.push({ request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
-                    typeOfPrompt: 'convert_text_to_entities',
+                    typeOfPrompt: 'convert_files_to_entities',
                     response: content,
-                    duration: duration,
-                    reasoning: false
+                    duration,
+                    reasoning: true
                 }});
             } else {
-                chain.push({rerouteToModel: {
-                    model: MODELS.GROQ_MODELS.qwen3,
-                    duration: duration
-                }});
-                // 2nd choice - Groq
+                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
                 startTime = Date.now();
-                content = await callGroqModel('qwen/qwen3-32b', userPrompt, env);
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
                 duration = Date.now() - startTime;
                 if (content && content.trim() !== '') {
-                    chain.push({request: {
+                    chain.push({ request: {
                         model: MODELS.GROQ_MODELS.qwen3,
-                        typeOfPrompt: 'convert_text_to_entities',
+                        typeOfPrompt: 'convert_files_to_entities',
                         response: content,
-                        duration: duration,
-                        reasoning: false
+                        duration,
+                        reasoning: true
                     }});
                 } else {
-                    chain.push({rerouteToModel: {
-                        model: MODELS.GEMINI_MODELS.flash,
-                        duration: duration
-                    }});
-                    // 3rd choice - Gemini
-                    startTime = Date.now();
-                    content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, systemPrompt, false);
-                    duration = Date.now() - startTime;
-                    if (content && content.trim() !== '') {
-                        chain.push({request: {
-                            model: MODELS.GEMINI_MODELS.flash,
-                            typeOfPrompt: 'convert_text_to_entities',
-                            response: content,
-                            duration: duration,
-                            reasoning: false
-                        }});
-                    } else {
-                        return SEND({
-                            error: 'Failed to connect to any AI model.'
-                        }, 467);
-                    }
+                    throw new Error('Failed to connect to any AI model.');
                 }
             }
         }
+    } else if (strategy === 'step_by_step:1/2') {
+        const newPrompt = 'I attached some files to my prompt. Here is a description of the files: ' + descriptionOfFiles;
 
-        return {
-            aiOutput: content,
-            chain: chain
-        };
+        startTime = Date.now();
+        content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, filesOnlyExtractSimplifiedEntitiesPrompt, true);
+        duration = Date.now() - startTime;
+
+        if (content && content.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.GEMINI_MODELS.flash,
+                typeOfPrompt: 'extract_simplified_entities',
+                response: content,
+                duration,
+                reasoning: true
+            }});
+        } else {
+            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, duration }});
+            startTime = Date.now();
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+            duration = Date.now() - startTime;
+            if (content && content.trim() !== '') {
+                chain.push({ request: {
+                    model: MODELS.CEREBRAS_MODELS.qwen3,
+                    typeOfPrompt: 'extract_simplified_entities',
+                    response: content,
+                    duration,
+                    reasoning: true
+                }});
+            } else {
+                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+                startTime = Date.now();
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+                duration = Date.now() - startTime;
+                if (content && content.trim() !== '') {
+                    chain.push({ request: {
+                        model: MODELS.GROQ_MODELS.qwen3,
+                        typeOfPrompt: 'extract_simplified_entities',
+                        response: content,
+                        duration,
+                        reasoning: true
+                    }});
+                } else {
+                    throw new Error('Failed to connect to any AI model for simplified entity extraction.');
+                }
+            }
+        }
+    } else if (strategy.startsWith('step_by_step:2/2')) {
+        const simplifiedEntity = JSON.parse(strategy.split(':')[2]);
+        const entityType = Object.keys(simplifiedEntity)[0];
+        const entityName = simplifiedEntity[entityType];
+
+        let expansionPrompt;
+        if (entityType === 'task') {
+            expansionPrompt = filesOnlyExpandSimplifiedTaskPrompt;
+        } else if (entityType === 'event') {
+            expansionPrompt = filesOnlyExpandSimplifiedEventPrompt;
+        } else if (entityType === 'reminder') {
+            expansionPrompt = filesOnlyExpandSimplifiedReminderPrompt;
+        } else {
+            return SEND({ error: 'Invalid entity type for expansion: ' + entityType }, 476);
+        }
+
+        const newPrompt = `I have a ${entityType} named "${entityName}". Here is a description of the files it came from: ${descriptionOfFiles}`;
+
+        startTime = Date.now();
+        content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, expansionPrompt, true);
+        duration = Date.now() - startTime;
+
+        if (content && content.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.GEMINI_MODELS.flash,
+                typeOfPrompt: 'expand_simplified_entity',
+                response: content,
+                duration,
+                reasoning: true
+            }});
+        } else {
+            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, duration }});
+            startTime = Date.now();
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+            duration = Date.now() - startTime;
+            if (content && content.trim() !== '') {
+                chain.push({ request: {
+                    model: MODELS.CEREBRAS_MODELS.qwen3,
+                    typeOfPrompt: 'expand_simplified_entity',
+                    response: content,
+                    duration,
+                    reasoning: true
+                }});
+            } else {
+                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+                startTime = Date.now();
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+                duration = Date.now() - startTime;
+                if (content && content.trim() !== '') {
+                    chain.push({ request: {
+                        model: MODELS.GROQ_MODELS.qwen3,
+                        typeOfPrompt: 'expand_simplified_entity',
+                        response: content,
+                        duration,
+                        reasoning: true
+                    }});
+                } else {
+                    throw new Error('Failed to connect to any AI model for entity expansion.');
+                }
+            }
+        }
+    } else {
+        return SEND({
+            error: 'Invalid strategy: ' + strategy
+        }, 475);
+    }
+
+    return { aiOutput: content, chain };
+}
+
+async function handlePromptAndFiles(userPrompt, fileArray, env) {
+    let content;
+    let chain = [];
+    let startTime = 0;
+    let duration = 0;
+
+    // STEP 1: Describe files
+    startTime = Date.now();
+    let descriptionOfFiles = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, false);
+    duration = Date.now() - startTime;
+
+    if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+        chain.push({ request: {
+            model: MODELS.GEMINI_MODELS.flash,
+            typeOfPrompt: 'file_description',
+            response: descriptionOfFiles,
+            duration,
+            reasoning: false
+        }});
+    } else {
+        chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, duration }});
+        startTime = Date.now();
+        descriptionOfFiles = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, fileDescriptionPrompt);
+        duration = Date.now() - startTime;
+        if (descriptionOfFiles && descriptionOfFiles.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.ANTHROPIC_MODELS.sonnet,
+                typeOfPrompt: 'file_description',
+                response: descriptionOfFiles,
+                duration,
+                reasoning: false
+            }});
+        } else {
+            throw new Error('Unable to comprehend files.');
+        }
+    }
+
+    // STEP 2: Combine user prompt with file descriptions
+    const newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
+
+    startTime = Date.now();
+    content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, fileArray, constructEntitiesPrompt, true);
+    duration = Date.now() - startTime;
+
+    if (content && content.trim() !== '') {
+        chain.push({ request: {
+            model: MODELS.GEMINI_MODELS.flash,
+            typeOfPrompt: 'convert_files_to_entities',
+            response: content,
+            duration,
+            reasoning: true
+        }});
+    } else {
+        chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, duration }});
+        startTime = Date.now();
+        content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+        duration = Date.now() - startTime;
+        if (content && content.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.CEREBRAS_MODELS.qwen3,
+                typeOfPrompt: 'convert_files_to_entities',
+                response: content,
+                duration,
+                reasoning: true
+            }});
+        } else {
+            chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, duration }});
+            startTime = Date.now();
+            content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+            duration = Date.now() - startTime;
+            if (content && content.trim() !== '') {
+                chain.push({ request: {
+                    model: MODELS.GROQ_MODELS.qwen3,
+                    typeOfPrompt: 'convert_files_to_entities',
+                    response: content,
+                    duration,
+                    reasoning: true
+                }});
+            } else {
+                throw new Error('Failed to connect to any AI model.');
+            }
+        }
+    }
+
+    return { aiOutput: content, chain };
+}
+
+async function callAiModel(userPrompt, fileArray, env, strategy) {
+    try {
+        const promptProvided = userPrompt && userPrompt.trim() !== '';
+        const filesProvided = Array.isArray(fileArray) && fileArray.length > 0;
+
+        if (promptProvided && filesProvided) {
+            return await handlePromptAndFiles(userPrompt, fileArray, env);
+        } else if (promptProvided) {
+            return await handlePromptOnly(userPrompt, env);
+        } else if (filesProvided) {
+            return await handleFilesOnly(fileArray, env, strategy);
+        } else {
+            return SEND({ error: 'No prompt or files provided.' }, 400);
+        }
     } catch (err) {
         console.error('callAiModel error:', err);
-        return SEND({
-            error: 'Error in callAiModel: ' + err.message
-        }, 467);
+        return SEND({ error: 'Error in callAiModel: ' + err.message }, 467);
     }
 }
 
@@ -1139,12 +1474,13 @@ export default {
                         const data = await request.json();
                         const userText = data.prompt;
                         const fileArray = data.fileArray;
+                        const strategy = data.strategy;
 
-                        if (userText == null || userText.length === 0) {
-                            return SEND({ error: 'Empty request body' }, 400);
+                        if ((!userText || userText.trim().length === 0) && (!fileArray || fileArray.length === 0)) {
+                            return SEND({ error: 'Empty request body' }, 471);
                         }
 
-                        const { aiOutput, chain } = await callAiModel(userText, fileArray, env);
+                        const { aiOutput, chain } = await callAiModel(userText, fileArray, env, strategy);
                         console.log("AI output: " + aiOutput);
                         return SEND({
                             aiOutput: aiOutput,
