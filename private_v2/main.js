@@ -900,7 +900,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         }
 
         // STEP 2: Extract simplified entities
-        const newPrompt = 'I attached some files to my prompt. Here is a description of the files: ' + descriptionOfFiles;
+        const newPrompt = 'I attached some files to my prompt. Here is the prompt: ' + userPrompt + '. Here is a description of the files: ' + descriptionOfFiles;
 
         startTime = Date.now();
         geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, [], filesOnlyExtractSimplifiedEntitiesPrompt, true);
@@ -946,9 +946,9 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             }
         }
         // on the front-end, it needs description of files so it can be passed to each request in the next step
-        const promptIncludingDescription = `I extracted an entity from some files. Here is a description of the files it came from: ${descriptionOfFiles}.`;
+        const promptForStep2 = `Here was the user's prompt: ${userPrompt}. Another AI model described the files and extracted a bunch of entities. Your have been given one of the extracted entities, and your job is to provide the complete entity. Here is a description of the files it came from: ${descriptionOfFiles}.`;
         // here content is the simplified entity response
-        return { aiOutput: content, chain, promptIncludingDescription };
+        return { aiOutput: content, chain, promptForStep2 };
     } else if (strategy.startsWith('step_by_step:2/2')) {
         // no files are ever passed in this step
         
@@ -958,7 +958,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         // put the entity name at the end so the long description gets cached
         // Gemini auto-caches prefixes. The desciption is being passed for every entity extracted from this document, possible 20+ times.
         // Putting the unique entity name at the beginning would prevent the prefix from being cached.
-        const newPrompt = `${userPrompt} The entity I extracted is a ${entityType} named "${entityName}".`;
+        const newPrompt = `${userPrompt} The entity I am supposed to complete is a ${entityType} named "${entityName}".`;
 
         // GIVEN description of files and simplified entity, expand the simplified entity
         if (!simplifiedEntity) {
@@ -1017,7 +1017,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
@@ -1029,7 +1029,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env);
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
