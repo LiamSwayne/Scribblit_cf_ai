@@ -198,7 +198,7 @@ Don't forget to have commas in the JSON. You will return nothing but an array of
 
 let filesOnlyExtractSimplifiedEntitiesPrompt = `You are an AI that takes in the user's files and converts them to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field. Even events that are optional (things to just be aware of) should be included.
 
-There is also a "work session", which is a time when the user has specified they should be working on a specific task. Work sessions are extremely rare. If you see a work session, make an event with the title format "Work on {task name}"
+There is also a "work session", which is a time when the user has specified they should be working on a specific task. Work sessions are extremely rare. If you see a work session, make an event with the title format "WORK_SESSION: {task name}"
 
 Format:
 [
