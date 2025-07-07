@@ -9169,13 +9169,17 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
     const responses2 = await Promise.all(promises);
     let newEntities = [];
 
-    for (const response of responses2) {
-        if (!response.ok) {
-            console.error('AI parse request failed for step 2', await response.text());
+    for (let i = 0; i < responses2.length; i++) {
+        if (!responses2[i].ok) {
+            console.error('AI parse request failed for step 2', await responses2[i].text());
             continue;
         }
 
-        const responseJson = await response.json();
+        const responseJson = await responses2[i].json();
+
+        log("Response " + i + ": ");
+        log(responseJson);
+
         if (responseJson.error && responseJson.error.length > 0) {
             log("Error: " + responseJson.error);
             continue;
