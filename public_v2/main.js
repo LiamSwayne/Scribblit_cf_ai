@@ -16,6 +16,86 @@ for (const font of fontDefinitions) {
     preservedFontCss[font.key] = localStorage.getItem('font' + font.key + font.url);
 }
 
+async function loadFonts() {
+    const fontPromises = fontDefinitions.map(async (fontDef) => {
+        let cachedBase64 = preservedFontCss[fontDef.key];
+        if (cachedBase64) {
+            if (TESTING) {
+                // we want the key and url to be what we're looking for
+                localStorage.setItem('font' + fontDef.key + fontDef.url, cachedBase64); // Restore after clear
+            }
+            return cachedBase64;
+        } else {
+            try {
+                const response = await fetch(fontDef.url);
+                if (!response.ok) throw new Error(`Failed to fetch font: ${fontDef.key}`);
+                
+                const fontBlob = await response.blob();
+                const base64Font = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(fontBlob);
+                });
+                
+                localStorage.setItem('font' + fontDef.key + fontDef.url, base64Font);
+                return base64Font;
+
+            } catch (error) {
+                log('Error loading font:');
+                log(error.message);
+            }
+        }
+    });
+
+    const fontData = await Promise.all(fontPromises);
+
+    // Create clean @font-face rules - each font style is its own family
+    const fontFaceRules = [];
+    const fontFaces = [];
+    
+    fontDefinitions.forEach((fontDef, index) => {
+        const base64Data = fontData[index];
+        if (base64Data) {
+            fontFaceRules.push(`
+                @font-face {
+                    font-family: '${fontDef.key}';
+                    font-weight: normal;
+                    font-style: normal;
+                    font-display: swap;
+                    src: url('${base64Data}') format('woff2');
+                }
+            `);
+            
+            // Create FontFace object for proper loading detection
+            const fontFace = new FontFace(fontDef.key, `url('${base64Data}') format('woff2')`);
+            fontFaces.push(fontFace);
+        }
+    });
+
+    if (fontFaceRules.length > 0) {
+        const styleElement = HTML.make('style');
+        styleElement.textContent = fontFaceRules.join('');
+        HTML.head.appendChild(styleElement);
+        
+        // Load fonts properly and wait for them
+        const loadPromises = fontFaces.map(async (fontFace) => {
+            try {
+                await fontFace.load();
+                document.fonts.add(fontFace);
+                return true;
+            } catch (error) {
+                log(`Failed to load font: ${fontFace.family}`);
+                return false;
+            }
+        });
+        
+        await Promise.all(loadPromises);
+    }
+}
+
+const fontLoadingPromise = loadFonts();
+
 // Global mouse position tracking for robust hover detection
 // this is expensive, but it's needed to fix a hover bug until i find a better solution
 window.lastMouseX = 0;
@@ -253,8 +333,14 @@ async function loadUserData() {
     }
 }
 
+let userPromise = loadUserData();
+let user;
+
 function hexToRgb(hex) {
+    ASSERT(type(hex, String));
+    ASSERT((hex.startsWith('#') && hex.length === 7 ) || hex.length === 6, "Invalid hex color: " + hex);
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    ASSERT(exists(result), "Invalid hex color after parsing: " + hex);
     return {
         r: parseInt(result[1], 16),
         g: parseInt(result[2], 16),
@@ -1221,26 +1307,12 @@ function applyPalette(palette) {
     }
 }
 
-// Initialize user data - will be set by initUserData()
-let user = null;
-
 function addFakeEntitiesToUser() {
     ASSERT(type(user, User));
     ASSERT(LocalData.get('signedIn'), "addFakeEntitiesToUser: user is not signed in");
     user.entityArray.push(...createFakeEntityArray());
     user.timestamp = Date.now();
     saveUserData(user);
-}
-
-// Initialize user data asynchronously
-async function initUserData() {
-    user = await loadUserData();
-    applyPalette(user.palette);
-    if (firstDayInCalendar == NULL) {
-        // Set firstDayInCalendar to today on page load
-        firstDayInCalendar = getDayNDaysFromToday(0);
-    }
-    ASSERT(type(user, User));
 }
 
 let gapBetweenColumns = 14;
@@ -6764,7 +6836,7 @@ function updateSettingsTextPosition() {
     if (!settingsModalOpen) return;
     
     const settingsModal = HTML.getElementUnsafely('settingsModal');
-    if (!settingsModal) return;
+    if (!exists(settingsModal)) return;
     
     // Get current modal position
     const modalRect = settingsModal.getBoundingClientRect();
@@ -6793,84 +6865,6 @@ function render() {
 }
 
 window.onresize = render;
-
-async function loadFonts() {
-    const fontPromises = fontDefinitions.map(async (fontDef) => {
-        let cachedBase64 = preservedFontCss[fontDef.key];
-        if (cachedBase64) {
-            if (TESTING) {
-                // we want the key and url to be what we're looking for
-                localStorage.setItem('font' + fontDef.key + fontDef.url, cachedBase64); // Restore after clear
-            }
-            return cachedBase64;
-        } else {
-            try {
-                const response = await fetch(fontDef.url);
-                if (!response.ok) throw new Error(`Failed to fetch font: ${fontDef.key}`);
-                
-                const fontBlob = await response.blob();
-                const base64Font = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(fontBlob);
-                });
-                
-                localStorage.setItem('font' + fontDef.key + fontDef.url, base64Font);
-                return base64Font;
-
-            } catch (error) {
-                log('Error loading font:');
-                log(error.message);
-            }
-        }
-    });
-
-    const fontData = await Promise.all(fontPromises);
-
-    // Create clean @font-face rules - each font style is its own family
-    const fontFaceRules = [];
-    const fontFaces = [];
-    
-    fontDefinitions.forEach((fontDef, index) => {
-        const base64Data = fontData[index];
-        if (base64Data) {
-            fontFaceRules.push(`
-                @font-face {
-                    font-family: '${fontDef.key}';
-                    font-weight: normal;
-                    font-style: normal;
-                    font-display: swap;
-                    src: url('${base64Data}') format('woff2');
-                }
-            `);
-            
-            // Create FontFace object for proper loading detection
-            const fontFace = new FontFace(fontDef.key, `url('${base64Data}') format('woff2')`);
-            fontFaces.push(fontFace);
-        }
-    });
-
-    if (fontFaceRules.length > 0) {
-        const styleElement = HTML.make('style');
-        styleElement.textContent = fontFaceRules.join('');
-        HTML.head.appendChild(styleElement);
-        
-        // Load fonts properly and wait for them
-        const loadPromises = fontFaces.map(async (fontFace) => {
-            try {
-                await fontFace.load();
-                document.fonts.add(fontFace);
-                return true;
-            } catch (error) {
-                log(`Failed to load font: ${fontFace.family}`);
-                return false;
-            }
-        });
-        
-        await Promise.all(loadPromises);
-    }
-}
 
 async function init() {
     // Check for OAuth callback parameters
@@ -6904,11 +6898,16 @@ async function init() {
             log('Error loading user data after OAuth: ' + error.message);
         }
     }
+
+    await fontLoadingPromise;
+    user = await userPromise;
+
+    applyPalette(user.palette);
+    if (firstDayInCalendar == NULL) {
+        // Set firstDayInCalendar to today on page load
+        firstDayInCalendar = getDayNDaysFromToday(0);
+    }
     
-    // Initialize user data
-    await initUserData();
-    
-    await loadFonts();
     initGridBackground();
     initGlobalShiftKeyTracking();
     initNumberOfCalendarDaysButton();
@@ -6925,7 +6924,7 @@ async function init() {
 
     // how fast did the page load and render?
     const loadTime = performance.now();
-    log(`Page loaded and rendered in ${Math.round(loadTime)}ms`);
+    log(`Initial render in ${Math.round(loadTime)}ms`);
 }
 
 // Grid Background with Cursor Fade Effect
@@ -9251,10 +9250,13 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             return;
         }
 
+        const simplifiedEntityType = Object.keys(simplifiedEntity)[0];
+        const simplifiedEntityName = simplifiedEntity[simplifiedEntityType];
+
         try {
             let startTime = Date.now();
             // combine simplified entity with the new ai json
-            if (responseJson.simplifiedEntity.kind === 'task') {
+            if (simplifiedEntityType === 'task') {
                 let newTaskData = TaskData.fromAiJson({
                     type: 'task',
                     instances: aiJson.instances,
@@ -9266,7 +9268,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 } else {
                     let newEntity = new Entity(
                         Entity.generateId(),
-                        responseJson.simplifiedEntity.name,
+                        simplifiedEntityName,
                         '', // description
                         newTaskData
                     );
@@ -9275,7 +9277,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     chain.add(new CreatedEntityNode(aiJson, newEntity, startTime));
                     newEntities.push(newEntity);
                 }
-            } else if (responseJson.simplifiedEntity.kind === 'event') {
+            } else if (simplifiedEntityType === 'event') {
                 let newEventData = EventData.fromAiJson({
                     type: 'event',
                     instances: aiJson.instances
@@ -9286,7 +9288,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 } else {
                     let newEntity = new Entity(
                         Entity.generateId(),
-                        responseJson.simplifiedEntity.name,
+                        simplifiedEntityName,
                         '', // description
                         newEventData
                     );
@@ -9295,7 +9297,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     chain.add(new CreatedEntityNode(aiJson, newEntity, startTime));
                     newEntities.push(newEntity);
                 }
-            } else if (responseJson.simplifiedEntity.kind === 'reminder') {
+            } else if (simplifiedEntityType === 'reminder') {
                 let newReminderData = ReminderData.fromAiJson({
                     type: 'reminder',
                     instances: aiJson.instances
@@ -9306,7 +9308,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 } else {
                     let newEntity = new Entity(
                         Entity.generateId(),
-                        responseJson.simplifiedEntity.name,
+                        simplifiedEntityName,
                         '', // description
                         newReminderData
                     );
@@ -9316,7 +9318,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     newEntities.push(newEntity);
                 }
             } else {
-                log("Error: unknown kind of simplified entity: " + responseJson.simplifiedEntity.kind);
+                log("Error: invalid simplified entity: " + JSON.stringify(responseJson.simplifiedEntity));
                 return;
             }
         } catch (e) {
