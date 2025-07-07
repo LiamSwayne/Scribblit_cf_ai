@@ -2620,8 +2620,12 @@ class CreatedEntityNode {
         ASSERT(type(json, Object));
         ASSERT(type(entity, Entity));
         ASSERT(type(duration, Int));
+
+        // create a copy of the entity
+        let entityCopy = Entity.decode(entity.encode());
+        
         this.json = json;
-        this.entity = entity;
+        this.entity = entityCopy;
         this.duration = duration;
     }
 

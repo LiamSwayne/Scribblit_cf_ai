@@ -8835,7 +8835,11 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
 
     chain.add(new ProcessingNode(cleanedText, Date.now() - startTime, "Extracting JSON from AI output"));
 
-    return aiJson;
+    if (!aiJson) {
+        return NULL;
+    } else {
+        return aiJson;
+    }
 }
 
 function mergeEntities(entityArray, chain) {
@@ -8979,6 +8983,12 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     // we asked the ai for an array of entities, so we need to extract it
     const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '[]');
 
+    if (aiJson === NULL) {
+        log("Error: Failed to extract JSON from AI output");
+        // TODO: hadle this with retry up to two more times, then give up
+        return;
+    }
+
     // Convert to internal entities
     let newEntities = []
     try {
@@ -9033,7 +9043,181 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
 }
 
 async function stepByStepAiRequest(inputText, fileArray, chain) {
-    
+    // Step 1: Get simplified entities
+    const response1 = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            prompt: inputText,
+            fileArray: fileArray,
+            strategy: 'step_by_step:1/2'
+        })
+    });
+
+    if (!response1.ok) {
+        console.error('AI parse request failed for step 1', await response1.text());
+        return;
+    }
+
+    const responseJson1 = await response1.json();
+
+    if (responseJson1.error && responseJson1.error.length > 0) {
+        log("Error: " + responseJson1.error);
+        return;
+    }
+
+    // add chain nodes created from tracking requests on the backend
+    for (const nodeJson of responseJson1.chain) {
+        chain.addNodeFromJson(nodeJson);
+    }
+
+    let simplifiedEntitiesJson = extractJsonFromAiOutput(responseJson1.aiOutput, chain, '[]');
+    if (simplifiedEntitiesJson === NULL) {
+        // maybe there's just one entity in the ai output
+        simplifiedEntitiesJson = extractJsonFromAiOutput(responseJson1.aiOutput, chain, '{}');
+        if (simplifiedEntitiesJson === NULL) {
+            log("Error: Expected an array of simplified entities from step 1, but got something else.");
+            // TODO: hadle this with retry up to two more times, then give up
+            return;
+        }
+    }
+
+    // Merge duplicate simplified entities
+    let mergedSimplifiedEntities = [];
+    let taskNames = new Set();
+    for (const entity of simplifiedEntitiesJson) {
+        const kind = Object.keys(entity)[0];
+        const name = entity[kind];
+
+        if (kind === 'task') {
+            entity.mayHaveWorkSession = false;
+            taskNames.add(name);
+        }
+
+        let found = false;
+        for (const simplifiedEntity of mergedSimplifiedEntities) {
+            ASSERT(type(simplifiedEntity, Object));
+            if (simplifiedEntity.kind === kind && simplifiedEntity.name === name) {
+                // same kind and name so we can skip adding this one
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            mergedSimplifiedEntities.push(entity);
+        }
+    }
+
+    // Remove events that have the name of a task
+    // They are most likely work sessions that got mislabeled as events
+    let uniqueSimplifiedEntities = [];
+    for (const simplifiedEntity of mergedSimplifiedEntities) {
+        const kind = Object.keys(simplifiedEntity)[0];
+        if (kind === 'event') {
+            const name = simplifiedEntity[kind];
+
+            // we are not including work sessions
+            if (name.startsWith('work_session:')) {
+                // check if the task name is in the taskNames set
+                const taskName = name.split(':').trim()[1];
+                if (taskNames.has(taskName)) {
+                    // find the task, and set its mayHaveWorkSession to true
+                    // may or may not have been processed yet
+                    for (const task of uniqueSimplifiedEntities) {
+                        if (task.kind === 'task' && task.name === taskName) {
+                            task.data.mayHaveWorkSession = true;
+                        }
+                    }
+                    for (const task of mergedSimplifiedEntities) {
+                        if (task.kind === 'task' && task.name === taskName) {
+                            task.data.mayHaveWorkSession = true;
+                        }
+                    }
+                }
+
+                continue;
+            }
+
+            if (taskNames.has(name)) {
+                continue;
+            }
+        }
+
+        uniqueSimplifiedEntities.push(simplifiedEntity);
+    }
+
+    // Step 2: Expand simplified entities in parallel
+    const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
+        return fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: inputText,
+                fileArray: fileArray,
+                strategy: 'step_by_step:2/2',
+                simplifiedEntity: simplifiedEntity
+            })
+        });
+    });
+
+    const responses2 = await Promise.all(promises);
+    let newEntities = [];
+
+    for (const response of responses2) {
+        if (!response.ok) {
+            console.error('AI parse request failed for step 2', await response.text());
+            continue;
+        }
+
+        const responseJson = await response.json();
+        if (responseJson.error && responseJson.error.length > 0) {
+            log("Error: " + responseJson.error);
+            continue;
+        }
+
+        for (const nodeJson of responseJson.chain) {
+            chain.addNodeFromJson(nodeJson);
+        }
+
+        const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '{}');
+
+        if (aiJson === NULL) {
+            log("Error: Failed to extract JSON from AI output");
+            // TODO: hadle this with retry up to two more times, then give up
+            return;
+        }
+
+        try {
+            let startTime = Date.now();
+            let parsedEntity = Entity.fromAiJson(aiJson);
+            if (parsedEntity === NULL) {
+                chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
+            } else {
+                chain.add(new CreatedEntityNode(aiJson, parsedEntity, Date.now() - startTime));
+                newEntities.push(parsedEntity);
+            }
+        } catch (e) {
+            chain.add(new FailedToCreateEntityNode(aiJson, Date.now() - startTime));
+        }
+    }
+
+    log("Entities: ");
+    log(newEntities);
+
+    newEntities = mergeEntities(newEntities, chain);
+
+    let idsOfNewEntities = newEntities.map(ent => ent.id);
+
+    // add to user
+    for (const ent of newEntities) {
+        user.entityArray.push(ent);
+    }
+    user.timestamp = Date.now();
+    if (newEntities.length > 0) {
+        saveUserData(user);
+    }
+
+    return idsOfNewEntities;
 }
 
 // Process input when Enter key is pressed
