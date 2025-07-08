@@ -9416,7 +9416,7 @@ function processInput() {
         // Re-render UI
         render();
 
-        chain.complete();
+        chain.completeRequest();
 
         log("Chain: ");
         log(chain);

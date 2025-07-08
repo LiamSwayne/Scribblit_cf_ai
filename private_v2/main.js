@@ -231,10 +231,15 @@ Task JSON:
 	    {
 		    "type": "due_date_pattern"
 		    "pattern": // 4 options
-				{
+                {
+					"type": "weekly_pattern"
+                    "every_n_weeks": // integer
+					"day_of_week": // string like "monday". if you choose this pattern, you must include a range with a start date.
+				}
+                {
 					"type": "every_n_days_pattern"
 					"initial_date": "YYYY-MM-DD"
-					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
+					"n": // integer
 				}
 				{
 					"type": "monthly_pattern"
@@ -247,7 +252,7 @@ Task JSON:
 					"day": // integer 1-31
 				}
 				{
-					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
+					"type": "nth_weekday_of_months_pattern" // only use this pattern when weekly_pattern is not appropriate.
 					"day_of_week": // integer 1-7
 					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
 					"months": // array of 12 booleans for if the pattern is enabled for that month.
@@ -282,6 +287,11 @@ Task JSON:
 		    "type": "due_date_pattern"
 		    "pattern": // 4 options
 				{
+					"type": "weekly_pattern"
+                    "every_n_weeks": // integer
+					"day_of_week": // string like "monday". if you choose this pattern, you must include a range with a start date.
+				}
+                {
 					"type": "every_n_days_pattern"
 					"initial_date": "YYYY-MM-DD"
 					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
@@ -355,6 +365,11 @@ Event JSON:
 			"type": "event_pattern"
 			"start_date_pattern": // 4 options
 				{
+					"type": "weekly_pattern"
+                    "every_n_weeks": // integer
+					"day_of_week": // string like "monday". if you choose this pattern, you must include a range with a start date.
+				}
+                {
 					"type": "every_n_days_pattern"
 					"initial_date": "YYYY-MM-DD"
 					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
