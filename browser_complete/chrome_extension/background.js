@@ -54,6 +54,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
 });
 
+function parseCompletion(completionResponse) {
+    let completion = completionResponse;
+    const thinkTag = '</think>';
+    const thinkTagIndex = completion.indexOf(thinkTag);
+    if (thinkTagIndex !== -1) {
+        completion = completion.substring(thinkTagIndex + thinkTag.length);
+    }
+    completion = completion.trim();
+
+    if (completion.length == 0) {
+        return '';
+    }
+
+    if (completion.startsWith('NULL')) {
+        return '';
+    }
+
+    // sometimes the model returns: "word " is thing they're trying to type
+    if (completion.startsWith('"')) {
+        completion = completion.substring(1);
+    }
+
+    if (completion.endsWith('"')) {
+        completion = completion.substring(0, completion.length - 1);
+    }
+
+    completion = completion.trim();
+
+    return completion;
+}
+
 async function handleGetCompletion(text) {
     console.log("Handling getCompletion with prompt:", text);
 
@@ -74,8 +105,9 @@ async function handleGetCompletion(text) {
             throw new Error(`API request failed with status ${response.status}`);
         }
 
-        const completion = await response.text();
+        const completionResponse = await response.text();
         console.log("Sent: " + text);
+        const completion = parseCompletion(completionResponse);
         console.log("Received:" + completion);
         return completion;
     } catch (error) {

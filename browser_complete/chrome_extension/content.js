@@ -35,8 +35,15 @@ function removeGhostText() {
 }
 
 // Function to get completion from the background script
-async function getCompletion(prompt) {
+async function getCompletion(prompt, element) {
     console.log("Sending prompt to background script:", prompt);
+
+    // Store the text for which we are requesting the completion on the element's state
+    const textForRequest = element.value.substring(0, element.selectionEnd);
+    const state = inputState.get(element) || {};
+    state.lastRequestText = textForRequest;
+    inputState.set(element, state);
+    
     try {
         const response = await chrome.runtime.sendMessage({
             action: 'getCompletion',
@@ -87,41 +94,50 @@ function measureTextWidth(element, text) {
 function showCompletion(element, completion) {
     removeGhostText(); // Clear any previous suggestion
 
-    const textBeforeCursor = element.value.substring(0, element.selectionEnd);
-    const textWidth = measureTextWidth(element, textBeforeCursor);
-    const style = window.getComputedStyle(element);
-    const rect = element.getBoundingClientRect();
+    const state = inputState.get(element);
+    const textForRequest = state ? state.lastRequestText : '';
+    const currentText = element.value.substring(0, element.selectionEnd);
 
-    // Create the ghost element and style it to match the input
-    ghostElement = document.createElement('span');
-    ghostElement.textContent = completion;
-    ghostElement.style.position = 'absolute';
-    ghostElement.style.pointerEvents = 'none'; // Click through the ghost text
-    ghostElement.style.color = 'grey';
-    ghostElement.style.boxSizing = style.boxSizing;
+    // If the text changed since we requested the completion, we need to adjust.
+    if (textForRequest && currentText.startsWith(textForRequest)) {
+        const remainingCompletion = completion; // The full completion is what we want to show
+        const textBeforeCursor = currentText;
 
-    // Copy styles that affect positioning and appearance
-    [
-        'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight',
-        'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-        'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth'
-    ].forEach(prop => {
-        ghostElement.style[prop] = style[prop];
-    });
-    
-    // Calculate precise top/left position
-    const top = rect.top + window.scrollY + parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop);
-    const left = rect.left + window.scrollX + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + textWidth;
+        const textWidth = measureTextWidth(element, textBeforeCursor);
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
 
-    ghostElement.style.top = `${top}px`;
-    ghostElement.style.left = `${left}px`;
-    
-    document.body.appendChild(ghostElement);
+        // Create the ghost element and style it to match the input
+        ghostElement = document.createElement('span');
+        ghostElement.textContent = remainingCompletion;
+        ghostElement.style.position = 'absolute';
+        ghostElement.style.pointerEvents = 'none'; // Click through the ghost text
+        ghostElement.style.color = 'grey';
+        ghostElement.style.boxSizing = style.boxSizing;
 
-    // Set global state for accepting the completion
-    currentCompletion = completion;
-    activeElementForGhost = element;
-    element.addEventListener('keydown', handleKeydown, { once: true });
+        // Copy styles that affect positioning and appearance
+        [
+            'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight',
+            'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+            'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth'
+        ].forEach(prop => {
+            ghostElement.style[prop] = style[prop];
+        });
+        
+        // Calculate precise top/left position
+        const top = rect.top + window.scrollY + parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop);
+        const left = rect.left + window.scrollX + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + textWidth;
+
+        ghostElement.style.top = `${top}px`;
+        ghostElement.style.left = `${left}px`;
+        
+        document.body.appendChild(ghostElement);
+
+        // Set global state for accepting the completion
+        currentCompletion = remainingCompletion;
+        activeElementForGhost = element;
+        element.addEventListener('keydown', handleKeydown, { once: true });
+    }
 }
 
 // Accepts the current completion
@@ -154,25 +170,44 @@ function handleKeydown(e) {
 const debouncedGetCompletion = debounce(async (element) => {
     // We only want completions if the user's cursor is at the end of the text.
     if (element.selectionStart !== element.value.length) {
+        removeGhostText();
         return;
     }
 
-    const textBeforeCursor = element.value.substring(0, element.selectionStart);
-    if (textBeforeCursor.length === 0) {
+    const state = inputState.get(element);
+    if (!state || !state.typedSinceFocus) {
+        return;
+    }
+
+    const textBeforeCursor = element.value.substring(0, element.selectionEnd);
+    if (textBeforeCursor.length < 20) {
         return;
     }
 
     // Construct the prompt: current URL + space + last 1000 chars of text
     const prompt = `${window.location.href} ${textBeforeCursor.slice(-1000)}`;
-    const completion = await getCompletion(prompt);
+    const completion = await getCompletion(prompt, element);
 
     if (completion) {
-        // Ensure the element is still focused before showing completion
+        // Ensure the element is still focused and the text hasn't changed in an incompatible way.
         if (document.activeElement === element) {
-            showCompletion(element, completion);
+            const currentState = inputState.get(element);
+            const textForRequest = currentState ? currentState.lastRequestText : '';
+            const currentText = element.value.substring(0, element.selectionEnd);
+
+            if (currentText.startsWith(textForRequest)) {
+                showCompletion(element, completion);
+            }
         }
     }
-}, 200); // 200ms debounce delay
+}, 300); // 300ms debounce delay
+
+function handleFocus(event) {
+    const element = event.target;
+    let state = inputState.get(element) || {};
+    state.typedSinceFocus = false;
+    inputState.set(element, state);
+}
 
 function handleInput(event) {
     // On any input, the old suggestion is invalid.
@@ -180,27 +215,22 @@ function handleInput(event) {
 
     const element = event.target;
     let state = inputState.get(element);
-    const now = Date.now();
-
-    // Reset character count if it's a new element or user paused for > 3 seconds
-    if (!state || (now - state.lastTypedTimestamp) > 3000) {
-        state = { charCount: 1, lastTypedTimestamp: now };
+    
+    if (!state) { // Initialized on focus, but as a fallback.
+        state = { typedSinceFocus: true };
     } else {
-        state.charCount++;
-        state.lastTypedTimestamp = now;
+        state.typedSinceFocus = true;
     }
     inputState.set(element, state);
     
-    // Trigger completion check if at least 4 chars have been typed in the current session
-    if (state.charCount >= 4) {
-        debouncedGetCompletion(element);
-    }
+    debouncedGetCompletion(element);
 }
 
 function attachListeners() {
     document.querySelectorAll('textarea, input[type="text"], input:not([type])').forEach(element => {
         if (element.dataset.scribblitListener) return;
         element.dataset.scribblitListener = 'true';
+        element.addEventListener('focus', handleFocus);
         element.addEventListener('input', handleInput);
         // Remove ghost text if user clicks away
         element.addEventListener('blur', removeGhostText); 
