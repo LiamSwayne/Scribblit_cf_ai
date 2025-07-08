@@ -153,6 +153,20 @@ async function saveUserData(user) {
     ASSERT(type(LocalData.get('signedIn'), Boolean));
     // ms timestamp
     user.timestamp = Date.now();
+
+    // remove corrupted entities
+    // this should never happen, but as a failsafe we sadly throw away the corrupted entities
+    let newEntityArray = [];
+    for (const entity of user.entityArray) {
+        if (type(entity, Entity)) {
+            log("WARNING: corrupted entity found, skipping:");
+            log(entity);
+        } else {
+            newEntityArray.push(entity);
+        }
+    }
+    user.entityArray = newEntityArray;
+
     const userJson = user.encode();
     
     // Always save to localStorage as backup
