@@ -125,7 +125,6 @@ function log(message) {
 // Date
 class DateField {
     constructor(year, month, day) {
-        log("DateField constructor: " + year + " " + month + " " + day);
         ASSERT(type(year, Int));
         
         ASSERT(type(month, Int));
