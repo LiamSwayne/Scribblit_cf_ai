@@ -10,6 +10,8 @@ on:
       - 'legacy_private/**'
       - 'public_v2/**'
       - 'private_v2/**'
+      - 'browser_complete/**'
+      - '.github/workflows/deploy_workers.yml'
 
 jobs:
   deploy:
