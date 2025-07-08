@@ -4,10 +4,19 @@ console.log("Scribblit content script injected.");
 // Use a WeakMap to store state for each input field without causing memory leaks
 const inputState = new WeakMap();
 
+// Global request counter to track request order
+let requestCounter = 0;
+
 // Global state for the currently displayed ghost text suggestion
 let ghostElement = null;
 let activeElementForGhost = null;
 let currentCompletion = '';
+let currentInput = '';
+
+// Caching and rejection system
+const completionsCache = new Map(); // input -> completion
+const rejectedCompletions = new Set(); // Set of "input|completion" strings
+const retryAttempts = new Map(); // input -> attempt count
 
 // Debounce function to limit how often a function is called
 function debounce(func, delay) {
@@ -18,6 +27,11 @@ function debounce(func, delay) {
             func.apply(this, args);
         }, delay);
     };
+}
+
+// Helper function to create rejection key
+function createRejectionKey(input, completion) {
+    return `${input}|${completion}`;
 }
 
 // Removes the ghost text from the DOM and cleans up related listeners
@@ -32,16 +46,21 @@ function removeGhostText() {
         activeElementForGhost = null;
     }
     currentCompletion = '';
+    currentInput = '';
 }
 
 // Function to get completion from the background script
 async function getCompletion(prompt, element) {
     console.log("Sending prompt to background script:", prompt);
 
-    // Store the text for which we are requesting the completion on the element's state
+    // Generate a unique request ID for this request
+    const requestId = ++requestCounter;
+    
+    // Store the request ID and text for which we are requesting the completion
     const textForRequest = element.value.substring(0, element.selectionEnd);
     const state = inputState.get(element) || {};
     state.lastRequestText = textForRequest;
+    state.currentRequestId = requestId;
     inputState.set(element, state);
     
     try {
@@ -52,13 +71,36 @@ async function getCompletion(prompt, element) {
 
         if (chrome.runtime.lastError) {
             console.error("sendMessage failed:", chrome.runtime.lastError.message);
-            return '';
+            return { completion: '', requestId };
         }
-        return response?.completion || '';
+        
+        return { 
+            completion: response?.completion || '', 
+            requestId 
+        };
     } catch (error) {
         console.error('Error sending message to background script:', error);
-        return '';
+        return { completion: '', requestId };
     }
+}
+
+// Function to check if a completion should be rejected
+function shouldRejectCompletion(input, completion) {
+    const rejectionKey = createRejectionKey(input, completion);
+    return rejectedCompletions.has(rejectionKey);
+}
+
+// Function to add a completion to the rejection set
+function addToRejections(input, completion) {
+    const rejectionKey = createRejectionKey(input, completion);
+    rejectedCompletions.add(rejectionKey);
+    
+    // Remove from cache if it exists
+    if (completionsCache.has(input)) {
+        completionsCache.delete(input);
+    }
+    
+    console.log(`Added to rejections: ${rejectionKey}`);
 }
 
 /**
@@ -135,6 +177,7 @@ function showCompletion(element, completion) {
 
         // Set global state for accepting the completion
         currentCompletion = remainingCompletion;
+        currentInput = textBeforeCursor;
         activeElementForGhost = element;
         element.addEventListener('keydown', handleKeydown, { once: true, capture: true });
     }
@@ -153,6 +196,11 @@ function acceptCompletion() {
         
         // Manually dispatch an input event so the host page can react to the change
         el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+        
+        // Add to cache for future use
+        if (currentInput && currentCompletion) {
+            completionsCache.set(currentInput, currentCompletion);
+        }
     }
     removeGhostText();
 }
@@ -166,9 +214,72 @@ function handleKeydown(e) {
     } else if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Add current completion to rejections
+        if (currentInput && currentCompletion) {
+            addToRejections(currentInput, currentCompletion);
+        }
+        
         removeGhostText();
     }
     // For any other key, we let the 'input' event in handleInput clear the ghost text.
+}
+
+// Function to handle completion request with retry logic
+async function handleCompletionRequest(element, input, attempt = 1) {
+    const maxAttempts = 3;
+    
+    // Construct the prompt: current URL + space + last 1000 chars of text
+    const prompt = `${window.location.href} ${input.slice(-1000)}`;
+    const { completion, requestId } = await getCompletion(prompt, element);
+
+    if (!completion) {
+        console.log("No completion received from backend");
+        return;
+    }
+
+    // Check if this request is still valid (user hasn't typed since)
+    if (document.activeElement !== element) {
+        console.log("Element no longer focused, ignoring completion");
+        return;
+    }
+
+    const currentState = inputState.get(element);
+    if (!currentState || currentState.currentRequestId !== requestId) {
+        console.log(`Request invalidated. Current request ID: ${currentState?.currentRequestId}, Response ID: ${requestId}`);
+        return;
+    }
+
+    const currentText = element.value.substring(0, element.selectionEnd);
+    const textForRequest = currentState.lastRequestText;
+
+    if (!currentText.startsWith(textForRequest)) {
+        console.log("Text changed since request, ignoring completion");
+        return;
+    }
+
+    // Check if this completion is in the rejection set
+    if (shouldRejectCompletion(input, completion)) {
+        console.log(`Completion rejected (attempt ${attempt}): ${completion}`);
+        
+        if (attempt < maxAttempts) {
+            console.log(`Retrying completion request (attempt ${attempt + 1})`);
+            setTimeout(() => {
+                handleCompletionRequest(element, input, attempt + 1);
+            }, 100); // Small delay before retry
+        } else {
+            console.log(`Max attempts reached for input: ${input}`);
+            retryAttempts.set(input, maxAttempts);
+        }
+        return;
+    }
+
+    // Valid completion, show it and cache it
+    showCompletion(element, completion);
+    completionsCache.set(input, completion);
+    
+    // Reset retry attempts for this input
+    retryAttempts.delete(input);
 }
 
 const debouncedGetCompletion = debounce(async (element) => {
@@ -188,23 +299,23 @@ const debouncedGetCompletion = debounce(async (element) => {
         return;
     }
 
-    // Construct the prompt: current URL + space + last 1000 chars of text
-    const prompt = `${window.location.href} ${textBeforeCursor.slice(-1000)}`;
-    const completion = await getCompletion(prompt, element);
-
-    if (completion) {
-        // Ensure the element is still focused and the text hasn't changed in an incompatible way.
-        if (document.activeElement === element) {
-            const currentState = inputState.get(element);
-            const textForRequest = currentState ? currentState.lastRequestText : '';
-            const currentText = element.value.substring(0, element.selectionEnd);
-
-            if (currentText.startsWith(textForRequest)) {
-                showCompletion(element, completion);
-            }
-        }
+    // Check if we've hit max retry attempts for this input
+    if (retryAttempts.has(textBeforeCursor) && retryAttempts.get(textBeforeCursor) >= 3) {
+        console.log(`Max retry attempts reached for input: ${textBeforeCursor}`);
+        return;
     }
-}, 300); // 300ms debounce delay
+
+    // First, check if we have a cached completion for this input
+    if (completionsCache.has(textBeforeCursor)) {
+        const cachedCompletion = completionsCache.get(textBeforeCursor);
+        console.log(`Using cached completion: ${cachedCompletion}`);
+        showCompletion(element, cachedCompletion);
+        return;
+    }
+
+    // No cached completion, request from backend
+    handleCompletionRequest(element, textBeforeCursor);
+}, 200); // 200ms debounce delay
 
 function handleFocus(event) {
     const element = event.target;
@@ -214,7 +325,7 @@ function handleFocus(event) {
 }
 
 function handleInput(event) {
-    // On any input, the old suggestion is invalid.
+    // On any input, the old suggestion is invalid and pending requests become invalid
     removeGhostText();
 
     const element = event.target;
@@ -225,6 +336,9 @@ function handleInput(event) {
     } else {
         state.typedSinceFocus = true;
     }
+    
+    // Invalidate any pending requests by updating the request ID
+    state.currentRequestId = ++requestCounter;
     inputState.set(element, state);
     
     debouncedGetCompletion(element);
