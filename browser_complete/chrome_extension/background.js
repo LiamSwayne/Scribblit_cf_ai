@@ -54,20 +54,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
 });
 
-function parseCompletion(completionResponse) {
+function parseCompletion(precedingChars, completionResponse) {
     let completion = completionResponse;
     const thinkTag = '</think>';
     const thinkTagIndex = completion.indexOf(thinkTag);
     if (thinkTagIndex !== -1) {
         completion = completion.substring(thinkTagIndex + thinkTag.length);
     }
-    completion = completion.trim();
+
+    // change double spaces to single spaces
+    completion = completion.replace(/  /g, ' ');
+
+    // remove trailing spaces from the end only
+    completion = completion.trimEnd();
 
     if (completion.length == 0) {
         return '';
     }
 
-    if (completion.startsWith('NULL')) {
+    if (completion.includes('NULL')) {
         return '';
     }
 
@@ -78,11 +83,17 @@ function parseCompletion(completionResponse) {
 
     if (completion.endsWith('"')) {
         completion = completion.substring(0, completion.length - 1);
+        completion = completion.trimEnd();
     }
 
-    completion = completion.trim();
+    // 3. The remaining part is the suggestion we want to surface.
+    let remaining = completion.slice(overlapLength).trimStart();
 
-    return completion;
+    if (remaining.length === 0 || remaining.includes('NULL')) {
+        return '';
+    }
+
+    return remaining;
 }
 
 async function handleGetCompletion(text) {
@@ -107,7 +118,7 @@ async function handleGetCompletion(text) {
 
         const completionResponse = await response.text();
         console.log("Sent: " + text);
-        const completion = parseCompletion(completionResponse);
+        const completion = parseCompletion(text, completionResponse);
         if (completion.length == 0) {
             console.log("No completion received");
         } else {
