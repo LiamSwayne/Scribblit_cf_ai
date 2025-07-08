@@ -9373,8 +9373,9 @@ function processInput() {
         chain.add(new UserPromptNode(inputText));
     }
     if (fileArray && fileArray.length > 0) {
-        let fileNames = fileArray.map(file => file.name);
-        chain.add(new UserAttachmentsNode(fileNames));
+        for (const file of fileArray) {
+            chain.add(new UserAttachmentNode(file));
+        }
     }
 
     // Prepare enriched text with date,time,dayOfWeek (all in local timezone)

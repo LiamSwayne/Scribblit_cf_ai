@@ -35,6 +35,8 @@ let palettes = {
     // TODO: add more palettes
 };
 
+const charactersPerToken = 4.82; // https://drchrislevy.github.io/posts/agents/agents.html#characters-per-token:~:text=%E2%80%A2%20GPT%2D4o%2Dmini%3A-,4.82%20characters%20per%20token,-%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82
+
 function symbolToString(symbol) {
     ASSERT(typeof symbol === 'symbol', "symbolToString expects a symbol.");
     ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for JSONification must have a description.");
@@ -2569,21 +2571,28 @@ class StrategySelectionNode {
 }
 
 class RequestNode {
-    constructor(model, typeOfPrompt, response, startTime, endTime=NULL) {
+    constructor(model, typeOfPrompt, response, startTime, endTime, userPrompt, systemPrompt) {
         ASSERT(type(model, String));
         ASSERT(type(typeOfPrompt, String));
         ASSERT(type(response, String));
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
+        ASSERT(type(userPrompt, String));
+        ASSERT(type(systemPrompt, Union(String, NULL)));
         this.model = model;
         this.typeOfPrompt = typeOfPrompt;
         this.response = response;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
+        this.endTime = endTime;
+        this.userPrompt = userPrompt;
+        this.systemPrompt = systemPrompt;
+
+        this.tokensUsed = 0;
+        if (systemPrompt !== NULL) {
+            this.tokensUsed += (systemPrompt.length / charactersPerToken);
         }
+        this.tokensUsed += (userPrompt.length / charactersPerToken);
+        this.tokensUsed += (response.length / charactersPerToken);
     }
 
     encode() {
@@ -2594,6 +2603,8 @@ class RequestNode {
             response: this.response,
             startTime: this.startTime,
             endTime: this.endTime,
+            userPrompt: this.userPrompt,
+            systemPrompt: this.systemPrompt === NULL ? symbolToString(NULL) : this.systemPrompt,
             _type: 'RequestNode'
         };
     }
@@ -2601,35 +2612,35 @@ class RequestNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'RequestNode');
-        return new RequestNode(json.model, json.typeOfPrompt, json.response, json.startTime, json.endTime);
+        return new RequestNode(json.model, json.typeOfPrompt, json.response, json.startTime, json.endTime, json.userPrompt, json.systemPrompt);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.request));
         object = object.request;
-        return new RequestNode(object.model, object.typeOfPrompt, object.response, object.startTime, object.endTime);
+        return new RequestNode(object.model, object.typeOfPrompt, object.response, object.startTime, object.endTime, object.userPrompt, object.systemPrompt);
     }
 }
 
 class ThinkingRequestNode {
-    constructor(model, typeOfPrompt, response, thoughts, startTime, endTime=NULL) {
+    constructor(model, typeOfPrompt, response, thoughts, startTime, endTime, userPrompt, systemPrompt) {
         ASSERT(type(model, String));
         ASSERT(type(typeOfPrompt, String));
         ASSERT(type(response, String));
         ASSERT(type(thoughts, Union(String, NULL))); // NULL if the thinking was unfindable
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
+        ASSERT(type(userPrompt, String));
+        ASSERT(type(systemPrompt, Union(String, NULL)));
         this.model = model;
         this.typeOfPrompt = typeOfPrompt;
         this.response = response;
         this.thoughts = thoughts;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
-        }
+        this.endTime = endTime;
+        this.userPrompt = userPrompt;
+        this.systemPrompt = systemPrompt;
     }
 
     encode() {
@@ -2642,6 +2653,8 @@ class ThinkingRequestNode {
             thoughts: thoughtsString,
             startTime: this.startTime,
             endTime: this.endTime,
+            userPrompt: this.userPrompt,
+            systemPrompt: this.systemPrompt === NULL ? symbolToString(NULL) : this.systemPrompt,
             _type: 'ThinkingRequestNode'
         };
     }
@@ -2650,14 +2663,14 @@ class ThinkingRequestNode {
         ASSERT(exists(json));
         ASSERT(json._type === 'ThinkingRequestNode');
         let thoughts = json.thoughts === symbolToString(NULL) ? NULL : json.thoughts;
-        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thoughts, json.startTime, json.endTime);
+        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thoughts, json.startTime, json.endTime, json.userPrompt, json.systemPrompt);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.thinking_request));
         object = object.thinking_request;
-        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thoughts, object.startTime, object.endTime);
+        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thoughts, object.startTime, object.endTime, object.userPrompt, object.systemPrompt);
     }
 }
 
@@ -2720,24 +2733,44 @@ class UserPromptNode {
     }
 }
 
-class UserAttachmentsNode {
-    constructor(fileNames) {
-        ASSERT(type(fileNames, List(NonEmptyString)));
-        this.fileNames = fileNames;
+class UserAttachmentNode {
+    constructor(file) {
+        ASSERT(exists(file) && exists(file.name) && exists(file.mimeType) && exists(file.size));
+        ASSERT(type(file.name, NonEmptyString));
+        ASSERT(type(file.mimeType, NonEmptyString));
+        ASSERT(type(file.size, Int));
+        ASSERT(file.size >= 0);
+        // we don't store the file because it would take up too much space
+        this.fileName = file.name;
+        this.mimeType = file.mimeType;
+        this.size = file.size;
+        this.tokensUsed = 0;
+
+        // from my testing, 1kb of image translates to 1 token
+        // I don't understand why, but this is what Gemini says
+        if (this.mimeType.startsWith('image/')) {
+            this.tokensUsed += this.size * (1/1000);
+        } else if (this.mimeType.startsWith('text/')) {
+            this.tokensUsed += this.size * charactersPerToken;
+        } else if (this.mimeType.startsWith('application/pdf')) {
+            this.tokensUsed += this.size * (1/100);
+        }
     }
 
     encode() {
-        ASSERT(type(this, UserAttachmentsNode));
+        ASSERT(type(this, UserAttachmentNode));
         return {
-            fileNames: this.fileNames,
-            _type: 'UserAttachmentsNode'
+            fileName: this.fileName,
+            mimeType: this.mimeType,
+            size: this.size,
+            _type: 'UserAttachmentNode'
         };
     }
 
     static decode(json) {
         ASSERT(exists(json));
-        ASSERT(json._type === 'UserAttachmentsNode');
-        return new UserAttachmentsNode(json.fileNames);
+        ASSERT(json._type === 'UserAttachmentNode');
+        return new UserAttachmentNode({fileName: json.fileName, mimeType: json.mimeType, size: json.size});
     }
 }
 
@@ -2920,7 +2953,7 @@ class Chain {
             ThinkingRequestNode,
             RerouteToModelNode,
             UserPromptNode,
-            UserAttachmentsNode,
+            UserAttachmentNode,
             ProcessingNode,
             CreatedEntityNode,
             FailedToCreateEntityNode,
@@ -2949,7 +2982,7 @@ class Chain {
             ThinkingRequestNode,
             RerouteToModelNode,
             UserPromptNode,
-            UserAttachmentsNode,
+            UserAttachmentNode,
             ProcessingNode,
             CreatedEntityNode,
             FailedToCreateEntityNode,
@@ -2963,7 +2996,8 @@ class Chain {
         ASSERT(type(nodeObject, Object));
 
         if (exists(nodeObject.request)) {
-            this.chain.push(RequestNode.fromJson(nodeObject));
+            let node = RequestNode.fromJson(nodeObject);
+            this.chain.push(node);
         } else if (exists(nodeObject.thinking_request)) {
             if (!exists(nodeObject.thinking_request.thoughts)) {
                 // the thinking hasn't been parse yet
@@ -2978,6 +3012,7 @@ class Chain {
                     nodeObject.thinking_request.thoughts = NULL;
                 }
             }
+
             this.chain.push(ThinkingRequestNode.fromJson(nodeObject));
         } else if (exists(nodeObject.rerouteToModel)) {
             this.chain.push(RerouteToModelNode.fromJson(nodeObject));
@@ -2987,34 +3022,26 @@ class Chain {
     }
 
     // calculate how many tokens were used
-    calculateTokens() {
-        let averageCharacterPerToken = 4.82; // https://drchrislevy.github.io/posts/agents/agents.html#characters-per-token:~:text=%E2%80%A2%20GPT%2D4o%2Dmini%3A-,4.82%20characters%20per%20token,-%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82
-
-        let totalCharacters = 0;
+    calculateTokensUsed() {
+        let totalTokensUsed = 0;
         for (const node of this.chain) {
             if (type(node, RequestNode)) {
-                totalCharacters += node.userPrompt.length;
-                if (node.systemPrompt !== NULL) {
-                    totalCharacters += node.systemPrompt.length;
-                }
-                totalCharacters += node.response.length;
+                totalTokensUsed += node.tokensUsed;
             } else if (type(node, ThinkingRequestNode)) {
-                totalCharacters += node.userPrompt.length;
-                if (node.systemPrompt !== NULL) {
-                    totalCharacters += node.systemPrompt.length;
-                }
-                totalCharacters += node.response.length;
-                totalCharacters += node.thinking.length;
+                totalTokensUsed += node.tokensUsed;
+            } else if (type(node, UserAttachmentNode)) {
+                totalTokensUsed += node.tokensUsed;
             }
         }
 
-        return Math.ceil(totalCharacters / averageCharacterPerToken);
+        return totalTokensUsed;
     }
 
     // we have finished answering the user's request
     // calculate how many tokens were used
     completeRequest() {
         this.add(new CompleteRequestNode(this.startTime));
+        this.endTime = Date.now();
     }
     
     encode() {
@@ -3565,9 +3592,9 @@ function type(thing, sometype) {
     } else if (sometype === UserPromptNode) {
         if (!(thing instanceof UserPromptNode)) return false;
         try { new UserPromptNode(thing.prompt); return true; } catch (e) { return false; }
-    } else if (sometype === UserAttachmentsNode) {
-        if (!(thing instanceof UserAttachmentsNode)) return false;
-        try { new UserAttachmentsNode(thing.fileNames); return true; } catch (e) { return false; }
+    } else if (sometype === UserAttachmentNode) {
+        if (!(thing instanceof UserAttachmentNode)) return false;
+        try { new UserAttachmentNode(thing.fileNames); return true; } catch (e) { return false; }
     } else if (sometype === ProcessingNode) {
         if (!(thing instanceof ProcessingNode)) return false;
         try { new ProcessingNode(thing.response, thing.startTime, thing.description, thing.endTime); return true; } catch (e) { return false; }
