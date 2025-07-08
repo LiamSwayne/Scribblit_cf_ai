@@ -7204,7 +7204,8 @@ function openSettingsModal() {
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '12px'
+            lineHeight: '12px',
+            transition: 'opacity 0.2s ease-in'
         });
         HTML.body.appendChild(settingsText);
         
@@ -7627,7 +7628,6 @@ function closeSettingsModal() {
     if (settingsText) {
         HTML.setStyle(settingsText, {
             opacity: '0',
-            transition: 'opacity 0.2s ease-out'
         });
         setTimeout(() => {
             if (settingsText && settingsText.parentNode) {
