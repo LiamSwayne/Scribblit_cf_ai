@@ -106,9 +106,3 @@ jobs:
           directory: 'public_v2'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
-      #- name: Deploy legacy worker
-      #  uses: cloudflare/wrangler-action@v3
-      #  with:
-      #    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      #    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #    workingDirectory: 'legacy_private'
