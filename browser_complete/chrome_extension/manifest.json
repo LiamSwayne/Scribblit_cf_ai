@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Scribblit Copilot",
+  "version": "1.0",
+  "description": "An AI assistant that suggests text completions across the web.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
