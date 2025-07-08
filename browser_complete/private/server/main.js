@@ -56,6 +56,8 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
             body: JSON.stringify(cerebrasRequest),
         });
         const result = await resp.json();
+        console.log("Cerebras model response:")
+        console.log(result);
         return result.choices?.[0]?.message?.content || '';
     } catch (err) {
         console.error('Cerebras model error:', err);
