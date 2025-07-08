@@ -562,7 +562,7 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
     }
 }
 
-async function callCerebrasModel(modelName, userPrompt, env) {
+async function callCerebrasModel(modelName, userPrompt, env, system_prompt) {
     if (modelName !== 'qwen-3-32b') {
         throw new Error('Unsupported Cerebras model: ' + modelName);
     }
@@ -570,7 +570,7 @@ async function callCerebrasModel(modelName, userPrompt, env) {
         const cerebrasRequest = {
             model: modelName,
             messages: [
-                { role: 'system', content: constructEntitiesPrompt },
+                { role: 'system', content: system_prompt },
                 { role: 'user', content: userPrompt },
             ],
             max_tokens: 8192,
@@ -690,7 +690,7 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
     return '';
 }
 
-async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
+async function callGroqModel(modelName, userPrompt, env, fileArray=[], system_prompt) {
     if (modelName === 'qwen/qwen3-32b') {
         if (fileArray && fileArray.length > 0) {
             // add files to prompt
@@ -702,7 +702,7 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[]) {
             const groqRequest = {
                 model: modelName,
                 messages: [
-                    { role: 'system', content: constructEntitiesPrompt },
+                    { role: 'system', content: system_prompt },
                     { role: 'user', content: userPrompt },
                 ],
                 max_tokens: 8192,
@@ -741,26 +741,27 @@ async function handlePromptOnly(userPrompt, env) {
     let chain = [];
     let startTime = 0;
 
-    // 1st choice – Cerebras Qwen3
+    // 1st choice – Gemini Flash
     startTime = Date.now();
-    content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env);
+    content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
     if (content && content.trim() !== '') {
         chain.push({ thinking_request: {
-            model: MODELS.CEREBRAS_MODELS.qwen3,
+            model: MODELS.GEMINI_MODELS.flash,
             typeOfPrompt: 'convert_text_to_entities',
             response: content,
             startTime,
             endTime: Date.now(),
-            userPrompt: userPrompt
+            userPrompt: userPrompt,
+            systemPrompt: constructEntitiesPrompt
         }});
     } else {
-        chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
-        // 2nd choice – Groq Qwen3
+        chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
+        // 2nd choice – Cerebras Qwen3
         startTime = Date.now();
-        content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env);
+        content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
-                model: MODELS.GROQ_MODELS.qwen3,
+                model: MODELS.CEREBRAS_MODELS.qwen3,
                 typeOfPrompt: 'convert_text_to_entities',
                 response: content,
                 startTime,
@@ -768,19 +769,18 @@ async function handlePromptOnly(userPrompt, env) {
                 userPrompt: userPrompt
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.GEMINI_MODELS.flash, startTime, endTime: Date.now() }});
-            // 3rd choice – Gemini Flash
+            chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
+            // 3rd choice – Groq Qwen3
             startTime = Date.now();
-            content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
+            content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], constructEntitiesPrompt);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
-                    model: MODELS.GEMINI_MODELS.flash,
+                    model: MODELS.GROQ_MODELS.qwen3,
                     typeOfPrompt: 'convert_text_to_entities',
                     response: content,
                     startTime,
                     endTime: Date.now(),
-                    userPrompt: userPrompt,
-                    systemPrompt: constructEntitiesPrompt
+                    userPrompt: userPrompt
                 }});
             } else {
                 return SEND({ error: 'Failed to connect to any AI model.' }, 481);
@@ -856,7 +856,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env, constructEntitiesPrompt);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
@@ -869,7 +869,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env, [], constructEntitiesPrompt);
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
@@ -944,7 +944,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, newPrompt, env, filesOnlyExtractSimplifiedEntitiesPrompt);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
@@ -957,7 +957,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env);
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, newPrompt, env, [], filesOnlyExtractSimplifiedEntitiesPrompt);
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,
@@ -1044,7 +1044,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         } else {
             chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, expansionPrompt);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
                     model: MODELS.CEREBRAS_MODELS.qwen3,
@@ -1057,7 +1057,7 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
             } else {
                 chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env);
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], expansionPrompt);
                 if (content && content.trim() !== '') {
                     chain.push({ thinking_request: {
                         model: MODELS.GROQ_MODELS.qwen3,

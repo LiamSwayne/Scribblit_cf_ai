@@ -2765,14 +2765,16 @@ class UserPromptNode {
 
 class UserAttachmentNode {
     constructor(file) {
-        ASSERT(exists(file) && exists(file.name) && exists(file.mimeType) && exists(file.size));
+        // Handle both native File objects (with 'type' property) and custom objects (with 'mimeType' property)
+        const mimeType = file.mimeType || file.type;
+        ASSERT(exists(file) && exists(file.name) && exists(mimeType) && exists(file.size));
         ASSERT(type(file.name, NonEmptyString));
-        ASSERT(type(file.mimeType, NonEmptyString));
+        ASSERT(type(mimeType, NonEmptyString));
         ASSERT(type(file.size, Int));
         ASSERT(file.size >= 0);
         // we don't store the file because it would take up too much space
         this.fileName = file.name;
-        this.mimeType = file.mimeType;
+        this.mimeType = mimeType;
         this.size = file.size;
         this.tokensUsed = 0;
 
@@ -2800,7 +2802,7 @@ class UserAttachmentNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'UserAttachmentNode');
-        return new UserAttachmentNode({fileName: json.fileName, mimeType: json.mimeType, size: json.size});
+        return new UserAttachmentNode({name: json.fileName, mimeType: json.mimeType, size: json.size});
     }
 }
 
@@ -3001,7 +3003,7 @@ class Chain {
             ASSERT(false, 'Chain.validate: endTime is not a valid type');
         }
     }
-    
+
     add(node) {
         this.validate();
         if (this.endTime !== NULL) {
@@ -3630,7 +3632,7 @@ function type(thing, sometype) {
         try { new UserPromptNode(thing.prompt); return true; } catch (e) { return false; }
     } else if (sometype === UserAttachmentNode) {
         if (!(thing instanceof UserAttachmentNode)) return false;
-        try { new UserAttachmentNode(thing.fileNames); return true; } catch (e) { return false; }
+        try { new UserAttachmentNode({name: thing.fileName, mimeType: thing.mimeType, size: thing.size}); return true; } catch (e) { return false; }
     } else if (sometype === ProcessingNode) {
         if (!(thing instanceof ProcessingNode)) return false;
         try { new ProcessingNode(thing.response, thing.startTime, thing.description, thing.endTime); return true; } catch (e) { return false; }
