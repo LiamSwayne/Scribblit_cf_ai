@@ -632,7 +632,7 @@ class NthWeekdayOfMonthsPattern {
                 return NULL;
             }
         } else {
-            log("NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month is not a valid type");
+            log("NthWeekdayOfMonthsPattern.fromAiJson: weeks_of_month is not a valid type" + JSON.stringify(weeksSpec));
             return NULL;
         }
 
@@ -753,7 +753,7 @@ class NonRecurringTaskInstance {
         this.completion = completion;
     }
 
-    getDueDate() {
+    getUnixDueDate() {
         ASSERT(type(this, NonRecurringTaskInstance));
         return this.date.toUnixTimestamp();
     }
@@ -892,7 +892,7 @@ class RecurringTaskInstance {
         this.completion = completion;
     }
 
-    getDueDatesInRange(startUnix, endUnix) {
+    getUnixDueDatesInRange(startUnix, endUnix) {
         ASSERT(type(this, RecurringTaskInstance));
         ASSERT(type(startUnix, Union(Int, NULL)));
         ASSERT(type(endUnix, Union(Int, NULL)));
@@ -1059,7 +1059,7 @@ class RecurringTaskInstance {
         ASSERT(type(startUnix, Union(Int, NULL)));
         ASSERT(type(endUnix, Union(Int, NULL)));
 
-        let dueDates = this.getDueDatesInRange(startUnix, endUnix);
+        let dueDates = this.getUnixDueDatesInRange(startUnix, endUnix);
 
         for (const date of dueDates) {
             if (!this.completion.includes(date)) {
@@ -1941,6 +1941,30 @@ class TaskData {
     //   "instances": [ { ... } ],
     //   "work_sessions": [ ... ] // optional
     // }
+    setPastDueDatesToComplete() {
+        ASSERT(type(this, TaskData));
+        const now = Date.now();
+        
+        for (const instance of this.instances) {
+            if (type(instance, NonRecurringTaskInstance)) {
+                const dueDate = instance.getDueDate();
+                if (dueDate < now) {
+                    instance.completion = true;
+                }
+            } else if (type(instance, RecurringTaskInstance)) {
+                // Get all due dates from the beginning of time until now
+                const pastDueDates = instance.getDueDatesInRange(0, now);
+                
+                // Add any past due dates that aren't already marked complete
+                for (const dueDate of pastDueDates) {
+                    if (!instance.completion.includes(dueDate)) {
+                        instance.completion.push(dueDate);
+                    }
+                }
+            }
+        }
+    }
+
     static fromAiJson(json) {
         if(!exists(json)) {
             return NULL;
@@ -2008,7 +2032,10 @@ class TaskData {
         }
 
         try {
-            return new TaskData(instances, NULL, true, workSessions);
+            const taskData = new TaskData(instances, NULL, true, workSessions);
+            // Set all past due dates to complete
+            taskData.setPastDueDatesToComplete();
+            return taskData;
         } catch (e) {
             log('TaskData.fromAiJson: error creating TaskData');
             return NULL;
@@ -2663,14 +2690,17 @@ class ThinkingRequestNode {
         ASSERT(exists(json));
         ASSERT(json._type === 'ThinkingRequestNode');
         let thoughts = json.thoughts === symbolToString(NULL) ? NULL : json.thoughts;
-        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thoughts, json.startTime, json.endTime, json.userPrompt, json.systemPrompt);
+        let systemPrompt = json.systemPrompt === symbolToString(NULL) ? NULL : json.systemPrompt;
+        return new ThinkingRequestNode(json.model, json.typeOfPrompt, json.response, thoughts, json.startTime, json.endTime, json.userPrompt, systemPrompt);
     }
 
     static fromJson(object) {
         ASSERT(type(object, Object));
         ASSERT(exists(object.thinking_request));
         object = object.thinking_request;
-        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, object.thoughts, object.startTime, object.endTime, object.userPrompt, object.systemPrompt);
+        let thoughts = object.thoughts === symbolToString(NULL) ? NULL : object.thoughts;
+        let systemPrompt = object.systemPrompt === symbolToString(NULL) ? NULL : object.systemPrompt;
+        return new ThinkingRequestNode(object.model, object.typeOfPrompt, object.response, thoughts, object.startTime, object.endTime, object.userPrompt, systemPrompt);
     }
 }
 
@@ -3011,6 +3041,10 @@ class Chain {
                     // just let the thinking be NULL if it was unfindable
                     nodeObject.thinking_request.thoughts = NULL;
                 }
+            }
+
+            if (!exists(nodeObject.thinking_request.systemPrompt)) {
+                nodeObject.thinking_request.systemPrompt = NULL;
             }
 
             this.chain.push(ThinkingRequestNode.fromJson(nodeObject));
@@ -3612,7 +3646,7 @@ function type(thing, sometype) {
         try { new StrategySelectionNode(thing.strategy, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
     } else if (sometype === ThinkingRequestNode) {
         if (!(thing instanceof ThinkingRequestNode)) return false;
-        try { new ThinkingRequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.thoughts, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
+        try { new ThinkingRequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.thoughts, thing.startTime, thing.endTime, thing.userPrompt, thing.systemPrompt); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';

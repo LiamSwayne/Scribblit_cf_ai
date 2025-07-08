@@ -302,9 +302,8 @@ async function loadUserData() {
                         return User.createDefault();
                     }
                 }
-            } catch (networkError) {
-                log("trace: " + networkError.stack);
-                log("ERROR connecting to server: " + networkError.message);
+            } catch (e) {
+                log("ERROR connecting to server: " + e.message);
                 
                 // Use local data as fallback
                 if (userJsonLocal) {
