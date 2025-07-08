@@ -81,9 +81,13 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
 }
 
 function createPrompt(url, precedingChars) {
-    return `The user is currently visiting ${url} and they are typing in a text field. Predict what the user will type next in the text field. You are trying to predidct the rest of the sentence, and nothing after the sentence. Predicting the rest of the sentence is extremely hard. 99% of the time you should return NULL because you don't have enough information. If you have no clue what the rest of the sentence is but the user is in the middle of typing a word, you may return a completion for just the rest of that word. The user may be in the middle of typing a word, and if so you should return the rest of the word, and the content that follows if applicable. Exclude the part of the content that the user has already typed.
+    return `The user is currently visiting ${url} and they are typing in a text field. Predict what the user will type next in the text field. You are trying to predict the rest of the sentence they are currently working on, and nothing before or after the sentence. Predicting the rest of the sentence is extremely hard. 99% of the time you should return NULL because you don't have enough information. If you have no clue what the rest of the sentence is but the user is in the middle of typing a word, you may return a completion for just the rest of that word, but if you are still unsure just return NULL. The user may be in the middle of typing a word, and if so you should return the rest of the word, and the content that follows if applicable. Exclude the part of the content that the user has already typed. If the user is done with their current word and you think the sentence is incomplete, you should put a space at the beginning of your response.
     
-    Example: the user typed "I missed my fli" and you return "ght".
+    Example: the user typed "I missed my fli" and you return "I missed my flight"
+    Example: the user typed "than" and you return "thank you"
+    Example: the user typed "If I'm late to the airport I'll m" and you return "If I'm late to the airport I'll miss my flight."
+    Example: the user typed "This has been a hard time! Thank your for sti" and you return "Thank you for sticking with me."
+
     RESPOND WITH ABSOLUTELY NOTHING BUT THE COMPLETION. The last 100 characters they typed are: ${precedingChars}`;
 }
 
