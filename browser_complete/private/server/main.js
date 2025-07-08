@@ -95,6 +95,8 @@ export default {
 
                         const content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, last1000chars, env, system_prompt, false);
 
+                        console.log("Completion response:")
+                        console.log(content);
                         return SEND(content, 200);
 
                     } catch (err) {
