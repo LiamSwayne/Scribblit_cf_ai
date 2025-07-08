@@ -64,33 +64,6 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }} # this doesn't need to be a secret but it's convenient to have it here
-
-      - name: Deploy Browser Complete server worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: 'browser_complete/private/server'
-          secrets: |
-            SENDGRID_API_KEY
-            SECRET_KEY
-            GOOGLE_CLIENT_ID
-            GOOGLE_CLIENT_SECRET
-            CEREBRAS_API_KEY
-            XAI_API_KEY
-            GEMINI_API_KEY
-            GROQ_API_KEY
-            ANTHROPIC_API_KEY
-        env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
             
       - name: Minify JS files for frontend
         run: |
@@ -106,3 +79,9 @@ jobs:
           directory: 'public_v2'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
+      #- name: Deploy legacy worker
+      #  uses: cloudflare/wrangler-action@v3
+      #  with:
+      #    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      #    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      #    workingDirectory: 'legacy_private'
