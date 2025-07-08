@@ -50,8 +50,8 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
             url = 'https://api.cerebras.ai/v1/completions';
             cerebrasRequest = {
                 model: modelName,
-                prompt: `${system_prompt}\n\n${userPrompt}`,
-                max_tokens: 10,
+                prompt: userPrompt,
+                max_tokens: 20,
                 stream: false,
             };
         }
@@ -107,9 +107,9 @@ export default {
                         let precedingChars = userPrompt.slice(index + 1);
                         let url = userPrompt.slice(0, index);
 
-                        let system_prompt = "You are trying to predict what the user will type next in their browser. Current url: " + url;
+                        let prompt = "The user is currently visiting " + url + " and they are typing in a text field. Predict what the user will type next in the text field. Maxiumum of 10 words. If you are not very confident that you can predict the next 10 words, just return NULL. The last 100 characters they typed are: " + precedingChars;
 
-                        const content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.llama_scout, precedingChars, env, system_prompt, false);
+                        const content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, prompt, env, '', false);
 
                         console.log("Completion response:")
                         console.log(content);

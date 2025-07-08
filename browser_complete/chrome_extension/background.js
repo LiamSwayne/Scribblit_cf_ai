@@ -1,24 +1,9 @@
 // background.js
 console.log("Background script started.");
 
-const MAX_URLS = 5;
 // the user never sees this url, so it's ok  to be the raw cloudflare worker
 // for other stuff, use browser-complete.scribbl.it
 const WORKER_DOMAIN = 'browser-complete.unrono.workers.dev';
-
-// Function to get URLs from storage
-async function getUrls() {
-    const result = await chrome.storage.local.get('visitedUrls');
-    const urls = result.visitedUrls || [];
-    console.log("Retrieved URLs from storage:", urls);
-    return urls;
-}
-
-// Function to save URLs to storage
-async function saveUrls(urls) {
-    console.log("Saving URLs to storage:", urls);
-    await chrome.storage.local.set({ visitedUrls: urls });
-}
 
 // Function to inject content script into a tab
 function injectContentScript(tabId) {
@@ -49,16 +34,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         console.log(`Tab ${tabId} updated to URL: ${tab.url}`);
         // Inject content script
         injectContentScript(tabId);
-        
-        let urls = await getUrls();
-        // Add new URL if it's different from the last one
-        if (urls.length === 0 || urls[urls.length - 1] !== tab.url) {
-            urls.push(tab.url);
-            if (urls.length > MAX_URLS) {
-                urls.shift(); // Remove the oldest URL
-            }
-            await saveUrls(urls);
-        }
     }
 });
 
@@ -80,17 +55,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleGetCompletion(text) {
-    console.log("Handling getCompletion for text:", text);
-    const urls = await getUrls();
-    // Ensure we have 5 URLs, padding with empty strings if necessary
-    const paddedUrls = [...urls];
-    while (paddedUrls.length < 5) {
-        // push to beginning the character "."
-        paddedUrls.unshift('.');
-    }
-
-    const prompt = [...paddedUrls, text].join(' ');
-    console.log("Constructed prompt:", prompt);
+    console.log("Handling getCompletion with prompt:", text);
 
     const fullUrl = 'https://' + WORKER_DOMAIN + '/complete';
     console.log("Fetching from URL:", fullUrl);
@@ -98,7 +63,7 @@ async function handleGetCompletion(text) {
     try {
         const response = await fetch(fullUrl, {
             method: 'POST',
-            body: prompt,
+            body: text, // The 'text' from content.js is now the full prompt
             headers: {
                 'Content-Type': 'text/plain'
             }
@@ -110,7 +75,8 @@ async function handleGetCompletion(text) {
         }
 
         const completion = await response.text();
-        console.log("Received completion from API:" + completion);
+        console.log("Sent: " + text);
+        console.log("Received:" + completion);
         return completion;
     } catch (error) {
         console.error('Failed to fetch completion:', error);
