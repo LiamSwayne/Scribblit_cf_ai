@@ -1947,7 +1947,7 @@ class TaskData {
         
         for (const instance of this.instances) {
             if (type(instance, NonRecurringTaskInstance)) {
-                const dueDate = instance.getDueDate();
+                const dueDate = instance.getUnixDueDate();
                 if (dueDate < now) {
                     instance.completion = true;
                 }
@@ -2037,7 +2037,7 @@ class TaskData {
             taskData.setPastDueDatesToComplete();
             return taskData;
         } catch (e) {
-            log('TaskData.fromAiJson: error creating TaskData');
+            log('TaskData.fromAiJson: error creating TaskData: ' + e.message + ' ' + e.stack);
             return NULL;
         }
     }
@@ -2765,27 +2765,25 @@ class UserPromptNode {
 
 class UserAttachmentNode {
     constructor(file) {
-        // Handle both native File objects (with 'type' property) and custom objects (with 'mimeType' property)
-        const mimeType = file.mimeType || file.type;
-        ASSERT(exists(file) && exists(file.name) && exists(mimeType) && exists(file.size));
+        ASSERT(exists(file) && exists(file.name) && exists(file.mimeType) && exists(file.size));
         ASSERT(type(file.name, NonEmptyString));
-        ASSERT(type(mimeType, NonEmptyString));
+        ASSERT(type(file.mimeType, NonEmptyString));
         ASSERT(type(file.size, Int));
         ASSERT(file.size >= 0);
         // we don't store the file because it would take up too much space
         this.fileName = file.name;
-        this.mimeType = mimeType;
+        this.mimeType = file.mimeType;
         this.size = file.size;
-        this.tokensUsed = 0;
+        this.tokensUsed;
 
         // from my testing, 1kb of image translates to 1 token
         // I don't understand why, but this is what Gemini says
         if (this.mimeType.startsWith('image/')) {
-            this.tokensUsed += this.size * (1/1000);
+            this.tokensUsed = this.size * (1/1000);
         } else if (this.mimeType.startsWith('text/')) {
-            this.tokensUsed += this.size * charactersPerToken;
+            this.tokensUsed = this.size * charactersPerToken;
         } else if (this.mimeType.startsWith('application/pdf')) {
-            this.tokensUsed += this.size * (1/100);
+            this.tokensUsed = this.size * (1/100);
         }
     }
 
