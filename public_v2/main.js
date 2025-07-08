@@ -6146,8 +6146,10 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             textAlign: 'center',
             fontSize: `${line1FontSize}px`,
             pointerEvents: 'none', // to allow hover on task element underneath
-            transition: 'font-size 0.3s ease, color 0.2s ease'
+            transition: 'font-size 0.3s ease, color 0.2s ease, opacity 0.2s ease-in'
         });
+        // Fade in the label
+        setTimeout(() => { HTML.setStyle(line1El, { opacity: '1' }); }, 10);
     } else if (exists(line1El)) {
         line1El.remove();
     }
@@ -6174,8 +6176,10 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             textAlign: 'center',
             fontSize: `${line2FontSize}px`,
             pointerEvents: 'none',
-            transition: 'font-size 0.3s ease, color 0.2s ease'
+            transition: 'font-size 0.3s ease, color 0.2s ease, opacity 0.2s ease-in'
         });
+        // Fade in the label
+        setTimeout(() => { HTML.setStyle(line2El, { opacity: '1' }); }, 10);
     } else if (exists(line2El)) {
         line2El.remove();
     }
@@ -6230,8 +6234,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         fontFamily: 'PrimaryBold',
         fontSize: sectionFontSize,
         color: section.active ? 'var(--shade-4)' : 'var(--shade-3)',
-        transition: 'font-size 0.3s ease, color 0.2s ease'
+        transition: 'font-size 0.3s ease, color 0.2s ease, opacity 0.2s ease-in'
     });
+    // Fade in the label
+    setTimeout(() => { HTML.setStyle(headerEl, { opacity: '1' }); }, 10);
     currentTop += sectionHeaderHeight;
 
     const spaceForTaskDateAndTime = columnWidth > columnWidthThreshold ? 36 : 34;
@@ -6538,8 +6544,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             left: `0px`,
             width: `${taskListWidth}px`,
             height: '1px',
-            backgroundColor: 'var(--shade-2)'
+            backgroundColor: 'var(--shade-2)',
+            transition: 'opacity 0.2s ease-in'
         });
+        // Fade in the separator
+        setTimeout(() => { HTML.setStyle(separatorEl, { opacity: '1' }); }, 10);
     }
 
     currentTop += separatorHeight;
@@ -7214,9 +7223,13 @@ function openSettingsModal() {
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '24px'
+            lineHeight: '24px',
+            opacity: '0',
+            transition: 'opacity 0.2s ease-in'
         });
         HTML.body.appendChild(timeFormatLabel);
+        // Fade in the label
+        setTimeout(() => { HTML.setStyle(timeFormatLabel, { opacity: '1' }); }, 10);
         
         createSelector(
             ['24hr', 'AM/PM'],           // options: array of selectable strings
@@ -7255,6 +7268,7 @@ function openSettingsModal() {
                 borderRadius: '3px',
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease, opacity 0.2s ease-in',
+                opacity: '0',
                 zIndex: '7002'
             });
             
@@ -7276,7 +7290,7 @@ function openSettingsModal() {
                 top: (modalHeight - 15) + 'px',
                 width: '120px',
                 height: '20px',
-                fontFamily: 'Monospace',
+                fontFamily: 'Monospaced',
                 fontSize: '10px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -7284,6 +7298,7 @@ function openSettingsModal() {
                 borderRadius: '3px',
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease, opacity 0.2s ease-in',
+                opacity: '0',
                 zIndex: '7002'
             });
             
@@ -7536,6 +7551,11 @@ function openSettingsModal() {
 
             HTML.body.appendChild(logoutButton);
             HTML.body.appendChild(featureRequestButton);
+            // Fade in the buttons
+            setTimeout(() => {
+                HTML.setStyle(logoutButton, { opacity: '1' });
+                HTML.setStyle(featureRequestButton, { opacity: '1' });
+            }, 10);
         }
     }, 400);
 }
