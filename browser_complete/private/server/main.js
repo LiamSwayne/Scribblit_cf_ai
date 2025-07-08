@@ -32,21 +32,30 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
         return SEND("Unsupported Cerebras model: " + modelName, error_code);
     }
     try {
-        const cerebrasRequest = {
-            model: modelName,
-            messages: [
-                { role: 'system', content: system_prompt },
-                { role: 'user', content: userPrompt },
-            ],
-            max_tokens: 8192,
-            stream: false,
-        };
+        let cerebrasRequest;
         let url;
+
         if (chat) {
             url = 'https://api.cerebras.ai/v1/chat/completions';
+            cerebrasRequest = {
+                model: modelName,
+                messages: [
+                    { role: 'system', content: system_prompt },
+                    { role: 'user', content: userPrompt },
+                ],
+                max_tokens: 8192,
+                stream: false,
+            };
         } else {
             url = 'https://api.cerebras.ai/v1/completions';
+            cerebrasRequest = {
+                model: modelName,
+                prompt: `${system_prompt}\n\n${userPrompt}`,
+                max_tokens: 8192,
+                stream: false,
+            };
         }
+
         const resp = await fetch(url, {
             method: 'POST',
             headers: {
@@ -58,7 +67,12 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
         const result = await resp.json();
         console.log("Cerebras model response:")
         console.log(result);
-        return result.choices?.[0]?.message?.content || '';
+
+        if (chat) {
+            return result.choices?.[0]?.message?.content || '';
+        } else {
+            return result.choices?.[0]?.text || '';
+        }
     } catch (err) {
         console.error('Cerebras model error:', err);
         // empty response triggers reroute to another model
