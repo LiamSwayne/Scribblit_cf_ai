@@ -24,3 +24,9 @@ async function testContinously() {
 }
 
 testContinously();
+
+// for quickly resetting via console
+function resetUserData() {
+    user.entityArray = [];
+    saverUserData();
+}
