@@ -2567,17 +2567,13 @@ class Entity {
 // nodes are the individual steps in the chain (type defined farther down)
 class StrategySelectionNode {
     // unix start and end times
-    constructor(strategy, startTime, endTime=NULL) {
+    constructor(strategy, startTime) {
         ASSERT(type(strategy, String));
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
         this.strategy = strategy;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
-        }
+        this.endTime = Date.now();
     }
 
     encode() {
@@ -2705,17 +2701,13 @@ class ThinkingRequestNode {
 }
 
 class RerouteToModelNode {
-    constructor(model, startTime, endTime=NULL) {
+    constructor(model, startTime, endTime) {
         ASSERT(type(model, String));
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
         this.model = model;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
-        }
+        this.endTime = endTime;
     }
 
     encode() {
@@ -2805,18 +2797,14 @@ class UserAttachmentNode {
 }
 
 class ProcessingNode {
-    constructor(response, startTime, description, endTime=NULL) {
+    constructor(response, startTime, description, endTime) {
         ASSERT(type(response, Union(String, NULL)));
         ASSERT(type(startTime, Int));
         ASSERT(type(description, NonEmptyString));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
         this.response = response;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
-        }
+        this.endTime = endTime;
         this.description = description;
     }
 
@@ -2839,11 +2827,12 @@ class ProcessingNode {
 }
 
 class CreatedEntityNode {
-    constructor(json, entity, startTime, endTime=NULL) {
+    constructor(json, entity, startTime, endTime) {
+        log('CreatedEntityNode constructor: ' + JSON.stringify(json));
         ASSERT(type(json, Object));
         ASSERT(type(entity, Entity));
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
 
         // create a copy of the entity
         let entityCopy = Entity.decode(entity.encode());
@@ -2851,11 +2840,7 @@ class CreatedEntityNode {
         this.json = json;
         this.entity = entityCopy;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
-        }
+        this.endTime = endTime;
     }
 
     encode() {
@@ -2877,17 +2862,13 @@ class CreatedEntityNode {
 }
 
 class FailedToCreateEntityNode {
-    constructor(json, startTime, endTime=NULL) {
+    constructor(json, startTime, endTime) {
         ASSERT(type(json, Object));
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
         this.json = json;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
-        }
+        this.endTime = endTime;
     }
 
     encode() {
@@ -2908,13 +2889,13 @@ class FailedToCreateEntityNode {
 }
 
 class MergeEntitiesNode {
-    constructor(entityArray, result, startTime, endTime=NULL) {
+    constructor(entityArray, result, startTime, endTime) {
         ASSERT(type(entityArray, List(Entity)));
         ASSERT(entityArray.length >= 2);
         ASSERT(type(result, Entity));
         ASSERT(type(startTime, Int));
         ASSERT(startTime >= 0);
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
 
         // create copies of the entities
         let entityArrayCopy = [];
@@ -2926,11 +2907,7 @@ class MergeEntitiesNode {
         this.entityArray = entityArrayCopy;
         this.result = resultCopy;
         this.startTime = startTime;
-        if (endTime === NULL) {
-            this.endTime = Date.now();
-        } else {
-            this.endTime = endTime;
-        }
+        this.endTime = endTime;
     }
 
     encode() {
@@ -2959,15 +2936,101 @@ class MergeEntitiesNode {
     }
 }
 
+// when we perform multiple actions in parallel, we use this node
+class ParallelNode {
+    // preliminary construction
+    constructor(description) {
+        ASSERT(type(description, NonEmptyString));
+        this.nodes = [];
+        this.startTime = Date.now();
+        this.endTime = NULL;
+        this.description = description;
+    }
+
+    add(node) {
+        ASSERT(type(node, Union(
+            StrategySelectionNode,
+            RequestNode,
+            ThinkingRequestNode,
+            RerouteToModelNode,
+            UserPromptNode,
+            UserAttachmentNode,
+            ProcessingNode,
+            CreatedEntityNode,
+            FailedToCreateEntityNode,
+            MergeEntitiesNode,
+            CompleteRequestNode
+        )));
+        this.nodes.push(node);
+    }
+
+    // finished construction after adding all nodes
+    complete() {
+        this.endTime = Date.now();
+    }
+
+    encode() {
+        ASSERT(type(this, ParallelNode));
+        return {
+            nodes: this.nodes.map(node => node.encode()),
+            startTime: this.startTime,
+            endTime: this.endTime,
+            description: this.description,
+            _type: 'ParallelNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'ParallelNode');
+        let nodes = [];
+        for (const nodeJson of json.nodes) {
+            nodes.push(decodeNode(nodeJson));
+        }
+        ASSERT(type(nodes, List(Node)));
+        return new ParallelNode(json.description, nodes, json.startTime, json.endTime);
+    }
+}
+
 class CompleteRequestNode {
-    constructor(startTime, endTime=NULL) {
+    constructor(startTime, endTime) {
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Union(Int, NULL)));
+        ASSERT(type(endTime, Int));
         this.startTime = startTime;
     }
 }
 
+function decodeNode(nodeJson) {
+    ASSERT(exists(nodeJson));
+    if (nodeJson._type === 'StrategySelectionNode') {
+        return StrategySelectionNode.decode(nodeJson);
+    } else if (nodeJson._type === 'RequestNode') {
+        return RequestNode.decode(nodeJson);
+    } else if (nodeJson._type === 'ThinkingRequestNode') {
+        return ThinkingRequestNode.decode(nodeJson);
+    } else if (nodeJson._type === 'RerouteToModelNode') {
+        return RerouteToModelNode.decode(nodeJson);
+    } else if (nodeJson._type === 'UserPromptNode') {
+        return UserPromptNode.decode(nodeJson);
+    } else if (nodeJson._type === 'UserAttachmentNode') {
+        return UserAttachmentNode.decode(nodeJson);
+    } else if (nodeJson._type === 'ProcessingNode') {
+        return ProcessingNode.decode(nodeJson);
+    } else if (nodeJson._type === 'CreatedEntityNode') {
+        return CreatedEntityNode.decode(nodeJson);
+    } else if (nodeJson._type === 'FailedToCreateEntityNode') {
+        return FailedToCreateEntityNode.decode(nodeJson);
+    } else if (nodeJson._type === 'MergeEntitiesNode') {
+        return MergeEntitiesNode.decode(nodeJson);
+    } else if (nodeJson._type === 'CompleteRequestNode') {
+        return CompleteRequestNode.decode(nodeJson);
+    } else {
+        ASSERT(false, 'ParallelNode.decode: unknown node type ' + nodeJson._type);
+    }
+}
+
 // chain of events involved in a single user AI request
+// this contains a lot of data we don't need, but it exists to show the user
 class Chain {
     constructor() {
         this.chain = [];

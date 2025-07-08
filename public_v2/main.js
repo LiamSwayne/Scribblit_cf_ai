@@ -7797,85 +7797,8 @@ function openSignInModal() {
         // Set initial state
         signInModalState = 'initial';
 
-        // Get modal position for content positioning
-        const modalRect = signInModal.getBoundingClientRect();
-        
-        // Create Google button
-        const googleButton = HTML.make('button');
-        HTML.setId(googleButton, 'signInGoogleButton');
-        googleButton.textContent = 'Google';
-        
-        HTML.setStyle(googleButton, {
-            position: 'fixed',
-            right: (window.innerWidth - modalRect.right + 10) + 'px',
-            top: (modalRect.top + 30) + 'px',
-            width: ((modalRect.width - 30) / 2) + 'px',
-            height: '114px',
-            fontFamily: 'Monospace',
-            fontSize: '12px',
-            color: 'var(--shade-4)',
-            backgroundColor: 'var(--shade-1)',
-            border: '1px solid var(--shade-2)',
-            borderRadius: '3px',
-            cursor: 'pointer',
-            zIndex: String(signInTextZIndex + 101),
-            transition: 'all 0.2s ease',
-            opacity: '1'
-        });
-        
-        googleButton.onclick = () => {
-            // Redirect to Google OAuth
-            window.location.href = 'https://' + SERVER_DOMAIN + '/auth/google';
-        };
-        googleButton.onmouseenter = () => {
-            HTML.setStyle(googleButton, { backgroundColor: 'var(--shade-2)' });
-        };
-        googleButton.onmouseleave = () => {
-            HTML.setStyle(googleButton, { backgroundColor: 'var(--shade-1)' });
-        };
-        
-        HTML.body.appendChild(googleButton);
-        
-        // Create Email button
-        const emailButton = HTML.make('button');
-        HTML.setId(emailButton, 'signInEmailButton');
-        emailButton.textContent = 'Email';
-        
-        HTML.setStyle(emailButton, {
-            position: 'fixed',
-            right: (window.innerWidth - modalRect.right + 20 + ((modalRect.width - 30) / 2)) + 'px',
-            top: (modalRect.top + 30) + 'px',
-            width: ((modalRect.width - 30) / 2) + 'px',
-            height: '114px',
-            fontFamily: 'Monospace',
-            fontSize: '12px',
-            color: 'var(--shade-4)',
-            backgroundColor: 'var(--shade-1)',
-            border: '1px solid var(--shade-2)',
-            borderRadius: '3px',
-            cursor: 'pointer',
-            zIndex: String(signInTextZIndex + 101),
-            transition: 'all 0.2s ease',
-            opacity: '1'
-        });
-        
-        emailButton.onclick = () => {
-            // Set state and show email input form
-            signInModalState = 'email_input';
-            showEmailInputForm();
-        };
-
-        
-        HTML.body.appendChild(googleButton);
-        
-        emailButton.onmouseenter = () => {
-            HTML.setStyle(emailButton, { backgroundColor: 'var(--shade-2)' });
-        };
-        emailButton.onmouseleave = () => {
-            HTML.setStyle(emailButton, { backgroundColor: 'var(--shade-1)' });
-        };
-        
-        HTML.body.appendChild(emailButton);
+        // Use the existing showInitialButtons function for proper fade-in animation
+        showInitialButtons();
         
     }, 400);
 }
