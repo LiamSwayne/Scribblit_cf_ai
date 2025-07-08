@@ -7,17 +7,11 @@ function SEND(data, status = 200, headers = {}) {
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
-    if (typeof data === 'object' && data !== null) {
-        data = JSON.stringify(data);
-        if (!headers['Content-Type']) {
-            headers['Content-Type'] = 'application/json';
-        }
-    }
-
     return new Response(data, {
         status,
         headers: {
             ...corsHeaders,
+            'Content-Type': 'text/plain',
             ...headers
         },
     });
@@ -32,10 +26,10 @@ const MODELS = {
 
 async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat) {
     if (typeof chat !== 'boolean') {
-        return SEND({"error": "chat must be a boolean"}, error_code);
+        return SEND("chat must be a boolean", error_code);
     }
     if (!Object.values(MODELS.CEREBRAS_MODELS).includes(modelName)) {
-        return SEND({"error": "Unsupported Cerebras model: " + modelName}, error_code);
+        return SEND("Unsupported Cerebras model: " + modelName, error_code);
     }
     try {
         const cerebrasRequest = {
@@ -66,7 +60,7 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
     } catch (err) {
         console.error('Cerebras model error:', err);
         // empty response triggers reroute to another model
-        return SEND({"error": "Failed to process completion request."}, error_code);
+        return SEND("Failed to process completion request.", error_code);
     }
 }
 
@@ -82,9 +76,7 @@ export default {
             case '/complete':
                 {
                     if (request.method !== 'POST') {
-                        return SEND({
-                            error: 'Method not allowed'
-                        }, 405);
+                        return SEND('Method not allowed', 405);
                     }
 
                     try {
@@ -92,7 +84,7 @@ export default {
                         const userPrompt = await request.text();
 
                         if (!userPrompt || userPrompt.trim().length === 0) {
-                            return SEND({error: 'Empty prompt' }, error_code);
+                            return SEND('Empty prompt', error_code);
                         }
 
                         let [url1, url2, url3, url4, url5, ...last1000chars] = userPrompt.split(' ');
@@ -103,18 +95,16 @@ export default {
 
                         const content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, last1000chars, env, system_prompt, false);
 
-                        return SEND(content, 200, {
-                            'Content-Type': 'text/plain'
-                        });
+                        return SEND(content, 200);
 
                     } catch (err) {
                         console.error('Completion error:', err);
-                        return SEND({error: 'Failed to process completion request.'}, error_code);
+                        return SEND('Failed to process completion request.', error_code);
                     }
                 }
 
             default:
-                return SEND({error: 'Endpoint not found'}, error_code);
+                return SEND('Endpoint not found', 404);
         }
     },
 };
