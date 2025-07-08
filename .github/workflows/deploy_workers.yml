@@ -24,7 +24,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Deploy Scribblit server worker
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -51,7 +51,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Deploy Scribblit Stripe worker
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -64,7 +64,7 @@ jobs:
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }} # this doesn't need to be a secret but it's convenient to have it here
 
       - name: Deploy Browser Complete server worker
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -105,7 +105,7 @@ jobs:
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       #- name: Deploy legacy worker
-      #  uses: cloudflare/wrangler-action@v4
+      #  uses: cloudflare/wrangler-action@v3
       #  with:
       #    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       #    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
