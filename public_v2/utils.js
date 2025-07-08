@@ -14,6 +14,7 @@ function ASSERT(condition, message="") {
         }
         console.trace();
     }
+
 }
 
 const NULL = Symbol('NULL'); // custom null because js null and undefined are off-limits
@@ -124,6 +125,7 @@ function log(message) {
 // Date
 class DateField {
     constructor(year, month, day) {
+        log("DateField constructor: " + year + " " + month + " " + day);
         ASSERT(type(year, Int));
         
         ASSERT(type(month, Int));
@@ -2567,13 +2569,13 @@ class Entity {
 // nodes are the individual steps in the chain (type defined farther down)
 class StrategySelectionNode {
     // unix start and end times
-    constructor(strategy, startTime) {
+    constructor(strategy, startTime, endTime) {
         ASSERT(type(strategy, String));
         ASSERT(type(startTime, Int));
         ASSERT(type(endTime, Int));
         this.strategy = strategy;
         this.startTime = startTime;
-        this.endTime = Date.now();
+        this.endTime = endTime;
     }
 
     encode() {

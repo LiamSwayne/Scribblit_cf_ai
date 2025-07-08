@@ -253,6 +253,9 @@ async function loadUserData() {
                             serverUser = User.decode(serverResponse.user);
                         } catch (parseError) {
                             log("ERROR parsing server user data: " + parseError.message);
+                            log("serverResponse.user: ");
+                            log(serverResponse.user);
+                            log("trace: " + parseError.stack);
                             serverUser = null;
                         }
                     }
@@ -8757,7 +8760,7 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
         }
     }
 
-    chain.add(new ProcessingNode(cleanedText, startTime, "Extracting JSON from AI output"));
+    chain.add(new ProcessingNode(cleanedText, startTime, "Extracting JSON from AI output", Date.now()));
 
     if (!aiJson) {
         return NULL;
@@ -8830,7 +8833,7 @@ function mergeEntities(entityArray, chain) {
         }
 
         if (mergedEntities.length > 1) {
-            chain.add(new MergeEntitiesNode(mergedEntities, primaryTask, startTime));
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryTask, startTime, Date.now()));
         }
         finalEntities.push(primaryTask);
     }
@@ -8851,7 +8854,7 @@ function mergeEntities(entityArray, chain) {
         }
 
         if (mergedEntities.length > 1) {
-            chain.add(new MergeEntitiesNode(mergedEntities, primaryEvent, startTime));
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryEvent, startTime, Date.now()));
         }
         finalEntities.push(primaryEvent);
     }
@@ -8872,7 +8875,7 @@ function mergeEntities(entityArray, chain) {
         }
 
         if (mergedEntities.length > 1) {
-            chain.add(new MergeEntitiesNode(mergedEntities, primaryReminder, startTime));
+            chain.add(new MergeEntitiesNode(mergedEntities, primaryReminder, startTime, Date.now()));
         }
         finalEntities.push(primaryReminder);
     }
@@ -8926,13 +8929,13 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
                 try {
                     let parsedEntity = Entity.fromAiJson(obj);
                     if (parsedEntity === NULL) {
-                        chain.add(new FailedToCreateEntityNode(obj, startTime));
+                        chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
-                        chain.add(new CreatedEntityNode(obj, parsedEntity, startTime));
+                        chain.add(new CreatedEntityNode(obj, parsedEntity, startTime, Date.now()));
                         newEntities.push(parsedEntity);
                     }
                 } catch (e) {
-                    chain.add(new FailedToCreateEntityNode(obj, startTime));
+                    chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     continue;
                 }
             }
@@ -8940,9 +8943,9 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             let startTime = Date.now();
             let parsedEntity = Entity.fromAiJson(aiJson);
             if (parsedEntity === NULL) {
-                chain.add(new FailedToCreateEntityNode(aiJson, startTime));
+                chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
-                chain.add(new CreatedEntityNode(aiJson, parsedEntity, startTime));
+                chain.add(new CreatedEntityNode(aiJson, parsedEntity, startTime, Date.now()));
                 newEntities.push(parsedEntity);
             }
         }
@@ -9189,7 +9192,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 })
 
                 if (newTaskData === NULL) {
-                    chain.add(new FailedToCreateEntityNode(aiJson, startTime));
+                    chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
                 } else {
                     let newEntity = new Entity(
                         Entity.generateId(),
@@ -9199,7 +9202,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     );
 
                     ASSERT(type(newEntity, Entity) && type(newEntity.data, TaskData));
-                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime));
+                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
                     newEntities.push(newEntity);
                 }
             } else if (simplifiedEntityType === 'event') {
@@ -9209,7 +9212,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 })
 
                 if (newEventData === NULL) {
-                    chain.add(new FailedToCreateEntityNode(aiJson, startTime));
+                    chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
                 } else {
                     let newEntity = new Entity(
                         Entity.generateId(),
@@ -9219,7 +9222,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     );
                     
                     ASSERT(type(newEntity, Entity) && type(newEntity.data, EventData));
-                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime));
+                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
                     newEntities.push(newEntity);
                 }
             } else if (simplifiedEntityType === 'reminder') {
@@ -9229,7 +9232,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 })
 
                 if (newReminderData === NULL) {
-                    chain.add(new FailedToCreateEntityNode(aiJson, startTime));
+                    chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
                 } else {
                     let newEntity = new Entity(
                         Entity.generateId(),
@@ -9239,7 +9242,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     );
                     
                     ASSERT(type(newEntity, Entity) && type(newEntity.data, ReminderData));
-                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime));
+                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
                     newEntities.push(newEntity);
                 }
             } else {
@@ -9247,7 +9250,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 return;
             }
         } catch (e) {
-            chain.add(new FailedToCreateEntityNode(aiJson, startTime));
+            chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
         }
     }
 
@@ -9318,11 +9321,11 @@ function processInput() {
         let startTime = Date.now();
         if (fileArray.length > 0) {
             activeStrategy = STRATEGIES.STEP_BY_STEP;
-            chain.add(new StrategySelectionNode(activeStrategy, startTime));
+            chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
             let idsOfNewEntities = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
         } else {
             activeStrategy = STRATEGIES.SINGLE_CHAIN;
-            chain.add(new StrategySelectionNode(activeStrategy, startTime));
+            chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
             let idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
         }
 
