@@ -23,12 +23,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Deploy private_v2 worker (with secrets)
+      - name: Deploy server worker (with secrets)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: 'private_v2'
+          workingDirectory: 'private_v2/server'
           secrets: |
             SENDGRID_API_KEY
             SECRET_KEY
@@ -50,7 +50,20 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-      - name: Minify JS files
+      - name: Deploy Stripe worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'private_v2/stripe'
+          secrets: |
+            STRIPE_SECRET_KEY
+            STRIPE_PUBLISHABLE_KEY
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }} # this doesn't need to be a secret but it's convenient to have it here
+
+      - name: Minify JS files for frontend
         run: |
           npm install terser
           find public_v2 -name "*.js" ! -name "*.min.js" -exec npx terser {} -c -m -o {} \;
