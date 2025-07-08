@@ -83,12 +83,7 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
 function createPrompt(url, precedingChars) {
     return `The user is currently visiting ${url} and they are typing in a text field. Predict what the user will type next in the text field. You are trying to predidct the rest of the sentence, and nothing after the sentence. Predicting the rest of the sentence is extremely hard. 99% of the time you should return NULL because you don't have enough information. If you have no clue what the rest of the sentence is but the user is in the middle of typing a word, you may return a completion for just the rest of that word. The user may be in the middle of typing a word, and if so you should return the rest of the word, and the content that follows if applicable. Exclude the part of the content that the user has already typed.
     
-    Example:
-    {
-        user: "I missed my fli"
-        completion: "ght"
-    }
-    
+    Example: the user typed "I missed my fli" and you return "ght".
     RESPOND WITH ABSOLUTELY NOTHING BUT THE COMPLETION. The last 100 characters they typed are: ${precedingChars}`;
 }
 

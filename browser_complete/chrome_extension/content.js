@@ -136,7 +136,7 @@ function showCompletion(element, completion) {
         // Set global state for accepting the completion
         currentCompletion = remainingCompletion;
         activeElementForGhost = element;
-        element.addEventListener('keydown', handleKeydown, { once: true });
+        element.addEventListener('keydown', handleKeydown, { once: true, capture: true });
     }
 }
 
@@ -163,6 +163,10 @@ function handleKeydown(e) {
         e.preventDefault(); // Prevent focus from changing
         e.stopPropagation(); // Stop other listeners
         acceptCompletion();
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        removeGhostText();
     }
     // For any other key, we let the 'input' event in handleInput clear the ghost text.
 }
