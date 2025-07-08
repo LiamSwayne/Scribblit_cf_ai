@@ -51,7 +51,7 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
             cerebrasRequest = {
                 model: modelName,
                 prompt: `${system_prompt}\n\n${userPrompt}`,
-                max_tokens: 8192,
+                max_tokens: 10,
                 stream: false,
             };
         }
@@ -103,13 +103,13 @@ export default {
                             return SEND('Empty prompt', error_code);
                         }
 
-                        let [url1, url2, url3, url4, url5, ...last1000chars] = userPrompt.split(' ');
+                        let index = userPrompt.indexOf(' ');
+                        let precedingChars = userPrompt.slice(index + 1);
+                        let url = userPrompt.slice(0, index);
 
-                        last1000chars = last1000chars.join(' ');
+                        let system_prompt = "You are trying to predict what the user will type next in their browser. Current url: " + url;
 
-                        let system_prompt = "You are trying to predict what the user will type next in their browser. Past 4 urls: " + url1 + "," + url2 + "," + url3 + "," + url4 + ". Current url: " + url5
-
-                        const content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, last1000chars, env, system_prompt, false);
+                        const content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.llama_scout, precedingChars, env, system_prompt, false);
 
                         console.log("Completion response:")
                         console.log(content);
