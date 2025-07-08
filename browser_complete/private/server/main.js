@@ -85,8 +85,8 @@ function createPrompt(url, precedingChars) {
     
     Example:
     {
-        user: "I missed my flig"
-        completion: "I missed my flight"
+        user: "I missed my fli"
+        completion: "ght"
     }
     
     RESPOND WITH ABSOLUTELY NOTHING BUT THE COMPLETION. The last 100 characters they typed are: ${precedingChars}`;
