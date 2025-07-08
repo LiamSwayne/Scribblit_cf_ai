@@ -1545,6 +1545,7 @@ function initDragAndDrop() {
                     name: file.name,
                     mimeType: file.type || 'application/octet-stream',
                     data: base64Data,
+                    size: file.size
                 });
                 updateAttachmentBadge();
             } catch (err) {
