@@ -79,7 +79,6 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-
       - name: Deploy Scribblit Stripe worker
         uses: cloudflare/wrangler-action@v3
         with:
