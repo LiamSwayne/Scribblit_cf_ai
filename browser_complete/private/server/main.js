@@ -23,7 +23,8 @@ function SEND(data, status = 200, headers = {}) {
 
 const MODELS = {
     CEREBRAS_MODELS: {
-        qwen3: 'qwen-3-32b'
+        qwen3: 'qwen-3-32b', // reasoning; smartest model
+        llama_scout: 'llama-4-scout-17b-16e-instruct' // no reasoning; fastest model
     }
 };
 
@@ -31,7 +32,7 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
     if (typeof chat !== 'boolean') {
         return SEND({"error": "chat must be a boolean"}, 478);
     }
-    if (modelName !== 'qwen-3-32b') {
+    if (!Object.values(MODELS.CEREBRAS_MODELS).includes(modelName)) {
         return SEND({"error": "Unsupported Cerebras model: " + modelName}, 478);
     }
     try {
