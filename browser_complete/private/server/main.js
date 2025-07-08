@@ -1,3 +1,5 @@
+let error_code = 478;
+
 function SEND(data, status = 200, headers = {}) {
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
@@ -30,10 +32,10 @@ const MODELS = {
 
 async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat) {
     if (typeof chat !== 'boolean') {
-        return SEND({"error": "chat must be a boolean"}, 478);
+        return SEND({"error": "chat must be a boolean"}, error_code);
     }
     if (!Object.values(MODELS.CEREBRAS_MODELS).includes(modelName)) {
-        return SEND({"error": "Unsupported Cerebras model: " + modelName}, 478);
+        return SEND({"error": "Unsupported Cerebras model: " + modelName}, error_code);
     }
     try {
         const cerebrasRequest = {
@@ -64,7 +66,7 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt, chat
     } catch (err) {
         console.error('Cerebras model error:', err);
         // empty response triggers reroute to another model
-        return SEND({"error": "Failed to process completion request."}, 478);
+        return SEND({"error": "Failed to process completion request."}, error_code);
     }
 }
 
@@ -90,9 +92,7 @@ export default {
                         const userPrompt = await request.text();
 
                         if (!userPrompt || userPrompt.trim().length === 0) {
-                            return SEND({
-                                error: 'Empty prompt'
-                            }, 400);
+                            return SEND({error: 'Empty prompt' }, error_code);
                         }
 
                         let [url1, url2, url3, url4, url5, ...last1000chars] = userPrompt.split(' ');
@@ -109,16 +109,12 @@ export default {
 
                     } catch (err) {
                         console.error('Completion error:', err);
-                        return SEND({
-                            error: 'Failed to process completion request.'
-                        }, 500);
+                        return SEND({error: 'Failed to process completion request.'}, error_code);
                     }
                 }
 
             default:
-                return SEND({
-                    error: 'Endpoint not found'
-                }, 404);
+                return SEND({error: 'Endpoint not found'}, error_code);
         }
     },
 };
