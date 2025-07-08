@@ -110,7 +110,7 @@ async function handleGetCompletion(text) {
         }
 
         const completion = await response.text();
-        console.log("Received completion from API:", completion);
+        console.log("Received completion from API:" + completion);
         return completion;
     } catch (error) {
         console.error('Failed to fetch completion:', error);
