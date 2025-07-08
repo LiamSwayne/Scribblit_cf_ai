@@ -10,8 +10,6 @@ on:
       - 'legacy_private/**'
       - 'public_v2/**'
       - 'private_v2/**'
-      - 'browser_complete/**'
-      - '.github/workflows/deploy_workers.yml'
 
 jobs:
   deploy:
@@ -25,7 +23,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Deploy Scribblit server worker
+      - name: Deploy server worker (with secrets)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -52,7 +50,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-      - name: Deploy Scribblit Stripe worker
+      - name: Deploy Stripe worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -64,7 +62,7 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }} # this doesn't need to be a secret but it's convenient to have it here
-            
+
       - name: Minify JS files for frontend
         run: |
           npm install terser
@@ -79,9 +77,9 @@ jobs:
           directory: 'public_v2'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
-      #- name: Deploy legacy worker
-      #  uses: cloudflare/wrangler-action@v3
-      #  with:
-      #    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      #    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      #    workingDirectory: 'legacy_private'
+      - name: Deploy legacy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'legacy_private'
