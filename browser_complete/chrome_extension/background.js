@@ -108,7 +108,11 @@ async function handleGetCompletion(text) {
         const completionResponse = await response.text();
         console.log("Sent: " + text);
         const completion = parseCompletion(completionResponse);
-        console.log("Received:" + completion);
+        if (completion.length == 0) {
+            console.log("No completion received");
+        } else {
+            console.log("Received:" + completion);
+        }
         return completion;
     } catch (error) {
         console.error('Failed to fetch completion:', error);
