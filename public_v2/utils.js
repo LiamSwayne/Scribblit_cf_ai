@@ -278,42 +278,92 @@ class EveryNDaysPattern {
         return new EveryNDaysPattern(DateField.decode(json.initialDate), json.n);
     }
 
-    static fromAiJson(json) {
+    static fromAiJson(json, range = NULL) {
         if(!exists(json)) {
             return NULL;
         }
-        
-        if(json.type !== 'every_n_days_pattern') {
-            log("EveryNDaysPattern.fromAiJson: json.type must be 'every_n_days_pattern'");
-            return NULL;
-        }
-        
-        if(AiReturnedNullField(json.initial_date)) {
-            log("EveryNDaysPattern.fromAiJson: initial_date is required");
-            return NULL;
-        }
-        
-        if(AiReturnedNullField(json.n)) {
-            log("EveryNDaysPattern.fromAiJson: n is required");
-            return NULL;
-        }
-        
-        let initialDate = DateField.fromYYYY_MM_DDUnsafe(json.initial_date);
-        if (initialDate === NULL) {
-            log("EveryNDaysPattern.fromAiJson: invalid initial_date format");
-            return NULL;
-        }
-        
-        const n = Number(json.n);
-        if(!(type(n, Int) && n > 0)) {
-            log("EveryNDaysPattern.fromAiJson: n must be a positive integer");
-            return NULL;
-        }
-        
-        try {
-            return new EveryNDaysPattern(initialDate, n);
-        } catch (e) {
-            log("EveryNDaysPattern.fromAiJson: error creating instance");
+
+        if (json.type === 'weekly_pattern') {
+            if(AiReturnedNullField(json.every_n_weeks) || !type(Number(json.every_n_weeks), Int) || Number(json.every_n_weeks) <= 0) {
+                log('EveryNDaysPattern.fromAiJson: weekly_pattern requires a positive integer every_n_weeks');
+                return NULL;
+            }
+            if(AiReturnedNullField(json.day_of_week) || !type(json.day_of_week, DAY_OF_WEEK)) {
+                log('EveryNDaysPattern.fromAiJson: weekly_pattern requires a valid day_of_week');
+                return NULL;
+            }
+
+            if(range === NULL) {
+                log('EveryNDaysPattern.fromAiJson: range is required for weekly_pattern');
+                return NULL;
+            }
+            
+            let startDate;
+            if (typeof range === 'string') {
+                const parts = range.split(':');
+                if(parts.length !== 2) {
+                    log('EveryNDaysPattern.fromAiJson: range string must be "start:end" for weekly_pattern');
+                    return NULL;
+                }
+                startDate = DateField.fromYYYY_MM_DDUnsafe(parts[0]);
+                if (startDate === NULL) {
+                    log('EveryNDaysPattern.fromAiJson: invalid range start date format for weekly_pattern');
+                    return NULL;
+                }
+            } else {
+                log('EveryNDaysPattern.fromAiJson: weekly_pattern requires a date range string, not a number.');
+                return NULL;
+            }
+
+            const dayOfWeekStrings = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const targetDay = dayOfWeekStrings.indexOf(json.day_of_week);
+
+            let currentDateObj = new Date(Date.UTC(startDate.year, startDate.month - 1, startDate.day));
+            while (currentDateObj.getUTCDay() !== targetDay) {
+                currentDateObj.setUTCDate(currentDateObj.getUTCDate() + 1);
+            }
+
+            const initialDate = new DateField(currentDateObj.getUTCFullYear(), currentDateObj.getUTCMonth() + 1, currentDateObj.getUTCDate());
+
+            const n = Number(json.every_n_weeks) * 7;
+            const everyNDaysPatternJson = {
+                type: 'every_n_days_pattern',
+                initial_date: `${initialDate.year}-${String(initialDate.month).padStart(2, '0')}-${String(initialDate.day).padStart(2, '0')}`,
+                n: n
+            };
+            return EveryNDaysPattern.fromAiJson(everyNDaysPatternJson);
+
+        } else if (json.type === 'every_n_days_pattern') {
+            if(AiReturnedNullField(json.initial_date)) {
+                log("EveryNDaysPattern.fromAiJson: initial_date is required");
+                return NULL;
+            }
+            
+            if(AiReturnedNullField(json.n)) {
+                log("EveryNDaysPattern.fromAiJson: n is required");
+                return NULL;
+            }
+            
+            let initialDate = DateField.fromYYYY_MM_DDUnsafe(json.initial_date);
+            if (initialDate === NULL) {
+                log("EveryNDaysPattern.fromAiJson: invalid initial_date format");
+                return NULL;
+            }
+            
+            const n = Number(json.n);
+            if(!(type(n, Int) && n > 0)) {
+                log("EveryNDaysPattern.fromAiJson: n must be a positive integer");
+                return NULL;
+            }
+            
+            try {
+                return new EveryNDaysPattern(initialDate, n);
+            } catch (e) {
+                log("EveryNDaysPattern.fromAiJson: error creating instance");
+                return NULL;
+            }
+        } else {
+            log("EveryNDaysPattern.fromAiJson: json.type must be 'every_n_days_pattern' or 'weekly_pattern'");
             return NULL;
         }
     }
@@ -1094,7 +1144,57 @@ class RecurringTaskInstance {
         }
         
         let datePattern;
-        if (pt.type === 'every_n_days_pattern') {
+        if (pt.type === 'weekly_pattern') {
+            if(AiReturnedNullField(pt.every_n_weeks) || !type(Number(pt.every_n_weeks), Int) || Number(pt.every_n_weeks) <= 0) {
+                log('RecurringTaskInstance.fromAiJson: weekly_pattern requires a positive integer every_n_weeks');
+                return NULL;
+            }
+            if(AiReturnedNullField(pt.day_of_week) || !type(pt.day_of_week, DAY_OF_WEEK)) {
+                log('RecurringTaskInstance.fromAiJson: weekly_pattern requires a valid day_of_week');
+                return NULL;
+            }
+
+            if(AiReturnedNullField(json.range)) {
+                log('RecurringTaskInstance.fromAiJson: range is required for weekly_pattern');
+                return NULL;
+            }
+            
+            let startDate;
+            if (typeof json.range === 'string') {
+                const parts = json.range.split(':');
+                if(parts.length !== 2) {
+                    log('RecurringTaskInstance.fromAiJson: range string must be "start:end" for weekly_pattern');
+                    return NULL;
+                }
+                startDate = DateField.fromYYYY_MM_DDUnsafe(parts[0]);
+                if (startDate === NULL) {
+                    log('RecurringTaskInstance.fromAiJson: invalid range start date format for weekly_pattern');
+                    return NULL;
+                }
+            } else {
+                log('RecurringTaskInstance.fromAiJson: weekly_pattern requires a date range string, not a number.');
+                return NULL;
+            }
+
+            const dayOfWeekStrings = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const targetDay = dayOfWeekStrings.indexOf(pt.day_of_week);
+
+            let currentDateObj = new Date(Date.UTC(startDate.year, startDate.month - 1, startDate.day));
+            while (currentDateObj.getUTCDay() !== targetDay) {
+                currentDateObj.setUTCDate(currentDateObj.getUTCDate() + 1);
+            }
+
+            const initialDate = new DateField(currentDateObj.getUTCFullYear(), currentDateObj.getUTCMonth() + 1, currentDateObj.getUTCDate());
+
+            const n = Number(pt.every_n_weeks) * 7;
+            const everyNDaysPatternJson = {
+                type: 'every_n_days_pattern',
+                initial_date: `${initialDate.year}-${String(initialDate.month).padStart(2, '0')}-${String(initialDate.day).padStart(2, '0')}`,
+                n: n
+            };
+            datePattern = EveryNDaysPattern.fromAiJson(everyNDaysPatternJson);
+
+        } else if (pt.type === 'every_n_days_pattern') {
             datePattern = EveryNDaysPattern.fromAiJson(pt);
         } else if (pt.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(pt);
@@ -1548,8 +1648,8 @@ class RecurringEventInstance {
         
         const p = json.start_date_pattern;
         let startDatePattern;
-        if (p.type === 'every_n_days_pattern') {
-            startDatePattern = EveryNDaysPattern.fromAiJson(p);
+        if (p.type === 'every_n_days_pattern' || p.type === 'weekly_pattern') {
+            startDatePattern = EveryNDaysPattern.fromAiJson(p, json.range);
         } else if (p.type === 'monthly_pattern') {
             startDatePattern = MonthlyPattern.fromAiJson(p);
         } else if (p.type === 'annually_pattern') {
@@ -2155,8 +2255,8 @@ class RecurringReminderInstance {
         }
 
         let datePattern;
-        if (json.date_pattern.type === 'every_n_days_pattern') {
-            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
+        if (json.date_pattern.type === 'every_n_days_pattern' || json.date_pattern.type === 'weekly_pattern') {
+            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern, json.range);
         } else if (json.date_pattern.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'annually_pattern') {
@@ -2796,6 +2896,14 @@ class MergeEntitiesNode {
     }
 }
 
+class CompleteRequestNode {
+    constructor(startTime, endTime=NULL) {
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Union(Int, NULL)));
+        this.startTime = startTime;
+    }
+}
+
 // chain of events involved in a single user AI request
 class Chain {
     constructor() {
@@ -2853,9 +2961,6 @@ class Chain {
     addNodeFromJson(nodeObject) {
         this.validate();
         ASSERT(type(nodeObject, Object));
-        if (this.endTime !== NULL) {
-            ASSERT(false, 'Chain.addNodeFromJson: chain is already complete');
-        }
 
         if (exists(nodeObject.request)) {
             this.chain.push(RequestNode.fromJson(nodeObject));
@@ -2881,9 +2986,35 @@ class Chain {
         }
     }
 
-    complete() {
-        this.validate();
-        this.endTime = Date.now();
+    // calculate how many tokens were used
+    calculateTokens() {
+        let averageCharacterPerToken = 4.82; // https://drchrislevy.github.io/posts/agents/agents.html#characters-per-token:~:text=%E2%80%A2%20GPT%2D4o%2Dmini%3A-,4.82%20characters%20per%20token,-%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82
+
+        let totalCharacters = 0;
+        for (const node of this.chain) {
+            if (type(node, RequestNode)) {
+                totalCharacters += node.userPrompt.length;
+                if (node.systemPrompt !== NULL) {
+                    totalCharacters += node.systemPrompt.length;
+                }
+                totalCharacters += node.response.length;
+            } else if (type(node, ThinkingRequestNode)) {
+                totalCharacters += node.userPrompt.length;
+                if (node.systemPrompt !== NULL) {
+                    totalCharacters += node.systemPrompt.length;
+                }
+                totalCharacters += node.response.length;
+                totalCharacters += node.thinking.length;
+            }
+        }
+
+        return Math.ceil(totalCharacters / averageCharacterPerToken);
+    }
+
+    // we have finished answering the user's request
+    // calculate how many tokens were used
+    completeRequest() {
+        this.add(new CompleteRequestNode(this.startTime));
     }
     
     encode() {
