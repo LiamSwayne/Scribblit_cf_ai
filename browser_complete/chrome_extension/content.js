@@ -290,8 +290,15 @@ function addToRejections(input, completion) {
     debouncedSaveRejections(); // Save updated rejections
 }
 
+// Function to check if scrollbars are currently visible
+function hasVisibleScrollbars(element) {
+    const hasVerticalScrollbar = element.scrollHeight > element.clientHeight;
+    const hasHorizontalScrollbar = element.scrollWidth > element.clientWidth;
+    return { vertical: hasVerticalScrollbar, horizontal: hasHorizontalScrollbar };
+}
+
 // Function to copy all relevant styles from the original element to the overlay
-function copyElementStyles(originalElement, overlayElement) {
+function copyElementStyles(originalElement, overlayElement, isTextOverlay = false) {
     const computedStyle = window.getComputedStyle(originalElement);
     
     // Copy all relevant styles that affect positioning, sizing, and text rendering
@@ -306,7 +313,7 @@ function copyElementStyles(originalElement, overlayElement) {
         'boxSizing', 'textAlign', 'textIndent', 'textTransform', 'letterSpacing',
         'wordSpacing', 'whiteSpace', 'wordWrap', 'overflowWrap', 'textDecoration',
         'textDecorationLine', 'textDecorationStyle', 'textDecorationColor',
-        'resize', 'overflow', 'overflowX', 'overflowY'
+        'resize'
     ];
     
     propertiesToCopy.forEach(property => {
@@ -314,6 +321,36 @@ function copyElementStyles(originalElement, overlayElement) {
             overlayElement.style[property] = computedStyle[property];
         }
     });
+    
+    // Handle overflow properties based on scrollbar visibility
+    if (isTextOverlay) {
+        // Text overlay should allow content to extend beyond bounds
+        overlayElement.style.overflowY = 'visible';
+        overlayElement.style.overflowX = 'visible';
+        
+        // Remove height constraints to allow text to extend beyond original bounds
+        overlayElement.style.height = 'auto';
+        overlayElement.style.maxHeight = 'none';
+        overlayElement.style.minHeight = originalElement.style.minHeight || computedStyle.minHeight;
+    } else {
+        // Input overlay matches the original's scrollbar behavior
+        const scrollbars = hasVisibleScrollbars(originalElement);
+        const originalOverflowY = computedStyle.overflowY;
+        const originalOverflowX = computedStyle.overflowX;
+        
+        // Show scrollbars only if they're currently visible in the original
+        if (originalOverflowY === 'auto' || originalOverflowY === 'scroll') {
+            overlayElement.style.overflowY = scrollbars.vertical ? 'auto' : 'hidden';
+        } else {
+            overlayElement.style.overflowY = originalOverflowY;
+        }
+        
+        if (originalOverflowX === 'auto' || originalOverflowX === 'scroll') {
+            overlayElement.style.overflowX = scrollbars.horizontal ? 'auto' : 'hidden';
+        } else {
+            overlayElement.style.overflowX = originalOverflowX;
+        }
+    }
     
     // Force transparent background
     overlayElement.style.backgroundColor = 'transparent';
@@ -329,9 +366,45 @@ function updateOverlayPosition() {
     overlayElement.style.left = `${rect.left + window.scrollX}px`;
     overlayElement.style.top = `${rect.top + window.scrollY}px`;
     
-    // Sync scroll position
+    // Update scrollbar visibility based on current state
+    const scrollbars = hasVisibleScrollbars(activeElementForOverlay);
+    const computedStyle = window.getComputedStyle(activeElementForOverlay);
+    
+    // Update input overlay scrollbar visibility
+    if (computedStyle.overflowY === 'auto' || computedStyle.overflowY === 'scroll') {
+        overlayElement.style.overflowY = scrollbars.vertical ? 'auto' : 'hidden';
+    }
+    if (computedStyle.overflowX === 'auto' || computedStyle.overflowX === 'scroll') {
+        overlayElement.style.overflowX = scrollbars.horizontal ? 'auto' : 'hidden';
+    }
+    
+    // Sync scroll position for input overlay
     overlayElement.scrollLeft = activeElementForOverlay.scrollLeft;
     overlayElement.scrollTop = activeElementForOverlay.scrollTop;
+    
+    // Sync scroll position for text overlay
+    if (overlayElement._textOverlay) {
+        // Calculate proper positioning accounting for padding and borders
+        const computedStyle = window.getComputedStyle(activeElementForOverlay);
+        const paddingTop = parseFloat(computedStyle.paddingTop);
+        const paddingLeft = parseFloat(computedStyle.paddingLeft);
+        const borderTop = parseFloat(computedStyle.borderTopWidth);
+        const borderLeft = parseFloat(computedStyle.borderLeftWidth);
+        
+        // Position the text overlay to align with the text content area
+        const textAreaLeft = rect.left + window.scrollX + borderLeft + paddingLeft;
+        const textAreaTop = rect.top + window.scrollY + borderTop + paddingTop;
+        
+        overlayElement._textOverlay.style.left = `${textAreaLeft}px`;
+        overlayElement._textOverlay.style.top = `${textAreaTop}px`;
+        
+        // Apply scroll offset to position the text correctly
+        const scrollOffsetY = activeElementForOverlay.scrollTop;
+        const scrollOffsetX = activeElementForOverlay.scrollLeft;
+        
+        // Use transform to simulate scroll position for visible overflow
+        overlayElement._textOverlay.style.transform = `translate(${-scrollOffsetX}px, ${-scrollOffsetY}px)`;
+    }
 }
 
 // Function to create styled text content with completion
@@ -386,8 +459,8 @@ function showCompletion(element, completion) {
             overlayElement.type = element.type;
         }
         
-        // Copy all styles from the original element
-        copyElementStyles(element, overlayElement);
+                 // Copy all styles from the original element
+         copyElementStyles(element, overlayElement, false); // false indicates this is an input overlay
         
         // Position the overlay
         overlayElement.style.position = 'absolute';
@@ -414,37 +487,54 @@ function showCompletion(element, completion) {
         // We'll use a different approach with spans for better opacity control
         overlayElement.style.color = 'transparent'; // Make the actual text transparent
         
-        // Create a styled overlay for the text with spans
-        const textOverlay = document.createElement('div');
-        textOverlay.style.position = 'absolute';
-        textOverlay.style.left = `${rect.left + window.scrollX}px`;
-        textOverlay.style.top = `${rect.top + window.scrollY}px`;
-        textOverlay.style.zIndex = '2000000001'; // Just above the input overlay
-        textOverlay.style.pointerEvents = 'none';
-        
-        // Copy text-related styles
-        copyElementStyles(element, textOverlay);
-        textOverlay.style.backgroundColor = 'transparent';
-        textOverlay.style.backgroundImage = 'none';
-        textOverlay.style.background = 'transparent';
-        textOverlay.style.border = 'none';
-        textOverlay.style.outline = 'none';
-        textOverlay.style.overflow = 'hidden';
-        
-        // Add the styled text content
-        const styledContent = createStyledTextContent(currentText, completion, element);
-        textOverlay.appendChild(styledContent);
-        
-        // Sync scroll position
-        overlayElement.scrollLeft = element.scrollLeft;
-        overlayElement.scrollTop = element.scrollTop;
-        
-        // Add to DOM
-        document.body.appendChild(overlayElement);
-        document.body.appendChild(textOverlay);
-        
-        // Store reference to text overlay for cleanup
-        overlayElement._textOverlay = textOverlay;
+                          // Create text overlay that can extend beyond textarea bounds
+         const textOverlay = document.createElement('div');
+         textOverlay.style.position = 'absolute';
+         textOverlay.style.zIndex = '2000000001'; // Just above the input overlay
+         textOverlay.style.pointerEvents = 'none';
+         
+         // Copy text-related styles but allow overflow to extend beyond bounds
+         copyElementStyles(element, textOverlay, true); // true indicates this is a text overlay
+         textOverlay.style.backgroundColor = 'transparent';
+         textOverlay.style.backgroundImage = 'none';
+         textOverlay.style.background = 'transparent';
+         textOverlay.style.border = 'none';
+         textOverlay.style.outline = 'none';
+         
+         // Add the styled text content
+         const styledContent = createStyledTextContent(currentText, completion, element);
+         textOverlay.appendChild(styledContent);
+         
+         // Add to DOM first
+         document.body.appendChild(overlayElement);
+         document.body.appendChild(textOverlay);
+         
+         // Store reference to text overlay for cleanup
+         overlayElement._textOverlay = textOverlay;
+         
+         // Sync scroll position for both overlays AFTER adding to DOM
+         overlayElement.scrollLeft = element.scrollLeft;
+         overlayElement.scrollTop = element.scrollTop;
+         
+         // For text overlay, position it to align with the visible content
+         // We need to account for the padding and border of the original element
+         const computedStyle = window.getComputedStyle(element);
+         const paddingTop = parseFloat(computedStyle.paddingTop);
+         const paddingLeft = parseFloat(computedStyle.paddingLeft);
+         const borderTop = parseFloat(computedStyle.borderTopWidth);
+         const borderLeft = parseFloat(computedStyle.borderLeftWidth);
+         
+         // Position the text overlay to align with the text content area
+         const textAreaLeft = rect.left + window.scrollX + borderLeft + paddingLeft;
+         const textAreaTop = rect.top + window.scrollY + borderTop + paddingTop;
+         
+         textOverlay.style.left = `${textAreaLeft}px`;
+         textOverlay.style.top = `${textAreaTop}px`;
+         
+         // Apply scroll offset to position the text correctly
+         const scrollOffsetY = element.scrollTop;
+         const scrollOffsetX = element.scrollLeft;
+         textOverlay.style.transform = `translate(${-scrollOffsetX}px, ${-scrollOffsetY}px)`;
 
         // Set global state for accepting the completion
         currentCompletion = completion;
