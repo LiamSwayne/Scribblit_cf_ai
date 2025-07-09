@@ -9155,6 +9155,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
     const basePromptForStep2 = `Here was the user's prompt: ${inputText}. Another AI model described the files and extracted a bunch of entities. Your have been given one of the extracted entities, and your job is to provide the complete entity. Here is a description of the files it came from: ${responseJson1.descriptionOfFiles}. Here are the extracted entities: ${JSON.stringify(uniqueSimplifiedEntities)}.`;
 
     // Step 2: Expand simplified entities in parallel
+    const parallelNode = new ParallelNode("Calling AI on each detected entity in parallel");
     const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
         let promptForStep2 = basePromptForStep2;
         promptForStep2 += ` Here is the entity you have been given: ${JSON.stringify(simplifiedEntity)}.`;
@@ -9186,6 +9187,22 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             return;
         }
 
+        for (const nodeJson of responseJson.chain) {
+            parallelNode.add(Chain.nodeFromJson(nodeJson));
+        }
+    }
+
+    parallelNode.complete();
+    chain.add(parallelNode);
+
+    for (let i = 0; i < responses2.length; i++) {
+        if (!responses2[i].ok) {
+            console.error('AI parse request failed for step 2', await responses2[i].text());
+            continue;
+        }
+
+        const responseJson = await responses2[i].json();
+
         if (!exists(responseJson.aiOutput)) {
             log("Error: aiOutput is required for step_by_step:2/2 strategy.");
             return;
@@ -9199,10 +9216,6 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         if (responseJson.error && responseJson.error.length > 0) {
             log("Error: " + responseJson.error);
             continue;
-        }
-
-        for (const nodeJson of responseJson.chain) {
-            chain.addNodeFromJson(nodeJson);
         }
 
         const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '{}');

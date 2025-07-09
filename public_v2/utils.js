@@ -3114,13 +3114,13 @@ class Chain {
         this.chain.push(node);
     }
 
-    addNodeFromJson(nodeObject) {
+    static nodeFromJson(nodeObject) {
         this.validate();
         ASSERT(type(nodeObject, Object));
 
         if (exists(nodeObject.request)) {
             let node = RequestNode.fromJson(nodeObject);
-            this.chain.push(node);
+            return node;
         } else if (exists(nodeObject.thinking_request)) {
             if (!exists(nodeObject.thinking_request.thoughts)) {
                 // the thinking hasn't been parse yet
@@ -3140,11 +3140,11 @@ class Chain {
                 nodeObject.thinking_request.systemPrompt = NULL;
             }
 
-            this.chain.push(ThinkingRequestNode.fromJson(nodeObject));
+            return ThinkingRequestNode.fromJson(nodeObject);
         } else if (exists(nodeObject.rerouteToModel)) {
-            this.chain.push(RerouteToModelNode.fromJson(nodeObject));
+            return RerouteToModelNode.fromJson(nodeObject);
         } else {
-            ASSERT(false, 'Chain.addNodeObject: unknown node type ' + JSON.stringify(nodeObject));
+            ASSERT(false, 'Chain.nodeFromJson: unknown node type ' + JSON.stringify(nodeObject));
         }
     }
 
