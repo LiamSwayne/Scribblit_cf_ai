@@ -188,6 +188,9 @@ const allDayEventHeight = 18; // height in px for each all-day event
 const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
+// Currently visible calendar hour range (inclusive start, exclusive end)
+let G_calendarVisibleStartHour = 0; // hour 0 – 23
+let G_calendarVisibleEndHour = 24;  // hour 1 – 24
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
 let STRATEGIES = {
@@ -2871,6 +2874,14 @@ class FilteredInstancesFactory {
 function renderDay(day, index) {
     ASSERT(type(day, DateField) && type(index, Int));
     
+    // Unconditionally remove all potential hour markers and text for this day to ensure a clean slate
+    for (let j = 0; j <= 24; j++) {
+        let hm = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
+        if (exists(hm)) hm.remove();
+        let hmt = HTML.getElementUnsafely(`day${index}hourMarkerText${j}`);
+        if (exists(hmt)) hmt.remove();
+    }
+    
     // get unix start and end of day with user's offsets
     // Create DateTime from DateField
     let dayTime = DateTime.local(day.year, day.month, day.day);
@@ -2878,6 +2889,13 @@ function renderDay(day, index) {
     startOfDay = startOfDay.toMillis(); // unix
     let endOfDay = dayTime.endOf('day').plus({hours: user.settings.endOfDayOffset});
     endOfDay = endOfDay.toMillis() + 1; // +1 to include the end of the day
+
+    // Visible time window computed globally
+    const visibleStartHour = G_calendarVisibleStartHour;
+    const visibleEndHour   = G_calendarVisibleEndHour;
+    const visibleHours     = visibleEndHour - visibleStartHour; // guaranteed >= 12
+    const visibleStartUnix = startOfDay + visibleStartHour * 3600000;
+    const visibleEndUnix   = startOfDay + visibleEndHour   * 3600000;
 
     let G_filteredSegmentOfDayInstances = [];
     let G_filteredAllDayInstances = [];
@@ -2940,7 +2958,7 @@ function renderDay(day, index) {
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4; // 12px margin for more space between all-day events and timed calendar
     
-    // Get the original dimensions that were set by renderCalendar(), not the current modified ones
+    // Get the original dimensions that were set by renderCalendar, not the current modified ones
     const dayColumnDimensions = getDayColumnDimensions(index);
     const originalHeight = dayColumnDimensions.height;
     const originalTop = dayColumnDimensions.top;
@@ -2951,88 +2969,52 @@ function renderDay(day, index) {
     let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
     
     // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
-    if (HTML.getElementUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
-        // if one is missing, all 25 must be missing
-        for (let j = 0; j < 25; j++) {
-            let hourMarker = HTML.make('div');
-            HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+    for (let j = 0; j <= visibleHours; j++) {
+        let hourMarker = HTML.make('div');
+        HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+        
+        HTML.setStyle(hourMarker, {
+            position: 'fixed',
+            width: String(columnWidth) + 'px',
+            height: '1px',
+            top: String(timedEventAreaTop + (j * timedEventAreaHeight / visibleHours)) + 'px',
+            left: String(dayElementLeft) + 'px',
+            backgroundColor: 'var(--shade-2)',
+            zIndex: '400'
+        });
+        
+        HTML.body.appendChild(hourMarker);
+
+        if (j < visibleHours) {
+            // create hour marker text
+            let hourMarkerText = HTML.make('div');
+            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
-            HTML.setStyle(hourMarker, {
+            let fontSize;
+            if (user.settings.ampmOr24 == 'ampm') {
+                fontSize = '12px';
+            } else {
+                fontSize = '10px'; // account for additional colon character
+            }
+            HTML.setStyle(hourMarkerText, {
                 position: 'fixed',
-                width: String(columnWidth) + 'px',
-                height: '1px',
-                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
+                top: String(timedEventAreaTop + (j * timedEventAreaHeight / visibleHours) + 1) + 'px',
                 left: String(dayElementLeft) + 'px',
-                backgroundColor: 'var(--shade-2)',
-                zIndex: '400'
+                color: 'var(--shade-2)',
+                fontFamily: 'MonospacePrimary',
+                fontSize: fontSize,
+                zIndex: '401'
             });
             
-            HTML.body.appendChild(hourMarker);
-
-            if (j < 24) {
-                // create hour marker text
-                let hourMarkerText = HTML.make('div');
-                HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
-                
-                let fontSize;
-                if (user.settings.ampmOr24 == 'ampm') {
-                    fontSize = '12px';
-                } else {
-                    fontSize = '10px'; // account for additional colon character
-                }
-                HTML.setStyle(hourMarkerText, {
-                    position: 'fixed',
-                    top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
-                    left: String(dayElementLeft) + 'px',
-                    color: 'var(--shade-2)',
-                    fontFamily: 'MonospacePrimary',
-                    fontSize: fontSize,
-                    zIndex: '401'
-                });
-                
-                HTML.setData(hourMarkerText, 'leadingWhitespace', true);
-                hourMarkerText.innerHTML = nthHourText(j);
-                HTML.body.appendChild(hourMarkerText);
-            }
-        }
-    } else { // update hour markers
-        for (let j = 0; j < 25; j++) {
-            let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
-            
-            let hourMarker = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
-            if (!hourMarker) {
-                hourMarker = HTML.make('div');
-                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
-                HTML.body.appendChild(hourMarker);
-                 HTML.setStyle(hourMarker, {
-                    position: 'fixed',
-                    height: '1px',
-                    backgroundColor: 'var(--shade-3)',
-                    zIndex: '400'
-                });
-            }
-            
-            HTML.setStyle(hourMarker, {
-                top: String(hourPosition) + 'px',
-                left: String(dayElementLeft) + 'px',
-                width: String(columnWidth) + 'px'
-            });
-
-            if (j < 24) {
-                // adjust position of hour marker text
-                let hourMarkerText = HTML.getElement(`day${index}hourMarkerText${j}`);
-                
-                HTML.setStyle(hourMarkerText, {
-                    top: String(hourPosition + 1) + 'px',
-                    left: String(dayElementLeft) + 'px'
-                });
-            }
+            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
+            hourMarkerText.innerHTML = nthHourText(visibleStartHour + j);
+            HTML.body.appendChild(hourMarkerText);
         }
     }
     
     renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, originalTop, dayElementLeft, day);
-    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
-    renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
+    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, visibleStartUnix, visibleEndUnix);
+    renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, visibleStartUnix, visibleEndUnix);
 }
 
 // Renders all-day instances for a given day column.
@@ -3250,11 +3232,17 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             if (dayDuration <= 0) continue;
 
             const topOffset = instance.startDateTime - dayStartUnix;
-            const top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
+            let top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
 
             const duration = instance.endDateTime - instance.startDateTime;
             let height = (duration / dayDuration) * timedAreaHeight;
-            
+
+            // Clamp events that begin above the visible window
+            if (top < timedAreaTop) {
+                height -= (timedAreaTop - top);
+                top = timedAreaTop;
+            }
+
             height = Math.max(height, 3);
             if (top + height > timedAreaTop + timedAreaHeight) {
                 height = timedAreaTop + timedAreaHeight - top;
@@ -4050,7 +4038,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, maxTop));
         
         // Check if the reminder should be rendered in a "flipped" state
-        const flipThresholdProportion = (23 * 60 + 40) / (24 * 60);
+        const visibleHours = G_calendarVisibleEndHour - G_calendarVisibleStartHour;
+        const flipThresholdProportion = ((visibleHours * 60) - 20) / (visibleHours * 60);
         const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
         const isFlipped = reminderTopPosition > flipThresholdTop;
 
@@ -4769,59 +4758,59 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     cursor: 'pointer'
                 });
             }
-        }
 
-        // Cleanup stale stacked elements if the group has shrunk or is no longer a group
-        const stackCleanupStartIndex = isGrouped ? group.length : 1;
-        let stackCleanupIndex = stackCleanupStartIndex;
-        while (true) {
-            const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
-            const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
-            
-            if (!exists(staleStackText) && !exists(staleStackCount)) {
-                break; // No more stale elements for this group
+            // Cleanup stale stacked elements if the group has shrunk or is no longer a group
+            const stackCleanupStartIndex = isGrouped ? group.length : 1;
+            let stackCleanupIndex = stackCleanupStartIndex;
+            while (true) {
+                const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
+                const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
+                
+                if (!exists(staleStackText) && !exists(staleStackCount)) {
+                    break; // No more stale elements for this group
+                }
+                
+                if (exists(staleStackText)) staleStackText.remove();
+                if (exists(staleStackCount)) staleStackCount.remove();
+                
+                stackCleanupIndex++;
             }
-            
-            if (exists(staleStackText)) staleStackText.remove();
-            if (exists(staleStackCount)) staleStackCount.remove();
-            
-            stackCleanupIndex++;
+
+            groupIndex++;
         }
 
-        groupIndex++;
-    }
-
-    // Remove stale reminder elements
-    let existingReminderIndex = groupIndex;
-    while(true) {
-        const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
-        if (!exists(lineElement)) {
-            // If the line element is gone, we assume all other elements for this index are too.
-            break; 
-        }
-
-        // Helper to remove an element by its generated ID
-        const removeElementById = (id) => {
-            const el = HTML.getElementUnsafely(id);
-            if(exists(el)) el.remove();
-        };
-
-        removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
-        removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
-        removeElementById(`day${dayIndex}reminderQuarterCircle${existingReminderIndex}`);
-        removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
-        
-        let stackIdx = 1;
+        // Remove stale reminder elements
+        let existingReminderIndex = groupIndex;
         while(true) {
-            const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
-            if(!exists(stackText)) break;
-            
-            removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
-            removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
-            stackIdx++;
-        }
+            const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
+            if (!exists(lineElement)) {
+                // If the line element is gone, we assume all other elements for this index are too.
+                break; 
+            }
 
-        existingReminderIndex++;
+            // Helper to remove an element by its generated ID
+            const removeElementById = (id) => {
+                const el = HTML.getElementUnsafely(id);
+                if(exists(el)) el.remove();
+            };
+
+            removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
+            removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
+            removeElementById(`day${dayIndex}reminderQuarterCircle${existingReminderIndex}`);
+            removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
+            
+            let stackIdx = 1;
+            while(true) {
+                const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+                if(!exists(stackText)) break;
+                
+                removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+                removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
+                stackIdx++;
+            }
+
+            existingReminderIndex++;
+        }
     }
 }
 
@@ -4860,10 +4849,87 @@ function getDayColumnDimensions(dayIndex) {
 function renderCalendar(days) {
     const numberOfDays = LocalData.get('numberOfDays');
     const isStacking = LocalData.get('stacking');
-    
+
     ASSERT(type(days, List(DateField)));
     ASSERT(exists(numberOfDays) && days.length == numberOfDays, "renderCalendar days must be an array of length LocalData.get('numberOfDays')");
     ASSERT(type(isStacking, Boolean));
+
+    // Compute the earliest and latest hour across all
+    // rendered days when the user wants to hide empty spans.
+    if (user.settings.hideEmptyTimespanInCalendar) {
+        const MS_PER_HOUR = 3600000;
+        let globalEarliestMs = 24 * MS_PER_HOUR; // start with max
+        let globalLatestMs  = 0;                 // start with min
+
+        for (let dIdx = 0; dIdx < days.length; dIdx++) {
+            const day = days[dIdx];
+            const dayTime = DateTime.local(day.year, day.month, day.day);
+            const dayStartUnix = dayTime.startOf('day').plus({ hours: user.settings.startOfDayOffset }).toMillis();
+            const dayEndUnix   = dayTime.endOf('day').plus({ hours: user.settings.endOfDayOffset }).plus({ milliseconds: 1 }).toMillis();
+
+            // Scan every entity for this day – reuse FilteredInstancesFactory
+            for (const entity of user.entityArray) {
+                if (type(entity.data, TaskData)) {
+                    for (let p = 0; p < entity.data.workSessions.length; p++) {
+                        const segs = FilteredInstancesFactory.fromTaskWorkSession(entity, entity.data.workSessions[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of segs) {
+                            if (!type(inst, FilteredSegmentOfDayInstance)) continue;
+                            const candEarliest = inst.wrapToPreviousDay ? inst.endDateTime : inst.startDateTime;
+                            const candLatest   = inst.wrapToNextDay     ? inst.startDateTime : inst.endDateTime;
+                            globalEarliestMs = Math.min(globalEarliestMs, candEarliest - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, candLatest   - dayStartUnix);
+                        }
+                    }
+                } else if (type(entity.data, EventData)) {
+                    for (let p = 0; p < entity.data.instances.length; p++) {
+                        const segs = FilteredInstancesFactory.fromEvent(entity, entity.data.instances[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of segs) {
+                            if (!type(inst, FilteredSegmentOfDayInstance)) continue;
+                            const candEarliest = inst.wrapToPreviousDay ? inst.endDateTime : inst.startDateTime;
+                            const candLatest   = inst.wrapToNextDay     ? inst.startDateTime : inst.endDateTime;
+                            globalEarliestMs = Math.min(globalEarliestMs, candEarliest - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, candLatest   - dayStartUnix);
+                        }
+                    }
+                } else if (type(entity.data, ReminderData)) {
+                    for (let p = 0; p < entity.data.instances.length; p++) {
+                        const rems = FilteredInstancesFactory.fromReminder(entity, entity.data.instances[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of rems) {
+                            if (!type(inst, FilteredReminderInstance)) continue;
+                            globalEarliestMs = Math.min(globalEarliestMs, inst.dateTime - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, inst.dateTime - dayStartUnix);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback – if no timed content exists, default to a central 12-hour window
+        if (globalEarliestMs === 24 * MS_PER_HOUR) {
+            G_calendarVisibleStartHour = 8;
+            G_calendarVisibleEndHour   = 20;
+        } else {
+            // Convert to hours and expand by ±1 hour (bounded 0-24)
+            let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
+            let latestHour   = Math.min(24, Math.round(globalLatestMs / MS_PER_HOUR) + 1);
+    
+            // Ensure span is at least 12 hours
+            if (latestHour - earliestHour < 12) {
+                const missing = 12 - (latestHour - earliestHour);
+                const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
+                earliestHour -= expandStart;
+                latestHour = Math.min(24, latestHour + (missing - expandStart));
+            }
+    
+            G_calendarVisibleStartHour = earliestHour;
+            G_calendarVisibleEndHour   = latestHour;
+        }
+    } else {
+        // Full-day view
+        G_calendarVisibleStartHour = 0;
+        G_calendarVisibleEndHour   = 24;
+    }
+
     for (let i = 0; i < 7; i++) {
         if (i >= numberOfDays) { // delete excess elements if they exist
             // day background element
@@ -5415,14 +5481,14 @@ function initNumberOfCalendarDaysButton() {
     topHalf.onclick = (e) => {
         toggleNumberOfCalendarDays(true, e.shiftKey);
     };
-    
+
     topHalf.onmouseenter = () => {
         isHoveringTop = true;
         HTML.setStyle(topHalf, { backgroundColor: 'var(--shade-2)' });
         HTML.setStyle(numberDisplay, { opacity: '0.3' });
         updateTopTrianglePositions();
     };
-    
+
     topHalf.onmouseleave = () => {
         isHoveringTop = false;
         HTML.setStyle(topHalf, { backgroundColor: 'transparent' });
@@ -5576,7 +5642,7 @@ async function toggleHidingEmptyTimespanInCalendar(enabled) {
     }
     user.settings.hideEmptyTimespanInCalendar = enabled;
     await saveUserData(user);
-    renderCalendar();
+    renderCalendar(currentDays());
 }
 
 function toggleStacking() {
