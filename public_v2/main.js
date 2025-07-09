@@ -2354,7 +2354,6 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
         if (type(pattern, EveryNDaysPattern)) {
             startDateTime = baseDate;
         } else if (type(pattern, MonthlyPattern)) {
-            // Find the first valid month from the base date
             startDateTime = baseDate.set({day: pattern.day});
             while (!pattern.months[startDateTime.month - 1]) {
                 startDateTime = startDateTime.plus({months: 1}).set({day: pattern.day});
@@ -5570,6 +5569,16 @@ function toggleAmPmOr24(formatSelection) {
     }
 }
 
+async function toggleHidingEmptyTimespanInCalendar(enabled) {
+    ASSERT(type(enabled, Boolean), "toggleHidingEmptyTimespanInCalendar: enabled must be boolean");
+    if (!exists(user.settings)) {
+        user.settings = {};
+    }
+    user.settings.hideEmptyTimespanInCalendar = enabled;
+    await saveUserData(user);
+    render();
+}
+
 function toggleStacking() {
     ASSERT(type(LocalData.get('stacking'), Boolean));
     LocalData.set('stacking', !LocalData.get('stacking'));
@@ -7265,7 +7274,6 @@ function openSettingsModal() {
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '12px',
             transition: 'opacity 0.2s ease-in'
         });
         HTML.body.appendChild(settingsText);
@@ -7276,16 +7284,15 @@ function openSettingsModal() {
         // Create time format label
         const timeFormatLabel = HTML.make('div');
         HTML.setId(timeFormatLabel, 'timeFormatLabel');
-        timeFormatLabel.textContent = 'Time format:';
+        timeFormatLabel.textContent = 'Time format';
         HTML.setStyle(timeFormatLabel, {
             position: 'fixed',
-            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'MonospacePrimary', 10) - 5) + 'px',
-            top: (modalRect.top + 18) + 'px',
+            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format", 'MonospacePrimary', 10) - 5) + 'px',
+            top: (modalRect.top + 23) + 'px',
             fontFamily: 'MonospacePrimary',
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '24px',
             opacity: '0',
             transition: 'opacity 0.2s ease-in'
         });
@@ -7293,22 +7300,19 @@ function openSettingsModal() {
         // Fade in the label
         setTimeout(() => { HTML.setStyle(timeFormatLabel, { opacity: '1' }); }, 10);
         
-        // ------------------------------
-        // Remove empty time label (placeholder — toggle coming later)
-        // ------------------------------
         const removeEmptyTimesLabel = HTML.make('div');
         HTML.setId(removeEmptyTimesLabel, 'removeEmptyTimesLabel');
-        const removeEmptyTimesText = 'Remove empty time from days';
+        const removeEmptyTimesText = 'Remove empty\ntime from days';
         removeEmptyTimesLabel.textContent = removeEmptyTimesText;
+        let xpos = (modalWidth - measureTextWidth("time from days", 'MonospacePrimary', 10) + 5);
         HTML.setStyle(removeEmptyTimesLabel, {
             position: 'fixed',
-            right: (window.innerWidth - modalRect.left - measureTextWidth(removeEmptyTimesText, 'MonospacePrimary', 10) - 5) + 'px',
-            top: (modalRect.top + 42) + 'px', // 24px below the first label
+            right: xpos + 'px',
+            top: (modalRect.top + 42) + 'px',
             fontFamily: 'MonospacePrimary',
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '24px',
             opacity: '0',
             transition: 'opacity 0.2s ease-in'
         });
@@ -7316,12 +7320,26 @@ function openSettingsModal() {
         // Fade in the label
         setTimeout(() => { HTML.setStyle(removeEmptyTimesLabel, { opacity: '1' }); }, 10);
 
+        const toggleWidth = 36;
+        const toggleHeight = 20;
+        createBooleanToggle(
+            'removeEmptyTimesToggle',
+            82,
+            modalRect.top + 45,
+            toggleWidth,
+            toggleHeight,
+            7002,
+            user.settings.hideEmptyTimespanInCalendar,
+            toggleHidingEmptyTimespanInCalendar,
+            'right'
+        );
+
         createSelector(
             ['24hr', 'AM/PM'],           // options: array of selectable strings
             'horizontal',                // orientation: layout direction
             'timeFormatSelector',        // id: unique identifier for this selector
-            modalRect.width - 145,          // x: 5px from left side of modal
-            modalRect.top + 20,          // y: 20px from top of modal
+            modalRect.width - 140,          // x: 5px from left side of modal
+            modalRect.top + 19.5,          // y: 20px from top of modal
             72,                          // width: total selector width in pixels
             20,                          // height: total selector height in pixels
             7002,                        // zIndex: layer positioning (above settings modal)
@@ -7402,6 +7420,7 @@ function openSettingsModal() {
                 
                 // Start animations immediately
                 deleteSelector('timeFormatSelector');
+                deleteBooleanToggle('removeEmptyTimesToggle');
                 HTML.setStyle(settingsText, { opacity: '0' });
                 HTML.setStyle(timeFormatLabel, { opacity: '0' });
                 HTML.setStyle(removeEmptyTimesLabel, { opacity: '0' });
@@ -7619,6 +7638,19 @@ function openSettingsModal() {
                                 0.9, 'right'
                             );
                             
+                            // Re-create boolean toggle
+                            createBooleanToggle(
+                                'removeEmptyTimesToggle',
+                                xpos,
+                                modalRect.top + 42,
+                                toggleWidth,
+                                toggleHeight,
+                                7002,
+                                user.settings.hideEmptyTimespanInCalendar === true,
+                                toggleHidingEmptyTimespanInCalendar,
+                                'right'
+                            );
+                            
                             // Force reflow and fade in
                             settingsText.offsetHeight;
                             HTML.setStyle(settingsText, { opacity: '1' });
@@ -7700,6 +7732,7 @@ function closeSettingsModal() {
     
     // Delete the test selector
     deleteSelector('timeFormatSelector');
+    deleteBooleanToggle('removeEmptyTimesToggle');
     
     // Fade out settings text, time format label, and buttons
     const settingsText = HTML.getElementUnsafely('settingsText');
@@ -9842,6 +9875,122 @@ function deleteSelector(id) {
             }
         }
     }, 300);
+}
+
+// Creates a boolean toggle with smooth transitions
+function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onToggle, alignmentSide) {
+    ASSERT(type(id, NonEmptyString), "createBooleanToggle: id must be a non-empty string");
+    ASSERT(type(x, Number), "createBooleanToggle: x must be a number");
+    ASSERT(type(y, Number), "createBooleanToggle: y must be a number");
+    ASSERT(type(width, Number) && width > 0, "createBooleanToggle: width must be a positive number");
+    ASSERT(type(height, Number) && height > 0, "createBooleanToggle: height must be a positive number");
+    ASSERT(type(zIndex, Int), "createBooleanToggle: zIndex must be an integer");
+    ASSERT(type(initialState, Boolean), "createBooleanToggle: initialState must be boolean");
+    ASSERT(type(onToggle, Function), "createBooleanToggle: onToggle must be a function");
+    ASSERT(type(alignmentSide, String) && (alignmentSide === 'left' || alignmentSide === 'right'), "createBooleanToggle: alignmentSide must be 'left' or 'right'");
+
+    // Prevent duplicate ids
+    ASSERT(!exists(HTML.getElementUnsafely(id)), "createBooleanToggle: element with id '" + id + "' already exists");
+
+    // Colors
+    const accentRgb = hexToRgb(user.palette.accent[1]);
+    const accentColor = `rgb(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b})`;
+    const offTrackColor = 'var(--shade-2)';
+    const offKnobColor = 'var(--shade-3)';
+
+    // Track element
+    const track = HTML.make('div');
+    HTML.setId(track, id);
+
+    const trackStyles = {
+        position: 'absolute',
+        top: y + 'px',
+        width: width + 'px',
+        height: height + 'px',
+        backgroundColor: initialState ? accentColor : offTrackColor,
+        borderRadius: (height / 2) + 'px',
+        cursor: 'pointer',
+        zIndex: String(zIndex),
+        transition: 'background-color 0.25s ease, opacity 0.25s ease'
+    };
+    if (alignmentSide === 'left') {
+        trackStyles.left = x + 'px';
+    } else {
+        trackStyles.right = x + 'px';
+    }
+    HTML.setStyle(track, trackStyles);
+
+    // Knob element
+    const knobSize = height - 4; // 2px padding on each side
+    const knob = HTML.make('div');
+    HTML.setId(knob, id + '_knob');
+    HTML.setStyle(knob, {
+        position: 'absolute',
+        top: '2px',
+        left: initialState ? (width - knobSize - 2) + 'px' : '2px',
+        width: knobSize + 'px',
+        height: knobSize + 'px',
+        backgroundColor: initialState ? 'var(--shade-4)' : offKnobColor,
+        borderRadius: '50%',
+        transition: 'left 0.25s ease, background-color 0.25s ease'
+    });
+
+    // Save state
+    HTML.setData(track, 'state', initialState);
+
+    // Toggle handler
+    track.onclick = () => {
+        const current = HTML.getData(track, 'state');
+        const next = !current;
+        HTML.setData(track, 'state', next);
+
+        // Visual updates
+        HTML.setStyle(track, { backgroundColor: next ? accentColor : offTrackColor });
+        HTML.setStyle(knob, {
+            left: next ? (width - knobSize - 2) + 'px' : '2px',
+            backgroundColor: next ? 'var(--shade-4)' : offKnobColor
+        });
+
+        // Callback
+        onToggle(next);
+    };
+
+    // Assemble DOM
+    track.appendChild(knob);
+    HTML.body.appendChild(track);
+
+    // Fade in
+    HTML.setStyle(track, { opacity: '0' });
+    setTimeout(() => { HTML.setStyle(track, { opacity: '1' }); }, 10);
+
+    return { width, height, actualWidth: width, actualHeight: height };
+}
+
+function deleteBooleanToggle(id) {
+    ASSERT(type(id, NonEmptyString), "deleteBooleanToggle: id must be a non-empty string");
+
+    const track = HTML.getElementUnsafely(id);
+    if (!exists(track)) return;
+
+    const knob = HTML.getElementUnsafely(id + '_knob');
+    const elems = [track];
+    if (exists(knob)) elems.push(knob);
+
+    // Fade out
+    for (const el of elems) {
+        HTML.setStyle(el, {
+            opacity: '0',
+            transition: 'opacity 0.25s ease'
+        });
+    }
+
+    setTimeout(() => {
+        for (const el of elems) {
+            if (exists(el) && exists(el.parentNode)) {
+                el.parentNode.removeChild(el);
+            }
+        }
+    }, 250);
 }
 
 function initSettingsButton() {
