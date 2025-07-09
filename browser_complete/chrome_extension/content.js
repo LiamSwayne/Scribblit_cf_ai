@@ -7,9 +7,9 @@ const inputState = new WeakMap();
 // Global request counter to track request order
 let requestCounter = 0;
 
-// Global state for the currently displayed ghost text suggestion
-let ghostElement = null;
-let activeElementForGhost = null;
+// Global state for the currently displayed completion overlay
+let overlayElement = null;
+let activeElementForOverlay = null;
 let currentCompletion = '';
 let currentInput = '';
 
@@ -212,16 +212,23 @@ function createRejectionKey(input, completion) {
     return `${input}|${completion}`;
 }
 
-// Removes the ghost text from the DOM and cleans up related listeners
-function removeGhostText() {
-    if (ghostElement) {
-        ghostElement.remove();
-        ghostElement = null;
+// Removes the overlay element from the DOM and cleans up related listeners
+function removeOverlay() {
+    if (overlayElement) {
+        // Remove text overlay if it exists
+        if (overlayElement._textOverlay) {
+            overlayElement._textOverlay.remove();
+        }
+        overlayElement.remove();
+        overlayElement = null;
     }
-    if (activeElementForGhost) {
-        // Remove the specific listener we added
-        activeElementForGhost.removeEventListener('keydown', handleKeydown);
-        activeElementForGhost = null;
+    if (activeElementForOverlay) {
+        // Remove event listeners
+        activeElementForOverlay.removeEventListener('keydown', handleKeydown);
+        activeElementForOverlay.removeEventListener('scroll', updateOverlayPosition);
+        window.removeEventListener('resize', updateOverlayPosition);
+        window.removeEventListener('scroll', updateOverlayPosition);
+        activeElementForOverlay = null;
     }
     currentCompletion = '';
     currentInput = '';
@@ -283,38 +290,84 @@ function addToRejections(input, completion) {
     debouncedSaveRejections(); // Save updated rejections
 }
 
-/**
- * Creates a visually hidden span to accurately measure the width of the text
- * inside an input, using the input's own computed font styles.
- * @param {HTMLInputElement|HTMLTextAreaElement} element The input element
- * @param {string} text The text to measure
- * @returns {number} The width of the text in pixels
- */
-function measureTextWidth(element, text) {
-    const measurer = document.createElement('span');
-    measurer.style.visibility = 'hidden';
-    measurer.style.position = 'absolute';
-    measurer.style.whiteSpace = 'pre'; // Preserve spaces for accurate measurement
+// Function to copy all relevant styles from the original element to the overlay
+function copyElementStyles(originalElement, overlayElement) {
+    const computedStyle = window.getComputedStyle(originalElement);
     
-    const style = window.getComputedStyle(element);
-    // Copy all relevant font styles from the input to our measurer
-    [
-        'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 
-        'letterSpacing', 'textTransform', 'wordSpacing'
-    ].forEach(prop => {
-        measurer.style[prop] = style[prop];
+    // Copy all relevant styles that affect positioning, sizing, and text rendering
+    const propertiesToCopy = [
+        'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight',
+        'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+        'border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft',
+        'borderWidth', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+        'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+        'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+        'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
+        'boxSizing', 'textAlign', 'textIndent', 'textTransform', 'letterSpacing',
+        'wordSpacing', 'whiteSpace', 'wordWrap', 'overflowWrap', 'textDecoration',
+        'textDecorationLine', 'textDecorationStyle', 'textDecorationColor',
+        'resize', 'overflow', 'overflowX', 'overflowY'
+    ];
+    
+    propertiesToCopy.forEach(property => {
+        if (computedStyle[property] !== undefined) {
+            overlayElement.style[property] = computedStyle[property];
+        }
     });
-
-    measurer.textContent = text;
-    document.body.appendChild(measurer);
-    const width = measurer.getBoundingClientRect().width;
-    document.body.removeChild(measurer);
-    return width;
+    
+    // Force transparent background
+    overlayElement.style.backgroundColor = 'transparent';
+    overlayElement.style.backgroundImage = 'none';
+    overlayElement.style.background = 'transparent';
 }
 
-// Function to show completion as ghost text by overlaying a styled span
+// Function to update the overlay position to match the original element
+function updateOverlayPosition() {
+    if (!overlayElement || !activeElementForOverlay) return;
+    
+    const rect = activeElementForOverlay.getBoundingClientRect();
+    overlayElement.style.left = `${rect.left + window.scrollX}px`;
+    overlayElement.style.top = `${rect.top + window.scrollY}px`;
+    
+    // Sync scroll position
+    overlayElement.scrollLeft = activeElementForOverlay.scrollLeft;
+    overlayElement.scrollTop = activeElementForOverlay.scrollTop;
+}
+
+// Function to create styled text content with completion
+function createStyledTextContent(existingText, completion, originalElement) {
+    const computedStyle = window.getComputedStyle(originalElement);
+    const textColor = computedStyle.color;
+    
+    // Create container for the text
+    const container = document.createElement('div');
+    container.style.whiteSpace = 'pre-wrap';
+    container.style.wordWrap = 'break-word';
+    container.style.overflowWrap = 'break-word';
+    
+    // Add existing text with normal styling
+    if (existingText) {
+        const existingSpan = document.createElement('span');
+        existingSpan.textContent = existingText;
+        existingSpan.style.color = textColor;
+        container.appendChild(existingSpan);
+    }
+    
+    // Add completion text with reduced opacity
+    if (completion) {
+        const completionSpan = document.createElement('span');
+        completionSpan.textContent = completion;
+        completionSpan.style.color = textColor;
+        completionSpan.style.opacity = '0.5';
+        container.appendChild(completionSpan);
+    }
+    
+    return container;
+}
+
+// Function to show completion as overlay duplicate
 function showCompletion(element, completion) {
-    removeGhostText(); // Clear any previous suggestion
+    removeOverlay(); // Clear any previous overlay
 
     const state = inputState.get(element);
     const textForRequest = state ? state.lastRequestText : '';
@@ -322,70 +375,96 @@ function showCompletion(element, completion) {
 
     // If the text changed since we requested the completion, we need to adjust.
     if (textForRequest && currentText.startsWith(textForRequest)) {
-        const remainingCompletion = completion; // The full completion is what we want to show
-        const textBeforeCursor = currentText;
-
-        const textWidth = measureTextWidth(element, textBeforeCursor);
-        const style = window.getComputedStyle(element);
         const rect = element.getBoundingClientRect();
-
-        // Create the ghost element and style it to match the input
-        ghostElement = document.createElement('span');
-        ghostElement.textContent = remainingCompletion;
-        ghostElement.style.position = 'absolute';
-        ghostElement.style.pointerEvents = 'none'; // Click through the ghost text
-        ghostElement.style.zIndex = '2147483647'; // Maximum z-index to ensure it's always on top
         
-        // Set color to match input field but with half opacity
-        const inputColor = style.color;
-        const inputOpacity = parseFloat(style.opacity) || 1;
-        const ghostOpacity = inputOpacity * 0.5;
+        // Create the overlay element as the same type as the original
+        const isTextarea = element.tagName.toLowerCase() === 'textarea';
+        overlayElement = document.createElement(isTextarea ? 'textarea' : 'input');
         
-        // Parse the color and apply the new opacity
-        if (inputColor.startsWith('rgba')) {
-            // Replace existing alpha with new opacity
-            ghostElement.style.color = inputColor.replace(/rgba\(([^)]+),\s*[^)]+\)/, `rgba($1, ${ghostOpacity})`);
-        } else if (inputColor.startsWith('rgb')) {
-            // Convert rgb to rgba with new opacity
-            ghostElement.style.color = inputColor.replace('rgb', 'rgba').replace(')', `, ${ghostOpacity})`);
-        } else {
-            // For other color formats, use the color with opacity property
-            ghostElement.style.color = inputColor;
-            ghostElement.style.opacity = ghostOpacity.toString();
+        // If it's an input, set the type to match
+        if (!isTextarea && element.type) {
+            overlayElement.type = element.type;
         }
         
-        ghostElement.style.boxSizing = style.boxSizing;
-
-        // Copy styles that affect positioning and appearance
-        [
-            'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight',
-            'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-            'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth'
-        ].forEach(prop => {
-            ghostElement.style[prop] = style[prop];
-        });
+        // Copy all styles from the original element
+        copyElementStyles(element, overlayElement);
         
-        // Calculate precise top/left position
-        const top = rect.top + window.scrollY + parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop);
-        const left = rect.left + window.scrollX + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + textWidth;
-
-        ghostElement.style.top = `${top}px`;
-        ghostElement.style.left = `${left}px`;
+        // Position the overlay
+        overlayElement.style.position = 'absolute';
+        overlayElement.style.left = `${rect.left + window.scrollX}px`;
+        overlayElement.style.top = `${rect.top + window.scrollY}px`;
+        overlayElement.style.zIndex = '2000000000'; // 2 billion as requested
+        overlayElement.style.pointerEvents = 'none'; // Cannot be interacted with
+        overlayElement.style.backgroundColor = 'transparent';
+        overlayElement.style.backgroundImage = 'none';
+        overlayElement.style.background = 'transparent';
+        overlayElement.style.border = 'none';
+        overlayElement.style.outline = 'none';
+        overlayElement.style.resize = 'none';
+        overlayElement.style.cursor = 'default';
         
-        document.body.appendChild(ghostElement);
+        // Set the content with both existing text and completion
+        const fullText = currentText + completion;
+        overlayElement.value = fullText;
+        overlayElement.readOnly = true;
+        overlayElement.disabled = false; // Keep enabled for scroll sync to work
+        overlayElement.tabIndex = -1; // Remove from tab order
+        
+        // Apply text styling with completion having reduced opacity
+        // We'll use a different approach with spans for better opacity control
+        overlayElement.style.color = 'transparent'; // Make the actual text transparent
+        
+        // Create a styled overlay for the text with spans
+        const textOverlay = document.createElement('div');
+        textOverlay.style.position = 'absolute';
+        textOverlay.style.left = `${rect.left + window.scrollX}px`;
+        textOverlay.style.top = `${rect.top + window.scrollY}px`;
+        textOverlay.style.zIndex = '2000000001'; // Just above the input overlay
+        textOverlay.style.pointerEvents = 'none';
+        
+        // Copy text-related styles
+        copyElementStyles(element, textOverlay);
+        textOverlay.style.backgroundColor = 'transparent';
+        textOverlay.style.backgroundImage = 'none';
+        textOverlay.style.background = 'transparent';
+        textOverlay.style.border = 'none';
+        textOverlay.style.outline = 'none';
+        textOverlay.style.overflow = 'hidden';
+        
+        // Add the styled text content
+        const styledContent = createStyledTextContent(currentText, completion, element);
+        textOverlay.appendChild(styledContent);
+        
+        // Sync scroll position
+        overlayElement.scrollLeft = element.scrollLeft;
+        overlayElement.scrollTop = element.scrollTop;
+        
+        // Add to DOM
+        document.body.appendChild(overlayElement);
+        document.body.appendChild(textOverlay);
+        
+        // Store reference to text overlay for cleanup
+        overlayElement._textOverlay = textOverlay;
 
         // Set global state for accepting the completion
-        currentCompletion = remainingCompletion;
-        currentInput = textBeforeCursor;
-        activeElementForGhost = element;
+        currentCompletion = completion;
+        currentInput = currentText;
+        activeElementForOverlay = element;
+        
+        // Add event listeners
         element.addEventListener('keydown', handleKeydown, { once: true, capture: true });
+        element.addEventListener('scroll', updateOverlayPosition);
+        
+        // Update position on window resize/scroll
+        window.addEventListener('resize', updateOverlayPosition);
+        window.addEventListener('scroll', updateOverlayPosition);
     }
 }
 
 // Accepts the current completion
 function acceptCompletion() {
-    if (activeElementForGhost && currentCompletion) {
-        const el = activeElementForGhost;
+    if (activeElementForOverlay && currentCompletion) {
+        const el = activeElementForOverlay;
         const textBefore = el.value.substring(0, el.selectionStart);
         const textAfter = el.value.substring(el.selectionEnd);
         
@@ -402,7 +481,29 @@ function acceptCompletion() {
             debouncedSaveCompletions(); // Save updated cache
         }
     }
-    removeGhostText();
+    removeOverlay();
+}
+
+// Enhanced removeOverlay function to handle text overlay cleanup
+function removeOverlay() {
+    if (overlayElement) {
+        // Remove text overlay if it exists
+        if (overlayElement._textOverlay) {
+            overlayElement._textOverlay.remove();
+        }
+        overlayElement.remove();
+        overlayElement = null;
+    }
+    if (activeElementForOverlay) {
+        // Remove event listeners
+        activeElementForOverlay.removeEventListener('keydown', handleKeydown);
+        activeElementForOverlay.removeEventListener('scroll', updateOverlayPosition);
+        window.removeEventListener('resize', updateOverlayPosition);
+        window.removeEventListener('scroll', updateOverlayPosition);
+        activeElementForOverlay = null;
+    }
+    currentCompletion = '';
+    currentInput = '';
 }
 
 // Handles keyboard events to accept or dismiss the completion
@@ -420,9 +521,9 @@ function handleKeydown(e) {
             addToRejections(currentInput, currentCompletion);
         }
         
-        removeGhostText();
+        removeOverlay();
     }
-    // For any other key, we let the 'input' event in handleInput clear the ghost text.
+    // For any other key, we let the 'input' event in handleInput clear the overlay.
 }
 
 // Function to handle completion request with retry logic
@@ -486,7 +587,7 @@ async function handleCompletionRequest(element, input, attempt = 1) {
 const debouncedGetCompletion = debounce(async (element) => {
     // We only want completions if the user's cursor is at the end of the text.
     if (element.selectionStart !== element.value.length) {
-        removeGhostText();
+        removeOverlay();
         return;
     }
 
@@ -527,7 +628,7 @@ function handleFocus(event) {
 
 function handleInput(event) {
     // On any input, the old suggestion is invalid and pending requests become invalid
-    removeGhostText();
+    removeOverlay();
 
     const element = event.target;
     let state = inputState.get(element);
@@ -554,8 +655,8 @@ function attachListeners() {
         element.dataset.scribblitListener = 'true';
         element.addEventListener('focus', handleFocus);
         element.addEventListener('input', handleInput);
-        // Remove ghost text if user clicks away
-        element.addEventListener('blur', removeGhostText); 
+        // Remove overlay if user clicks away
+        element.addEventListener('blur', removeOverlay); 
     });
 
     // Note: contentEditable support is more complex and is not handled here.
