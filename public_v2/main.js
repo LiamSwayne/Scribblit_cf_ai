@@ -125,6 +125,56 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+document.addEventListener('paste', async (e) => {
+    if (e.clipboardData.files.length > 0) {
+        log('Pasted a file', e.clipboardData.files);
+        // add to file array
+        for (const file of e.clipboardData.files) {
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            attachedFiles.push({
+                name: file.name,
+                mimeType: file.type,
+                data: base64Data,
+                size: file.size
+            });
+            updateAttachmentBadge();
+        }
+    } else {
+        const text = e.clipboardData.getData('text/plain');
+        if (text) {
+            log('Pasted text: "' + text + '"');
+        }
+
+        if (text.length > 1000) {
+            log('Pasted text is too long, make it a file');
+            // add to file array
+            attachedFiles.push({
+                name: 'pasted_text_' + String(Date.now()) + '.txt',
+                mimeType: 'text/plain',
+                data: text,
+                size: text.length
+            });
+            updateAttachmentBadge();
+        } else if (inputBoxFocused) {
+            // add it to the input box content
+            const inputBox = HTML.getElement('inputBox');
+            inputBox.value += text;
+            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            // focus the input box, then add the text
+            const inputBox = HTML.getElement('inputBox');
+            inputBox.focus();
+            inputBox.value += text;
+            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+});
+
 const SERVER_DOMAIN_ROOT = 'scribblit-production.unrono.workers.dev';
 const SERVER_PRODUCTION_DOMAIN = 'app.scribbl.it';
 // when testing, use the root domain since the other one doesn't allow this origin
@@ -145,6 +195,7 @@ let STRATEGIES = {
     STEP_BY_STEP: 'step_by_step'
 }
 let activeStrategy = NULL;
+let inputBoxFocused = false;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -1840,7 +1891,7 @@ let HTML = new class HTMLroot {
 
 // the only use of stylesheet because "body *" in JS is not efficient to select
 let styleElement = HTML.make('style');
-styleElement.textContent = `
+const globalCss = `
     body * {
         margin: 0;
         padding: 0;
@@ -1851,7 +1902,13 @@ styleElement.textContent = `
         color: #ff00aa; /* make sure that default colors are never used */
         user-select: none; /* make text not highlightable */
     }
+
+    /* change highlight color to second accent color */
+    ::selection {
+        background-color: var(--accent-0);
+    }
 `;
+styleElement.textContent = globalCss;
 HTML.head.appendChild(styleElement);
 
 HTML.setStyle(HTML.body, {
@@ -5842,6 +5899,7 @@ function renderInputBox() {
 
         // Add focus/blur event listeners for rainbow mask fade animation and typing state
         inputBox.addEventListener('focus', function() {
+            inputBoxFocused = true;
             const gradientMask = HTML.getElementUnsafely('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '1';
@@ -5850,6 +5908,7 @@ function renderInputBox() {
         });
 
         inputBox.addEventListener('blur', function() {
+            inputBoxFocused = false;
             const gradientMask = HTML.getElementUnsafely('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '0';
@@ -6604,7 +6663,7 @@ function updateInputBoxGradients(instant) {
     const bottomGradientTop = inputRect.bottom - gradientHeight;
     
     // Get the accent color and convert to RGB
-    const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue('--accent-0').trim();
+    const accentColorHex = user.palette.accent[1];
     const accentRgb = hexToRgb(accentColorHex);
     
     // Show gradients based on scroll state and max height
