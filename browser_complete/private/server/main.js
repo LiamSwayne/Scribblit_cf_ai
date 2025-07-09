@@ -98,6 +98,7 @@ Example: the user typed "than" and you return "thank you"
 Example: the user typed "If I'm late to the airport I'll m" and you return "If I'm late to the airport I'll miss my flight."
 Example: the user typed "This has been a hard time! Thank your for sti" and you return "Thank you for sticking with me."
 Example: the user typed "What have you been up to?" and you return "What have you been up to?"
+Example: the user typed "I'm going to the " and you return "NULL" because you don't have enough information to predict the rest of the sentence
 
 If you need to correct any typos in the part of the sentence that the user has already typed, you must use "CORRECTION: " at the beginning of your response.
 
