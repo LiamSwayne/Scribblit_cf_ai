@@ -8,7 +8,7 @@ const fontDefinitions = [
     { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/Bold.woff2' },
     // { key: 'PrimaryExtraBold', url: 'https://super-publisher.pages.dev/Extrabold.woff2' },
     // { key: 'PrimaryBlack', url: 'https://super-publisher.pages.dev/Black.woff2' },
-    { key: 'Monospace', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
+    { key: 'MonospacePrimary', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
 ];
 
 let preservedFontCss = {};
@@ -2929,7 +2929,7 @@ function renderDay(day, index) {
                     top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
                     left: String(dayElementLeft) + 'px',
                     color: 'var(--shade-2)',
-                    fontFamily: 'Monospace',
+                    fontFamily: 'MonospacePrimary',
                     fontSize: fontSize,
                     zIndex: '401'
                 });
@@ -3091,7 +3091,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             width: '60px', // Reserve much more space for date/time display
             color: 'var(--shade-3)',
             fontSize: '11px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             lineHeight: String(allDayEventHeight - 2) + 'px',
             zIndex: '351',
             pointerEvents: 'none' // Don't interfere with event interactions
@@ -4171,7 +4171,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-2)',
                 color: 'var(--shade-4)',
                 fontSize: '9.5px', // Bigger font
-                fontFamily: 'Monospace',
+                fontFamily: 'MonospacePrimary',
                 borderRadius: String(bubbleHeight / 2) + 'px',
                 paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                 boxSizing: 'border-box',
@@ -4599,7 +4599,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: 'var(--shade-2)',
                         color: 'var(--shade-4)',
                         fontSize: '9.5px', // Bigger font
-                        fontFamily: 'Monospace',
+                        fontFamily: 'MonospacePrimary',
                         borderRadius: String(bubbleHeight / 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                         boxSizing: 'border-box',
@@ -5166,7 +5166,7 @@ function initNumberOfCalendarDaysButton() {
         transform: 'translate(-50%, -50%)',
         fontSize: '14px',
         fontWeight: 'bold',
-        fontFamily: 'Monospace',
+        fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         zIndex: '12',
         pointerEvents: 'none'
@@ -6139,7 +6139,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         HTML.setStyle(line1El, {
             position: 'absolute',
             color: textColor,
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             zIndex: '3',
             cursor: 'pointer',
             textAlign: 'center',
@@ -6169,7 +6169,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         HTML.setStyle(line2El, {
             position: 'absolute',
             color: textColor,
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             zIndex: '3',
             cursor: 'pointer',
             textAlign: 'center',
@@ -7201,7 +7201,7 @@ function openSettingsModal() {
             position: 'fixed',
             left: (modalRect.left + 5) + 'px',
             top: (modalRect.top + 5) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
@@ -7219,9 +7219,9 @@ function openSettingsModal() {
         timeFormatLabel.textContent = 'Time format:';
         HTML.setStyle(timeFormatLabel, {
             position: 'fixed',
-            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospace', 10) - 5) + 'px',
+            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'MonospacePrimary', 10) - 5) + 'px',
             top: (modalRect.top + 18) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
@@ -7242,7 +7242,7 @@ function openSettingsModal() {
             72,                          // width: total selector width in pixels
             20,                          // height: total selector height in pixels
             7002,                        // zIndex: layer positioning (above settings modal)
-            'Monospace',                 // font: font family for text rendering
+            'MonospacePrimary',                 // font: font family for text rendering
             10,                          // fontSize: text size in pixels
             toggleAmPmOr24,              // onSelectionChange: callback function
             user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
@@ -7262,7 +7262,7 @@ function openSettingsModal() {
                 top: (modalHeight - 15) + 'px',
                 width: '60px',
                 height: '20px',
-                fontFamily: 'Monospace',
+                fontFamily: 'MonospacePrimary',
                 fontSize: '10px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -7292,7 +7292,7 @@ function openSettingsModal() {
                 top: (modalHeight - 15) + 'px',
                 width: '120px',
                 height: '20px',
-                fontFamily: 'Monospace',
+                fontFamily: 'MonospacePrimary',
                 fontSize: '10px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -7339,7 +7339,7 @@ function openSettingsModal() {
                         top: '11px',
                         width: '40px',
                         height: '20px',
-                        fontFamily: 'Monospace',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         backgroundColor: 'var(--shade-1)',
@@ -7361,7 +7361,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: '36px',
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'Monospace',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         zIndex: '7003',
@@ -7383,7 +7383,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: (36 + 14) + 'px', // one line below first message
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'Monospace',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: '#0066ff',
                         textDecoration: 'underline',
@@ -7466,7 +7466,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: (36 + 28) + 'px', // two lines below first message
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'Monospace',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         zIndex: '7003',
@@ -7526,7 +7526,7 @@ function openSettingsModal() {
                                 'timeFormatSelector',
                                 modalRect.width - 145,
                                 modalRect.top + 20,
-                                72, 20, 7002, 'Monospace', 10,
+                                72, 20, 7002, 'MonospacePrimary', 10,
                                 toggleAmPmOr24,
                                 user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',
                                 0.9, 'right'
@@ -8060,7 +8060,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30) + 'px',
             width: String(modalWidth - 34) + 'px',
             height: String(signInFieldInputHeight) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-0)',
@@ -8094,7 +8094,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 42) + 'px',
             width: String(modalWidth - 34) + 'px',
             height: String(signInFieldInputHeight) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-0)',
@@ -8129,7 +8129,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 114 - 32) + 'px',
             width: String(signInSignUpButtonWidth) + 'px',
             height: '32px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -8162,7 +8162,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 114 - 32) + 'px',
             width: String(signInSignUpButtonWidth) + 'px',
             height: '32px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -8194,7 +8194,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 10) + 'px',
             width: '60px',
             height: '24px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '10px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -8246,7 +8246,7 @@ function showInitialButtons() {
         top: (modalRect.top + 30) + 'px',
         width: ((modalWidth - 30) / 2) + 'px',
         height: '114px',
-        fontFamily: 'Monospace',
+        fontFamily: 'MonospacePrimary',
         fontSize: '12px',
         color: 'var(--shade-4)',
         backgroundColor: 'var(--shade-1)',
@@ -8281,7 +8281,7 @@ function showInitialButtons() {
         top: (modalRect.top + 30) + 'px',
         width: ((modalWidth - 30) / 2) + 'px',
         height: '114px',
-        fontFamily: 'Monospace',
+        fontFamily: 'MonospacePrimary',
         fontSize: '12px',
         color: 'var(--shade-4)',
         backgroundColor: 'var(--shade-1)',
@@ -8503,7 +8503,7 @@ async function signUp() {
                 position: 'fixed',
                 right: '22px',
                 top: String(modalRect.top + 50) + 'px', // Position above the inputs, adjust as needed
-                fontFamily: 'Monospace',
+                fontFamily: 'MonospacePrimary',
                 fontSize: '11px',
                 color: 'var(--shade-4)',
                 zIndex: String(signInTextZIndex + 101),
@@ -8530,7 +8530,7 @@ async function signUp() {
                 HTML.setStyle(inputDiv, {
                     width: '28px',
                     height: '36px',
-                    fontFamily: 'Monospace',
+                    fontFamily: 'MonospacePrimary',
                     fontSize: '14px',
                     color: 'var(--shade-4)',
                     backgroundColor: 'var(--shade-0)',
@@ -9863,7 +9863,7 @@ function initSignInButton() {
     }
     
     // Sign-in button width is wider than standard buttons for the text
-    const signInButtonWidth = measureTextWidth('sign in/up', 'Monospace', 11) + 10;
+    const signInButtonWidth = measureTextWidth('sign in/up', 'MonospacePrimary', 11) + 10;
     
     // Sign-in button container
     let signInButton = HTML.make('div');
@@ -9890,7 +9890,7 @@ function initSignInButton() {
     HTML.setId(signInText, 'signInText');
     HTML.setStyle(signInText, {
         fontSize: '11px',
-        fontFamily: 'Monospace',
+        fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         whiteSpace: 'nowrap',
         zIndex: String(signInTextZIndex)
@@ -9931,7 +9931,7 @@ function initProButton(animateFromTop = false) {
     }
 
     // Width based on the text "pro" with a little padding
-    const proButtonWidth = measureTextWidth('pro', 'Monospace', 11) + 10;
+    const proButtonWidth = measureTextWidth('pro', 'MonospacePrimary', 11) + 10;
 
     // Common right offset identical to where the sign-in button would have been
     const rightOffset = windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4;
@@ -9987,7 +9987,7 @@ function initProButton(animateFromTop = false) {
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '11px',
-        fontFamily: 'Monospace',
+        fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
