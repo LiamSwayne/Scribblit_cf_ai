@@ -1344,8 +1344,7 @@ if (TESTING) {
         TESTING_USER_IS_EMPTY ? [] : createFakeEntityArray(),
         {
             ampmOr24: 'ampm',
-            startOfDayOffset: 0,
-            endOfDayOffset: 0,
+            dayStartAndEndHourOffset: 0,
             hideEmptyTimespanInCalendar: false,
         },
         palettes.dark,
