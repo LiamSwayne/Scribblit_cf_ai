@@ -3052,7 +3052,8 @@ class Chain {
             CreatedEntityNode,
             FailedToCreateEntityNode,
             MergeEntitiesNode,
-            CompleteRequestNode
+            CompleteRequestNode,
+            ParallelNode
         ))));
         ASSERT(type(this.startTime, Int));
         ASSERT(this.startTime >= 0);
@@ -3082,7 +3083,8 @@ class Chain {
             CreatedEntityNode,
             FailedToCreateEntityNode,
             MergeEntitiesNode,
-            CompleteRequestNode
+            CompleteRequestNode,
+            ParallelNode
         )));
         this.chain.push(node);
     }
