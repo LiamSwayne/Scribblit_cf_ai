@@ -212,6 +212,17 @@ function createRejectionKey(input, completion) {
     return `${input}|${completion}`;
 }
 
+// Helper to calculate vertical scrollbar width for an element
+function getVerticalScrollbarWidth(el) {
+    return el.offsetWidth - el.clientWidth;
+}
+
+// Helper to get numeric padding top for an element
+function getPaddingTop(el) {
+    const cs = window.getComputedStyle(el);
+    return parseFloat(cs.paddingTop) || 0;
+}
+
 // Removes the overlay element from the DOM and cleans up related listeners
 function removeOverlay() {
     if (overlayElement) {
@@ -321,14 +332,27 @@ function updateOverlayPosition() {
     if (!overlayElement || !activeElementForOverlay) return;
     
     const rect = activeElementForOverlay.getBoundingClientRect();
+    const scrollbarWidth = Math.max(0, getVerticalScrollbarWidth(activeElementForOverlay));
     overlayElement.style.left = `${rect.left + window.scrollX}px`;
     overlayElement.style.top = `${rect.top + window.scrollY}px`;
-    overlayElement.style.width = `${rect.width}px`;
+    overlayElement.style.width = `${rect.width - scrollbarWidth}px`;
     overlayElement.style.height = `${rect.height}px`;
     
     // Sync scroll position
-    overlayElement.scrollLeft = activeElementForOverlay.scrollLeft;
-    overlayElement.scrollTop = activeElementForOverlay.scrollTop;
+    const scrollLeft = activeElementForOverlay.scrollLeft;
+    const scrollTop = activeElementForOverlay.scrollTop;
+    overlayElement.scrollLeft = scrollLeft;
+    overlayElement.scrollTop = scrollTop;
+
+    // Translate content to match internal scroll
+    if (overlayElement._contentDiv) {
+        overlayElement._contentDiv.style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px)`;
+    }
+
+    // Clip the top portion taking padding into account
+    const paddingTop = getPaddingTop(activeElementForOverlay);
+    const clipTop = Math.max(0, scrollTop - paddingTop);
+    overlayElement.style.clipPath = `inset(${clipTop}px 0px -10000px 0px)`;
 }
 
 // Function to create styled text content with completion
@@ -381,21 +405,39 @@ function showCompletion(element, completion) {
         copyElementStyles(element, overlayElement);
 
         // Position and sizing
+        const scrollbarWidth = Math.max(0, getVerticalScrollbarWidth(element));
         overlayElement.style.position = 'absolute';
         overlayElement.style.left = `${rect.left + window.scrollX}px`;
         overlayElement.style.top = `${rect.top + window.scrollY}px`;
-        overlayElement.style.width = `${rect.width}px`;
+        overlayElement.style.width = `${rect.width - scrollbarWidth}px`;
         overlayElement.style.height = `${rect.height}px`;
         overlayElement.style.zIndex = '2000000000'; // 2 billion as requested
         overlayElement.style.pointerEvents = 'none'; // Non-interactive
         overlayElement.style.background = 'transparent';
         overlayElement.style.border = 'none';
         overlayElement.style.outline = 'none';
-        overlayElement.style.overflow = 'hidden';
+        overlayElement.style.overflow = 'visible';
 
         // Build the styled content (existing text + completion span)
         const styledContent = createStyledTextContent(currentText, completion, element);
+        
+        // Position content relative and translate based on scroll
+        const initialScrollLeft = element.scrollLeft;
+        const initialScrollTop = element.scrollTop;
+        const paddingTopInitial = getPaddingTop(element);
+        styledContent.style.position = 'relative';
+        styledContent.style.left = '0';
+        styledContent.style.top = '0';
+        styledContent.style.transform = `translate(${-initialScrollLeft}px, ${-initialScrollTop}px)`;
+
         overlayElement.appendChild(styledContent);
+        
+        // Save reference for later updates
+        overlayElement._contentDiv = styledContent;
+
+        // Apply clipPath initially with padding accounted for
+        const initialClipTop = Math.max(0, initialScrollTop - paddingTopInitial);
+        overlayElement.style.clipPath = `inset(${initialClipTop}px 0px -10000px 0px)`;
 
         // Sync scroll position with the original element
         overlayElement.scrollLeft = element.scrollLeft;
