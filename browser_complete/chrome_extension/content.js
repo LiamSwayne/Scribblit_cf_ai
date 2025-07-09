@@ -7,11 +7,12 @@ const inputState = new WeakMap();
 // Global request counter to track request order
 let requestCounter = 0;
 
-// Global state for the currently displayed completion overlay
+// Global state
 let overlayElement = null;
 let activeElementForOverlay = null;
 let currentCompletion = '';
 let currentInput = '';
+let currentInputKind = 'NONE'; // Can be 'INPUT', 'TEXTAREA', 'CONTENTEDITABLE'
 
 // Domain-based caching and rejection system
 let completionsCache = new Map(); // input -> completion (for current domain)
@@ -214,6 +215,14 @@ function createRejectionKey(input, completion) {
 
 // Helper to calculate vertical scrollbar width for an element
 function getVerticalScrollbarWidth(el) {
+    // For contenteditable, we need to check the element itself for overflow,
+    // not just its properties, as it might not have an explicit scrollbar.
+    if (el.isContentEditable) {
+        if (el.scrollHeight > el.clientHeight) {
+            return el.offsetWidth - el.clientWidth;
+        }
+        return 0;
+    }
     return el.offsetWidth - el.clientWidth;
 }
 
@@ -230,7 +239,7 @@ function removeOverlay() {
         overlayElement = null;
     }
     if (activeElementForOverlay) {
-        activeElementForOverlay.removeEventListener('keydown', handleKeydown);
+        activeElementForOverlay.removeEventListener('keydown', handleKeydown, { capture: true });
         activeElementForOverlay.removeEventListener('scroll', updateOverlayPosition);
         window.removeEventListener('resize', updateOverlayPosition);
         window.removeEventListener('scroll', updateOverlayPosition);
@@ -238,6 +247,7 @@ function removeOverlay() {
     }
     currentCompletion = '';
     currentInput = '';
+    currentInputKind = 'NONE';
 }
 
 // Function to get completion from the background script
@@ -248,10 +258,11 @@ async function getCompletion(prompt, element) {
     const requestId = ++requestCounter;
     
     // Store the request ID and text for which we are requesting the completion
-    const textForRequest = element.value.substring(0, element.selectionEnd);
+    const textForRequest = getTextBeforeCursor(element);
     const state = inputState.get(element) || {};
     state.lastRequestText = textForRequest;
     state.currentRequestId = requestId;
+    state.inputKind = getInputKind(element); // Store kind
     inputState.set(element, state);
     
     try {
@@ -295,6 +306,56 @@ function addToRejections(input, completion) {
     console.log(`Added to rejections: ${rejectionKey}`);
     debouncedSaveRejections(); // Save updated rejections
 }
+
+// --- Abstraction Layer for Input Types ---
+
+function getInputKind(element) {
+    if (element.isContentEditable) return 'CONTENTEDITABLE';
+    if (element.tagName === 'TEXTAREA') return 'TEXTAREA';
+    if (element.tagName === 'INPUT') return 'INPUT';
+    return 'NONE';
+}
+
+function getTextBeforeCursor(element) {
+    const kind = getInputKind(element);
+    if (kind === 'INPUT' || kind === 'TEXTAREA') {
+        return element.value.substring(0, element.selectionEnd);
+    }
+    if (kind === 'CONTENTEDITABLE') {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || !element.contains(selection.anchorNode)) {
+            // Fallback: if no selection or selection is outside, return all text.
+            // This makes it behave as if cursor is at the end.
+            return element.textContent;
+        }
+        const range = selection.getRangeAt(0);
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(element);
+        preCaretRange.setEnd(range.startContainer, range.startOffset);
+        return preCaretRange.toString();
+    }
+    return '';
+}
+
+function isCursorAtEnd(element) {
+    const kind = getInputKind(element);
+    if (kind === 'INPUT' || kind === 'TEXTAREA') {
+        return element.selectionStart === element.value.length && element.selectionEnd === element.value.length;
+    }
+    if (kind === 'CONTENTEDITABLE') {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || !element.contains(selection.anchorNode)) {
+            return true; // Assume at end
+        }
+        const range = selection.getRangeAt(0).cloneRange();
+        range.selectNodeContents(element);
+        range.setStart(selection.focusNode, selection.focusOffset);
+        return range.toString().trim() === '';
+    }
+    return true; // Default to true
+}
+
+// --- End Abstraction Layer ---
 
 // Function to copy all relevant styles from the original element to the overlay
 function copyElementStyles(originalElement, overlayElement) {
@@ -365,6 +426,14 @@ function createStyledTextContent(existingText, completion, originalElement) {
     container.style.whiteSpace = 'pre-wrap';
     container.style.wordWrap = 'break-word';
     container.style.overflowWrap = 'break-word';
+
+    // For contenteditable, check for an inner block element like <p> and copy its margin
+    // This is crucial for editors like ProseMirror (used in ChatGPT) that wrap lines in <p> tags.
+    if (originalElement.isContentEditable && originalElement.firstElementChild) {
+        const childStyle = window.getComputedStyle(originalElement.firstElementChild);
+        // Only copy margin, as other text styles should be inherited from overlayElement
+        container.style.margin = childStyle.margin;
+    }
     
     // Add existing text with normal styling
     if (existingText) {
@@ -392,7 +461,8 @@ function showCompletion(element, completion) {
 
     const state = inputState.get(element);
     const textForRequest = state ? state.lastRequestText : '';
-    const currentText = element.value.substring(0, element.selectionEnd);
+    const currentText = getTextBeforeCursor(element);
+    currentInputKind = getInputKind(element);
 
     // If the text changed since we requested the completion, we need to adjust.
     if (textForRequest && currentText.startsWith(textForRequest)) {
@@ -466,12 +536,30 @@ function showCompletion(element, completion) {
 function acceptCompletion() {
     if (activeElementForOverlay && currentCompletion) {
         const el = activeElementForOverlay;
-        const textBefore = el.value.substring(0, el.selectionStart);
-        const textAfter = el.value.substring(el.selectionEnd);
         
-        // Insert the completion text and move the cursor to the end of it
-        el.value = textBefore + currentCompletion + textAfter;
-        el.selectionStart = el.selectionEnd = (textBefore + currentCompletion).length;
+        if (currentInputKind === 'INPUT' || currentInputKind === 'TEXTAREA') {
+            const textBefore = el.value.substring(0, el.selectionStart);
+            const textAfter = el.value.substring(el.selectionEnd);
+            
+            el.value = textBefore + currentCompletion + textAfter;
+            el.selectionStart = el.selectionEnd = (textBefore + currentCompletion).length;
+        } else if (currentInputKind === 'CONTENTEDITABLE') {
+            const selection = window.getSelection();
+            if (selection.rangeCount) {
+                const range = selection.getRangeAt(0);
+                range.deleteContents(); // Clear selection if any
+                
+                const textNode = document.createTextNode(currentCompletion);
+                range.insertNode(textNode);
+                
+                // Move cursor to the end of the inserted text
+                range.setStartAfter(textNode);
+                range.collapse(true);
+                
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        }
         
         // Manually dispatch an input event so the host page can react to the change
         el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
@@ -492,7 +580,8 @@ function removeOverlay() {
         overlayElement = null;
     }
     if (activeElementForOverlay) {
-        activeElementForOverlay.removeEventListener('keydown', handleKeydown);
+        // Remove event listeners
+        activeElementForOverlay.removeEventListener('keydown', handleKeydown, { capture: true });
         activeElementForOverlay.removeEventListener('scroll', updateOverlayPosition);
         window.removeEventListener('resize', updateOverlayPosition);
         window.removeEventListener('scroll', updateOverlayPosition);
@@ -500,6 +589,7 @@ function removeOverlay() {
     }
     currentCompletion = '';
     currentInput = '';
+    currentInputKind = 'NONE';
 }
 
 // Handles keyboard events to accept or dismiss the completion
@@ -517,6 +607,9 @@ function handleKeydown(e) {
             addToRejections(currentInput, currentCompletion);
         }
         
+        removeOverlay();
+    } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // On arrow keys, just hide the completion but allow the default behavior (cursor movement).
         removeOverlay();
     }
     // For any other key, we let the 'input' event in handleInput clear the overlay.
@@ -547,7 +640,7 @@ async function handleCompletionRequest(element, input, attempt = 1) {
         return;
     }
 
-    const currentText = element.value.substring(0, element.selectionEnd);
+    const currentText = getTextBeforeCursor(element);
     const textForRequest = currentState.lastRequestText;
 
     if (!currentText.startsWith(textForRequest)) {
@@ -582,7 +675,7 @@ async function handleCompletionRequest(element, input, attempt = 1) {
 
 const debouncedGetCompletion = debounce(async (element) => {
     // We only want completions if the user's cursor is at the end of the text.
-    if (element.selectionStart !== element.value.length) {
+    if (!isCursorAtEnd(element)) {
         removeOverlay();
         return;
     }
@@ -592,7 +685,7 @@ const debouncedGetCompletion = debounce(async (element) => {
         return;
     }
 
-    const textBeforeCursor = element.value.substring(0, element.selectionEnd);
+    const textBeforeCursor = getTextBeforeCursor(element);
     if (textBeforeCursor.length < 20) {
         return;
     }
@@ -619,6 +712,7 @@ function handleFocus(event) {
     const element = event.target;
     let state = inputState.get(element) || {};
     state.typedSinceFocus = false;
+    state.inputKind = getInputKind(element); // Set kind on focus
     inputState.set(element, state);
 }
 
@@ -655,11 +749,13 @@ function attachListeners() {
         element.addEventListener('blur', removeOverlay); 
     });
 
-    // Note: contentEditable support is more complex and is not handled here.
+    // Note: contentEditable support is now handled.
     document.querySelectorAll('[contenteditable="true"]').forEach(element => {
         if (element.dataset.scribblitListener) return;
         element.dataset.scribblitListener = 'true';
-        // The current logic is not designed for contentEditable elements.
+        element.addEventListener('focus', handleFocus);
+        element.addEventListener('input', handleInput);
+        element.addEventListener('blur', removeOverlay);
     });
 }
 
