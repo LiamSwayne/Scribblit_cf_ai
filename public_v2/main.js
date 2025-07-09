@@ -1347,7 +1347,6 @@ const settingsGearZIndex = 7001; // above settings modal but below settings moda
 const signInModalZIndex = 7002; // above settings modal
 const signInButtonZIndex = 7003; // above sign-in modal
 const signInTextZIndex = 7004; // above sign-in modal
-// ADD: z-index constants for the pro button elements
 const proButtonZIndex = 7005; // above sign-in text; below overlay/text
 const proOverlayZIndex = 7006; // gradient overlay between background and text
 const proTextZIndex = 7007; // highest element in pro button stack

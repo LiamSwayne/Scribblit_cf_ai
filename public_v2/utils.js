@@ -2949,19 +2949,7 @@ class ParallelNode {
     }
 
     add(node) {
-        ASSERT(type(node, Union(
-            StrategySelectionNode,
-            RequestNode,
-            ThinkingRequestNode,
-            RerouteToModelNode,
-            UserPromptNode,
-            UserAttachmentNode,
-            ProcessingNode,
-            CreatedEntityNode,
-            FailedToCreateEntityNode,
-            MergeEntitiesNode,
-            CompleteRequestNode
-        )));
+        ASSERT(type(node, nodesUnionType));
         this.nodes.push(node);
     }
 
@@ -3030,6 +3018,21 @@ function decodeNode(nodeJson) {
     }
 }
 
+let nodesUnionType = Union(
+    StrategySelectionNode,
+    RequestNode,
+    ThinkingRequestNode,
+    RerouteToModelNode,
+    UserPromptNode,
+    UserAttachmentNode,
+    ProcessingNode,
+    CreatedEntityNode,
+    FailedToCreateEntityNode,
+    MergeEntitiesNode,
+    CompleteRequestNode,
+    ParallelNode
+);
+
 // chain of events involved in a single user AI request
 // this contains a lot of data we don't need, but it exists to show the user
 class Chain {
@@ -3041,20 +3044,7 @@ class Chain {
 
     validate() {
         ASSERT(exists(this));
-        ASSERT(type(this.chain, List(Union(
-            StrategySelectionNode,
-            RequestNode,
-            ThinkingRequestNode,
-            RerouteToModelNode,
-            UserPromptNode,
-            UserAttachmentNode,
-            ProcessingNode,
-            CreatedEntityNode,
-            FailedToCreateEntityNode,
-            MergeEntitiesNode,
-            CompleteRequestNode,
-            ParallelNode
-        ))));
+        ASSERT(type(this.chain, List(nodesUnionType)));
         ASSERT(type(this.startTime, Int));
         ASSERT(this.startTime >= 0);
         ASSERT(exists(this.endTime));
@@ -3072,20 +3062,7 @@ class Chain {
         if (this.endTime !== NULL) {
             ASSERT(false, 'Chain.add: chain is already complete');
         }
-        ASSERT(type(node, Union(
-            StrategySelectionNode,
-            RequestNode,
-            ThinkingRequestNode,
-            RerouteToModelNode,
-            UserPromptNode,
-            UserAttachmentNode,
-            ProcessingNode,
-            CreatedEntityNode,
-            FailedToCreateEntityNode,
-            MergeEntitiesNode,
-            CompleteRequestNode,
-            ParallelNode
-        )));
+        ASSERT(type(node, nodesUnionType));
         this.chain.push(node);
     }
 
