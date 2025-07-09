@@ -13,10 +13,184 @@ let activeElementForGhost = null;
 let currentCompletion = '';
 let currentInput = '';
 
-// Caching and rejection system
-const completionsCache = new Map(); // input -> completion
-const rejectedCompletions = new Set(); // Set of "input|completion" strings
+// Domain-based caching and rejection system
+let completionsCache = new Map(); // input -> completion (for current domain)
+let rejectedCompletions = new Set(); // Set of "input|completion" strings (for current domain)
 const retryAttempts = new Map(); // input -> attempt count
+
+// IndexedDB setup
+const DB_NAME = 'ScribblitCache';
+const DB_VERSION = 1;
+const COMPLETIONS_STORE = 'completions';
+const REJECTIONS_STORE = 'rejections';
+
+let db = null;
+let currentDomain = '';
+
+// Initialize IndexedDB
+async function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            db = request.result;
+            resolve(db);
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            // Create completions store
+            if (!db.objectStoreNames.contains(COMPLETIONS_STORE)) {
+                const completionsStore = db.createObjectStore(COMPLETIONS_STORE, { keyPath: 'domain' });
+                completionsStore.createIndex('domain', 'domain', { unique: true });
+            }
+            
+            // Create rejections store
+            if (!db.objectStoreNames.contains(REJECTIONS_STORE)) {
+                const rejectionsStore = db.createObjectStore(REJECTIONS_STORE, { keyPath: 'domain' });
+                rejectionsStore.createIndex('domain', 'domain', { unique: true });
+            }
+        };
+    });
+}
+
+// Extract main domain from URL (handles subdomains)
+function extractMainDomain(url) {
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
+        
+        // Handle localhost and IP addresses
+        if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+            return hostname;
+        }
+        
+        // Split by dots and get the main domain (last two parts for most cases)
+        const parts = hostname.split('.');
+        if (parts.length >= 2) {
+            return parts.slice(-2).join('.');
+        }
+        
+        return hostname;
+    } catch (e) {
+        console.error('Error extracting domain:', e);
+        return 'unknown';
+    }
+}
+
+// Load cache data for current domain
+async function loadCacheForDomain(domain) {
+    if (!db) return;
+    
+    try {
+        // Load completions
+        const completionsResult = await new Promise((resolve, reject) => {
+            const transaction = db.transaction([COMPLETIONS_STORE], 'readonly');
+            const store = transaction.objectStore(COMPLETIONS_STORE);
+            const request = store.get(domain);
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+        
+        if (completionsResult && completionsResult.data) {
+            completionsCache = new Map(Object.entries(completionsResult.data));
+            console.log(`Loaded ${completionsCache.size} completions for domain: ${domain}`);
+        } else {
+            completionsCache = new Map();
+        }
+        
+        // Load rejections
+        const rejectionsResult = await new Promise((resolve, reject) => {
+            const transaction = db.transaction([REJECTIONS_STORE], 'readonly');
+            const store = transaction.objectStore(REJECTIONS_STORE);
+            const request = store.get(domain);
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+        
+        if (rejectionsResult && rejectionsResult.data) {
+            rejectedCompletions = new Set(rejectionsResult.data);
+            console.log(`Loaded ${rejectedCompletions.size} rejections for domain: ${domain}`);
+        } else {
+            rejectedCompletions = new Set();
+        }
+    } catch (error) {
+        console.error('Error loading cache for domain:', error);
+        completionsCache = new Map();
+        rejectedCompletions = new Set();
+    }
+}
+
+// Save completions cache to IndexedDB
+async function saveCompletionsCache() {
+    if (!db || !currentDomain) return;
+    
+    try {
+        await new Promise((resolve, reject) => {
+            const transaction = db.transaction([COMPLETIONS_STORE], 'readwrite');
+            const store = transaction.objectStore(COMPLETIONS_STORE);
+            
+            const data = {
+                domain: currentDomain,
+                data: Object.fromEntries(completionsCache.entries()),
+                lastUpdated: Date.now()
+            };
+            
+            const request = store.put(data);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+        
+        console.log(`Saved ${completionsCache.size} completions for domain: ${currentDomain}`);
+    } catch (error) {
+        console.error('Error saving completions cache:', error);
+    }
+}
+
+// Save rejections to IndexedDB
+async function saveRejectionsCache() {
+    if (!db || !currentDomain) return;
+    
+    try {
+        await new Promise((resolve, reject) => {
+            const transaction = db.transaction([REJECTIONS_STORE], 'readwrite');
+            const store = transaction.objectStore(REJECTIONS_STORE);
+            
+            const data = {
+                domain: currentDomain,
+                data: Array.from(rejectedCompletions),
+                lastUpdated: Date.now()
+            };
+            
+            const request = store.put(data);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+        
+        console.log(`Saved ${rejectedCompletions.size} rejections for domain: ${currentDomain}`);
+    } catch (error) {
+        console.error('Error saving rejections cache:', error);
+    }
+}
+
+// Initialize domain-specific cache
+async function initializeDomainCache() {
+    const newDomain = extractMainDomain(window.location.href);
+    
+    if (newDomain !== currentDomain) {
+        currentDomain = newDomain;
+        console.log(`Initializing cache for domain: ${currentDomain}`);
+        
+        // Load cache for this domain
+        await loadCacheForDomain(currentDomain);
+    }
+}
 
 // Debounce function to limit how often a function is called
 function debounce(func, delay) {
@@ -28,6 +202,10 @@ function debounce(func, delay) {
         }, delay);
     };
 }
+
+// Debounced save functions to prevent excessive IndexedDB writes
+const debouncedSaveCompletions = debounce(saveCompletionsCache, 1000);
+const debouncedSaveRejections = debounce(saveRejectionsCache, 1000);
 
 // Helper function to create rejection key
 function createRejectionKey(input, completion) {
@@ -98,9 +276,11 @@ function addToRejections(input, completion) {
     // Remove from cache if it exists
     if (completionsCache.has(input)) {
         completionsCache.delete(input);
+        debouncedSaveCompletions(); // Save updated cache
     }
     
     console.log(`Added to rejections: ${rejectionKey}`);
+    debouncedSaveRejections(); // Save updated rejections
 }
 
 /**
@@ -154,7 +334,26 @@ function showCompletion(element, completion) {
         ghostElement.textContent = remainingCompletion;
         ghostElement.style.position = 'absolute';
         ghostElement.style.pointerEvents = 'none'; // Click through the ghost text
-        ghostElement.style.color = 'grey';
+        ghostElement.style.zIndex = '2147483647'; // Maximum z-index to ensure it's always on top
+        
+        // Set color to match input field but with half opacity
+        const inputColor = style.color;
+        const inputOpacity = parseFloat(style.opacity) || 1;
+        const ghostOpacity = inputOpacity * 0.5;
+        
+        // Parse the color and apply the new opacity
+        if (inputColor.startsWith('rgba')) {
+            // Replace existing alpha with new opacity
+            ghostElement.style.color = inputColor.replace(/rgba\(([^)]+),\s*[^)]+\)/, `rgba($1, ${ghostOpacity})`);
+        } else if (inputColor.startsWith('rgb')) {
+            // Convert rgb to rgba with new opacity
+            ghostElement.style.color = inputColor.replace('rgb', 'rgba').replace(')', `, ${ghostOpacity})`);
+        } else {
+            // For other color formats, use the color with opacity property
+            ghostElement.style.color = inputColor;
+            ghostElement.style.opacity = ghostOpacity.toString();
+        }
+        
         ghostElement.style.boxSizing = style.boxSizing;
 
         // Copy styles that affect positioning and appearance
@@ -200,6 +399,7 @@ function acceptCompletion() {
         // Add to cache for future use
         if (currentInput && currentCompletion) {
             completionsCache.set(currentInput, currentCompletion);
+            debouncedSaveCompletions(); // Save updated cache
         }
     }
     removeGhostText();
@@ -277,6 +477,7 @@ async function handleCompletionRequest(element, input, attempt = 1) {
     // Valid completion, show it and cache it
     showCompletion(element, completion);
     completionsCache.set(input, completion);
+    debouncedSaveCompletions(); // Save updated cache
     
     // Reset retry attempts for this input
     retryAttempts.delete(input);
@@ -299,17 +500,17 @@ const debouncedGetCompletion = debounce(async (element) => {
         return;
     }
 
-    // Check if we've hit max retry attempts for this input
-    if (retryAttempts.has(textBeforeCursor) && retryAttempts.get(textBeforeCursor) >= 3) {
-        console.log(`Max retry attempts reached for input: ${textBeforeCursor}`);
-        return;
-    }
-
     // First, check if we have a cached completion for this input
     if (completionsCache.has(textBeforeCursor)) {
         const cachedCompletion = completionsCache.get(textBeforeCursor);
         console.log(`Using cached completion: ${cachedCompletion}`);
         showCompletion(element, cachedCompletion);
+        return;
+    }
+
+    // Check if we've hit max retry attempts for this input
+    if (retryAttempts.has(textBeforeCursor) && retryAttempts.get(textBeforeCursor) >= 3) {
+        console.log(`Max retry attempts reached for input: ${textBeforeCursor}`);
         return;
     }
 
@@ -340,6 +541,9 @@ function handleInput(event) {
     // Invalidate any pending requests by updating the request ID
     state.currentRequestId = ++requestCounter;
     inputState.set(element, state);
+    
+    // Check if domain changed (for SPA navigation)
+    initializeDomainCache();
     
     debouncedGetCompletion(element);
 }
@@ -375,4 +579,14 @@ observer.observe(document.body, {
     subtree: true
 });
 
-console.log("Scribblit content script loaded and observer started."); 
+// Initialize IndexedDB and domain cache
+(async function initialize() {
+    try {
+        await initDB();
+        await initializeDomainCache();
+        console.log("Scribblit content script loaded with IndexedDB support.");
+    } catch (error) {
+        console.error("Error initializing Scribblit:", error);
+        console.log("Scribblit content script loaded without IndexedDB support.");
+    }
+})(); 

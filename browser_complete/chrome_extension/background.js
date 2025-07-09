@@ -92,7 +92,7 @@ function parseCompletion(fullText, completionResponse) {
     }
 
     // the model sometimes refers to the user as "the user", indicating that their output doesn't fit what we're looking for
-    if (completion.includes('the user')) {
+    if (completion.toLowerCase().includes('the user')) {
         return '';
     }
 
@@ -116,6 +116,11 @@ function parseCompletion(fullText, completionResponse) {
     if (completion.endsWith('"')) {
         completion = completion.substring(0, completion.length - 1);
         completion = completion.trimEnd();
+    }
+
+    // sometimes the model misunderstands and ends with ...
+    if (completion.endsWith('...')) {
+        completion = completion.substring(0, completion.length - 3);
     }
 
     if (completion.length === 0) {
@@ -153,17 +158,39 @@ function parseCompletion(fullText, completionResponse) {
     // Extract the remaining part after the overlap
     let remaining = completion.slice(overlapLength);
     
-    // If the remaining part starts with a space, keep it; otherwise add one if needed
-    if (remaining.length > 0 && precedingChars.length > 0 && !remaining.startsWith(' ') && !precedingChars.endsWith(' ')) {
-        // Check if we're completing a word (no space needed) or starting a new word (space needed)
-        const lastChar = precedingChars[precedingChars.length - 1];
-        if (lastChar !== ' ' && remaining[0] !== ' ') {
-            // We're likely completing a word, don't add space
+    // Handle spacing correctly
+    if (remaining.length > 0 && precedingChars.length > 0) {
+        const userEndsWithSpace = precedingChars.endsWith(' ');
+        const remainingStartsWithSpace = remaining.startsWith(' ');
+        
+        if (userEndsWithSpace && remainingStartsWithSpace) {
+            // Both have spaces, remove one to avoid double space
             remaining = remaining.trimStart();
-        }
-    } else {
-        remaining = remaining.trimStart();
-    }
+        } else if (!userEndsWithSpace && remainingStartsWithSpace) {
+            // User doesn't end with space but completion starts with space - keep the space
+            // This is the correct case for "was" + " out of touch"
+            // Don't trim the space
+        } else if (!userEndsWithSpace && !remainingStartsWithSpace) {
+            // Neither has space, add one unless we're completing a word
+            const lastChar = precedingChars[precedingChars.length - 1];
+            if (lastChar.match(/[a-zA-Z0-9]/)) {
+                // Check if this looks like word completion vs new word
+                // If the remaining text starts with a letter/number, likely completing a word
+                if (remaining[0] && remaining[0].match(/[a-zA-Z0-9]/)) {
+                    // Likely completing a word, don't add space
+                } else {
+                    // Starting a new word, add space
+                    remaining = ' ' + remaining;
+                }
+            } else {
+                // Previous char is punctuation, likely need space
+                remaining = ' ' + remaining;
+            }
+                 }
+         // else: userEndsWithSpace && !remainingStartsWithSpace - no change needed
+     }
+
+    console.log("After spacing logic - remaining:", JSON.stringify(remaining));
 
     if (remaining.length === 0 || remaining.includes('NULL')) {
         return '';
