@@ -198,6 +198,211 @@ let activeStrategy = NULL;
 let inputBoxFocused = false;
 
 // Save user data to localStorage and server
+async function saveUserData(user, skipRender = false) {  
+    ASSERT(exists(user), "no user passed to saveUserData");
+    ASSERT(type(user, User));
+    ASSERT(type(LocalData.get('signedIn'), Boolean));
+    // ms timestamp
+// Load LocalData immediately
+LocalData.load();
+
+// start loading fonts immediately on page load
+const fontDefinitions = [
+    // StratfordSerial is the primary font
+    { key: 'PrimaryRegular', url: 'https://super-publisher.pages.dev/YOOOOOOOOOOOOO.woff2' },
+    { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/Bold.woff2' },
+    // { key: 'PrimaryExtraBold', url: 'https://super-publisher.pages.dev/Extrabold.woff2' },
+    // { key: 'PrimaryBlack', url: 'https://super-publisher.pages.dev/Black.woff2' },
+    { key: 'MonospacePrimary', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
+];
+
+let preservedFontCss = {};
+for (const font of fontDefinitions) {
+    preservedFontCss[font.key] = localStorage.getItem('font' + font.key + font.url);
+}
+
+async function loadFonts() {
+    const fontPromises = fontDefinitions.map(async (fontDef) => {
+        let cachedBase64 = preservedFontCss[fontDef.key];
+        if (cachedBase64) {
+            if (TESTING) {
+                // we want the key and url to be what we're looking for
+                localStorage.setItem('font' + fontDef.key + fontDef.url, cachedBase64); // Restore after clear
+            }
+            return cachedBase64;
+        } else {
+            try {
+                const response = await fetch(fontDef.url);
+                if (!response.ok) throw new Error(`Failed to fetch font: ${fontDef.key}`);
+                
+                const fontBlob = await response.blob();
+                const base64Font = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(fontBlob);
+                });
+                
+                localStorage.setItem('font' + fontDef.key + fontDef.url, base64Font);
+                return base64Font;
+
+            } catch (error) {
+                log('Error loading font:');
+                log(error.message);
+            }
+        }
+    });
+
+    const fontData = await Promise.all(fontPromises);
+
+    // Create clean @font-face rules - each font style is its own family
+    const fontFaceRules = [];
+    const fontFaces = [];
+    
+    fontDefinitions.forEach((fontDef, index) => {
+        const base64Data = fontData[index];
+        if (base64Data) {
+            fontFaceRules.push(`
+                @font-face {
+                    font-family: '${fontDef.key}';
+                    font-weight: normal;
+                    font-style: normal;
+                    font-display: swap;
+                    src: url('${base64Data}') format('woff2');
+                }
+            `);
+            
+            // Create FontFace object for proper loading detection
+            const fontFace = new FontFace(fontDef.key, `url('${base64Data}') format('woff2')`);
+            fontFaces.push(fontFace);
+        }
+    });
+
+    if (fontFaceRules.length > 0) {
+        const styleElement = HTML.make('style');
+        styleElement.textContent = fontFaceRules.join('');
+        HTML.head.appendChild(styleElement);
+        
+        // Load fonts properly and wait for them
+        const loadPromises = fontFaces.map(async (fontFace) => {
+            try {
+                await fontFace.load();
+                document.fonts.add(fontFace);
+                return true;
+            } catch (error) {
+                log(`Failed to load font: ${fontFace.family}`);
+                return false;
+            }
+        });
+        
+        await Promise.all(loadPromises);
+    }
+}
+
+const fontLoadingPromise = loadFonts();
+
+// Global mouse position tracking for robust hover detection
+// this is expensive, but it's needed to fix a hover bug until i find a better solution
+window.lastMouseX = 0;
+window.lastMouseY = 0;
+document.addEventListener('mousemove', (e) => {
+    window.lastMouseX = e.clientX;
+    window.lastMouseY = e.clientY;
+});
+
+// Calendar navigation keyboard handlers
+document.addEventListener('keydown', (e) => {
+    // Don't process arrow keys when user is typing in text inputs
+    if (currentlyTyping) return;
+    
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateCalendar('left', e.shiftKey);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateCalendar('right', e.shiftKey);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        toggleNumberOfCalendarDays(true, e.shiftKey);
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        toggleNumberOfCalendarDays(false, e.shiftKey);
+    }
+});
+
+document.addEventListener('paste', async (e) => {
+    if (e.clipboardData.files.length > 0) {
+        log('Pasted a file', e.clipboardData.files);
+        // add to file array
+        for (const file of e.clipboardData.files) {
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            attachedFiles.push({
+                name: file.name,
+                mimeType: file.type,
+                data: base64Data,
+                size: file.size
+            });
+            updateAttachmentBadge();
+        }
+    } else {
+        const text = e.clipboardData.getData('text/plain');
+        if (text) {
+            log('Pasted text: "' + text + '"');
+        }
+
+        if (text.length > 1000) {
+            log('Pasted text is too long, make it a file');
+            // add to file array
+            attachedFiles.push({
+                name: 'pasted_text_' + String(Date.now()) + '.txt',
+                mimeType: 'text/plain',
+                data: text,
+                size: text.length
+            });
+            updateAttachmentBadge();
+        } else if (inputBoxFocused) {
+            // add it to the input box content
+            const inputBox = HTML.getElement('inputBox');
+            inputBox.value += text;
+            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            // focus the input box, then add the text
+            const inputBox = HTML.getElement('inputBox');
+            inputBox.focus();
+            inputBox.value += text;
+            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+});
+
+const SERVER_DOMAIN_ROOT = 'scribblit-production.unrono.workers.dev';
+const SERVER_PRODUCTION_DOMAIN = 'app.scribbl.it';
+// when testing, use the root domain since the other one doesn't allow this origin
+const SERVER_DOMAIN = SERVER_PRODUCTION_DOMAIN;
+const PAGES_DOMAIN = 'scribblit2.pages.dev';
+const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
+let headerButtonSize = 22;
+let firstDayInCalendar = NULL; // the first day shown in calendar
+let taskListManualHeightAdjustment;
+const allDayEventHeight = 18; // height in px for each all-day event
+const columnWidthThreshold = 300; // px
+const spaceForTaskDateAndTime = 30; // px
+const dividerWidth = 3; // px width for both horizontal and vertical dividers
+const vibrantRedColor = '#ff4444';
+let activeCheckboxIds = new Set();
+let STRATEGIES = {
+    SINGLE_CHAIN: 'single_chain',
+    STEP_BY_STEP: 'step_by_step'
+}
+let activeStrategy = NULL;
+let inputBoxFocused = false;
+
+// Save user data to localStorage and server
 async function saveUserData(user) {  
     ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
@@ -209,7 +414,7 @@ async function saveUserData(user) {
     // this should never happen, but as a failsafe we sadly throw away the corrupted entities
     let newEntityArray = [];
     for (const entity of user.entityArray) {
-        if (type(entity, Entity)) {
+        if (!type(entity, Entity)) {
             log("WARNING: corrupted entity found, skipping:");
             log(entity);
         } else {
@@ -1343,7 +1548,8 @@ if (TESTING) {
         {
             ampmOr24: 'ampm',
             startOfDayOffset: 0,
-            endOfDayOffset: 0
+            endOfDayOffset: 0,
+            hideEmptyTimespanInCalendar: false,
         },
         palettes.dark,
         NULL,
@@ -2953,7 +3159,7 @@ function renderDay(day, index) {
     
     // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
     if (HTML.getElementUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
-        // if one is missing, all 24 must be missing
+        // if one is missing, all 25 must be missing
         for (let j = 0; j < 25; j++) {
             let hourMarker = HTML.make('div');
             HTML.setId(hourMarker, `day${index}hourMarker${j}`);
@@ -7205,7 +7411,8 @@ function openSettingsModal() {
     if (LocalData.get('signedIn')) {
         modalHeight = 100;
     } else {
-        modalHeight = 41;
+        // Increased height to accommodate the new "Remove empty time from days" label
+        modalHeight = 60;
     }
     
     // Create modal div that starts as the button background
@@ -7292,6 +7499,29 @@ function openSettingsModal() {
         // Fade in the label
         setTimeout(() => { HTML.setStyle(timeFormatLabel, { opacity: '1' }); }, 10);
         
+        // ------------------------------
+        // Remove empty time label (placeholder — toggle coming later)
+        // ------------------------------
+        const removeEmptyTimesLabel = HTML.make('div');
+        HTML.setId(removeEmptyTimesLabel, 'removeEmptyTimesLabel');
+        const removeEmptyTimesText = 'Remove empty time from days';
+        removeEmptyTimesLabel.textContent = removeEmptyTimesText;
+        HTML.setStyle(removeEmptyTimesLabel, {
+            position: 'fixed',
+            right: (window.innerWidth - modalRect.left - measureTextWidth(removeEmptyTimesText, 'MonospacePrimary', 10) - 5) + 'px',
+            top: (modalRect.top + 42) + 'px', // 24px below the first label
+            fontFamily: 'MonospacePrimary',
+            fontSize: '10px',
+            color: 'var(--shade-4)',
+            zIndex: '7002',
+            lineHeight: '24px',
+            opacity: '0',
+            transition: 'opacity 0.2s ease-in'
+        });
+        HTML.body.appendChild(removeEmptyTimesLabel);
+        // Fade in the label
+        setTimeout(() => { HTML.setStyle(removeEmptyTimesLabel, { opacity: '1' }); }, 10);
+
         createSelector(
             ['24hr', 'AM/PM'],           // options: array of selectable strings
             'horizontal',                // orientation: layout direction
@@ -7373,18 +7603,21 @@ function openSettingsModal() {
             featureRequestButton.onclick = () => {
                 const settingsText = HTML.getElement('settingsText');
                 const timeFormatLabel = HTML.getElement('timeFormatLabel');
+                const removeEmptyTimesLabel = HTML.getElement('removeEmptyTimesLabel');
                 const logoutButton = HTML.getElement('logoutButton');
                 
                 // Start animations immediately
                 deleteSelector('timeFormatSelector');
                 HTML.setStyle(settingsText, { opacity: '0' });
                 HTML.setStyle(timeFormatLabel, { opacity: '0' });
+                HTML.setStyle(removeEmptyTimesLabel, { opacity: '0' });
                 HTML.setStyle(logoutButton, { opacity: '0' });
                 HTML.setStyle(featureRequestButton, { opacity: '0' });
 
                 setTimeout(() => {
                     HTML.setStyle(settingsText, { display: 'none' });
                     HTML.setStyle(timeFormatLabel, { display: 'none' });
+                    HTML.setStyle(removeEmptyTimesLabel, { display: 'none' });
                     HTML.setStyle(logoutButton, { display: 'none' });
                     HTML.setStyle(featureRequestButton, { display: 'none' });
 
@@ -7575,6 +7808,7 @@ function openSettingsModal() {
                             // Prepare original elements for fade-in
                             HTML.setStyle(settingsText, { display: 'block', opacity: '0' });
                             HTML.setStyle(timeFormatLabel, { display: 'block', opacity: '0' });
+                            HTML.setStyle(removeEmptyTimesLabel, { display: 'block', opacity: '0' });
                             HTML.setStyle(logoutButton, { display: 'block', opacity: '0' });
                             HTML.setStyle(featureRequestButton, { display: 'block', opacity: '0' });
 
@@ -7595,9 +7829,9 @@ function openSettingsModal() {
                             settingsText.offsetHeight;
                             HTML.setStyle(settingsText, { opacity: '1' });
                             HTML.setStyle(timeFormatLabel, { opacity: '1' });
+                            HTML.setStyle(removeEmptyTimesLabel, { opacity: '1' });
                             HTML.setStyle(logoutButton, { opacity: '1' });
                             HTML.setStyle(featureRequestButton, { opacity: '1' });
-
                         }, 200);
                     };
 
@@ -7676,6 +7910,7 @@ function closeSettingsModal() {
     // Fade out settings text, time format label, and buttons
     const settingsText = HTML.getElementUnsafely('settingsText');
     const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
+    const removeEmptyTimesLabel = HTML.getElementUnsafely('removeEmptyTimesLabel');
     const logoutButton = HTML.getElementUnsafely('logoutButton');
     const featureRequestButton = HTML.getElementUnsafely('featureRequestButton');
     const featureRequestBackButton = HTML.getElementUnsafely('featureRequestBackButton');
@@ -7704,6 +7939,18 @@ function closeSettingsModal() {
         setTimeout(() => {
             if (timeFormatLabel && timeFormatLabel.parentNode) {
                 HTML.body.removeChild(timeFormatLabel);
+            }
+        }, 200);
+    }
+    
+    if (removeEmptyTimesLabel) {
+        HTML.setStyle(removeEmptyTimesLabel, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (removeEmptyTimesLabel && removeEmptyTimesLabel.parentNode) {
+                HTML.body.removeChild(removeEmptyTimesLabel);
             }
         }, 200);
     }
