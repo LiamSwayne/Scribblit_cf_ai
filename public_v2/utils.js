@@ -2981,6 +2981,53 @@ class ParallelNode {
     }
 }
 
+class ParallelChainNode {
+    // preliminary construction
+    constructor(description) {
+        ASSERT(type(description, NonEmptyString));
+        this.nodes = [];
+        this.startTime = Date.now();
+        this.endTime = NULL;
+        this.description = description;
+    }
+
+    add(node) {
+        ASSERT(type(node, nodesUnionType));
+        this.nodes.push(node);
+    }
+
+    // finished construction after adding all nodes
+    complete() {
+        for (const chain of this.chains) {
+            ASSERT(type(chain, Chain));
+            chain.completeRequest();
+        }
+        this.endTime = Date.now();
+    }
+
+    encode() {
+        ASSERT(type(this, ParallelChainNode));
+        return {
+            nodes: this.nodes.map(node => node.encode()),
+            startTime: this.startTime,
+            endTime: this.endTime,
+            description: this.description,
+            _type: 'ParallelChainNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'ParallelChainNode');
+        let nodes = [];
+        for (const nodeJson of json.nodes) {
+            nodes.push(decodeNode(nodeJson));
+        }
+        ASSERT(type(nodes, List(Node)));
+        return new ParallelChainNode(json.description, nodes, json.startTime, json.endTime);
+    }
+}
+
 class CompleteRequestNode {
     constructor(startTime, endTime) {
         ASSERT(type(startTime, Int));
@@ -3030,7 +3077,8 @@ let nodesUnionType = Union(
     FailedToCreateEntityNode,
     MergeEntitiesNode,
     CompleteRequestNode,
-    ParallelNode
+    ParallelNode,
+    ParallelChainNode
 );
 
 // chain of events involved in a single user AI request

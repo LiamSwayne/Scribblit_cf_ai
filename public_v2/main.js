@@ -7120,18 +7120,20 @@ function openSettingsModal() {
     
     if (proButtonElem) {
         HTML.setStyle(proButtonElem, {
-            zIndex: String(proButtonZIndex - 200)
+            zIndex: String(proButtonZIndex - 400)
         });
     }
     if (proOverlayElem) {
         HTML.setStyle(proOverlayElem, {
-            zIndex: String(proOverlayZIndex - 200)
+            zIndex: String(proOverlayZIndex - 400)
         });
     }
     if (proTextElem) {
-        HTML.setStyle(proTextElem, {
-            zIndex: String(proTextZIndex - 200)
-        });
+        setTimeout(() => {
+            HTML.setStyle(proTextElem, {
+                zIndex: String(proTextZIndex - 200)
+            });
+        }, 100);
     }
     
     const settingsButton = HTML.getElement('settingsButton');
@@ -7714,27 +7716,6 @@ function closeSettingsModal() {
             });
         }
         
-        // restore pro button (if present) to its normal z-index
-        const proButtonElem = HTML.getElementUnsafely('proButton');
-        const proOverlayElem = HTML.getElementUnsafely('proOverlay');
-        const proTextElem = HTML.getElementUnsafely('proText');
-        
-        if (proButtonElem) {
-            HTML.setStyle(proButtonElem, {
-                zIndex: String(proButtonZIndex)
-            });
-        }
-        if (proOverlayElem) {
-            HTML.setStyle(proOverlayElem, {
-                zIndex: String(proOverlayZIndex)
-            });
-        }
-        if (proTextElem) {
-            HTML.setStyle(proTextElem, {
-                zIndex: String(proTextZIndex)
-            });
-        }
-        
         // Animate modal back to button size
         HTML.setStyle(settingsModal, {
             width: '0px',
@@ -7749,6 +7730,27 @@ function closeSettingsModal() {
             if (settingsModal) {
                 HTML.body.removeChild(settingsModal);
                 settingsModal = null;
+            }
+
+            // restore pro button (if present) to its normal z-index
+            const proButtonElem = HTML.getElementUnsafely('proButton');
+            const proOverlayElem = HTML.getElementUnsafely('proOverlay');
+            const proTextElem = HTML.getElementUnsafely('proText');
+            
+            if (proButtonElem) {
+                HTML.setStyle(proButtonElem, {
+                    zIndex: String(proButtonZIndex)
+                });
+            }
+            if (proOverlayElem) {
+                HTML.setStyle(proOverlayElem, {
+                    zIndex: String(proOverlayZIndex)
+                });
+            }
+            if (proTextElem) {
+                HTML.setStyle(proTextElem, {
+                    zIndex: String(proTextZIndex)
+                });
             }
         }, 400);
     }
