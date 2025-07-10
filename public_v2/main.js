@@ -5576,7 +5576,7 @@ async function toggleHidingEmptyTimespanInCalendar(enabled) {
     }
     user.settings.hideEmptyTimespanInCalendar = enabled;
     await saveUserData(user);
-    renderCalendar();
+    renderCalendar(currentDays());
 }
 
 function toggleStacking() {
