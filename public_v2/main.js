@@ -150,30 +150,49 @@ document.addEventListener('paste', async (e) => {
 
         updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
     } else {
-        const text = e.clipboardData.getData('text/plain');
-        if (text) {
-            log('Pasted text: "' + text + '"');
-        }
-
-        if (text.length > 1000) {
-            log('Pasted text is too long, make it a file');
-            // add to file array
-            attachedFiles.push({
-                name: 'pasted_text_' + String(Date.now()) + '.txt',
-                mimeType: 'text/plain',
-                data: text,
-                size: text.length
-            });
-            updateAttachmentBadge();
-            updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
+        if (signInModalOpen) {
+            const text = e.clipboardData.getData('text/plain');
+            if (text) {
+                // add to email field if neither email nor password is focused
+                const emailInput = HTML.getElement('signInEmailInput');
+                const passwordInput = HTML.getElement('signInPasswordInput');
+                if (document.activeElement !== emailInput && document.activeElement !== passwordInput) {
+                    if (emailInput.value.length === 0) {
+                        emailInput.value = text;
+                    } else if (passwordInput.value.length === 0) {
+                        passwordInput.value = text;
+                    } else {
+                        // just allow the default behavior
+                        log('Pasted text: "' + text + '"');
+                    }
+                }
+            }
         } else {
-            const inputBox = HTML.getElement('inputBox');
-            inputBox.focus();
-            // add it to the input box content
-            log('Pasted text: "' + text + '"');
-            inputBox.value += text;
-            if (attachedFiles.length === 0) {
-                updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
+            const text = e.clipboardData.getData('text/plain');
+            if (text) {
+                log('Pasted text: "' + text + '"');
+            }
+
+            if (text.length > 1000) {
+                log('Pasted text is too long, make it a file');
+                // add to file array
+                attachedFiles.push({
+                    name: 'pasted_text_' + String(Date.now()) + '.txt',
+                    mimeType: 'text/plain',
+                    data: text,
+                    size: text.length
+                });
+                updateAttachmentBadge();
+                updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
+            } else {
+                const inputBox = HTML.getElement('inputBox');
+                inputBox.focus();
+                // add it to the input box content
+                log('Pasted text: "' + text + '"');
+                inputBox.value += text;
+                if (attachedFiles.length === 0) {
+                    updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
+                }
             }
         }
     }
@@ -8324,7 +8343,7 @@ function showEmailInputForm() {
         // Create sign in button
         const signInActionButton = HTML.make('button');
         HTML.setId(signInActionButton, 'signInActionButton');
-        signInActionButton.textContent = 'Sign In';
+        signInActionButton.textContent = 'sign in';
         
         let signInSignUpButtonWidth = ((modalWidth - 34) / 2) + 5;
         
@@ -8359,7 +8378,7 @@ function showEmailInputForm() {
         // Create sign up button
         const signUpActionButton = HTML.make('button');
         HTML.setId(signUpActionButton, 'signUpActionButton');
-        signUpActionButton.textContent = 'Sign Up';
+        signUpActionButton.textContent = 'sign up';
         
         HTML.setStyle(signUpActionButton, {
             position: 'fixed',
