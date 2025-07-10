@@ -9379,6 +9379,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
     const responses2 = await Promise.all(promises);
     let newEntities = [];
+    let responseJson2s = [];
 
     for (let i = 0; i < responses2.length; i++) {
         if (!responses2[i].ok) {
@@ -9396,18 +9397,15 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         for (const nodeJson of responseJson.chain) {
             parallelNode.add(Chain.nodeFromJson(nodeJson));
         }
+
+        responseJson2s.push(responseJson);
     }
 
     parallelNode.complete();
     chain.add(parallelNode);
 
     for (let i = 0; i < responses2.length; i++) {
-        if (!responses2[i].ok) {
-            console.error('AI parse request failed for step 2', await responses2[i].text());
-            continue;
-        }
-
-        const responseJson = await responses2[i].json();
+        const responseJson = responseJson2s[i];
 
         if (!exists(responseJson.aiOutput)) {
             log("Error: aiOutput is required for step_by_step:2/2 strategy.");
