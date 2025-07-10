@@ -3115,7 +3115,6 @@ class Chain {
     }
 
     static nodeFromJson(nodeObject) {
-        this.validate();
         ASSERT(type(nodeObject, Object));
 
         if (exists(nodeObject.request)) {
