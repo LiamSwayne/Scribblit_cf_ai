@@ -2491,6 +2491,7 @@ class Entity {
 
     encode() {
         ASSERT(type(this, Entity));
+
         return {
             id: this.id,
             name: this.name,
@@ -2502,6 +2503,7 @@ class Entity {
 
     static decode(json) {
         ASSERT(exists(json) && exists(json.data));
+
         let data;
         if (json.data._type === 'TaskData') {
             data = TaskData.decode(json.data);

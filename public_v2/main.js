@@ -4858,10 +4858,8 @@ function renderCalendar(days) {
     ASSERT(type(days, List(DateField)));
     ASSERT(exists(numberOfDays) && days.length == numberOfDays, "renderCalendar days must be an array of length LocalData.get('numberOfDays')");
     ASSERT(type(isStacking, Boolean));
-    // ------------------------------------------------------------
     // Compute the universal earliest and latest hour across all
     // rendered days when the user wants to hide empty spans.
-    // ------------------------------------------------------------
     if (user.settings.hideEmptyTimespanInCalendar) {
         const MS_PER_HOUR = 3600000;
         let globalEarliestMs = 24 * MS_PER_HOUR; // start with max
