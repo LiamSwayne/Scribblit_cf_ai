@@ -1340,20 +1340,10 @@ if (TESTING) {
     log("Clean slate");
 
     // Create user object with the sample data
-    let user = new User(
-        TESTING_USER_IS_EMPTY ? [] : createFakeEntityArray(),
-        {
-            ampmOr24: 'ampm',
-            hideEmptyTimespanInCalendar: false
-        },
-        palettes.dark,
-        NULL,
-        NULL,
-        0,
-        Date.now(),
-        "free",
-        []
-    );
+    let user = User.createDefault();
+    if (!TESTING_USER_IS_EMPTY) {
+        user.entityArray = createFakeEntityArray();
+    }
     
     // Store using saveUserData function (async, non-blocking)
     saveUserData(user);
