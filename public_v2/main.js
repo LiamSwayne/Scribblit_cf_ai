@@ -9140,7 +9140,6 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     }
 
     const responseJson = await response.json();
-    log('responseJson: ' + JSON.stringify(responseJson));
 
     if (responseJson.error && responseJson.error.length > 0) {
         log("Error: " + responseJson.error);
@@ -9157,7 +9156,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     }
 
     // we asked the ai for an array of entities, so we need to extract it
-    const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '[]');
+    const aiJson = extractJsonFromAiOutput(responseJson.aiOutput.response, chain, '[]');
 
     if (aiJson === NULL) {
         log("Error: Failed to extract JSON from AI output");
