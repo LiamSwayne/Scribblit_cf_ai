@@ -8294,14 +8294,16 @@ function showEmailInputForm() {
             outline: 'none',
             zIndex: String(signInTextZIndex + 101),
             opacity: '0',
-            transition: 'opacity 0.3s ease-in'
+            transition: 'opacity 0.3s ease-in, border 0.2s ease'
         });
         
         emailInput.addEventListener('focus', function() {
             currentlyTyping = true;
+            HTML.setStyle(emailInput, { border: '1px solid var(--accent-1)' });
         });
         emailInput.addEventListener('blur', function() {
             currentlyTyping = false;
+            HTML.setStyle(emailInput, { border: '1px solid var(--shade-2)' });
         });
         
         HTML.body.appendChild(emailInput);
@@ -8328,14 +8330,16 @@ function showEmailInputForm() {
             outline: 'none',
             zIndex: String(signInTextZIndex + 101),
             opacity: '0',
-            transition: 'opacity 0.3s ease-in'
+            transition: 'opacity 0.3s ease-in, border 0.2s ease'
         });
         
         passwordInput.addEventListener('focus', function() {
             currentlyTyping = true;
+            HTML.setStyle(passwordInput, { border: '1px solid var(--accent-1)' });
         });
         passwordInput.addEventListener('blur', function() {
             currentlyTyping = false;
+            HTML.setStyle(passwordInput, { border: '1px solid var(--shade-2)' });
         });
         
         HTML.body.appendChild(passwordInput);
