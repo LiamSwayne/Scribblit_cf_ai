@@ -1,4 +1,4 @@
-let TESTING = false;
+let TESTING = true;
 let TESTING_USER_IS_EMPTY = false;
 let TESTING_SHOW_LOGS = true;
 
@@ -36,7 +36,7 @@ let palettes = {
     // TODO: add more palettes
 };
 
-const charactersPerToken = 4.82; // https://drchrislevy.github.io/posts/agents/agents.html#characters-per-token:~:text=%E2%80%A2%20GPT%2D4o%2Dmini%3A-,4.82%20characters%20per%20token,-%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82%0A%E2%94%82%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%94%82
+const charactersPerToken = 4.82; // https://drchrislevy.github.io/posts/agents/agents.html#characters-per-token
 
 function symbolToString(symbol) {
     ASSERT(typeof symbol === 'symbol', "symbolToString expects a symbol.");
@@ -2949,19 +2949,7 @@ class ParallelNode {
     }
 
     add(node) {
-        ASSERT(type(node, Union(
-            StrategySelectionNode,
-            RequestNode,
-            ThinkingRequestNode,
-            RerouteToModelNode,
-            UserPromptNode,
-            UserAttachmentNode,
-            ProcessingNode,
-            CreatedEntityNode,
-            FailedToCreateEntityNode,
-            MergeEntitiesNode,
-            CompleteRequestNode
-        )));
+        ASSERT(type(node, nodesUnionType));
         this.nodes.push(node);
     }
 
@@ -2990,6 +2978,53 @@ class ParallelNode {
         }
         ASSERT(type(nodes, List(Node)));
         return new ParallelNode(json.description, nodes, json.startTime, json.endTime);
+    }
+}
+
+class ParallelChainNode {
+    // preliminary construction
+    constructor(description) {
+        ASSERT(type(description, NonEmptyString));
+        this.nodes = [];
+        this.startTime = Date.now();
+        this.endTime = NULL;
+        this.description = description;
+    }
+
+    add(node) {
+        ASSERT(type(node, nodesUnionType));
+        this.nodes.push(node);
+    }
+
+    // finished construction after adding all nodes
+    complete() {
+        for (const chain of this.chains) {
+            ASSERT(type(chain, Chain));
+            chain.completeRequest();
+        }
+        this.endTime = Date.now();
+    }
+
+    encode() {
+        ASSERT(type(this, ParallelChainNode));
+        return {
+            nodes: this.nodes.map(node => node.encode()),
+            startTime: this.startTime,
+            endTime: this.endTime,
+            description: this.description,
+            _type: 'ParallelChainNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'ParallelChainNode');
+        let nodes = [];
+        for (const nodeJson of json.nodes) {
+            nodes.push(decodeNode(nodeJson));
+        }
+        ASSERT(type(nodes, List(Node)));
+        return new ParallelChainNode(json.description, nodes, json.startTime, json.endTime);
     }
 }
 
@@ -3030,6 +3065,22 @@ function decodeNode(nodeJson) {
     }
 }
 
+let nodesUnionType = Union(
+    StrategySelectionNode,
+    RequestNode,
+    ThinkingRequestNode,
+    RerouteToModelNode,
+    UserPromptNode,
+    UserAttachmentNode,
+    ProcessingNode,
+    CreatedEntityNode,
+    FailedToCreateEntityNode,
+    MergeEntitiesNode,
+    CompleteRequestNode,
+    ParallelNode,
+    ParallelChainNode
+);
+
 // chain of events involved in a single user AI request
 // this contains a lot of data we don't need, but it exists to show the user
 class Chain {
@@ -3041,19 +3092,7 @@ class Chain {
 
     validate() {
         ASSERT(exists(this));
-        ASSERT(type(this.chain, List(Union(
-            StrategySelectionNode,
-            RequestNode,
-            ThinkingRequestNode,
-            RerouteToModelNode,
-            UserPromptNode,
-            UserAttachmentNode,
-            ProcessingNode,
-            CreatedEntityNode,
-            FailedToCreateEntityNode,
-            MergeEntitiesNode,
-            CompleteRequestNode
-        ))));
+        ASSERT(type(this.chain, List(nodesUnionType)));
         ASSERT(type(this.startTime, Int));
         ASSERT(this.startTime >= 0);
         ASSERT(exists(this.endTime));
@@ -3071,29 +3110,17 @@ class Chain {
         if (this.endTime !== NULL) {
             ASSERT(false, 'Chain.add: chain is already complete');
         }
-        ASSERT(type(node, Union(
-            StrategySelectionNode,
-            RequestNode,
-            ThinkingRequestNode,
-            RerouteToModelNode,
-            UserPromptNode,
-            UserAttachmentNode,
-            ProcessingNode,
-            CreatedEntityNode,
-            FailedToCreateEntityNode,
-            MergeEntitiesNode,
-            CompleteRequestNode
-        )));
+        ASSERT(type(node, nodesUnionType));
         this.chain.push(node);
     }
 
-    addNodeFromJson(nodeObject) {
+    static nodeFromJson(nodeObject) {
         this.validate();
         ASSERT(type(nodeObject, Object));
 
         if (exists(nodeObject.request)) {
             let node = RequestNode.fromJson(nodeObject);
-            this.chain.push(node);
+            return node;
         } else if (exists(nodeObject.thinking_request)) {
             if (!exists(nodeObject.thinking_request.thoughts)) {
                 // the thinking hasn't been parse yet
@@ -3113,11 +3140,11 @@ class Chain {
                 nodeObject.thinking_request.systemPrompt = NULL;
             }
 
-            this.chain.push(ThinkingRequestNode.fromJson(nodeObject));
+            return ThinkingRequestNode.fromJson(nodeObject);
         } else if (exists(nodeObject.rerouteToModel)) {
-            this.chain.push(RerouteToModelNode.fromJson(nodeObject));
+            return RerouteToModelNode.fromJson(nodeObject);
         } else {
-            ASSERT(false, 'Chain.addNodeObject: unknown node type ' + JSON.stringify(nodeObject));
+            ASSERT(false, 'Chain.nodeFromJson: unknown node type ' + JSON.stringify(nodeObject));
         }
     }
 
@@ -3180,9 +3207,7 @@ class User {
         // Validate settings structure
         ASSERT(settings.ampmOr24 === 'ampm' || settings.ampmOr24 === '24');
         // how many hours to offset
-        ASSERT(type(settings.startOfDayOffset, Int) && -12 <= settings.startOfDayOffset && settings.startOfDayOffset <= 12);
-        ASSERT(type(settings.endOfDayOffset, Int) && -12 <= settings.endOfDayOffset && settings.endOfDayOffset <= 12);
-        
+        ASSERT(type(settings.hideEmptyTimespanInCalendar, Boolean));
         // Validate palette structure
         ASSERT(type(palette.accent, List(String)));
         ASSERT(type(palette.shades, List(String)));
@@ -3251,8 +3276,7 @@ class User {
         ASSERT(exists(data.entityArray));
         ASSERT(type(data.entityArray, List(Object)));
         ASSERT(exists(data.settings));
-        ASSERT(type(data.settings.startOfDayOffset, Int));
-        ASSERT(type(data.settings.endOfDayOffset, Int));
+        ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
         ASSERT(type(data.settings.ampmOr24, String));
         ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
         ASSERT(exists(data.palette));
@@ -3307,8 +3331,7 @@ class User {
             [], // empty entityArray
             {
                 ampmOr24: 'ampm',
-                startOfDayOffset: 0,
-                endOfDayOffset: 0,
+                hideEmptyTimespanInCalendar: true
             },
             palettes.dark,
             NULL, // userId
