@@ -9258,7 +9258,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
     // add chain nodes created from tracking requests on the backend
     for (const nodeJson of responseJson1.chain) {
-        chain.addNodeFromJson(nodeJson);
+        chain.add(Chain.nodeFromJson(nodeJson));
     }
 
     let simplifiedEntitiesJson = extractJsonFromAiOutput(responseJson1.aiOutput, chain, '[]');
@@ -9356,9 +9356,6 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
         uniqueSimplifiedEntities.push(simplifiedEntity);
     }
-
-    log('uniqueSimplifiedEntities: ');
-    log(uniqueSimplifiedEntities);
     
     // this is the really long part that gets cached
     const basePromptForStep2 = `Here was the user's prompt: ${inputText}. Another AI model described the files and extracted a bunch of entities. Your have been given one of the extracted entities, and your job is to provide the complete entity. Here is a description of the files it came from: ${responseJson1.descriptionOfFiles}. Here are the extracted entities: ${JSON.stringify(uniqueSimplifiedEntities)}.`;
