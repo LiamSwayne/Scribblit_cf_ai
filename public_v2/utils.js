@@ -3029,10 +3029,10 @@ class ParallelChainNode {
 }
 
 class CompleteRequestNode {
-    constructor(startTime, endTime) {
+    constructor(startTime) {
         ASSERT(type(startTime, Int));
-        ASSERT(type(endTime, Int));
         this.startTime = startTime;
+        this.endTime = Date.now();
     }
 }
 
