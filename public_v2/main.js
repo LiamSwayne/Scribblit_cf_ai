@@ -188,6 +188,8 @@ const allDayEventHeight = 18; // height in px for each all-day event
 const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
+let G_calendarVisibleStartHour = 0; // hour 0 – 23
+let G_calendarVisibleEndHour = 24;  // hour 1 – 24
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
 let STRATEGIES = {
@@ -904,7 +906,7 @@ function createFakeEntityArray() {
                     new NonRecurringEventInstance(
                         in2Days, // startDate
                         new TimeField(16, 0), // startTime
-                        new TimeField(20, 0), // endTime
+                        NULL, // endTime
                         NULL // differentEndDate
                     )
                 ] // instances
@@ -1027,6 +1029,21 @@ function createFakeEntityArray() {
                 new NonRecurringReminderInstance(
                     tomorrow, // date
                     new TimeField(14, 30)
+                )
+            ])
+        ),
+
+        // ambiguous end time event
+        new Entity(
+            'event-005',
+            'Ambiguous end time',
+            '',
+            new EventData([
+                new NonRecurringEventInstance(
+                    tomorrow, // date
+                    new TimeField(13, 0), // startTime
+                    NULL, // endTime
+                    NULL // differentEndDate
                 )
             ])
         ),
@@ -1337,22 +1354,8 @@ if (TESTING) {
     log("Clean slate");
 
     // Create user object with the sample data
-    let user = new User(
-        TESTING_USER_IS_EMPTY ? [] : createFakeEntityArray(),
-        {
-            ampmOr24: 'ampm',
-            startOfDayOffset: 0,
-            endOfDayOffset: 0,
-            hideEmptyTimespanInCalendar: false,
-        },
-        palettes.dark,
-        NULL,
-        NULL,
-        0,
-        Date.now(),
-        "free",
-        []
-    );
+    let user = User.createDefault();
+    user.entityArray = createFakeEntityArray();
     
     // Store using saveUserData function (async, non-blocking)
     saveUserData(user);
@@ -2879,6 +2882,13 @@ function renderDay(day, index) {
     let endOfDay = dayTime.endOf('day').plus({hours: user.settings.endOfDayOffset});
     endOfDay = endOfDay.toMillis() + 1; // +1 to include the end of the day
 
+    // Visible time window computed globally
+    const visibleStartHour = G_calendarVisibleStartHour;
+    const visibleEndHour   = G_calendarVisibleEndHour;
+    const visibleHours     = visibleEndHour - visibleStartHour; // guaranteed >= 12
+    const visibleStartUnix = startOfDay + visibleStartHour * 3600000;
+    const visibleEndUnix   = startOfDay + visibleEndHour   * 3600000;
+
     let G_filteredSegmentOfDayInstances = [];
     let G_filteredAllDayInstances = [];
     let G_filteredReminderInstances = [];
@@ -2940,7 +2950,7 @@ function renderDay(day, index) {
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4; // 12px margin for more space between all-day events and timed calendar
     
-    // Get the original dimensions that were set by renderCalendar(), not the current modified ones
+    // Get the original dimensions that were set by renderCalendar, not the current modified ones
     const dayColumnDimensions = getDayColumnDimensions(index);
     const originalHeight = dayColumnDimensions.height;
     const originalTop = dayColumnDimensions.top;
@@ -2951,88 +2961,62 @@ function renderDay(day, index) {
     let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
     
     // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
-    if (HTML.getElementUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
-        // if one is missing, all 25 must be missing
-        for (let j = 0; j < 25; j++) {
-            let hourMarker = HTML.make('div');
-            HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+    // Clean up any existing hour markers first to avoid overlaps
+    for (let j = 0; j <= 24; j++) {
+        let hm = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
+        if (exists(hm)) hm.remove();
+        let hmt = HTML.getElementUnsafely(`day${index}hourMarkerText${j}`);
+        if (exists(hmt)) hmt.remove();
+    }
+    
+    // Create hour markers for the visible range
+    // We need visibleHours + 1 hour markers (one at each hour boundary)
+    for (let j = 0; j <= visibleHours; j++) {
+        let hourMarker = HTML.make('div');
+        HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+        
+        HTML.setStyle(hourMarker, {
+            position: 'fixed',
+            width: String(columnWidth) + 'px',
+            height: '1px',
+            top: String(timedEventAreaTop + (j * timedEventAreaHeight / visibleHours)) + 'px',
+            left: String(dayElementLeft) + 'px',
+            backgroundColor: 'var(--shade-2)',
+            zIndex: '400'
+        });
+        
+        HTML.body.appendChild(hourMarker);
+
+        // Create hour marker text for each hour (except the last marker)
+        if (j < visibleHours) {
+            let hourMarkerText = HTML.make('div');
+            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
-            HTML.setStyle(hourMarker, {
+            let fontSize;
+            if (user.settings.ampmOr24 == 'ampm') {
+                fontSize = '12px';
+            } else {
+                fontSize = '10px'; // account for additional colon character
+            }
+            HTML.setStyle(hourMarkerText, {
                 position: 'fixed',
-                width: String(columnWidth) + 'px',
-                height: '1px',
-                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
+                top: String(timedEventAreaTop + (j * timedEventAreaHeight / visibleHours) + 1) + 'px',
                 left: String(dayElementLeft) + 'px',
-                backgroundColor: 'var(--shade-2)',
-                zIndex: '400'
+                color: 'var(--shade-2)',
+                fontFamily: 'MonospacePrimary',
+                fontSize: fontSize,
+                zIndex: '401'
             });
             
-            HTML.body.appendChild(hourMarker);
-
-            if (j < 24) {
-                // create hour marker text
-                let hourMarkerText = HTML.make('div');
-                HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
-                
-                let fontSize;
-                if (user.settings.ampmOr24 == 'ampm') {
-                    fontSize = '12px';
-                } else {
-                    fontSize = '10px'; // account for additional colon character
-                }
-                HTML.setStyle(hourMarkerText, {
-                    position: 'fixed',
-                    top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
-                    left: String(dayElementLeft) + 'px',
-                    color: 'var(--shade-2)',
-                    fontFamily: 'MonospacePrimary',
-                    fontSize: fontSize,
-                    zIndex: '401'
-                });
-                
-                HTML.setData(hourMarkerText, 'leadingWhitespace', true);
-                hourMarkerText.innerHTML = nthHourText(j);
-                HTML.body.appendChild(hourMarkerText);
-            }
-        }
-    } else { // update hour markers
-        for (let j = 0; j < 25; j++) {
-            let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
-            
-            let hourMarker = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
-            if (!hourMarker) {
-                hourMarker = HTML.make('div');
-                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
-                HTML.body.appendChild(hourMarker);
-                 HTML.setStyle(hourMarker, {
-                    position: 'fixed',
-                    height: '1px',
-                    backgroundColor: 'var(--shade-3)',
-                    zIndex: '400'
-                });
-            }
-            
-            HTML.setStyle(hourMarker, {
-                top: String(hourPosition) + 'px',
-                left: String(dayElementLeft) + 'px',
-                width: String(columnWidth) + 'px'
-            });
-
-            if (j < 24) {
-                // adjust position of hour marker text
-                let hourMarkerText = HTML.getElement(`day${index}hourMarkerText${j}`);
-                
-                HTML.setStyle(hourMarkerText, {
-                    top: String(hourPosition + 1) + 'px',
-                    left: String(dayElementLeft) + 'px'
-                });
-            }
+            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
+            hourMarkerText.innerHTML = nthHourText(visibleStartHour + j);
+            HTML.body.appendChild(hourMarkerText);
         }
     }
     
     renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, originalTop, dayElementLeft, day);
-    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
-    renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
+    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, visibleStartUnix, visibleEndUnix);
+    renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, visibleStartUnix, visibleEndUnix);
 }
 
 // Renders all-day instances for a given day column.
@@ -3250,11 +3234,17 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             if (dayDuration <= 0) continue;
 
             const topOffset = instance.startDateTime - dayStartUnix;
-            const top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
+            let top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
 
             const duration = instance.endDateTime - instance.startDateTime;
             let height = (duration / dayDuration) * timedAreaHeight;
-            
+
+            // Clamp events that begin above the visible window
+            if (top < timedAreaTop) {
+                height -= (timedAreaTop - top);
+                top = timedAreaTop;
+            }
+
             height = Math.max(height, 3);
             if (top + height > timedAreaTop + timedAreaHeight) {
                 height = timedAreaTop + timedAreaHeight - top;
@@ -4050,7 +4040,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, maxTop));
         
         // Check if the reminder should be rendered in a "flipped" state
-        const flipThresholdProportion = (23 * 60 + 40) / (24 * 60);
+        const visibleHours = G_calendarVisibleEndHour - G_calendarVisibleStartHour;
+        const flipThresholdProportion = ((visibleHours * 60) - 20) / (visibleHours * 60);
         const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
         const isFlipped = reminderTopPosition > flipThresholdTop;
 
@@ -4860,10 +4851,87 @@ function getDayColumnDimensions(dayIndex) {
 function renderCalendar(days) {
     const numberOfDays = LocalData.get('numberOfDays');
     const isStacking = LocalData.get('stacking');
-    
+
     ASSERT(type(days, List(DateField)));
     ASSERT(exists(numberOfDays) && days.length == numberOfDays, "renderCalendar days must be an array of length LocalData.get('numberOfDays')");
     ASSERT(type(isStacking, Boolean));
+    // ------------------------------------------------------------
+    // Compute the universal earliest and latest hour across all
+    // rendered days when the user wants to hide empty spans.
+    // ------------------------------------------------------------
+    if (user.settings.hideEmptyTimespanInCalendar) {
+        const MS_PER_HOUR = 3600000;
+        let globalEarliestMs = 24 * MS_PER_HOUR; // start with max
+        let globalLatestMs  = 0;                 // start with min
+
+        for (let dIdx = 0; dIdx < days.length; dIdx++) {
+            const day = days[dIdx];
+            const dayTime = DateTime.local(day.year, day.month, day.day);
+            const dayStartUnix = dayTime.startOf('day').plus({ hours: user.settings.startOfDayOffset }).toMillis();
+            const dayEndUnix   = dayTime.endOf('day').plus({ hours: user.settings.endOfDayOffset }).plus({ milliseconds: 1 }).toMillis();
+
+            // Scan every entity for this day – reuse FilteredInstancesFactory
+            for (const entity of user.entityArray) {
+                if (type(entity.data, TaskData)) {
+                    for (let p = 0; p < entity.data.workSessions.length; p++) {
+                        const segs = FilteredInstancesFactory.fromTaskWorkSession(entity, entity.data.workSessions[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of segs) {
+                            if (!type(inst, FilteredSegmentOfDayInstance)) continue;
+                            const candEarliest = inst.wrapToPreviousDay ? inst.endDateTime : inst.startDateTime;
+                            const candLatest   = inst.wrapToNextDay     ? inst.startDateTime : inst.endDateTime;
+                            globalEarliestMs = Math.min(globalEarliestMs, candEarliest - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, candLatest   - dayStartUnix);
+                        }
+                    }
+                } else if (type(entity.data, EventData)) {
+                    for (let p = 0; p < entity.data.instances.length; p++) {
+                        const segs = FilteredInstancesFactory.fromEvent(entity, entity.data.instances[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of segs) {
+                            if (!type(inst, FilteredSegmentOfDayInstance)) continue;
+                            const candEarliest = inst.wrapToPreviousDay ? inst.endDateTime : inst.startDateTime;
+                            const candLatest   = inst.wrapToNextDay     ? inst.startDateTime : inst.endDateTime;
+                            globalEarliestMs = Math.min(globalEarliestMs, candEarliest - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, candLatest   - dayStartUnix);
+                        }
+                    }
+                } else if (type(entity.data, ReminderData)) {
+                    for (let p = 0; p < entity.data.instances.length; p++) {
+                        const rems = FilteredInstancesFactory.fromReminder(entity, entity.data.instances[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of rems) {
+                            if (!type(inst, FilteredReminderInstance)) continue;
+                            globalEarliestMs = Math.min(globalEarliestMs, inst.dateTime - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, inst.dateTime - dayStartUnix);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback – if no timed content exists, show 8am to 8pm
+        if (globalEarliestMs === 24 * MS_PER_HOUR) {
+            globalEarliestMs = 8 * MS_PER_HOUR;   // 8am
+            globalLatestMs   = 20 * MS_PER_HOUR;  // 8pm
+        }
+
+        // Convert to hours and expand by ±1 hour (bounded 0-24)
+        let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
+        let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + 1);
+
+        // Ensure span is at least 12 hours
+        if (latestHour - earliestHour < 12) {
+            const missing = 12 - (latestHour - earliestHour);
+            const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
+            earliestHour -= expandStart;
+            latestHour = Math.min(24, latestHour + (missing - expandStart));
+        }
+
+        G_calendarVisibleStartHour = earliestHour;
+        G_calendarVisibleEndHour   = latestHour;
+    } else {
+        // Full-day view
+        G_calendarVisibleStartHour = 0;
+        G_calendarVisibleEndHour   = 24;
+    }
     for (let i = 0; i < 7; i++) {
         if (i >= numberOfDays) { // delete excess elements if they exist
             // day background element
@@ -5415,14 +5483,14 @@ function initNumberOfCalendarDaysButton() {
     topHalf.onclick = (e) => {
         toggleNumberOfCalendarDays(true, e.shiftKey);
     };
-    
+
     topHalf.onmouseenter = () => {
         isHoveringTop = true;
         HTML.setStyle(topHalf, { backgroundColor: 'var(--shade-2)' });
         HTML.setStyle(numberDisplay, { opacity: '0.3' });
         updateTopTrianglePositions();
     };
-    
+
     topHalf.onmouseleave = () => {
         isHoveringTop = false;
         HTML.setStyle(topHalf, { backgroundColor: 'transparent' });
@@ -10032,7 +10100,7 @@ function initSettingsButton() {
                 }
                 </style>
             </defs>
-            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1,.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.6,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
+            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-2.2-.8-2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
         </svg>
     `
     
