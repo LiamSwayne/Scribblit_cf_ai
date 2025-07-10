@@ -3310,20 +3310,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 transition: 'font-size 0.3s ease'
             };
 
-            // DEBUG: Log before applying gradient/solid background
-            console.log('[Gradient][PRE]', {
-                eventId,
-                dayIndex,
-                laneIndex,
-                ambiguousEndTime: instance.ambiguousEndTime,
-                wrapToPreviousDay: instance.wrapToPreviousDay,
-                wrapToNextDay: instance.wrapToNextDay,
-                colorVar
-            });
-
             if (instance.ambiguousEndTime) {
                 const eventColorHex = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
-                console.log('[Gradient] ambiguousEndTime TRUE for', eventId, 'hex:', eventColorHex);
                 if (eventColorHex.startsWith('#') && eventColorHex.length === 7) {
                     const r = parseInt(eventColorHex.slice(1, 3), 16);
                     const g = parseInt(eventColorHex.slice(3, 5), 16);
@@ -3336,14 +3324,13 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     // Fallback for non-hex colors or parsing errors
                     style.backgroundColor = `var(${colorVar})`;
                     style.background = `var(${colorVar})`; // ensure background reset
-                    console.warn('[Gradient] Non-hex color or parse error for', eventId, 'using solid background');
+                    ASSERT(false, `Non-hex color or parse error for ${eventId} using solid background`);
                 }
             } else {
                 // Not ambiguous – ensure any previous gradient is cleared
                 style.backgroundColor = `var(${colorVar})`;
                 style.background = `var(${colorVar})`; // overwrite any old gradient
                 style.backgroundImage = 'none';
-                console.log('[Gradient] ambiguousEndTime FALSE for', eventId, 'solid background set');
             }
 
             if (instance.wrapToPreviousDay) {
@@ -3356,18 +3343,6 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             }
 
             HTML.setStyle(eventElement, style);
-
-            // DEBUG: Log after styles have been applied so we can inspect computed values
-            console.log('[Gradient][POST]', eventId, {
-                background: eventElement.style.background,
-                backgroundColor: eventElement.style.backgroundColor,
-                backgroundImage: eventElement.style.backgroundImage,
-                borderRadius: eventElement.style.borderRadius,
-                borderBottomLeftRadius: eventElement.style.borderBottomLeftRadius,
-                borderBottomRightRadius: eventElement.style.borderBottomRightRadius,
-                borderTopLeftRadius: eventElement.style.borderTopLeftRadius,
-                borderTopRightRadius: eventElement.style.borderTopRightRadius
-            });
 
             const eventColor = `var(${colorVar})`;
             eventElement.mouseEnterHandler = function() {
