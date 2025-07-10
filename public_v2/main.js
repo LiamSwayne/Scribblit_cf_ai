@@ -9140,9 +9140,15 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     }
 
     const responseJson = await response.json();
+    log('responseJson: ' + JSON.stringify(responseJson));
 
     if (responseJson.error && responseJson.error.length > 0) {
         log("Error: " + responseJson.error);
+        return;
+    }
+
+    if (!exists(responseJson.chain)) {
+        log("Error: chain is required for single_chain strategy.");
         return;
     }
 

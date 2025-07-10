@@ -1584,6 +1584,7 @@ export default {
                         }
 
                         const result = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
+                        console.log('result: ' + JSON.stringify(result));
                         return SEND(result, 200);
                     } catch (err) {
                         console.error('AI parse error:', err);
