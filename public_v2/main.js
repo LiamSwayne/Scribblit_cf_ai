@@ -8,7 +8,7 @@ const fontDefinitions = [
     { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/Bold.woff2' },
     // { key: 'PrimaryExtraBold', url: 'https://super-publisher.pages.dev/Extrabold.woff2' },
     // { key: 'PrimaryBlack', url: 'https://super-publisher.pages.dev/Black.woff2' },
-    { key: 'Monospaced', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
+    { key: 'MonospacePrimary', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
 ];
 
 let preservedFontCss = {};
@@ -125,6 +125,56 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+document.addEventListener('paste', async (e) => {
+    if (e.clipboardData.files.length > 0) {
+        log('Pasted a file', e.clipboardData.files);
+        // add to file array
+        for (const file of e.clipboardData.files) {
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            attachedFiles.push({
+                name: file.name,
+                mimeType: file.type,
+                data: base64Data,
+                size: file.size
+            });
+            updateAttachmentBadge();
+        }
+    } else {
+        const text = e.clipboardData.getData('text/plain');
+        if (text) {
+            log('Pasted text: "' + text + '"');
+        }
+
+        if (text.length > 1000) {
+            log('Pasted text is too long, make it a file');
+            // add to file array
+            attachedFiles.push({
+                name: 'pasted_text_' + String(Date.now()) + '.txt',
+                mimeType: 'text/plain',
+                data: text,
+                size: text.length
+            });
+            updateAttachmentBadge();
+        } else if (inputBoxFocused) {
+            // add it to the input box content
+            const inputBox = HTML.getElement('inputBox');
+            inputBox.value += text;
+            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            // focus the input box, then add the text
+            const inputBox = HTML.getElement('inputBox');
+            inputBox.focus();
+            inputBox.value += text;
+            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+});
+
 const SERVER_DOMAIN_ROOT = 'scribblit-production.unrono.workers.dev';
 const SERVER_PRODUCTION_DOMAIN = 'app.scribbl.it';
 // when testing, use the root domain since the other one doesn't allow this origin
@@ -138,6 +188,9 @@ const allDayEventHeight = 18; // height in px for each all-day event
 const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
+// Currently visible calendar hour range (inclusive start, exclusive end)
+let G_calendarVisibleStartHour = 0; // hour 0 – 23
+let G_calendarVisibleEndHour = 24;  // hour 1 – 24
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
 let STRATEGIES = {
@@ -145,6 +198,7 @@ let STRATEGIES = {
     STEP_BY_STEP: 'step_by_step'
 }
 let activeStrategy = NULL;
+let inputBoxFocused = false;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -158,7 +212,7 @@ async function saveUserData(user) {
     // this should never happen, but as a failsafe we sadly throw away the corrupted entities
     let newEntityArray = [];
     for (const entity of user.entityArray) {
-        if (type(entity, Entity)) {
+        if (!type(entity, Entity)) {
             log("WARNING: corrupted entity found, skipping:");
             log(entity);
         } else {
@@ -208,7 +262,6 @@ async function saveUserData(user) {
                     // have it slide down from the top of the screen
                 }
             } else {
-                render();
                 log("User data saved to server successfully");
             }
         } catch (error) {
@@ -1287,21 +1340,10 @@ if (TESTING) {
     log("Clean slate");
 
     // Create user object with the sample data
-    let user = new User(
-        TESTING_USER_IS_EMPTY ? [] : createFakeEntityArray(),
-        {
-            ampmOr24: 'ampm',
-            startOfDayOffset: 0,
-            endOfDayOffset: 0
-        },
-        palettes.dark,
-        NULL,
-        NULL,
-        0,
-        Date.now(),
-        "free",
-        []
-    );
+    let user = User.createDefault();
+    if (!TESTING_USER_IS_EMPTY) {
+        user.entityArray = createFakeEntityArray();
+    }
     
     // Store using saveUserData function (async, non-blocking)
     saveUserData(user);
@@ -1347,7 +1389,6 @@ const settingsGearZIndex = 7001; // above settings modal but below settings moda
 const signInModalZIndex = 7002; // above settings modal
 const signInButtonZIndex = 7003; // above sign-in modal
 const signInTextZIndex = 7004; // above sign-in modal
-// ADD: z-index constants for the pro button elements
 const proButtonZIndex = 7005; // above sign-in text; below overlay/text
 const proOverlayZIndex = 7006; // gradient overlay between background and text
 const proTextZIndex = 7007; // highest element in pro button stack
@@ -1841,7 +1882,7 @@ let HTML = new class HTMLroot {
 
 // the only use of stylesheet because "body *" in JS is not efficient to select
 let styleElement = HTML.make('style');
-styleElement.textContent = `
+const globalCss = `
     body * {
         margin: 0;
         padding: 0;
@@ -1852,7 +1893,13 @@ styleElement.textContent = `
         color: #ff00aa; /* make sure that default colors are never used */
         user-select: none; /* make text not highlightable */
     }
+
+    /* change highlight color to second accent color */
+    ::selection {
+        background-color: var(--accent-0);
+    }
 `;
+styleElement.textContent = globalCss;
 HTML.head.appendChild(styleElement);
 
 HTML.setStyle(HTML.body, {
@@ -2298,7 +2345,6 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
         if (type(pattern, EveryNDaysPattern)) {
             startDateTime = baseDate;
         } else if (type(pattern, MonthlyPattern)) {
-            // Find the first valid month from the base date
             startDateTime = baseDate.set({day: pattern.day});
             while (!pattern.months[startDateTime.month - 1]) {
                 startDateTime = startDateTime.plus({months: 1}).set({day: pattern.day});
@@ -2816,6 +2862,14 @@ class FilteredInstancesFactory {
 function renderDay(day, index) {
     ASSERT(type(day, DateField) && type(index, Int));
     
+    // Unconditionally remove all potential hour markers and text for this day to ensure a clean slate
+    for (let j = 0; j <= 24; j++) {
+        let hm = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
+        if (exists(hm)) hm.remove();
+        let hmt = HTML.getElementUnsafely(`day${index}hourMarkerText${j}`);
+        if (exists(hmt)) hmt.remove();
+    }
+    
     // get unix start and end of day with user's offsets
     // Create DateTime from DateField
     let dayTime = DateTime.local(day.year, day.month, day.day);
@@ -2823,6 +2877,13 @@ function renderDay(day, index) {
     startOfDay = startOfDay.toMillis(); // unix
     let endOfDay = dayTime.endOf('day').plus({hours: user.settings.endOfDayOffset});
     endOfDay = endOfDay.toMillis() + 1; // +1 to include the end of the day
+
+    // Visible time window computed globally
+    const visibleStartHour = G_calendarVisibleStartHour;
+    const visibleEndHour   = G_calendarVisibleEndHour;
+    const visibleHours     = visibleEndHour - visibleStartHour; // guaranteed >= 12
+    const visibleStartUnix = startOfDay + visibleStartHour * 3600000;
+    const visibleEndUnix   = startOfDay + visibleEndHour   * 3600000;
 
     let G_filteredSegmentOfDayInstances = [];
     let G_filteredAllDayInstances = [];
@@ -2885,7 +2946,7 @@ function renderDay(day, index) {
     // adjust day element height and vertical pos to fit all day events at the top (below text but above hour markers)
     const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4; // 12px margin for more space between all-day events and timed calendar
     
-    // Get the original dimensions that were set by renderCalendar(), not the current modified ones
+    // Get the original dimensions that were set by renderCalendar, not the current modified ones
     const dayColumnDimensions = getDayColumnDimensions(index);
     const originalHeight = dayColumnDimensions.height;
     const originalTop = dayColumnDimensions.top;
@@ -2896,88 +2957,52 @@ function renderDay(day, index) {
     let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
     
     // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
-    if (HTML.getElementUnsafely(`day${index}hourMarker1`) == null) { // create hour markers
-        // if one is missing, all 24 must be missing
-        for (let j = 0; j < 25; j++) {
-            let hourMarker = HTML.make('div');
-            HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+    for (let j = 0; j <= visibleHours; j++) {
+        let hourMarker = HTML.make('div');
+        HTML.setId(hourMarker, `day${index}hourMarker${j}`);
+        
+        HTML.setStyle(hourMarker, {
+            position: 'fixed',
+            width: String(columnWidth) + 'px',
+            height: '1px',
+            top: String(timedEventAreaTop + (j * timedEventAreaHeight / visibleHours)) + 'px',
+            left: String(dayElementLeft) + 'px',
+            backgroundColor: 'var(--shade-2)',
+            zIndex: '400'
+        });
+        
+        HTML.body.appendChild(hourMarker);
+
+        if (j < visibleHours) {
+            // create hour marker text
+            let hourMarkerText = HTML.make('div');
+            HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
-            HTML.setStyle(hourMarker, {
+            let fontSize;
+            if (user.settings.ampmOr24 == 'ampm') {
+                fontSize = '12px';
+            } else {
+                fontSize = '10px'; // account for additional colon character
+            }
+            HTML.setStyle(hourMarkerText, {
                 position: 'fixed',
-                width: String(columnWidth) + 'px',
-                height: '1px',
-                top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24)) + 'px',
+                top: String(timedEventAreaTop + (j * timedEventAreaHeight / visibleHours) + 1) + 'px',
                 left: String(dayElementLeft) + 'px',
-                backgroundColor: 'var(--shade-2)',
-                zIndex: '400'
+                color: 'var(--shade-2)',
+                fontFamily: 'MonospacePrimary',
+                fontSize: fontSize,
+                zIndex: '401'
             });
             
-            HTML.body.appendChild(hourMarker);
-
-            if (j < 24) {
-                // create hour marker text
-                let hourMarkerText = HTML.make('div');
-                HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
-                
-                let fontSize;
-                if (user.settings.ampmOr24 == 'ampm') {
-                    fontSize = '12px';
-                } else {
-                    fontSize = '10px'; // account for additional colon character
-                }
-                HTML.setStyle(hourMarkerText, {
-                    position: 'fixed',
-                    top: String(timedEventAreaTop + (j * timedEventAreaHeight / 24) + 1) + 'px',
-                    left: String(dayElementLeft) + 'px',
-                    color: 'var(--shade-2)',
-                    fontFamily: 'Monospaced',
-                    fontSize: fontSize,
-                    zIndex: '401'
-                });
-                
-                HTML.setData(hourMarkerText, 'leadingWhitespace', true);
-                hourMarkerText.innerHTML = nthHourText(j);
-                HTML.body.appendChild(hourMarkerText);
-            }
-        }
-    } else { // update hour markers
-        for (let j = 0; j < 25; j++) {
-            let hourPosition = timedEventAreaTop + (j * timedEventAreaHeight / 24);
-            
-            let hourMarker = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
-            if (!hourMarker) {
-                hourMarker = HTML.make('div');
-                HTML.setId(hourMarker, `day${index}hourMarker${j}`);
-                HTML.body.appendChild(hourMarker);
-                 HTML.setStyle(hourMarker, {
-                    position: 'fixed',
-                    height: '1px',
-                    backgroundColor: 'var(--shade-3)',
-                    zIndex: '400'
-                });
-            }
-            
-            HTML.setStyle(hourMarker, {
-                top: String(hourPosition) + 'px',
-                left: String(dayElementLeft) + 'px',
-                width: String(columnWidth) + 'px'
-            });
-
-            if (j < 24) {
-                // adjust position of hour marker text
-                let hourMarkerText = HTML.getElement(`day${index}hourMarkerText${j}`);
-                
-                HTML.setStyle(hourMarkerText, {
-                    top: String(hourPosition + 1) + 'px',
-                    left: String(dayElementLeft) + 'px'
-                });
-            }
+            HTML.setData(hourMarkerText, 'leadingWhitespace', true);
+            hourMarkerText.innerHTML = nthHourText(visibleStartHour + j);
+            HTML.body.appendChild(hourMarkerText);
         }
     }
     
     renderAllDayInstances(G_filteredAllDayInstances, index, columnWidth, originalTop, dayElementLeft, day);
-    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
-    renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, startOfDay, endOfDay);
+    renderSegmentOfDayInstances(G_filteredSegmentOfDayInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, visibleStartUnix, visibleEndUnix);
+    renderReminderInstances(G_filteredReminderInstances, index, columnWidth, timedEventAreaTop, timedEventAreaHeight, dayElementLeft, visibleStartUnix, visibleEndUnix);
 }
 
 // Renders all-day instances for a given day column.
@@ -3092,7 +3117,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             width: '60px', // Reserve much more space for date/time display
             color: 'var(--shade-3)',
             fontSize: '11px',
-            fontFamily: 'Monospaced',
+            fontFamily: 'MonospacePrimary',
             lineHeight: String(allDayEventHeight - 2) + 'px',
             zIndex: '351',
             pointerEvents: 'none' // Don't interfere with event interactions
@@ -3195,11 +3220,17 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             if (dayDuration <= 0) continue;
 
             const topOffset = instance.startDateTime - dayStartUnix;
-            const top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
+            let top = timedAreaTop + (topOffset / dayDuration) * timedAreaHeight;
 
             const duration = instance.endDateTime - instance.startDateTime;
             let height = (duration / dayDuration) * timedAreaHeight;
-            
+
+            // Clamp events that begin above the visible window
+            if (top < timedAreaTop) {
+                height -= (timedAreaTop - top);
+                top = timedAreaTop;
+            }
+
             height = Math.max(height, 3);
             if (top + height > timedAreaTop + timedAreaHeight) {
                 height = timedAreaTop + timedAreaHeight - top;
@@ -3572,9 +3603,8 @@ function handleReminderDragMove(e) {
     const clampedLineTop = Math.max(minTop, Math.min(newLineTop, maxTop));
     
     // Determine if the reminder should be in a "flipped" state
-    const flipThresholdProportion = (23 * 60 + 40) / (24 * 60); // approx 11:40 PM
-    const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
-    const isFlipped = clampedLineTop > flipThresholdTop;
+    const spaceBelow = (timedAreaTop + timedAreaHeight) - clampedLineTop;
+    const isFlipped = spaceBelow < localReminderTextHeight;
 
     // Animate all elements in the group based on the new line position and flip state
     G_reminderDragState.groupElements.forEach((el, i) => {
@@ -3995,9 +4025,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, maxTop));
         
         // Check if the reminder should be rendered in a "flipped" state
-        const flipThresholdProportion = (23 * 60 + 40) / (24 * 60);
-        const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
-        const isFlipped = reminderTopPosition > flipThresholdTop;
+        const spaceBelow = (timedAreaTop + timedAreaHeight) - reminderTopPosition;
+        const isFlipped = spaceBelow < reminderTextHeight;
 
         // Check for overlap with the previous reminder group to alternate colors
         const currentVisualTop = isFlipped ? (reminderTopPosition - reminderTextHeight + 2) : reminderTopPosition;
@@ -4172,7 +4201,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-2)',
                 color: 'var(--shade-4)',
                 fontSize: '9.5px', // Bigger font
-                fontFamily: 'Monospaced',
+                fontFamily: 'MonospacePrimary',
                 borderRadius: String(bubbleHeight / 2) + 'px',
                 paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                 boxSizing: 'border-box',
@@ -4600,7 +4629,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: 'var(--shade-2)',
                         color: 'var(--shade-4)',
                         fontSize: '9.5px', // Bigger font
-                        fontFamily: 'Monospaced',
+                        fontFamily: 'MonospacePrimary',
                         borderRadius: String(bubbleHeight / 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                         boxSizing: 'border-box',
@@ -4714,59 +4743,59 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     cursor: 'pointer'
                 });
             }
-        }
 
-        // Cleanup stale stacked elements if the group has shrunk or is no longer a group
-        const stackCleanupStartIndex = isGrouped ? group.length : 1;
-        let stackCleanupIndex = stackCleanupStartIndex;
-        while (true) {
-            const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
-            const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
-            
-            if (!exists(staleStackText) && !exists(staleStackCount)) {
-                break; // No more stale elements for this group
+            // Cleanup stale stacked elements if the group has shrunk or is no longer a group
+            const stackCleanupStartIndex = isGrouped ? group.length : 1;
+            let stackCleanupIndex = stackCleanupStartIndex;
+            while (true) {
+                const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
+                const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
+                
+                if (!exists(staleStackText) && !exists(staleStackCount)) {
+                    break; // No more stale elements for this group
+                }
+                
+                if (exists(staleStackText)) staleStackText.remove();
+                if (exists(staleStackCount)) staleStackCount.remove();
+                
+                stackCleanupIndex++;
             }
-            
-            if (exists(staleStackText)) staleStackText.remove();
-            if (exists(staleStackCount)) staleStackCount.remove();
-            
-            stackCleanupIndex++;
+
+            groupIndex++;
         }
 
-        groupIndex++;
-    }
-
-    // Remove stale reminder elements
-    let existingReminderIndex = groupIndex;
-    while(true) {
-        const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
-        if (!exists(lineElement)) {
-            // If the line element is gone, we assume all other elements for this index are too.
-            break; 
-        }
-
-        // Helper to remove an element by its generated ID
-        const removeElementById = (id) => {
-            const el = HTML.getElementUnsafely(id);
-            if(exists(el)) el.remove();
-        };
-
-        removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
-        removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
-        removeElementById(`day${dayIndex}reminderQuarterCircle${existingReminderIndex}`);
-        removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
-        
-        let stackIdx = 1;
+        // Remove stale reminder elements
+        let existingReminderIndex = groupIndex;
         while(true) {
-            const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
-            if(!exists(stackText)) break;
-            
-            removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
-            removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
-            stackIdx++;
-        }
+            const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
+            if (!exists(lineElement)) {
+                // If the line element is gone, we assume all other elements for this index are too.
+                break; 
+            }
 
-        existingReminderIndex++;
+            // Helper to remove an element by its generated ID
+            const removeElementById = (id) => {
+                const el = HTML.getElementUnsafely(id);
+                if(exists(el)) el.remove();
+            };
+
+            removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
+            removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
+            removeElementById(`day${dayIndex}reminderQuarterCircle${existingReminderIndex}`);
+            removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
+            
+            let stackIdx = 1;
+            while(true) {
+                const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+                if(!exists(stackText)) break;
+                
+                removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+                removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
+                stackIdx++;
+            }
+
+            existingReminderIndex++;
+        }
     }
 }
 
@@ -4805,10 +4834,87 @@ function getDayColumnDimensions(dayIndex) {
 function renderCalendar(days) {
     const numberOfDays = LocalData.get('numberOfDays');
     const isStacking = LocalData.get('stacking');
-    
+
     ASSERT(type(days, List(DateField)));
     ASSERT(exists(numberOfDays) && days.length == numberOfDays, "renderCalendar days must be an array of length LocalData.get('numberOfDays')");
     ASSERT(type(isStacking, Boolean));
+
+    // Compute the earliest and latest hour across all
+    // rendered days when the user wants to hide empty spans.
+    if (user.settings.hideEmptyTimespanInCalendar) {
+        const MS_PER_HOUR = 3600000;
+        let globalEarliestMs = 24 * MS_PER_HOUR; // start with max
+        let globalLatestMs  = 0;                 // start with min
+
+        for (let dIdx = 0; dIdx < days.length; dIdx++) {
+            const day = days[dIdx];
+            const dayTime = DateTime.local(day.year, day.month, day.day);
+            const dayStartUnix = dayTime.startOf('day').plus({ hours: user.settings.startOfDayOffset }).toMillis();
+            const dayEndUnix   = dayTime.endOf('day').plus({ hours: user.settings.endOfDayOffset }).plus({ milliseconds: 1 }).toMillis();
+
+            // Scan every entity for this day – reuse FilteredInstancesFactory
+            for (const entity of user.entityArray) {
+                if (type(entity.data, TaskData)) {
+                    for (let p = 0; p < entity.data.workSessions.length; p++) {
+                        const segs = FilteredInstancesFactory.fromTaskWorkSession(entity, entity.data.workSessions[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of segs) {
+                            if (!type(inst, FilteredSegmentOfDayInstance)) continue;
+                            const candEarliest = inst.wrapToPreviousDay ? inst.endDateTime : inst.startDateTime;
+                            const candLatest   = inst.wrapToNextDay     ? inst.startDateTime : inst.endDateTime;
+                            globalEarliestMs = Math.min(globalEarliestMs, candEarliest - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, candLatest   - dayStartUnix);
+                        }
+                    }
+                } else if (type(entity.data, EventData)) {
+                    for (let p = 0; p < entity.data.instances.length; p++) {
+                        const segs = FilteredInstancesFactory.fromEvent(entity, entity.data.instances[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of segs) {
+                            if (!type(inst, FilteredSegmentOfDayInstance)) continue;
+                            const candEarliest = inst.wrapToPreviousDay ? inst.endDateTime : inst.startDateTime;
+                            const candLatest   = inst.wrapToNextDay     ? inst.startDateTime : inst.endDateTime;
+                            globalEarliestMs = Math.min(globalEarliestMs, candEarliest - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, candLatest   - dayStartUnix);
+                        }
+                    }
+                } else if (type(entity.data, ReminderData)) {
+                    for (let p = 0; p < entity.data.instances.length; p++) {
+                        const rems = FilteredInstancesFactory.fromReminder(entity, entity.data.instances[p], p, day, dayStartUnix, dayEndUnix);
+                        for (const inst of rems) {
+                            if (!type(inst, FilteredReminderInstance)) continue;
+                            globalEarliestMs = Math.min(globalEarliestMs, inst.dateTime - dayStartUnix);
+                            globalLatestMs   = Math.max(globalLatestMs, inst.dateTime - dayStartUnix);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback – if no timed content exists, default to a central 12-hour window
+        if (globalEarliestMs === 24 * MS_PER_HOUR) {
+            G_calendarVisibleStartHour = 8;
+            G_calendarVisibleEndHour   = 20;
+        } else {
+            // Convert to hours and expand by ±1 hour (bounded 0-24)
+            let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
+            let latestHour   = Math.min(24, Math.round(globalLatestMs / MS_PER_HOUR) + 1);
+    
+            // Ensure span is at least 12 hours
+            if (latestHour - earliestHour < 12) {
+                const missing = 12 - (latestHour - earliestHour);
+                const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
+                earliestHour -= expandStart;
+                latestHour = Math.min(24, latestHour + (missing - expandStart));
+            }
+    
+            G_calendarVisibleStartHour = earliestHour;
+            G_calendarVisibleEndHour   = latestHour;
+        }
+    } else {
+        // Full-day view
+        G_calendarVisibleStartHour = 0;
+        G_calendarVisibleEndHour   = 24;
+    }
+
     for (let i = 0; i < 7; i++) {
         if (i >= numberOfDays) { // delete excess elements if they exist
             // day background element
@@ -5167,7 +5273,7 @@ function initNumberOfCalendarDaysButton() {
         transform: 'translate(-50%, -50%)',
         fontSize: '14px',
         fontWeight: 'bold',
-        fontFamily: 'Monospaced',
+        fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         zIndex: '12',
         pointerEvents: 'none'
@@ -5360,14 +5466,14 @@ function initNumberOfCalendarDaysButton() {
     topHalf.onclick = (e) => {
         toggleNumberOfCalendarDays(true, e.shiftKey);
     };
-    
+
     topHalf.onmouseenter = () => {
         isHoveringTop = true;
         HTML.setStyle(topHalf, { backgroundColor: 'var(--shade-2)' });
         HTML.setStyle(numberDisplay, { opacity: '0.3' });
         updateTopTrianglePositions();
     };
-    
+
     topHalf.onmouseleave = () => {
         isHoveringTop = false;
         HTML.setStyle(topHalf, { backgroundColor: 'transparent' });
@@ -5512,6 +5618,16 @@ function toggleAmPmOr24(formatSelection) {
             }
         }
     }
+}
+
+async function toggleHidingEmptyTimespanInCalendar(enabled) {
+    ASSERT(type(enabled, Boolean), "toggleHidingEmptyTimespanInCalendar: enabled must be boolean");
+    if (!exists(user.settings)) {
+        user.settings = {};
+    }
+    user.settings.hideEmptyTimespanInCalendar = enabled;
+    await saveUserData(user);
+    renderCalendar(currentDays());
 }
 
 function toggleStacking() {
@@ -5843,6 +5959,7 @@ function renderInputBox() {
 
         // Add focus/blur event listeners for rainbow mask fade animation and typing state
         inputBox.addEventListener('focus', function() {
+            inputBoxFocused = true;
             const gradientMask = HTML.getElementUnsafely('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '1';
@@ -5851,6 +5968,7 @@ function renderInputBox() {
         });
 
         inputBox.addEventListener('blur', function() {
+            inputBoxFocused = false;
             const gradientMask = HTML.getElementUnsafely('gradientMask');
             if (exists(gradientMask)) {
                 gradientMask.style.opacity = '0';
@@ -6140,7 +6258,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         HTML.setStyle(line1El, {
             position: 'absolute',
             color: textColor,
-            fontFamily: 'Monospaced',
+            fontFamily: 'MonospacePrimary',
             zIndex: '3',
             cursor: 'pointer',
             textAlign: 'center',
@@ -6170,7 +6288,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         HTML.setStyle(line2El, {
             position: 'absolute',
             color: textColor,
-            fontFamily: 'Monospaced',
+            fontFamily: 'MonospacePrimary',
             zIndex: '3',
             cursor: 'pointer',
             textAlign: 'center',
@@ -6605,7 +6723,7 @@ function updateInputBoxGradients(instant) {
     const bottomGradientTop = inputRect.bottom - gradientHeight;
     
     // Get the accent color and convert to RGB
-    const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue('--accent-0').trim();
+    const accentColorHex = user.palette.accent[1];
     const accentRgb = hexToRgb(accentColorHex);
     
     // Show gradients based on scroll state and max height
@@ -7121,18 +7239,20 @@ function openSettingsModal() {
     
     if (proButtonElem) {
         HTML.setStyle(proButtonElem, {
-            zIndex: String(proButtonZIndex - 200)
+            zIndex: String(proButtonZIndex - 400)
         });
     }
     if (proOverlayElem) {
         HTML.setStyle(proOverlayElem, {
-            zIndex: String(proOverlayZIndex - 200)
+            zIndex: String(proOverlayZIndex - 400)
         });
     }
     if (proTextElem) {
-        HTML.setStyle(proTextElem, {
-            zIndex: String(proTextZIndex - 200)
-        });
+        setTimeout(() => {
+            HTML.setStyle(proTextElem, {
+                zIndex: String(proTextZIndex - 200)
+            });
+        }, 100);
     }
     
     const settingsButton = HTML.getElement('settingsButton');
@@ -7145,7 +7265,8 @@ function openSettingsModal() {
     if (LocalData.get('signedIn')) {
         modalHeight = 100;
     } else {
-        modalHeight = 41;
+        // Increased height to accommodate the new "Remove empty time from days" label
+        modalHeight = 60;
     }
     
     // Create modal div that starts as the button background
@@ -7200,11 +7321,10 @@ function openSettingsModal() {
             position: 'fixed',
             left: (modalRect.left + 5) + 'px',
             top: (modalRect.top + 5) + 'px',
-            fontFamily: 'Monospaced',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '12px',
             transition: 'opacity 0.2s ease-in'
         });
         HTML.body.appendChild(settingsText);
@@ -7215,16 +7335,15 @@ function openSettingsModal() {
         // Create time format label
         const timeFormatLabel = HTML.make('div');
         HTML.setId(timeFormatLabel, 'timeFormatLabel');
-        timeFormatLabel.textContent = 'Time format:';
+        timeFormatLabel.textContent = 'Time format';
         HTML.setStyle(timeFormatLabel, {
             position: 'fixed',
-            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format:", 'Monospace', 10) - 5) + 'px',
-            top: (modalRect.top + 18) + 'px',
-            fontFamily: 'Monospaced',
+            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format", 'MonospacePrimary', 10) - 5) + 'px',
+            top: (modalRect.top + 23) + 'px',
+            fontFamily: 'MonospacePrimary',
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
-            lineHeight: '24px',
             opacity: '0',
             transition: 'opacity 0.2s ease-in'
         });
@@ -7232,16 +7351,50 @@ function openSettingsModal() {
         // Fade in the label
         setTimeout(() => { HTML.setStyle(timeFormatLabel, { opacity: '1' }); }, 10);
         
+        const removeEmptyTimesLabel = HTML.make('div');
+        HTML.setId(removeEmptyTimesLabel, 'removeEmptyTimesLabel');
+        const removeEmptyTimesText = 'Remove empty\ntime from days';
+        removeEmptyTimesLabel.textContent = removeEmptyTimesText;
+        let xpos = (modalWidth - measureTextWidth("time from days", 'MonospacePrimary', 10) + 5);
+        HTML.setStyle(removeEmptyTimesLabel, {
+            position: 'fixed',
+            right: xpos + 'px',
+            top: (modalRect.top + 42) + 'px',
+            fontFamily: 'MonospacePrimary',
+            fontSize: '10px',
+            color: 'var(--shade-4)',
+            zIndex: '7002',
+            opacity: '0',
+            transition: 'opacity 0.2s ease-in'
+        });
+        HTML.body.appendChild(removeEmptyTimesLabel);
+        // Fade in the label
+        setTimeout(() => { HTML.setStyle(removeEmptyTimesLabel, { opacity: '1' }); }, 10);
+
+        const toggleWidth = 36;
+        const toggleHeight = 20;
+        createBooleanToggle(
+            'removeEmptyTimesToggle',
+            82,
+            modalRect.top + 45,
+            toggleWidth,
+            toggleHeight,
+            7002,
+            user.settings.hideEmptyTimespanInCalendar,
+            toggleHidingEmptyTimespanInCalendar,
+            'right'
+        );
+
         createSelector(
             ['24hr', 'AM/PM'],           // options: array of selectable strings
             'horizontal',                // orientation: layout direction
             'timeFormatSelector',        // id: unique identifier for this selector
-            modalRect.width - 145,          // x: 5px from left side of modal
-            modalRect.top + 20,          // y: 20px from top of modal
+            modalRect.width - 140,          // x: 5px from left side of modal
+            modalRect.top + 19.5,          // y: 20px from top of modal
             72,                          // width: total selector width in pixels
             20,                          // height: total selector height in pixels
             7002,                        // zIndex: layer positioning (above settings modal)
-            'Monospaced',                 // font: font family for text rendering
+            'MonospacePrimary',                 // font: font family for text rendering
             10,                          // fontSize: text size in pixels
             toggleAmPmOr24,              // onSelectionChange: callback function
             user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
@@ -7261,7 +7414,7 @@ function openSettingsModal() {
                 top: (modalHeight - 15) + 'px',
                 width: '60px',
                 height: '20px',
-                fontFamily: 'Monospace',
+                fontFamily: 'MonospacePrimary',
                 fontSize: '10px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -7291,7 +7444,7 @@ function openSettingsModal() {
                 top: (modalHeight - 15) + 'px',
                 width: '120px',
                 height: '20px',
-                fontFamily: 'Monospaced',
+                fontFamily: 'MonospacePrimary',
                 fontSize: '10px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -7313,18 +7466,22 @@ function openSettingsModal() {
             featureRequestButton.onclick = () => {
                 const settingsText = HTML.getElement('settingsText');
                 const timeFormatLabel = HTML.getElement('timeFormatLabel');
+                const removeEmptyTimesLabel = HTML.getElement('removeEmptyTimesLabel');
                 const logoutButton = HTML.getElement('logoutButton');
                 
                 // Start animations immediately
                 deleteSelector('timeFormatSelector');
+                deleteBooleanToggle('removeEmptyTimesToggle');
                 HTML.setStyle(settingsText, { opacity: '0' });
                 HTML.setStyle(timeFormatLabel, { opacity: '0' });
+                HTML.setStyle(removeEmptyTimesLabel, { opacity: '0' });
                 HTML.setStyle(logoutButton, { opacity: '0' });
                 HTML.setStyle(featureRequestButton, { opacity: '0' });
 
                 setTimeout(() => {
                     HTML.setStyle(settingsText, { display: 'none' });
                     HTML.setStyle(timeFormatLabel, { display: 'none' });
+                    HTML.setStyle(removeEmptyTimesLabel, { display: 'none' });
                     HTML.setStyle(logoutButton, { display: 'none' });
                     HTML.setStyle(featureRequestButton, { display: 'none' });
 
@@ -7338,7 +7495,7 @@ function openSettingsModal() {
                         top: '11px',
                         width: '40px',
                         height: '20px',
-                        fontFamily: 'Monospaced',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         backgroundColor: 'var(--shade-1)',
@@ -7360,7 +7517,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: '36px',
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'Monospaced',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         zIndex: '7003',
@@ -7382,7 +7539,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: (36 + 14) + 'px', // one line below first message
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'Monospaced',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: '#0066ff',
                         textDecoration: 'underline',
@@ -7465,7 +7622,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: (36 + 28) + 'px', // two lines below first message
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'Monospaced',
+                        fontFamily: 'MonospacePrimary',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         zIndex: '7003',
@@ -7515,6 +7672,7 @@ function openSettingsModal() {
                             // Prepare original elements for fade-in
                             HTML.setStyle(settingsText, { display: 'block', opacity: '0' });
                             HTML.setStyle(timeFormatLabel, { display: 'block', opacity: '0' });
+                            HTML.setStyle(removeEmptyTimesLabel, { display: 'block', opacity: '0' });
                             HTML.setStyle(logoutButton, { display: 'block', opacity: '0' });
                             HTML.setStyle(featureRequestButton, { display: 'block', opacity: '0' });
 
@@ -7525,19 +7683,32 @@ function openSettingsModal() {
                                 'timeFormatSelector',
                                 modalRect.width - 145,
                                 modalRect.top + 20,
-                                72, 20, 7002, 'Monospaced', 10,
+                                72, 20, 7002, 'MonospacePrimary', 10,
                                 toggleAmPmOr24,
                                 user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',
                                 0.9, 'right'
+                            );
+                            
+                            // Re-create boolean toggle
+                            createBooleanToggle(
+                                'removeEmptyTimesToggle',
+                                xpos,
+                                modalRect.top + 42,
+                                toggleWidth,
+                                toggleHeight,
+                                7002,
+                                user.settings.hideEmptyTimespanInCalendar === true,
+                                toggleHidingEmptyTimespanInCalendar,
+                                'right'
                             );
                             
                             // Force reflow and fade in
                             settingsText.offsetHeight;
                             HTML.setStyle(settingsText, { opacity: '1' });
                             HTML.setStyle(timeFormatLabel, { opacity: '1' });
+                            HTML.setStyle(removeEmptyTimesLabel, { opacity: '1' });
                             HTML.setStyle(logoutButton, { opacity: '1' });
                             HTML.setStyle(featureRequestButton, { opacity: '1' });
-
                         }, 200);
                     };
 
@@ -7612,10 +7783,12 @@ function closeSettingsModal() {
     
     // Delete the test selector
     deleteSelector('timeFormatSelector');
+    deleteBooleanToggle('removeEmptyTimesToggle');
     
     // Fade out settings text, time format label, and buttons
     const settingsText = HTML.getElementUnsafely('settingsText');
     const timeFormatLabel = HTML.getElementUnsafely('timeFormatLabel');
+    const removeEmptyTimesLabel = HTML.getElementUnsafely('removeEmptyTimesLabel');
     const logoutButton = HTML.getElementUnsafely('logoutButton');
     const featureRequestButton = HTML.getElementUnsafely('featureRequestButton');
     const featureRequestBackButton = HTML.getElementUnsafely('featureRequestBackButton');
@@ -7644,6 +7817,18 @@ function closeSettingsModal() {
         setTimeout(() => {
             if (timeFormatLabel && timeFormatLabel.parentNode) {
                 HTML.body.removeChild(timeFormatLabel);
+            }
+        }, 200);
+    }
+    
+    if (removeEmptyTimesLabel) {
+        HTML.setStyle(removeEmptyTimesLabel, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (removeEmptyTimesLabel && removeEmptyTimesLabel.parentNode) {
+                HTML.body.removeChild(removeEmptyTimesLabel);
             }
         }, 200);
     }
@@ -7715,27 +7900,6 @@ function closeSettingsModal() {
             });
         }
         
-        // restore pro button (if present) to its normal z-index
-        const proButtonElem = HTML.getElementUnsafely('proButton');
-        const proOverlayElem = HTML.getElementUnsafely('proOverlay');
-        const proTextElem = HTML.getElementUnsafely('proText');
-        
-        if (proButtonElem) {
-            HTML.setStyle(proButtonElem, {
-                zIndex: String(proButtonZIndex)
-            });
-        }
-        if (proOverlayElem) {
-            HTML.setStyle(proOverlayElem, {
-                zIndex: String(proOverlayZIndex)
-            });
-        }
-        if (proTextElem) {
-            HTML.setStyle(proTextElem, {
-                zIndex: String(proTextZIndex)
-            });
-        }
-        
         // Animate modal back to button size
         HTML.setStyle(settingsModal, {
             width: '0px',
@@ -7750,6 +7914,27 @@ function closeSettingsModal() {
             if (settingsModal) {
                 HTML.body.removeChild(settingsModal);
                 settingsModal = null;
+            }
+
+            // restore pro button (if present) to its normal z-index
+            const proButtonElem = HTML.getElementUnsafely('proButton');
+            const proOverlayElem = HTML.getElementUnsafely('proOverlay');
+            const proTextElem = HTML.getElementUnsafely('proText');
+            
+            if (proButtonElem) {
+                HTML.setStyle(proButtonElem, {
+                    zIndex: String(proButtonZIndex)
+                });
+            }
+            if (proOverlayElem) {
+                HTML.setStyle(proOverlayElem, {
+                    zIndex: String(proOverlayZIndex)
+                });
+            }
+            if (proTextElem) {
+                HTML.setStyle(proTextElem, {
+                    zIndex: String(proTextZIndex)
+                });
             }
         }, 400);
     }
@@ -8059,7 +8244,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30) + 'px',
             width: String(modalWidth - 34) + 'px',
             height: String(signInFieldInputHeight) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-0)',
@@ -8093,7 +8278,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 42) + 'px',
             width: String(modalWidth - 34) + 'px',
             height: String(signInFieldInputHeight) + 'px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-0)',
@@ -8128,7 +8313,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 114 - 32) + 'px',
             width: String(signInSignUpButtonWidth) + 'px',
             height: '32px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -8161,7 +8346,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 114 - 32) + 'px',
             width: String(signInSignUpButtonWidth) + 'px',
             height: '32px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -8193,7 +8378,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 10) + 'px',
             width: '60px',
             height: '24px',
-            fontFamily: 'Monospace',
+            fontFamily: 'MonospacePrimary',
             fontSize: '10px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -8245,7 +8430,7 @@ function showInitialButtons() {
         top: (modalRect.top + 30) + 'px',
         width: ((modalWidth - 30) / 2) + 'px',
         height: '114px',
-        fontFamily: 'Monospace',
+        fontFamily: 'MonospacePrimary',
         fontSize: '12px',
         color: 'var(--shade-4)',
         backgroundColor: 'var(--shade-1)',
@@ -8280,7 +8465,7 @@ function showInitialButtons() {
         top: (modalRect.top + 30) + 'px',
         width: ((modalWidth - 30) / 2) + 'px',
         height: '114px',
-        fontFamily: 'Monospace',
+        fontFamily: 'MonospacePrimary',
         fontSize: '12px',
         color: 'var(--shade-4)',
         backgroundColor: 'var(--shade-1)',
@@ -8502,7 +8687,7 @@ async function signUp() {
                 position: 'fixed',
                 right: '22px',
                 top: String(modalRect.top + 50) + 'px', // Position above the inputs, adjust as needed
-                fontFamily: 'Monospaced',
+                fontFamily: 'MonospacePrimary',
                 fontSize: '11px',
                 color: 'var(--shade-4)',
                 zIndex: String(signInTextZIndex + 101),
@@ -8529,7 +8714,7 @@ async function signUp() {
                 HTML.setStyle(inputDiv, {
                     width: '28px',
                     height: '36px',
-                    fontFamily: 'Monospaced',
+                    fontFamily: 'MonospacePrimary',
                     fontSize: '14px',
                     color: 'var(--shade-4)',
                     backgroundColor: 'var(--shade-0)',
@@ -9154,6 +9339,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
     const basePromptForStep2 = `Here was the user's prompt: ${inputText}. Another AI model described the files and extracted a bunch of entities. Your have been given one of the extracted entities, and your job is to provide the complete entity. Here is a description of the files it came from: ${responseJson1.descriptionOfFiles}. Here are the extracted entities: ${JSON.stringify(uniqueSimplifiedEntities)}.`;
 
     // Step 2: Expand simplified entities in parallel
+    const parallelNode = new ParallelNode("Calling AI on each detected entity in parallel");
     const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
         let promptForStep2 = basePromptForStep2;
         promptForStep2 += ` Here is the entity you have been given: ${JSON.stringify(simplifiedEntity)}.`;
@@ -9185,6 +9371,22 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
             return;
         }
 
+        for (const nodeJson of responseJson.chain) {
+            parallelNode.add(Chain.nodeFromJson(nodeJson));
+        }
+    }
+
+    parallelNode.complete();
+    chain.add(parallelNode);
+
+    for (let i = 0; i < responses2.length; i++) {
+        if (!responses2[i].ok) {
+            console.error('AI parse request failed for step 2', await responses2[i].text());
+            continue;
+        }
+
+        const responseJson = await responses2[i].json();
+
         if (!exists(responseJson.aiOutput)) {
             log("Error: aiOutput is required for step_by_step:2/2 strategy.");
             return;
@@ -9198,10 +9400,6 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         if (responseJson.error && responseJson.error.length > 0) {
             log("Error: " + responseJson.error);
             continue;
-        }
-
-        for (const nodeJson of responseJson.chain) {
-            chain.addNodeFromJson(nodeJson);
         }
 
         const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '{}');
@@ -9730,6 +9928,122 @@ function deleteSelector(id) {
     }, 300);
 }
 
+// Creates a boolean toggle with smooth transitions
+function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onToggle, alignmentSide) {
+    ASSERT(type(id, NonEmptyString), "createBooleanToggle: id must be a non-empty string");
+    ASSERT(type(x, Number), "createBooleanToggle: x must be a number");
+    ASSERT(type(y, Number), "createBooleanToggle: y must be a number");
+    ASSERT(type(width, Number) && width > 0, "createBooleanToggle: width must be a positive number");
+    ASSERT(type(height, Number) && height > 0, "createBooleanToggle: height must be a positive number");
+    ASSERT(type(zIndex, Int), "createBooleanToggle: zIndex must be an integer");
+    ASSERT(type(initialState, Boolean), "createBooleanToggle: initialState must be boolean");
+    ASSERT(type(onToggle, Function), "createBooleanToggle: onToggle must be a function");
+    ASSERT(type(alignmentSide, String) && (alignmentSide === 'left' || alignmentSide === 'right'), "createBooleanToggle: alignmentSide must be 'left' or 'right'");
+
+    // Prevent duplicate ids
+    ASSERT(!exists(HTML.getElementUnsafely(id)), "createBooleanToggle: element with id '" + id + "' already exists");
+
+    // Colors
+    const accentRgb = hexToRgb(user.palette.accent[1]);
+    const accentColor = `rgb(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b})`;
+    const offTrackColor = 'var(--shade-2)';
+    const offKnobColor = 'var(--shade-3)';
+
+    // Track element
+    const track = HTML.make('div');
+    HTML.setId(track, id);
+
+    const trackStyles = {
+        position: 'absolute',
+        top: y + 'px',
+        width: width + 'px',
+        height: height + 'px',
+        backgroundColor: initialState ? accentColor : offTrackColor,
+        borderRadius: (height / 2) + 'px',
+        cursor: 'pointer',
+        zIndex: String(zIndex),
+        transition: 'background-color 0.25s ease, opacity 0.25s ease'
+    };
+    if (alignmentSide === 'left') {
+        trackStyles.left = x + 'px';
+    } else {
+        trackStyles.right = x + 'px';
+    }
+    HTML.setStyle(track, trackStyles);
+
+    // Knob element
+    const knobSize = height - 4; // 2px padding on each side
+    const knob = HTML.make('div');
+    HTML.setId(knob, id + '_knob');
+    HTML.setStyle(knob, {
+        position: 'absolute',
+        top: '2px',
+        left: initialState ? (width - knobSize - 2) + 'px' : '2px',
+        width: knobSize + 'px',
+        height: knobSize + 'px',
+        backgroundColor: initialState ? 'var(--shade-4)' : offKnobColor,
+        borderRadius: '50%',
+        transition: 'left 0.25s ease, background-color 0.25s ease'
+    });
+
+    // Save state
+    HTML.setData(track, 'state', initialState);
+
+    // Toggle handler
+    track.onclick = () => {
+        const current = HTML.getData(track, 'state');
+        const next = !current;
+        HTML.setData(track, 'state', next);
+
+        // Visual updates
+        HTML.setStyle(track, { backgroundColor: next ? accentColor : offTrackColor });
+        HTML.setStyle(knob, {
+            left: next ? (width - knobSize - 2) + 'px' : '2px',
+            backgroundColor: next ? 'var(--shade-4)' : offKnobColor
+        });
+
+        // Callback
+        onToggle(next);
+    };
+
+    // Assemble DOM
+    track.appendChild(knob);
+    HTML.body.appendChild(track);
+
+    // Fade in
+    HTML.setStyle(track, { opacity: '0' });
+    setTimeout(() => { HTML.setStyle(track, { opacity: '1' }); }, 10);
+
+    return { width, height, actualWidth: width, actualHeight: height };
+}
+
+function deleteBooleanToggle(id) {
+    ASSERT(type(id, NonEmptyString), "deleteBooleanToggle: id must be a non-empty string");
+
+    const track = HTML.getElementUnsafely(id);
+    if (!exists(track)) return;
+
+    const knob = HTML.getElementUnsafely(id + '_knob');
+    const elems = [track];
+    if (exists(knob)) elems.push(knob);
+
+    // Fade out
+    for (const el of elems) {
+        HTML.setStyle(el, {
+            opacity: '0',
+            transition: 'opacity 0.25s ease'
+        });
+    }
+
+    setTimeout(() => {
+        for (const el of elems) {
+            if (exists(el) && exists(el.parentNode)) {
+                el.parentNode.removeChild(el);
+            }
+        }
+    }, 250);
+}
+
 function initSettingsButton() {
     // Track base rotation that accumulates with each click
     let baseRotation = 0;
@@ -9849,7 +10163,7 @@ function initSignInButton() {
     }
     
     // Sign-in button width is wider than standard buttons for the text
-    const signInButtonWidth = measureTextWidth('sign in/up', 'Monospaced', 11) + 10;
+    const signInButtonWidth = measureTextWidth('sign in/up', 'MonospacePrimary', 11) + 10;
     
     // Sign-in button container
     let signInButton = HTML.make('div');
@@ -9876,7 +10190,7 @@ function initSignInButton() {
     HTML.setId(signInText, 'signInText');
     HTML.setStyle(signInText, {
         fontSize: '11px',
-        fontFamily: 'Monospaced',
+        fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         whiteSpace: 'nowrap',
         zIndex: String(signInTextZIndex)
@@ -9917,7 +10231,7 @@ function initProButton(animateFromTop = false) {
     }
 
     // Width based on the text "pro" with a little padding
-    const proButtonWidth = measureTextWidth('pro', 'Monospaced', 11) + 10;
+    const proButtonWidth = measureTextWidth('pro', 'MonospacePrimary', 11) + 10;
 
     // Common right offset identical to where the sign-in button would have been
     const rightOffset = windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4;
@@ -9973,7 +10287,7 @@ function initProButton(animateFromTop = false) {
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '11px',
-        fontFamily: 'Monospaced',
+        fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
