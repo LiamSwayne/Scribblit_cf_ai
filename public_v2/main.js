@@ -144,6 +144,11 @@ document.addEventListener('paste', async (e) => {
             });
             updateAttachmentBadge();
         }
+        // if we focus earlier, for some reason chrome pastes the name as well
+        const inputBox = HTML.getElement('inputBox');
+        inputBox.focus();
+
+        updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
     } else {
         const text = e.clipboardData.getData('text/plain');
         if (text) {
@@ -160,17 +165,16 @@ document.addEventListener('paste', async (e) => {
                 size: text.length
             });
             updateAttachmentBadge();
-        } else if (inputBoxFocused) {
-            // add it to the input box content
-            const inputBox = HTML.getElement('inputBox');
-            inputBox.value += text;
-            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+            updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
         } else {
-            // focus the input box, then add the text
             const inputBox = HTML.getElement('inputBox');
             inputBox.focus();
+            // add it to the input box content
+            log('Pasted text: "' + text + '"');
             inputBox.value += text;
-            inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+            if (attachedFiles.length === 0) {
+                updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
+            }
         }
     }
 });
@@ -9143,7 +9147,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     }
 
     for (const nodeJson of responseJson.chain) {
-        chain.addNodeFromJson(nodeJson);
+        chain.add(Chain.nodeFromJson(nodeJson));
     }
 
     // we asked the ai for an array of entities, so we need to extract it
