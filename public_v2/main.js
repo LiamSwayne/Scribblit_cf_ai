@@ -3313,13 +3313,10 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             if (instance.ambiguousEndTime) {
                 const eventColorHex = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
                 if (eventColorHex.startsWith('#') && eventColorHex.length === 7) {
-                    const r = parseInt(eventColorHex.slice(1, 3), 16);
-                    const g = parseInt(eventColorHex.slice(3, 5), 16);
-                    const b = parseInt(eventColorHex.slice(5, 7), 16);
-                    style.background = `linear-gradient(rgb(${r}, ${g}, ${b}) 0%, rgb(${r}, ${g}, ${b}) 20%, rgba(${r}, ${g}, ${b}, 0.6) 60%, rgba(${r}, ${g}, ${b}, 0.4) 70%, rgba(${r}, ${g}, ${b}, 0.2) 85%, rgba(${r}, ${g}, ${b}, 0.1) 90%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+                    const rgb = hexToRgb(eventColorHex);
+                    style.background = `linear-gradient(rgb(${rgb.r}, ${rgb.g}, ${rgb.b}) 0%, rgb(${rgb.r}, ${rgb.g}, ${rgb.b}) 20%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6) 60%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.4) 70%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2) 85%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1) 90%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0) 100%)`;
                     style.borderBottomLeftRadius = '0px';
                     style.borderBottomRightRadius = '0px';
-                    console.log('[Gradient] Gradient applied for', eventId, style.background);
                 } else {
                     // Fallback for non-hex colors or parsing errors
                     style.backgroundColor = `var(${colorVar})`;
