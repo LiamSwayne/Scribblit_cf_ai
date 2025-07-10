@@ -125,12 +125,12 @@ function log(message) {
 // Date
 class DateField {
     constructor(year, month, day) {
-        ASSERT(type(year, Int));
+        ASSERT(type(year, Int), "DateField constructor: year must be an integer: " + year);
         
-        ASSERT(type(month, Int));
+        ASSERT(type(month, Int), "DateField constructor: month must be an integer: " + month);
         ASSERT(month >= 1 && month <= 12);
         
-        ASSERT(type(day, Int));
+        ASSERT(type(day, Int), "DateField constructor: day must be an integer: " + day);
         ASSERT(day >= 1 && day <= 31);
 
         if (month === 2 && day > 29) {
@@ -281,7 +281,7 @@ class EveryNDaysPattern {
         return new EveryNDaysPattern(DateField.decode(json.initialDate), json.n);
     }
 
-    static fromAiJson(json, range = NULL) {
+    static fromAiJson(json, range) {
         if(!exists(json)) {
             return NULL;
         }
@@ -296,7 +296,7 @@ class EveryNDaysPattern {
                 return NULL;
             }
 
-            if(range === NULL) {
+            if (range === NULL) {
                 log('EveryNDaysPattern.fromAiJson: range is required for weekly_pattern');
                 return NULL;
             }
@@ -656,9 +656,9 @@ class NthWeekdayOfMonthsPattern {
 // Range specs
 class DateRange {
     constructor(startDate, endDate) {
-        ASSERT(type(startDate, DateField));
+        ASSERT(type(startDate, DateField), "DateRange constructor: startDate must be a DateField: " + JSON.stringify(startDate));
         
-        ASSERT(type(endDate, Union(DateField, NULL)));
+        ASSERT(type(endDate, Union(DateField, NULL)), "DateRange constructor: endDate must be a DateField or NULL: " + JSON.stringify(endDate));
             
         // Convert to Date objects for comparison
         if (endDate !== NULL) {
@@ -673,12 +673,14 @@ class DateRange {
 
     encode() {
         ASSERT(type(this, DateRange));
+
         let endDateJson;
         if (this.endDate === NULL) {
-            endDateJson = NULL;
+            endDateJson = symbolToString(NULL);
         } else {
             endDateJson = this.endDate.encode();
         }
+
         return {
             startDate: this.startDate.encode(),
             endDate: endDateJson,
@@ -736,6 +738,7 @@ class RecurrenceCount {
 
     static decode(json) {
         ASSERT(exists(json));
+        ASSERT(exists(json.initialDate), 'initialDate is required in RecurrenceCount.decode');
         return new RecurrenceCount(DateField.decode(json.initialDate), json.count);
     }
 }
@@ -743,11 +746,11 @@ class RecurrenceCount {
 // Task instances
 class NonRecurringTaskInstance {
     constructor(date, dueTime, completion) {
-        ASSERT(type(date, DateField));
+        ASSERT(type(date, DateField), "NonRecurringTaskInstance constructor: date must be a DateField: " + JSON.stringify(date));
         
-        ASSERT(type(dueTime, Union(TimeField, NULL)));
+        ASSERT(type(dueTime, Union(TimeField, NULL)), "NonRecurringTaskInstance constructor: dueTime must be a TimeField or NULL: " + JSON.stringify(dueTime));
         
-        ASSERT(type(completion, Boolean));
+        ASSERT(type(completion, Boolean), "NonRecurringTaskInstance constructor: completion must be a boolean: " + completion);
         
         this.date = date;
         this.dueTime = dueTime;
@@ -795,7 +798,7 @@ class NonRecurringTaskInstance {
     static decode(json) {
         ASSERT(exists(json));
         let dueTime;
-        if (json.dueTime === symbolToString(NULL)) {
+        if (json.dueTime === symbolToString(NULL) || json.dueTime === undefined || json.dueTime === null) {
             dueTime = NULL;
         } else {
             dueTime = TimeField.decode(json.dueTime);
@@ -1090,7 +1093,7 @@ class RecurringTaskInstance {
     static decode(json) {
         ASSERT(exists(json));
         let dueTime;
-        if (json.dueTime === symbolToString(NULL)) {
+        if (json.dueTime === symbolToString(NULL) || json.dueTime === undefined || json.dueTime === null) {
             dueTime = NULL;
         } else {
             dueTime = TimeField.decode(json.dueTime);
@@ -1116,6 +1119,7 @@ class RecurringTaskInstance {
             range = RecurrenceCount.decode(json.range);
         } else {
             ASSERT(false, 'Unknown range type in RecurringTaskInstance.decode');
+            throw new Error('Unknown range type in RecurringTaskInstance.decode');
         }
 
         return new RecurringTaskInstance(datePattern, dueTime, range, json.completion);
@@ -1248,10 +1252,9 @@ class RecurringTaskInstance {
             return NULL;
         }
         
-        let rangeSpec = json.range;
         let range;
-        if (typeof rangeSpec === 'string') {
-            const parts = rangeSpec.split(':');
+        if (typeof json.range === 'string') {
+            const parts = json.range.split(':');
             if(parts.length !== 2) {
                 log('RecurringTaskInstance.fromAiJson: range string must be "start:end"');
                 return NULL;
@@ -1280,15 +1283,14 @@ class RecurringTaskInstance {
                 return NULL;
             }
         } else {
-            // Expect integer recurrence count
-            const count = Number(rangeSpec);
+            const count = Number(json.range);
             if(!(type(count, Int) && count > 0)) {
-                log('RecurringTaskInstance.fromAiJson: range integer must be positive');
+                log('RecurringTaskInstance.fromAiJson: numeric range must be positive integer');
                 return NULL;
             }
             
-            // Only valid if pattern provides initialDate
-            if(!type(datePattern, EveryNDaysPattern)) {
+            // Only allow numeric recurrence for patterns that contain an initial date
+            if(pt.type !== 'every_n_days_pattern') {
                 log('RecurringTaskInstance.fromAiJson: numeric range only allowed with every_n_days_pattern');
                 return NULL;
             }
@@ -1383,21 +1385,21 @@ class NonRecurringEventInstance {
     static decode(json) {
         ASSERT(exists(json));
         let startTime;
-        if (json.startTime === symbolToString(NULL)) {
+        if (json.startTime === symbolToString(NULL) || json.startTime === undefined || json.startTime === null) {
             startTime = NULL;
         } else {
             startTime = TimeField.decode(json.startTime);
         }
 
         let endTime;
-        if (json.endTime === symbolToString(NULL)) {
+        if (json.endTime === symbolToString(NULL) || json.endTime === undefined || json.endTime === null) {
             endTime = NULL;
         } else {
             endTime = TimeField.decode(json.endTime);
         }
 
         let differentEndDate;
-        if (json.differentEndDate === symbolToString(NULL)) {
+        if (json.differentEndDate === symbolToString(NULL) || json.differentEndDate === undefined || json.differentEndDate === null) {
             differentEndDate = NULL;
         } else {
             differentEndDate = DateField.decode(json.differentEndDate);
@@ -1588,6 +1590,10 @@ class RecurringEventInstance {
             ASSERT(false, 'Unknown startDatePattern type in RecurringEventInstance.decode');
         }
 
+        ASSERT(exists(json.startTime), 'startTime is required in RecurringEventInstance.decode');
+        ASSERT(exists(json.endTime), 'endTime is required in RecurringEventInstance.decode');
+        ASSERT(exists(json.range), 'range is required in RecurringEventInstance.decode');
+
         let startTime;
         if (json.startTime === symbolToString(NULL)) {
             startTime = NULL;
@@ -1634,6 +1640,8 @@ class RecurringEventInstance {
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
     static fromAiJson(json) {
+        log('RecurringEventInstance.fromAiJson: json: ');
+        log(json);
         if(!exists(json)) {
             return NULL;
         }
@@ -1643,7 +1651,6 @@ class RecurringEventInstance {
             return NULL;
         }
 
-        // --- PATTERN ---
         if(!exists(json.start_date_pattern)) {
             log('RecurringEventInstance.fromAiJson: start_date_pattern required');
             return NULL;
@@ -1670,7 +1677,6 @@ class RecurringEventInstance {
             return NULL;
         }
 
-        // --- TIMES ---
         let startTime = NULL;
         if (!AiReturnedNullField(json.start_time)) {
             const parts = json.start_time.split(':');
@@ -1798,6 +1804,11 @@ class RecurringEventInstance {
         }
 
         try {
+            ASSERT(exists(startDatePattern), 'startDatePattern is required in RecurringEventInstance.fromAiJson');
+            ASSERT(exists(startTime), 'startTime is required in RecurringEventInstance.fromAiJson');
+            ASSERT(exists(endTime), 'endTime is required in RecurringEventInstance.fromAiJson');
+            ASSERT(exists(range), 'range is required in RecurringEventInstance.fromAiJson');
+            ASSERT(exists(differentEndDatePattern), 'differentEndDatePattern is required in RecurringEventInstance.fromAiJson');
             return new RecurringEventInstance(startDatePattern, startTime, endTime, range, differentEndDatePattern);
         } catch (e) {
             log('RecurringEventInstance.fromAiJson: error creating instance');
