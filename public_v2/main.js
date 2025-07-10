@@ -8238,6 +8238,26 @@ function closeSignInModal(slideButtonOffScreen = false) {
 
 // Helper functions for sign-in modal state management
 function showEmailInputForm() {
+    // Add autofill style override for Chrome's autofill background (only insert once)
+    if (!HTML.getElementUnsafely('autoFillOverrideStyle')) {
+        const styleEl = HTML.make('style');
+        HTML.setId(styleEl, 'autoFillOverrideStyle');
+        styleEl.textContent = `
+            #signInEmailInput:-webkit-autofill,
+            #signInEmailInput:-webkit-autofill:hover,
+            #signInEmailInput:-webkit-autofill:focus,
+            #signInEmailInput:-webkit-autofill:active,
+            #signInPasswordInput:-webkit-autofill,
+            #signInPasswordInput:-webkit-autofill:hover,
+            #signInPasswordInput:-webkit-autofill:focus,
+            #signInPasswordInput:-webkit-autofill:active {
+                -webkit-box-shadow: 0 0 0px 1000px var(--shade-0) inset !important;
+                -webkit-text-fill-color: var(--shade-4) !important;
+                transition: background-color 9999s ease-in-out 0s;
+            }
+        `;
+        HTML.head.appendChild(styleEl);
+    }
     // Fade out Google and Email buttons
     const googleButton = HTML.getElementUnsafely('signInGoogleButton');
     const emailButton = HTML.getElementUnsafely('signInEmailButton');
@@ -8281,8 +8301,8 @@ function showEmailInputForm() {
         HTML.setStyle(emailInput, {
             position: 'fixed',
             right: (window.innerWidth - modalRect.right + 10) + 'px',
-            top: (modalRect.top + 30) + 'px',
-            width: String(modalWidth - 34) + 'px',
+            top: (modalRect.top + 34) + 'px',
+            width: String(modalWidth - 38) + 'px',
             height: String(signInFieldInputHeight) + 'px',
             fontFamily: 'MonospacePrimary',
             fontSize: '12px',
@@ -8317,8 +8337,8 @@ function showEmailInputForm() {
         HTML.setStyle(passwordInput, {
             position: 'fixed',
             right: (window.innerWidth - modalRect.right + 10) + 'px',
-            top: (modalRect.top + 30 + 42) + 'px',
-            width: String(modalWidth - 34) + 'px',
+            top: (modalRect.top + 73) + 'px',
+            width: String(modalWidth - 38) + 'px',
             height: String(signInFieldInputHeight) + 'px',
             fontFamily: 'MonospacePrimary',
             fontSize: '12px',
@@ -8349,7 +8369,7 @@ function showEmailInputForm() {
         HTML.setId(signInActionButton, 'signInActionButton');
         signInActionButton.textContent = 'sign in';
         
-        let signInSignUpButtonWidth = ((modalWidth - 34) / 2) + 5;
+        let signInSignUpButtonWidth = ((modalWidth - 34) / 2) + 3;
         
         HTML.setStyle(signInActionButton, {
             position: 'fixed',
@@ -8418,10 +8438,10 @@ function showEmailInputForm() {
         backButton.textContent = 'back';
         HTML.setStyle(backButton, {
             position: 'fixed',
-            left: (modalRect.left + 10) + 'px',
-            top: (modalRect.top + 10) + 'px',
-            width: '60px',
-            height: '24px',
+            right: (window.innerWidth - modalRect.left - 47) + 'px',
+            top: (modalRect.top + 7) + 'px',
+            width: '40px',
+            height: '20px',
             fontFamily: 'MonospacePrimary',
             fontSize: '10px',
             color: 'var(--shade-4)',
