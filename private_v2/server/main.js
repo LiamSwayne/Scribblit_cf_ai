@@ -744,11 +744,12 @@ async function handlePromptOnly(userPrompt, env) {
     // 1st choice – Gemini Flash
     startTime = Date.now();
     content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
-    if (content && content.trim() !== '') {
+    if (content.response && content.response.trim() !== '') {
         chain.push({ thinking_request: {
             model: MODELS.GEMINI_MODELS.flash,
             typeOfPrompt: 'convert_text_to_entities',
-            response: content,
+            response: content.response,
+            thoughts: content.thoughts,
             startTime,
             endTime: Date.now(),
             userPrompt: userPrompt,
@@ -1539,7 +1540,7 @@ export default {
                             ).run();
                         }
                         
-                        // Generate JWT token
+                        // token for frontend
                         const token = await generateToken(googleUser.email, env.SECRET_KEY);
                         
                         // Redirect to frontend with token
