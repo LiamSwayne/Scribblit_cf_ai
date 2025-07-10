@@ -3331,7 +3331,7 @@ class User {
             [], // empty entityArray
             {
                 ampmOr24: 'ampm',
-                hideEmptyTimespanInCalendar: true
+                hideEmptyTimespanInCalendar: true,
             },
             palettes.dark,
             NULL, // userId

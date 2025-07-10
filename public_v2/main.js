@@ -188,7 +188,6 @@ const allDayEventHeight = 18; // height in px for each all-day event
 const columnWidthThreshold = 300; // px
 const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
-// Currently visible calendar hour range (inclusive start, exclusive end)
 let G_calendarVisibleStartHour = 0; // hour 0 – 23
 let G_calendarVisibleEndHour = 24;  // hour 1 – 24
 const vibrantRedColor = '#ff4444';
@@ -907,7 +906,7 @@ function createFakeEntityArray() {
                     new NonRecurringEventInstance(
                         in2Days, // startDate
                         new TimeField(16, 0), // startTime
-                        new TimeField(20, 0), // endTime
+                        NULL, // endTime
                         NULL // differentEndDate
                     )
                 ] // instances
@@ -1030,6 +1029,21 @@ function createFakeEntityArray() {
                 new NonRecurringReminderInstance(
                     tomorrow, // date
                     new TimeField(14, 30)
+                )
+            ])
+        ),
+
+        // ambiguous end time event
+        new Entity(
+            'event-005',
+            'Ambiguous end time',
+            '',
+            new EventData([
+                new NonRecurringEventInstance(
+                    tomorrow, // date
+                    new TimeField(13, 0), // startTime
+                    NULL, // endTime
+                    NULL // differentEndDate
                 )
             ])
         ),
@@ -1341,9 +1355,7 @@ if (TESTING) {
 
     // Create user object with the sample data
     let user = User.createDefault();
-    if (!TESTING_USER_IS_EMPTY) {
-        user.entityArray = createFakeEntityArray();
-    }
+    user.entityArray = createFakeEntityArray();
     
     // Store using saveUserData function (async, non-blocking)
     saveUserData(user);
@@ -2862,14 +2874,6 @@ class FilteredInstancesFactory {
 function renderDay(day, index) {
     ASSERT(type(day, DateField) && type(index, Int));
     
-    // Unconditionally remove all potential hour markers and text for this day to ensure a clean slate
-    for (let j = 0; j <= 24; j++) {
-        let hm = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
-        if (exists(hm)) hm.remove();
-        let hmt = HTML.getElementUnsafely(`day${index}hourMarkerText${j}`);
-        if (exists(hmt)) hmt.remove();
-    }
-    
     // get unix start and end of day with user's offsets
     // Create DateTime from DateField
     let dayTime = DateTime.local(day.year, day.month, day.day);
@@ -2957,6 +2961,16 @@ function renderDay(day, index) {
     let timedEventAreaTop = originalTop + totalAllDayEventsHeight;
     
     // Now create or update all the hour markers and hour marker text based on the new timedEventArea dimensions
+    // Clean up any existing hour markers first to avoid overlaps
+    for (let j = 0; j <= 24; j++) {
+        let hm = HTML.getElementUnsafely(`day${index}hourMarker${j}`);
+        if (exists(hm)) hm.remove();
+        let hmt = HTML.getElementUnsafely(`day${index}hourMarkerText${j}`);
+        if (exists(hmt)) hmt.remove();
+    }
+    
+    // Create hour markers for the visible range
+    // We need visibleHours + 1 hour markers (one at each hour boundary)
     for (let j = 0; j <= visibleHours; j++) {
         let hourMarker = HTML.make('div');
         HTML.setId(hourMarker, `day${index}hourMarker${j}`);
@@ -2973,8 +2987,8 @@ function renderDay(day, index) {
         
         HTML.body.appendChild(hourMarker);
 
+        // Create hour marker text for each hour (except the last marker)
         if (j < visibleHours) {
-            // create hour marker text
             let hourMarkerText = HTML.make('div');
             HTML.setId(hourMarkerText, `day${index}hourMarkerText${j}`);
             
@@ -3603,8 +3617,9 @@ function handleReminderDragMove(e) {
     const clampedLineTop = Math.max(minTop, Math.min(newLineTop, maxTop));
     
     // Determine if the reminder should be in a "flipped" state
-    const spaceBelow = (timedAreaTop + timedAreaHeight) - clampedLineTop;
-    const isFlipped = spaceBelow < localReminderTextHeight;
+    // Flip if the distance to the bottom of the calendar day is less than the reminder height
+    const distanceToBottom = (timedAreaTop + timedAreaHeight) - clampedLineTop;
+    const isFlipped = distanceToBottom < localReminderTextHeight;
 
     // Animate all elements in the group based on the new line position and flip state
     G_reminderDragState.groupElements.forEach((el, i) => {
@@ -4025,8 +4040,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, maxTop));
         
         // Check if the reminder should be rendered in a "flipped" state
-        const spaceBelow = (timedAreaTop + timedAreaHeight) - reminderTopPosition;
-        const isFlipped = spaceBelow < reminderTextHeight;
+        // Flip if the distance to the bottom of the calendar day is less than the reminder height
+        const distanceToBottom = (timedAreaTop + timedAreaHeight) - reminderTopPosition;
+        const isFlipped = distanceToBottom < reminderTextHeight;
 
         // Check for overlap with the previous reminder group to alternate colors
         const currentVisualTop = isFlipped ? (reminderTopPosition - reminderTextHeight + 2) : reminderTopPosition;
@@ -4743,59 +4759,59 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     cursor: 'pointer'
                 });
             }
-
-            // Cleanup stale stacked elements if the group has shrunk or is no longer a group
-            const stackCleanupStartIndex = isGrouped ? group.length : 1;
-            let stackCleanupIndex = stackCleanupStartIndex;
-            while (true) {
-                const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
-                const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
-                
-                if (!exists(staleStackText) && !exists(staleStackCount)) {
-                    break; // No more stale elements for this group
-                }
-                
-                if (exists(staleStackText)) staleStackText.remove();
-                if (exists(staleStackCount)) staleStackCount.remove();
-                
-                stackCleanupIndex++;
-            }
-
-            groupIndex++;
         }
 
-        // Remove stale reminder elements
-        let existingReminderIndex = groupIndex;
-        while(true) {
-            const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
-            if (!exists(lineElement)) {
-                // If the line element is gone, we assume all other elements for this index are too.
-                break; 
-            }
-
-            // Helper to remove an element by its generated ID
-            const removeElementById = (id) => {
-                const el = HTML.getElementUnsafely(id);
-                if(exists(el)) el.remove();
-            };
-
-            removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
-            removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
-            removeElementById(`day${dayIndex}reminderQuarterCircle${existingReminderIndex}`);
-            removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
+        // Cleanup stale stacked elements if the group has shrunk or is no longer a group
+        const stackCleanupStartIndex = isGrouped ? group.length : 1;
+        let stackCleanupIndex = stackCleanupStartIndex;
+        while (true) {
+            const staleStackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackCleanupIndex}`);
+            const staleStackCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackCleanupIndex}`);
             
-            let stackIdx = 1;
-            while(true) {
-                const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
-                if(!exists(stackText)) break;
-                
-                removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
-                removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
-                stackIdx++;
+            if (!exists(staleStackText) && !exists(staleStackCount)) {
+                break; // No more stale elements for this group
             }
-
-            existingReminderIndex++;
+            
+            if (exists(staleStackText)) staleStackText.remove();
+            if (exists(staleStackCount)) staleStackCount.remove();
+            
+            stackCleanupIndex++;
         }
+
+        groupIndex++;
+    }
+
+    // Remove stale reminder elements
+    let existingReminderIndex = groupIndex;
+    while(true) {
+        const lineElement = HTML.getElementUnsafely(`day${dayIndex}reminderLine${existingReminderIndex}`);
+        if (!exists(lineElement)) {
+            // If the line element is gone, we assume all other elements for this index are too.
+            break; 
+        }
+
+        // Helper to remove an element by its generated ID
+        const removeElementById = (id) => {
+            const el = HTML.getElementUnsafely(id);
+            if(exists(el)) el.remove();
+        };
+
+        removeElementById(`day${dayIndex}reminderLine${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderText${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderQuarterCircle${existingReminderIndex}`);
+        removeElementById(`day${dayIndex}reminderCount${existingReminderIndex}`);
+        
+        let stackIdx = 1;
+        while(true) {
+            const stackText = HTML.getElementUnsafely(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+            if(!exists(stackText)) break;
+            
+            removeElementById(`day${dayIndex}reminderStackText${existingReminderIndex}_${stackIdx}`);
+            removeElementById(`day${dayIndex}reminderStackCount${existingReminderIndex}_${stackIdx}`);
+            stackIdx++;
+        }
+
+        existingReminderIndex++;
     }
 }
 
@@ -4838,9 +4854,10 @@ function renderCalendar(days) {
     ASSERT(type(days, List(DateField)));
     ASSERT(exists(numberOfDays) && days.length == numberOfDays, "renderCalendar days must be an array of length LocalData.get('numberOfDays')");
     ASSERT(type(isStacking, Boolean));
-
-    // Compute the earliest and latest hour across all
+    // ------------------------------------------------------------
+    // Compute the universal earliest and latest hour across all
     // rendered days when the user wants to hide empty spans.
+    // ------------------------------------------------------------
     if (user.settings.hideEmptyTimespanInCalendar) {
         const MS_PER_HOUR = 3600000;
         let globalEarliestMs = 24 * MS_PER_HOUR; // start with max
@@ -4889,32 +4906,31 @@ function renderCalendar(days) {
             }
         }
 
-        // Fallback – if no timed content exists, default to a central 12-hour window
+        // Fallback – if no timed content exists, show 8am to 8pm
         if (globalEarliestMs === 24 * MS_PER_HOUR) {
-            G_calendarVisibleStartHour = 8;
-            G_calendarVisibleEndHour   = 20;
-        } else {
-            // Convert to hours and expand by ±1 hour (bounded 0-24)
-            let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
-            let latestHour   = Math.min(24, Math.round(globalLatestMs / MS_PER_HOUR) + 1);
-    
-            // Ensure span is at least 12 hours
-            if (latestHour - earliestHour < 12) {
-                const missing = 12 - (latestHour - earliestHour);
-                const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
-                earliestHour -= expandStart;
-                latestHour = Math.min(24, latestHour + (missing - expandStart));
-            }
-    
-            G_calendarVisibleStartHour = earliestHour;
-            G_calendarVisibleEndHour   = latestHour;
+            globalEarliestMs = 8 * MS_PER_HOUR;   // 8am
+            globalLatestMs   = 20 * MS_PER_HOUR;  // 8pm
         }
+
+        // Convert to hours and expand by ±1 hour (bounded 0-24)
+        let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
+        let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + 1);
+
+        // Ensure span is at least 12 hours
+        if (latestHour - earliestHour < 12) {
+            const missing = 12 - (latestHour - earliestHour);
+            const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
+            earliestHour -= expandStart;
+            latestHour = Math.min(24, latestHour + (missing - expandStart));
+        }
+
+        G_calendarVisibleStartHour = earliestHour;
+        G_calendarVisibleEndHour   = latestHour;
     } else {
         // Full-day view
         G_calendarVisibleStartHour = 0;
         G_calendarVisibleEndHour   = 24;
     }
-
     for (let i = 0; i < 7; i++) {
         if (i >= numberOfDays) { // delete excess elements if they exist
             // day background element
