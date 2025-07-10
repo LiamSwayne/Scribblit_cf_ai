@@ -3207,7 +3207,6 @@ class User {
         // Validate settings structure
         ASSERT(settings.ampmOr24 === 'ampm' || settings.ampmOr24 === '24');
         // how many hours to offset
-        ASSERT(type(settings.dayStartAndEndHourOffset, Int) && 0 <= settings.dayStartAndEndHourOffset && settings.dayStartAndEndHourOffset <= 8);
         ASSERT(type(settings.hideEmptyTimespanInCalendar, Boolean));
         // Validate palette structure
         ASSERT(type(palette.accent, List(String)));
@@ -3277,8 +3276,6 @@ class User {
         ASSERT(exists(data.entityArray));
         ASSERT(type(data.entityArray, List(Object)));
         ASSERT(exists(data.settings));
-        ASSERT(type(data.settings.dayStartAndEndHourOffset, Int));
-        ASSERT(type(data.settings.dayStartAndEndHourOffset, Int) && 0 <= data.settings.dayStartAndEndHourOffset && data.settings.dayStartAndEndHourOffset <= 8);
         ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
         ASSERT(type(data.settings.ampmOr24, String));
         ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
