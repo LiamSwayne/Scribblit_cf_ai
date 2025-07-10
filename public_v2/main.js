@@ -3617,9 +3617,9 @@ function handleReminderDragMove(e) {
     const clampedLineTop = Math.max(minTop, Math.min(newLineTop, maxTop));
     
     // Determine if the reminder should be in a "flipped" state
-    const flipThresholdProportion = (23 * 60 + 40) / (24 * 60); // approx 11:40 PM
-    const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
-    const isFlipped = clampedLineTop > flipThresholdTop;
+    // Flip if the distance to the bottom of the calendar day is less than the reminder height
+    const distanceToBottom = (timedAreaTop + timedAreaHeight) - clampedLineTop;
+    const isFlipped = distanceToBottom < localReminderTextHeight;
 
     // Animate all elements in the group based on the new line position and flip state
     G_reminderDragState.groupElements.forEach((el, i) => {
@@ -4040,10 +4040,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         reminderTopPosition = Math.max(timedAreaTop, Math.min(reminderTopPosition, maxTop));
         
         // Check if the reminder should be rendered in a "flipped" state
-        const visibleHours = G_calendarVisibleEndHour - G_calendarVisibleStartHour;
-        const flipThresholdProportion = ((visibleHours * 60) - 20) / (visibleHours * 60);
-        const flipThresholdTop = timedAreaTop + (timedAreaHeight * flipThresholdProportion);
-        const isFlipped = reminderTopPosition > flipThresholdTop;
+        // Flip if the distance to the bottom of the calendar day is less than the reminder height
+        const distanceToBottom = (timedAreaTop + timedAreaHeight) - reminderTopPosition;
+        const isFlipped = distanceToBottom < reminderTextHeight;
 
         // Check for overlap with the previous reminder group to alternate colors
         const currentVisualTop = isFlipped ? (reminderTopPosition - reminderTextHeight + 2) : reminderTopPosition;
