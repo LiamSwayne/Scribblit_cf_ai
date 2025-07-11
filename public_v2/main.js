@@ -6945,19 +6945,23 @@ function renderTaskList() {
         HTML.head.appendChild(style);
     }
 
+    // seemingly does nothing since I made the viewport use flex box.
+    if (LocalData.get('stacking')) {
+        taskListManualHeightAdjustment = 56;
+    } else {
+        taskListManualHeightAdjustment = 60;
+    }
+
     HTML.setStyle(taskListViewport, {
         position: 'fixed',
         top: String(taskListTop) + 'px',
         left: String(taskListLeft) + 'px',
         width: String(taskListWidth) + 'px',
-        height: String(taskListHeight + 1) + 'px',
+        height: String(taskListHeight - taskListManualHeightAdjustment) + 'px', // 4px of blank scroll space at bottom
+        paddingBottom: String(taskListManualHeightAdjustment) + 'px', // extra space at bottom for smooth scrolling
         zIndex: '10', // Above other elements to act as a mask
         clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', // Mask to hide overflow
         overflow: 'auto', // Make it scrollable
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start'
     });
 
     // Add the class to hide scrollbars
@@ -6998,17 +7002,11 @@ function renderTaskList() {
     // Set container height to actual content height - viewport will handle clipping/scrolling
     const actualContentHeight = currentTop - taskListTop;
 
-    // seemingly does nothing since I made the viewport use flex box.
-    if (LocalData.get('stacking')) {
-        taskListManualHeightAdjustment = 56;
-    } else {
-        taskListManualHeightAdjustment = 60;
-    }
-
     HTML.setStyle(taskListContainer, {
         position: 'relative',
         width: '100%',
-        height: String(actualContentHeight - taskListManualHeightAdjustment) + 'px'
+        height: String(actualContentHeight - taskListManualHeightAdjustment) + 'px',
+        display: 'block' // ensure the container starts at the very top without needing flexbox
     });
 
     // Update task section name colors based on completion status
