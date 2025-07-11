@@ -126,6 +126,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('paste', async (e) => {
+    // always prevent default behavior because the handling is pretty complex
+    // and it's good to have fine-grained control rather than default behavior
+    e.preventDefault();
+
     if (e.clipboardData.files.length > 0) {
         log('Pasted a file', e.clipboardData.files);
         // add to file array
@@ -821,7 +825,7 @@ function createFakeEntityArray() {
                 [
                     new NonRecurringTaskInstance(
                         yesterday, // date
-                        new TimeField(10, 0), // dueTime
+                        new TimeField(9, 55), // dueTime
                         false // completion
                     )
                 ], // instances
