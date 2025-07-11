@@ -1971,7 +1971,6 @@ class TaskData {
             return NULL;
         }
 
-        // --- INSTANCES ---
         if(!Array.isArray(json.instances) || json.instances.length === 0) {
             log('TaskData.fromAiJson: instances array required');
             return NULL;
@@ -1998,7 +1997,6 @@ class TaskData {
             instances.push(converted);
         }
 
-        // --- WORK SESSIONS ---
         let workSessions = [];
         if (!AiReturnedNullField(json.work_sessions)) {
             if(!Array.isArray(json.work_sessions)) {
