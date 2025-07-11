@@ -5601,11 +5601,16 @@ function toggleAmPmOr24(formatSelection) {
         element.innerHTML = newHtml;
     };
 
-    // update all hour markers
+    // take into acccount user.settings.hideEmptyTimespanInCalendar is enabled).
     for (let i = 0; i < LocalData.get('numberOfDays'); i++) {
-        for (let j = 0; j < 24; j++) {
+        for (let j = 0; j < G_calendarVisibleEndHour - G_calendarVisibleStartHour; j++) {
+            // Note: when hiding empty spans, hour marker indices start at 0 for
+            // the first visible hour, *not* the actual hour of the day. Hence
+            // we always query by the relative index `j`.
             let hourMarkerText = HTML.getElement(`day${i}hourMarkerText${j}`);
-            const newHtml = nthHourText(j);
+            if (!exists(hourMarkerText)) continue; // Element may not exist if span is shorter.
+
+            const newHtml = nthHourText(G_calendarVisibleStartHour + j);
 
             let fontSize;
             if (user.settings.ampmOr24 == 'ampm') {
