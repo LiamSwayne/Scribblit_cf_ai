@@ -9685,18 +9685,25 @@ function processInput() {
     (async () => {
         // if there are files, the request is more difficult, so use step by step strategy
         let startTime = Date.now();
+        let idsOfNewEntities;
         if (fileArray.length > 0) {
             activeStrategy = STRATEGIES.STEP_BY_STEP;
             chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
-            let idsOfNewEntities = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
+            idsOfNewEntities = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
         } else {
             activeStrategy = STRATEGIES.SINGLE_CHAIN;
             chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
-            let idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
+            idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
         }
 
-        // TODO: API request asking model to rename entities HIGH PRIORITY
-        // just takes in name and kind of entity, and applies common sense, like remove "Complete" from "Complete homework"
+        // Format entity titles using AI
+        if (idsOfNewEntities && idsOfNewEntities.length > 0) {
+            try {
+                await formatEntityTitles(idsOfNewEntities);
+            } catch (error) {
+                log("ERROR formatting entity titles: " + error.message);
+            }
+        }
 
         // TODO: query the user's existing entities to see if any of them match the new entities
         // if it seems like the ai has created an entity that the user already has, delete the new entity
@@ -9714,6 +9721,75 @@ function processInput() {
         log("Chain: ");
         log(chain);
     })();
+}
+
+// Format entity titles using AI
+async function formatEntityTitles(entityIds) {
+    ASSERT(type(entityIds, List(String)), "formatEntityTitles: entityIds must be a list of strings");
+    
+    if (entityIds.length === 0) {
+        return {};
+    }
+    
+    // Build the titles object from the entity IDs
+    const titlesObject = {};
+    for (const entityId of entityIds) {
+        const entity = user.entityArray.find(e => e.id === entityId);
+        if (entity) {
+            let kind = '';
+            if (type(entity.data, TaskData)) {
+                kind = 'task';
+            } else if (type(entity.data, EventData)) {
+                kind = 'event';
+            } else if (type(entity.data, ReminderData)) {
+                kind = 'reminder';
+            }
+            
+            if (kind) {
+                titlesObject[`${kind}-${entityId}`] = entity.name;
+            }
+        }
+    }
+    
+    if (Object.keys(titlesObject).length === 0) {
+        return {};
+    }
+    
+    try {
+        const response = await fetch(`https://${SERVER_DOMAIN}/ai/title-format`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                titles: titlesObject
+            })
+        });
+        
+        if (response.ok) {
+            const formattedTitles = await response.json();
+            
+            // Update the entity names in the user's data
+            for (const [key, formattedTitle] of Object.entries(formattedTitles)) {
+                const [, entityId] = key.split('-', 2);
+                const entity = user.entityArray.find(e => e.id === entityId);
+                if (entity && entity.name !== formattedTitle) {
+                    entity.name = formattedTitle;
+                }
+            }
+            
+            // Save the updated user data
+            await saveUserData(user);
+            
+            return formattedTitles;
+        } else {
+            log("ERROR formatting entity titles: " + response.status);
+            return {};
+        }
+    } catch (error) {
+        log("ERROR formatting entity titles: " + error.message);
+        return {};
+    }
 }
 
 // Creates a multiple choice selector with smooth transitions

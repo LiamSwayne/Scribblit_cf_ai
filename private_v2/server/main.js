@@ -358,7 +358,41 @@ You only job is to return the json object. Return nothing but the json object.`;
 
 let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text. A different AI handles the user's prompt, but it may be helpful context for you. Your job is not to handle the user's request, only to describe the files.`;
 
-let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to be more readable. Each title should be in sentence case. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
+let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to be more readable. Every title should be in sentence case. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
+
+async function formatTitles(titlesObject, env) {
+    // titlesObject is like {"task-abc123": "Complete homework", "event-def456": "Meeting with John", ...}
+    if (!titlesObject || typeof titlesObject !== 'object' || Object.keys(titlesObject).length === 0) {
+        return SEND({ error: 'titlesObject is required and must be a non-empty object' }, 475);
+    }
+
+    const entries = Object.entries(titlesObject);
+    const titles = entries.map(([key, title]) => title);
+    
+    const userPrompt = `Here are the titles to format: ${JSON.stringify(titles)}`;
+    
+    try {
+        const response = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, titleFormatterPrompt);
+        
+        if (response && response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content) {
+            const formattedTitles = JSON.parse(response.choices[0].message.content);
+            
+            if (Array.isArray(formattedTitles) && formattedTitles.length === titles.length) {
+                const result = {};
+                entries.forEach(([key, _], index) => {
+                    result[key] = formattedTitles[index];
+                });
+                return result;
+            }
+        }
+        
+        // If AI response is invalid, return original titles
+        return titlesObject;
+    } catch (error) {
+        console.error('Error formatting titles:', error);
+        return SEND({ error: 'Failed to format titles' }, 475);
+    }
+}
 
 function createPromptWithFileDescription(userPrompt='', descriptionOfFiles) {
     if (!userPrompt || userPrompt.trim() === '') {
@@ -1498,6 +1532,25 @@ export default {
                     } catch (err) {
                         console.error('AI parse error:', err);
                         return SEND({ error: 'Failed to process AI request: ' + err.message }, 563);
+                    }
+                }
+
+            case '/ai/title-format':
+                {
+                    if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
+                    try {
+                        const data = await request.json();
+                        const titlesObject = data.titles;
+
+                        if (!titlesObject || typeof titlesObject !== 'object') {
+                            return SEND({ error: 'Invalid request: titles object required' }, 400);
+                        }
+
+                        const result = await formatTitles(titlesObject, env);
+                        return SEND(result, 200);
+                    } catch (err) {
+                        console.error('Title format error:', err);
+                        return SEND({ error: 'Failed to format titles: ' + err.message }, 500);
                     }
                 }
 
