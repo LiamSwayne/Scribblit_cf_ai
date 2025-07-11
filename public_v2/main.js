@@ -9202,6 +9202,9 @@ function mergeEntities(entityArray, chain) {
 }
 
 async function singleChainAiRequest(inputText, fileArray, chain) {
+    // If the request has no attached files, skip marking tasks due today or yesterday as complete.
+    const excludeWithinDaysForPastComplete = (fileArray && fileArray.length === 0) ? 1 : 0;
+
     // Send to backend AI endpoint
     const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
         method: 'POST',
@@ -9250,7 +9253,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             for (const obj of aiJson) {
                 let startTime = Date.now();
                 try {
-                    let parsedEntity = Entity.fromAiJson(obj);
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
                     if (parsedEntity === NULL) {
                         chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
@@ -9264,7 +9267,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = Entity.fromAiJson(aiJson);
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
