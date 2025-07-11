@@ -6945,7 +6945,9 @@ function renderTaskList() {
         HTML.head.appendChild(style);
     }
 
-    // seemingly does nothing since I made the viewport use flex box.
+    // container and viewport height adjustments are an absolute nightmare
+    // i barely understand how I even got this shit to work
+    // fuuuuuuuuuuuck
     if (LocalData.get('stacking')) {
         taskListManualHeightAdjustment = 56;
     } else {
