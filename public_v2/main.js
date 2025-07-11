@@ -10040,6 +10040,7 @@ function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onTo
     // Colors
     const offTrackColor = 'var(--shade-2)';
     const offKnobColor = 'var(--shade-3)';
+    const accentColor = 'var(--accent-1)';
 
     // Track element
     const track = HTML.make('div');
@@ -10050,7 +10051,7 @@ function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onTo
         top: y + 'px',
         width: width + 'px',
         height: height + 'px',
-        backgroundColor: initialState ? 'var(--accent-1)' : offTrackColor,
+        backgroundColor: initialState ? accentColor : offTrackColor,
         borderRadius: (height / 2) + 'px',
         cursor: 'pointer',
         zIndex: String(zIndex),
