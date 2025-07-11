@@ -1934,14 +1934,18 @@ class TaskData {
     //   "instances": [ { ... } ],
     //   "work_sessions": [ ... ] // optional
     // }
-    setPastDueDatesToComplete() {
+    setPastDueDatesToComplete(excludeWithinDays = 0) {
         ASSERT(type(this, TaskData));
         const now = Date.now();
+        // Unix start of today in local timezone
+        const todayStart = DateTime.local().startOf('day').toMillis();
+        // Anything with dueTimestamp >= cutoff will be left incomplete
+        const cutoff = todayStart - (excludeWithinDays * MS_PER_DAY);
         
         for (const instance of this.instances) {
             if (type(instance, NonRecurringTaskInstance)) {
                 const dueTimestamp = dueUnixTimestamp(instance.date, instance.dueTime);
-                if (dueTimestamp < now) {
+                if (dueTimestamp < now && dueTimestamp < cutoff) {
                     instance.completion = true;
                 }
             } else if (type(instance, RecurringTaskInstance)) {
@@ -1953,7 +1957,7 @@ class TaskData {
                         ? MS_PER_DAY - 1
                         : ((instance.dueTime.hour * 60 + instance.dueTime.minute) * 60 * 1000));
 
-                    if (dueTimestamp < now && !instance.completion.includes(dateMidnight)) {
+                    if (dueTimestamp < now && dueTimestamp < cutoff && !instance.completion.includes(dateMidnight)) {
                         instance.completion.push(dateMidnight);
                     }
                 }
@@ -1961,7 +1965,7 @@ class TaskData {
         }
     }
 
-    static fromAiJson(json) {
+    static fromAiJson(json, markPastDueComplete = true, excludeWithinDays = 0) {
         if(!exists(json)) {
             return NULL;
         }
@@ -2027,8 +2031,10 @@ class TaskData {
 
         try {
             const taskData = new TaskData(instances, NULL, true, workSessions);
-            // Set all past due dates to complete
-            taskData.setPastDueDatesToComplete();
+            // Optionally mark past-due items complete
+            if (markPastDueComplete) {
+                taskData.setPastDueDatesToComplete(excludeWithinDays);
+            }
             return taskData;
         } catch (e) {
             log('TaskData.fromAiJson: error creating TaskData: ' + e.message + ' ' + e.stack);
@@ -2513,7 +2519,7 @@ class Entity {
 
     // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
     // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
-    static fromAiJson(aiObject) {
+    static fromAiJson(aiObject, markPastDueComplete = true, excludeWithinDays = 0) {
         if(!exists(aiObject) || !type(aiObject, Object)) {
             return NULL;
         }
@@ -2531,7 +2537,7 @@ class Entity {
 
         let data = NULL;
         if (aiObject.type === 'task') {
-            data = TaskData.fromAiJson(aiObject);
+            data = TaskData.fromAiJson(aiObject, markPastDueComplete, excludeWithinDays);
         } else if (aiObject.type === 'event') {
             data = EventData.fromAiJson(aiObject);
         } else if (aiObject.type === 'reminder') {
