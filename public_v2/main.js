@@ -6369,6 +6369,9 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
             top: `${taskTopPosition - taskListTop + topPadding - 2}px`,
             left: `${infoAreaLeft}px`,
             width: `${infoAreaWidth}px`,
+            // Ensure leftover single-line styles don't affect positioning
+            height: `${line1FontSize}px`,
+            lineHeight: `${line1FontSize}px`
         });
         HTML.setStyle(line2El, {
             top: `${taskTopPosition - taskListTop + topPadding + line1FontSize - 2}px`,
@@ -9448,150 +9451,175 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
     // Step 2: Expand simplified entities in parallel
     const parallelNode = new ParallelNode("Calling AI on each detected entity in parallel");
-    const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
-        let promptForStep2 = basePromptForStep2;
-        promptForStep2 += ` Here is the entity you have been given: ${JSON.stringify(simplifiedEntity)}.`;
-        return fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                prompt: promptForStep2,
-                fileArray: [],
-                strategy: STRATEGIES.STEP_BY_STEP + ':2/2',
-                simplifiedEntity: simplifiedEntity
-            })
-        });
-    });
+    // Create a dedicated Chain object for each simplified entity so that all nodes
+    // (backend response nodes, processing nodes, creation nodes, etc.) related to
+    // that entity are grouped together. These chains will later be added to the
+    // ParallelNode.
+    const entityChains = uniqueSimplifiedEntities.map(() => new Chain());
+     const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
+         let promptForStep2 = basePromptForStep2;
+         promptForStep2 += ` Here is the entity you have been given: ${JSON.stringify(simplifiedEntity)}.`;
+         return fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+                 prompt: promptForStep2,
+                 fileArray: [],
+                 strategy: STRATEGIES.STEP_BY_STEP + ':2/2',
+                 simplifiedEntity: simplifiedEntity
+             })
+         });
+     });
+ 
+     const responses2 = await Promise.all(promises);
+     let newEntities = [];
+     let responseJson2s = [];
+ 
+     for (let i = 0; i < responses2.length; i++) {
+         const entityChain = entityChains[i];
 
-    const responses2 = await Promise.all(promises);
-    let newEntities = [];
-    let responseJson2s = [];
+         // Handle HTTP errors
+         if (!responses2[i].ok) {
+             log('AI parse request failed for step 2', await responses2[i].text());
+             // Still add an empty (but completed) chain to keep indices aligned
+             entityChain.completeRequest();
+             parallelNode.add(entityChain);
+             continue;
+         }
 
-    for (let i = 0; i < responses2.length; i++) {
-        if (!responses2[i].ok) {
-            console.error('AI parse request failed for step 2', await responses2[i].text());
-            continue;
-        }
+         const responseJson = await responses2[i].json();
 
-        const responseJson = await responses2[i].json();
+         if (!exists(responseJson.chain)) {
+             log("Error: chain is required for step_by_step:2/2 strategy.");
+             entityChain.completeRequest();
+             parallelNode.add(entityChain);
+             continue;
+         }
 
-        if (!exists(responseJson.chain)) {
-            log("Error: chain is required for step_by_step:2/2 strategy.");
-            return;
-        }
+         // Add backend response nodes to the entity-specific chain
+         for (const nodeJson of responseJson.chain) {
+             entityChain.add(Chain.nodeFromJson(nodeJson));
+         }
 
-        for (const nodeJson of responseJson.chain) {
-            parallelNode.add(Chain.nodeFromJson(nodeJson));
-        }
+         responseJson2s.push(responseJson);
 
-        responseJson2s.push(responseJson);
-    }
+         // --- Validate required fields ---
+         if (!exists(responseJson.aiOutput)) {
+             log("Error: aiOutput is required for step_by_step:2/2 strategy.");
+             entityChain.completeRequest();
+             parallelNode.add(entityChain);
+             continue;
+         }
 
-    parallelNode.complete();
-    chain.add(parallelNode);
+         if (!exists(responseJson.simplifiedEntity)) {
+             log("Error: simplifiedEntity is required for step_by_step:2/2 strategy.");
+             entityChain.completeRequest();
+             parallelNode.add(entityChain);
+             continue;
+         }
 
-    for (let i = 0; i < responses2.length; i++) {
-        const responseJson = responseJson2s[i];
+         if (responseJson.error && responseJson.error.length > 0) {
+             log("Error: " + responseJson.error);
+             entityChain.completeRequest();
+             parallelNode.add(entityChain);
+             continue;
+         }
 
-        if (!exists(responseJson.aiOutput)) {
-            log("Error: aiOutput is required for step_by_step:2/2 strategy.");
-            return;
-        }
+         // Extract AI JSON and add ProcessingNode to this entity's chain
+         const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, entityChain, '{}');
 
-        if (!exists(responseJson.simplifiedEntity)) {
-            log("Error: simplifiedEntity is required for step_by_step:2/2 strategy.");
-            return;
-        }
+         if (aiJson === NULL) {
+             log("Error: Failed to extract JSON from AI output");
+             // TODO: handle this with retry up to two more times, then give up
+             entityChain.completeRequest();
+             parallelNode.add(entityChain);
+             continue;
+         }
 
-        if (responseJson.error && responseJson.error.length > 0) {
-            log("Error: " + responseJson.error);
-            continue;
-        }
+         const simplifiedEntityType = Object.keys(responseJson.simplifiedEntity)[0];
+         const simplifiedEntityName = responseJson.simplifiedEntity[simplifiedEntityType];
 
-        const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '{}');
+         let startTime = Date.now();
+         try {
+             // Combine simplified entity with the new ai json
+             if (simplifiedEntityType === 'task') {
+                 let newTaskData = TaskData.fromAiJson({
+                     type: 'task',
+                     instances: aiJson.instances,
+                     workSessions: aiJson.workSessions
+                 });
 
-        if (aiJson === NULL) {
-            log("Error: Failed to extract JSON from AI output");
-            // TODO: hadle this with retry up to two more times, then give up
-            return;
-        }
+                 if (newTaskData === NULL) {
+                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+                 } else {
+                     let newEntity = new Entity(
+                         Entity.generateId(),
+                         simplifiedEntityName,
+                         '', // description
+                         newTaskData
+                     );
 
-        const simplifiedEntityType = Object.keys(responseJson.simplifiedEntity)[0];
-        const simplifiedEntityName = responseJson.simplifiedEntity[simplifiedEntityType];
+                     ASSERT(type(newEntity, Entity) && type(newEntity.data, TaskData));
+                     entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
+                     newEntities.push(newEntity);
+                 }
+             } else if (simplifiedEntityType === 'event') {
+                 let newEventData = EventData.fromAiJson({
+                     type: 'event',
+                     instances: aiJson.instances
+                 });
 
-        let startTime = Date.now();
-        try {
-            // combine simplified entity with the new ai json
-            if (simplifiedEntityType === 'task') {
-                let newTaskData = TaskData.fromAiJson({
-                    type: 'task',
-                    instances: aiJson.instances,
-                    workSessions: aiJson.workSessions
-                })
+                 if (newEventData === NULL) {
+                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+                 } else {
+                     let newEntity = new Entity(
+                         Entity.generateId(),
+                         simplifiedEntityName,
+                         '', // description
+                         newEventData
+                     );
+                     
+                     ASSERT(type(newEntity, Entity) && type(newEntity.data, EventData));
+                     entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
+                     newEntities.push(newEntity);
+                 }
+             } else if (simplifiedEntityType === 'reminder') {
+                 let newReminderData = ReminderData.fromAiJson({
+                     type: 'reminder',
+                     instances: aiJson.instances
+                 });
 
-                if (newTaskData === NULL) {
-                    chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-                } else {
-                    let newEntity = new Entity(
-                        Entity.generateId(),
-                        simplifiedEntityName,
-                        '', // description
-                        newTaskData
-                    );
+                 if (newReminderData === NULL) {
+                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+                 } else {
+                     let newEntity = new Entity(
+                         Entity.generateId(),
+                         simplifiedEntityName,
+                         '', // description
+                         newReminderData
+                     );
+                     
+                     ASSERT(type(newEntity, Entity) && type(newEntity.data, ReminderData));
+                     entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
+                     newEntities.push(newEntity);
+                 }
+             } else {
+                 log("Error: invalid simplified entity: " + JSON.stringify(responseJson.simplifiedEntity));
+             }
+         } catch (e) {
+             entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+         }
 
-                    ASSERT(type(newEntity, Entity) && type(newEntity.data, TaskData));
-                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
-                    newEntities.push(newEntity);
-                }
-            } else if (simplifiedEntityType === 'event') {
-                let newEventData = EventData.fromAiJson({
-                    type: 'event',
-                    instances: aiJson.instances
-                })
+         // Finalize this entity's chain and attach it to the ParallelNode
+         entityChain.completeRequest();
+         parallelNode.add(entityChain);
+     }
 
-                if (newEventData === NULL) {
-                    chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-                } else {
-                    let newEntity = new Entity(
-                        Entity.generateId(),
-                        simplifiedEntityName,
-                        '', // description
-                        newEventData
-                    );
-                    
-                    ASSERT(type(newEntity, Entity) && type(newEntity.data, EventData));
-                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
-                    newEntities.push(newEntity);
-                }
-            } else if (simplifiedEntityType === 'reminder') {
-                let newReminderData = ReminderData.fromAiJson({
-                    type: 'reminder',
-                    instances: aiJson.instances
-                })
+     // All entity chains collected; finalize the parallel node and attach it to the outer chain
+     parallelNode.complete();
+     chain.add(parallelNode);
 
-                if (newReminderData === NULL) {
-                    chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-                } else {
-                    let newEntity = new Entity(
-                        Entity.generateId(),
-                        simplifiedEntityName,
-                        '', // description
-                        newReminderData
-                    );
-                    
-                    ASSERT(type(newEntity, Entity) && type(newEntity.data, ReminderData));
-                    chain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
-                    newEntities.push(newEntity);
-                }
-            } else {
-                log("Error: invalid simplified entity: " + JSON.stringify(responseJson.simplifiedEntity));
-                return;
-            }
-        } catch (e) {
-            chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-        }
-    }
-
+    // Log out the entities that were created from this step
     log("Entities: ");
     log(newEntities);
 
