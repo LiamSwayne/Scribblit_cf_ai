@@ -3364,7 +3364,7 @@ class User {
                 ampmOr24: 'ampm',
                 hideEmptyTimespanInCalendar: true,
             },
-            palettes.notebook,
+            palettes.dark,
             NULL, // userId
             NULL, // email
             0, // usage
