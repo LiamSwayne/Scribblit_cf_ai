@@ -9698,11 +9698,13 @@ function processInput() {
 
         // Format entity titles using AI
         if (idsOfNewEntities && idsOfNewEntities.length > 0) {
+            let startTime = Date.now();
             try {
                 await formatEntityTitles(idsOfNewEntities);
             } catch (error) {
                 log("ERROR formatting entity titles: " + error.message);
             }
+            chain.add(new FormatEntityTitlesNode(startTime, Date.now()));
         }
 
         // TODO: query the user's existing entities to see if any of them match the new entities

@@ -2939,6 +2939,31 @@ class MergeEntitiesNode {
     }
 }
 
+class FormatEntityTitlesNode {
+    constructor(startTime, endTime) {
+        ASSERT(type(startTime, Int));
+        ASSERT(type(endTime, Int));
+        ASSERT(startTime <= endTime);
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
+
+    encode() {
+        ASSERT(type(this, FormatEntityTitlesNode));
+        return {
+            startTime: this.startTime,
+            endTime: this.endTime,
+            _type: 'FormatEntityTitlesNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'FormatEntityTitlesNode');
+        return new FormatEntityTitlesNode(json.startTime, json.endTime);
+    }
+}
+
 // when we perform multiple actions in parallel, we use this node
 class ParallelNode {
     // preliminary construction
@@ -3015,6 +3040,10 @@ function decodeNode(nodeJson) {
         return MergeEntitiesNode.decode(nodeJson);
     } else if (nodeJson._type === 'CompleteRequestNode') {
         return CompleteRequestNode.decode(nodeJson);
+    } else if (nodeJson._type === 'ParallelNode') {
+        return ParallelNode.decode(nodeJson);
+    } else if (nodeJson._type === 'FormatEntityTitlesNode') {
+        return FormatEntityTitlesNode.decode(nodeJson);
     } else {
         ASSERT(false, 'ParallelNode.decode: unknown node type ' + nodeJson._type);
     }
@@ -3032,7 +3061,8 @@ let nodesUnionType = Union(
     FailedToCreateEntityNode,
     MergeEntitiesNode,
     CompleteRequestNode,
-    ParallelNode
+    ParallelNode,
+    FormatEntityTitlesNode
 );
 
 // chain of events involved in a single user AI request
