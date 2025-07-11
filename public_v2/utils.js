@@ -23,20 +23,20 @@ const Type = Symbol('Type'); // Meta type to represent valid types
 const NonEmptyString = Symbol('NonEmptyString'); // Symbol for non-empty string type checking
 
 let palettes = {
-    'dark': { // default
+    dark: { // default
         accent: ['#4a83ff', '#c64aff'],
         events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
         shades: ['#191919', '#383838', '#464646', '#9e9e9e', '#ffffff']
     },
-    'midnight': {
+    midnight: {
         accent: ['#a82190', '#003fd2'],
         events: ['#47b6ff', '#b547ff'],
         shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
     },
-    'notebook': {
-        accent: ['#4a83ff', '#c64aff'],
-        events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
-        shades: ['#191919', '#383838', '#464646', '#9e9e9e', '#ffffff']
+    notebook: {
+        accent: ['#75a3ff', '#ffea00'],
+        events: ['#adffaf', '#d09eff', '#ffa8a8', '#4f4f6b', '#6b5b4f'],
+        shades: ['#ffffff', '#bdbdbd', '#777777', '#919191', '#545454']
     }
 };
 
@@ -3280,31 +3280,15 @@ class User {
         ASSERT(json._type === 'User');
         ASSERT(exists(json.data));
         ASSERT(type(json.data, String));
-        let dataString;
-        // the backend returns this if a user was just created
-        if (json.data == '{}') {
-            // use the default user data
-            dataString = User.createDefault().encode().data;
-        } else {
-            dataString = json.data;
-        }
-        let data = JSON.parse(dataString);
-        ASSERT(exists(data.entityArray));
-        ASSERT(type(data.entityArray, List(Object)));
-        ASSERT(exists(data.settings));
-        ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
-        ASSERT(type(data.settings.ampmOr24, String));
-        ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
-        ASSERT(exists(data.palette));
-        ASSERT(type(data.palette.accent, List(String)));
-        ASSERT(type(data.palette.shades, List(String)));
-        ASSERT(type(data.palette.events, List(String)));
-        ASSERT(data.palette.accent.length === 2);
-        ASSERT(data.palette.shades.length === 5);
-        ASSERT(data.palette.events.length === 5);
         ASSERT(type(json.dataspec, Int));
-        ASSERT(json.userId === symbolToString(NULL) || type(json.userId, String));
-        ASSERT(json.email === symbolToString(NULL) || type(json.email, String));
+        if (json.userId === symbolToString(NULL)) {
+            json.userId = NULL;
+        }
+        if (json.email === symbolToString(NULL)) {
+            json.email = NULL;
+        }
+        ASSERT(type(json.userId, Union(String, NULL)));
+        ASSERT(type(json.email, Union(String, NULL)));
         ASSERT(type(json.usage, Int));
         ASSERT(json.usage >= 0);
         ASSERT(type(json.timestamp, Int));
@@ -3317,6 +3301,37 @@ class User {
         }
 
         if (json.dataspec === 1) {
+            // the backend returns this if a user was just created
+            if (json.data == '{}') {
+                // use the default user data
+                let defaultUser = User.createDefault();
+                return new User(
+                    defaultUser.entityArray,
+                    defaultUser.settings,
+                    defaultUser.palette,
+                    json.userId,
+                    json.email,
+                    json.usage,
+                    json.timestamp,
+                    json.plan,
+                    json.paymentTimes
+                );
+            }
+            let data = JSON.parse(json.data);
+            ASSERT(type(data, Object));
+            ASSERT(exists(data.entityArray));
+            ASSERT(type(data.entityArray, List(Object)));
+            ASSERT(exists(data.settings));
+            ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
+            ASSERT(type(data.settings.ampmOr24, String));
+            ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
+            ASSERT(exists(data.palette));
+            ASSERT(type(data.palette.accent, List(String)));
+            ASSERT(type(data.palette.shades, List(String)));
+            ASSERT(type(data.palette.events, List(String)));
+            ASSERT(data.palette.accent.length === 2);
+            ASSERT(data.palette.shades.length === 5);
+            ASSERT(data.palette.events.length === 5);
             let entityArray = [];
             for (const entityJson of data.entityArray) {
                 entityArray.push(Entity.decode(entityJson));
@@ -3349,7 +3364,7 @@ class User {
                 ampmOr24: 'ampm',
                 hideEmptyTimespanInCalendar: true,
             },
-            palettes.dark,
+            palettes.notebook,
             NULL, // userId
             NULL, // email
             0, // usage
