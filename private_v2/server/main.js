@@ -106,22 +106,13 @@ async function generateToken(email, secret_key) {
     return `${payloadBase64}.${signatureBase64}`;
 }
 
-const constructEntitiesPrompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
-
-Task JSON:
-{
-    "type": "task"
-    "name": // use sentence case  
-    "instances": [ // 2 options
-	    {
-		    "type": "due_date_instance"
-		    "date": "YYYY-MM-DD" // OPTIONAL. if a time a is given then assume the due date is today
-		    "time": "HH:MM"// OPTIONAL. if it's due today and the current time is past noon assume numbers below 12 are pm.
-	    }
-	    {
-		    "type": "due_date_pattern"
-		    "pattern": // 4 options
-				{
+let datePatternTypesPrompt = `// 5 options
+                {
+					"type": "weekly_pattern"
+                    "every_n_weeks": // integer
+					"day_of_week": // string like "monday". if you choose this pattern, you must include a "range" field with a start date.
+				}
+                {
 					"type": "every_n_days_pattern"
 					"initial_date": "YYYY-MM-DD"
 					"n": // integer
@@ -137,11 +128,27 @@ Task JSON:
 					"day": // integer 1-31
 				}
 				{
-					"type": "nth_weekday_of_months_pattern"
+					"type": "nth_weekday_of_months_pattern" // only use this pattern when weekly_pattern is not appropriate.
 					"day_of_week": // integer 1-7
 					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
 					"months": // array of 12 booleans for if the pattern is enabled for that month.
-				}
+				}`;
+
+const constructEntitiesPrompt = `You are an AI that takes in user input and converts it to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field.
+
+Task JSON:
+{
+    "type": "task"
+    "name": // use sentence case  
+    "instances": [ // 2 options
+	    {
+		    "type": "due_date_instance"
+		    "date": "YYYY-MM-DD" // OPTIONAL. if a time a is given then assume the due date is today
+		    "time": "HH:MM"// OPTIONAL. if it's due today and the current time is past noon assume numbers below 12 are pm.
+	    }
+	    {
+		    "type": "due_date_pattern"
+		    "pattern": ${datePatternTypesPrompt}
 		    "time": "HH:MM" // OPTIONAL
 		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
 	    }
@@ -166,7 +173,7 @@ Event JSON:
 		}
 		{
 			"type": "event_pattern"
-			"start_date_pattern": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
+			"start_date_pattern": // object with type weekly_pattern, every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
 			"start_time": "HH:MM" // OPTIONAL
 			"end_time": "HH:MM" // OPTIONAL
 			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
@@ -187,7 +194,7 @@ Reminder JSON:
 		}
 		{
 			"type": "reminder_pattern"
-			"date_pattern": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
+			"date_pattern": // object with type weekly_pattern, every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
 		    "time": "HH:MM"
 		    "range": // "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
 		}
@@ -230,33 +237,7 @@ Task JSON:
 	    }
 	    {
 		    "type": "due_date_pattern"
-		    "pattern": // 4 options
-                {
-					"type": "weekly_pattern"
-                    "every_n_weeks": // integer
-					"day_of_week": // string like "monday". if you choose this pattern, you must include a range with a start date.
-				}
-                {
-					"type": "every_n_days_pattern"
-					"initial_date": "YYYY-MM-DD"
-					"n": // integer
-				}
-				{
-					"type": "monthly_pattern"
-					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
-					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
-				}
-				{
-					"type": "annually_pattern"
-					"month": // integer 1-12
-					"day": // integer 1-31
-				}
-				{
-					"type": "nth_weekday_of_months_pattern" // only use this pattern when weekly_pattern is not appropriate.
-					"day_of_week": // integer 1-7
-					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
-					"months": // array of 12 booleans for if the pattern is enabled for that month.
-				}
+		    "pattern": ${datePatternTypesPrompt}
 		    "time": "HH:MM" // OPTIONAL
 		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
 	    }
@@ -285,33 +266,7 @@ Task JSON:
 	    }
 	    {
 		    "type": "due_date_pattern"
-		    "pattern": // 4 options
-				{
-					"type": "weekly_pattern"
-                    "every_n_weeks": // integer
-					"day_of_week": // string like "monday". if you choose this pattern, you must include a range with a start date.
-				}
-                {
-					"type": "every_n_days_pattern"
-					"initial_date": "YYYY-MM-DD"
-					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
-				}
-				{
-					"type": "monthly_pattern"
-					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
-					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
-				}
-				{
-					"type": "annually_pattern"
-					"month": // integer 1-12
-					"day": // integer 1-31
-				}
-				{
-					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
-					"day_of_week": // integer 1-7
-					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
-					"months": // array of 12 booleans for if the pattern is enabled for that month.
-				}
+		    "pattern": ${datePatternTypesPrompt}
 		    "time": "HH:MM" // OPTIONAL
 		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
 	    }
@@ -328,7 +283,7 @@ Task JSON:
 		}
 		{
 			"type": "event_pattern"
-			"start_date_pattern": // object with type every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
+			"start_date_pattern": // object with type weekly_pattern, every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
 			"start_time": "HH:MM" // OPTIONAL
 			"end_time": "HH:MM" // OPTIONAL
 			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
@@ -363,33 +318,7 @@ Event JSON:
 		}
 		{
 			"type": "event_pattern"
-			"start_date_pattern": // 4 options
-				{
-					"type": "weekly_pattern"
-                    "every_n_weeks": // integer
-					"day_of_week": // string like "monday". if you choose this pattern, you must include a range with a start date.
-				}
-                {
-					"type": "every_n_days_pattern"
-					"initial_date": "YYYY-MM-DD"
-					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
-				}
-				{
-					"type": "monthly_pattern"
-					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
-					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
-				}
-				{
-					"type": "annually_pattern"
-					"month": // integer 1-12
-					"day": // integer 1-31
-				}
-				{
-					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
-					"day_of_week": // integer 1-7
-					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
-					"months": // array of 12 booleans for if the pattern is enabled for that month.
-				}
+			"start_date_pattern": ${datePatternTypesPrompt}
 			"start_time": "HH:MM" // OPTIONAL
 			"end_time": "HH:MM" // OPTIONAL
 			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
@@ -416,28 +345,7 @@ Reminder JSON:
 		}
 		{
 			"type": "reminder_pattern"
-			"date_pattern": // 4 options
-				{
-					"type": "every_n_days_pattern"
-					"initial_date": "YYYY-MM-DD"
-					"n": // integer. always use this pattern for tasks due weekly using n=7. tasks occurring daily use n=1. bi-weekly uses n=14, etc.
-				}
-				{
-					"type": "monthly_pattern"
-					"day": // integer 1-31 for nth day of month, or -1 for last day of each month
-					"months": // array of 12 booleans. each boolean is true if that month is enabled. if the user doesn't specify which months are enabled, assume all of them are enabled
-				}
-				{
-					"type": "annually_pattern"
-					"month": // integer 1-12
-					"day": // integer 1-31
-				}
-				{
-					"type": "nth_weekday_of_months_pattern" // only use this pattern when every_n_days_pattern and monthly_pattern are not appropriate
-					"day_of_week": // integer 1-7
-					"weeks_of_month": // "last" for last appearance of that weekday in the month. or an array of 4 booleans where each boolean represents if the pattern triggers on that week of the month. "2nd and 3rd friday of each month" would be [false, true, true, false].
-					"months": // array of 12 booleans for if the pattern is enabled for that month.
-				}
+			"date_pattern": ${datePatternTypesPrompt}
 		    "time": "HH:MM"
 		    "range": // "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
 		}

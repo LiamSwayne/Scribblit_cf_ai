@@ -285,6 +285,7 @@ class EveryNDaysPattern {
         return new EveryNDaysPattern(DateField.decode(json.initialDate), json.n);
     }
 
+    // range is only relevant for weekly_pattern
     static fromAiJson(json, range) {
         if(!exists(json)) {
             return NULL;
@@ -339,7 +340,6 @@ class EveryNDaysPattern {
                 n: n
             };
             return EveryNDaysPattern.fromAiJson(everyNDaysPatternJson);
-
         } else if (json.type === 'every_n_days_pattern') {
             if(AiReturnedNullField(json.initial_date)) {
                 log("EveryNDaysPattern.fromAiJson: initial_date is required");
@@ -1155,58 +1155,10 @@ class RecurringTaskInstance {
         }
         
         let datePattern;
-        if (pt.type === 'weekly_pattern') {
-            if(AiReturnedNullField(pt.every_n_weeks) || !type(Number(pt.every_n_weeks), Int) || Number(pt.every_n_weeks) <= 0) {
-                log('RecurringTaskInstance.fromAiJson: weekly_pattern requires a positive integer every_n_weeks');
-                return NULL;
-            }
-            if(AiReturnedNullField(pt.day_of_week) || !type(pt.day_of_week, DAY_OF_WEEK)) {
-                log('RecurringTaskInstance.fromAiJson: weekly_pattern requires a valid day_of_week');
-                return NULL;
-            }
-
-            if(AiReturnedNullField(json.range)) {
-                log('RecurringTaskInstance.fromAiJson: range is required for weekly_pattern');
-                return NULL;
-            }
-            
-            let startDate;
-            if (typeof json.range === 'string') {
-                const parts = json.range.split(':');
-                if(parts.length !== 2) {
-                    log('RecurringTaskInstance.fromAiJson: range string must be "start:end" for weekly_pattern');
-                    return NULL;
-                }
-                startDate = DateField.fromYYYY_MM_DDUnsafe(parts[0]);
-                if (startDate === NULL) {
-                    log('RecurringTaskInstance.fromAiJson: invalid range start date format for weekly_pattern');
-                    return NULL;
-                }
-            } else {
-                log('RecurringTaskInstance.fromAiJson: weekly_pattern requires a date range string, not a number.');
-                return NULL;
-            }
-
-            const dayOfWeekStrings = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            const targetDay = dayOfWeekStrings.indexOf(pt.day_of_week);
-
-            let currentDateObj = new Date(Date.UTC(startDate.year, startDate.month - 1, startDate.day));
-            while (currentDateObj.getUTCDay() !== targetDay) {
-                currentDateObj.setUTCDate(currentDateObj.getUTCDate() + 1);
-            }
-
-            const initialDate = new DateField(currentDateObj.getUTCFullYear(), currentDateObj.getUTCMonth() + 1, currentDateObj.getUTCDate());
-
-            const n = Number(pt.every_n_weeks) * 7;
-            const everyNDaysPatternJson = {
-                type: 'every_n_days_pattern',
-                initial_date: `${initialDate.year}-${String(initialDate.month).padStart(2, '0')}-${String(initialDate.day).padStart(2, '0')}`,
-                n: n
-            };
-            datePattern = EveryNDaysPattern.fromAiJson(everyNDaysPatternJson);
-
-        } else if (pt.type === 'every_n_days_pattern') {
+        if (pt.type === 'every_n_days_pattern') {
             datePattern = EveryNDaysPattern.fromAiJson(pt);
+        } else if (pt.type === 'weekly_pattern') {
+            datePattern = WeeklyPattern.fromAiJson(pt, json.range);
         } else if (pt.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(pt);
         } else if (pt.type === 'annually_pattern') {
@@ -1662,8 +1614,10 @@ class RecurringEventInstance {
         
         const p = json.start_date_pattern;
         let startDatePattern;
-        if (p.type === 'every_n_days_pattern' || p.type === 'weekly_pattern') {
-            startDatePattern = EveryNDaysPattern.fromAiJson(p, json.range);
+        if (p.type === 'every_n_days_pattern') {
+            startDatePattern = EveryNDaysPattern.fromAiJson(p);
+        } else if (p.type === 'weekly_pattern') {
+            startDatePattern = WeeklyPattern.fromAiJson(p, json.range);
         } else if (p.type === 'monthly_pattern') {
             startDatePattern = MonthlyPattern.fromAiJson(p);
         } else if (p.type === 'annually_pattern') {
@@ -2300,8 +2254,10 @@ class RecurringReminderInstance {
         }
 
         let datePattern;
-        if (json.date_pattern.type === 'every_n_days_pattern' || json.date_pattern.type === 'weekly_pattern') {
-            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern, json.range);
+        if (json.date_pattern.type === 'every_n_days_pattern') {
+            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
+        } else if (json.date_pattern.type === 'weekly_pattern') {
+            datePattern = WeeklyPattern.fromAiJson(json.date_pattern, json.range);
         } else if (json.date_pattern.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'annually_pattern') {
