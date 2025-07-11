@@ -65,6 +65,29 @@ function wait(ms, func) {
 
 const defaultCutoffUnix = 1947483647; // about the year 2031
 
+// One day in milliseconds.
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// Helper: given a DateField and optional TimeField, return the exact Unix timestamp at which the
+// entity is considered due.  When no time is supplied we treat the due moment as the final
+// millisecond of that day (23:59:59.999) so that tasks scheduled for "today" are not prematurely
+// marked done until the entire day has elapsed.
+function dueUnixTimestamp(dateField, timeField) {
+    ASSERT(type(dateField, DateField), "dueUnixTimestamp: dateField must be a DateField");
+    ASSERT(type(timeField, Union(TimeField, NULL)), "dueUnixTimestamp: timeField must be TimeField or NULL");
+
+    // Midnight (local) for the given day.
+    const base = dateField.toUnixTimestamp();
+
+    if (timeField === NULL) {
+        // End of the day.
+        return base + MS_PER_DAY - 1;
+    } else {
+        // Specific time during the day.
+        return base + ((timeField.hour * 60 + timeField.minute) * 60 * 1000);
+    }
+}
+
 function AiReturnedNullField(field) {
     return field === null || field === undefined || field === '' || field === 'null' || field === 'NULL' || field === 'undefined';
 }
@@ -763,7 +786,8 @@ class NonRecurringTaskInstance {
 
     getUnixDueDate() {
         ASSERT(type(this, NonRecurringTaskInstance));
-        return this.date.toUnixTimestamp();
+        // Include the dueTime if provided so callers get the exact instant the task is due.
+        return dueUnixTimestamp(this.date, this.dueTime);
     }
 
     // no unix args since it only happens once
@@ -773,8 +797,8 @@ class NonRecurringTaskInstance {
         ASSERT(type(endUnix, Union(Int, NULL)));
 
         if (startUnix !== NULL && endUnix !== NULL) {
-            const dueDate = this.date.toUnixTimestamp();
-            if (dueDate < startUnix || dueDate > endUnix) {
+            const dueTimestamp = dueUnixTimestamp(this.date, this.dueTime);
+            if (dueTimestamp < startUnix || dueTimestamp > endUnix) {
                 // outside the range, so it's complete in that range
                 return true;
             }
@@ -1596,8 +1620,6 @@ class RecurringEventInstance {
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
     static fromAiJson(json) {
-        log('RecurringEventInstance.fromAiJson: json: ');
-        log(json);
         if(!exists(json)) {
             return NULL;
         }
@@ -1804,14 +1826,15 @@ class TaskData {
         for (const instance of this.instances) {
             if (type(instance, NonRecurringTaskInstance)) {
                 // add this array to the dueDates array
-                let dueDate = instance.getDueDate();
-                if (dueDate >= startUnix && dueDate <= endUnix) {
-                    dueDates.push([{date : dueDate, completed : instance.completion}]);
+                let dueTimestamp = instance.getUnixDueDate();
+                if (dueTimestamp >= startUnix && dueTimestamp <= endUnix) {
+                    dueDates.push([{date : dueTimestamp, completed : instance.completion}]);
                 }
             } else if (type(instance, RecurringTaskInstance)) {
                 let arr = [];
-                for (const date of instance.getDueDatesInRange(startUnix, endUnix)) {
-                    arr.push({date : date, completed : instance.completion.includes(date)});
+                for (const dateMidnight of instance.getUnixDueDatesInRange(startUnix, endUnix)) {
+                    const dueTimestamp = dateMidnight + (instance.dueTime === NULL ? MS_PER_DAY - 1 : ((instance.dueTime.hour * 60 + instance.dueTime.minute) * 60 * 1000));
+                    arr.push({date : dueTimestamp, completed : instance.completion.includes(dateMidnight)});
                 }
                 dueDates.push(arr);
             }
@@ -1917,18 +1940,21 @@ class TaskData {
         
         for (const instance of this.instances) {
             if (type(instance, NonRecurringTaskInstance)) {
-                const dueDate = instance.getUnixDueDate();
-                if (dueDate < now) {
+                const dueTimestamp = dueUnixTimestamp(instance.date, instance.dueTime);
+                if (dueTimestamp < now) {
                     instance.completion = true;
                 }
             } else if (type(instance, RecurringTaskInstance)) {
-                // Get all due dates from the beginning of time until now
-                const pastDueDates = instance.getDueDatesInRange(0, now);
-                
-                // Add any past due dates that aren't already marked complete
-                for (const dueDate of pastDueDates) {
-                    if (!instance.completion.includes(dueDate)) {
-                        instance.completion.push(dueDate);
+                // Retrieve due dates up to today and evaluate their exact due moments.
+                const candidateDates = instance.getUnixDueDatesInRange(0, now);
+
+                for (const dateMidnight of candidateDates) {
+                    const dueTimestamp = dateMidnight + (instance.dueTime === NULL
+                        ? MS_PER_DAY - 1
+                        : ((instance.dueTime.hour * 60 + instance.dueTime.minute) * 60 * 1000));
+
+                    if (dueTimestamp < now && !instance.completion.includes(dateMidnight)) {
+                        instance.completion.push(dateMidnight);
                     }
                 }
             }
@@ -2802,7 +2828,6 @@ class ProcessingNode {
 
 class CreatedEntityNode {
     constructor(json, entity, startTime, endTime) {
-        log('CreatedEntityNode constructor: ' + JSON.stringify(json));
         ASSERT(type(json, Object));
         ASSERT(type(entity, Entity));
         ASSERT(type(startTime, Int));

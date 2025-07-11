@@ -9507,8 +9507,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         const simplifiedEntityType = Object.keys(responseJson.simplifiedEntity)[0];
         const simplifiedEntityName = responseJson.simplifiedEntity[simplifiedEntityType];
 
+        let startTime = Date.now();
         try {
-            let startTime = Date.now();
             // combine simplified entity with the new ai json
             if (simplifiedEntityType === 'task') {
                 let newTaskData = TaskData.fromAiJson({
