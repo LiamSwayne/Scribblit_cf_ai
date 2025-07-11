@@ -5639,7 +5639,7 @@ function toggleAmPmOr24(formatSelection) {
             if (exists(timeData)) {
                 const timeField = new TimeField(timeData.hour, timeData.minute);
                 const fontSize = parseFloat(line1El.style.fontSize);
-                const color = line1El.style.color || 'var(--shade-3)';
+                const color = line1El.style.color;
                 const newTimeText = formatTaskTime(timeField, fontSize, color);
                 
                 // Stagger animations with random delays within 0.5 seconds
@@ -5656,7 +5656,7 @@ function toggleAmPmOr24(formatSelection) {
             if (exists(timeData)) {
                 const timeField = new TimeField(timeData.hour, timeData.minute);
                 const fontSize = parseFloat(line2El.style.fontSize);
-                const color = line2El.style.color || 'var(--shade-3)';
+                const color = line2El.style.color;
                 const newTimeText = formatTaskTime(timeField, fontSize, color);
                 
                 // Stagger animations with random delays within 0.5 seconds
@@ -6366,11 +6366,11 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         const totalTextHeight = line1FontSize + line2FontSize;
         const topPadding = (taskHeight - totalTextHeight) / 2;
         HTML.setStyle(line1El, {
-            top: `${taskTopPosition - taskListTop + topPadding - 2}px`,
+            top: `${taskTopPosition - taskListTop + topPadding - 0.5}px`,
             left: `${infoAreaLeft}px`,
             width: `${infoAreaWidth}px`,
             // Ensure leftover single-line styles don't affect positioning
-            height: `${line1FontSize}px`,
+            height: `${taskHeight}px`,
             lineHeight: `${line1FontSize}px`
         });
         HTML.setStyle(line2El, {
