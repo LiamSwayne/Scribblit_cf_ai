@@ -7306,7 +7306,7 @@ function openSettingsModal() {
         modalHeight = 100;
     } else {
         // Increased height to accommodate the new "Remove empty time from days" label
-        modalHeight = 60;
+        modalHeight = 68;
     }
     
     // Create modal div that starts as the button background
@@ -7991,6 +7991,29 @@ function toggleSignIn() {
 function openSignInModal() {
     if (signInModalOpen || exists(HTML.getElementUnsafely('signInModal'))) return;
     signInModalOpen = true;
+
+    // set initial opacity of both buttons to 0
+    if (HTML.getElementUnsafely('signInEmailButton') && HTML.getElementUnsafely('signInGoogleButton')) {
+        // get transition
+        let signInEmailButtonTransition = HTML.getElementUnsafely('signInEmailButton').style.transition;
+        let signInGoogleButtonTransition = HTML.getElementUnsafely('signInGoogleButton').style.transition;
+        // remove it
+        HTML.setStyle(HTML.getElementUnsafely('signInEmailButton'), { transition: 'none' });
+        HTML.setStyle(HTML.getElementUnsafely('signInGoogleButton'), { transition: 'none' });
+
+        // set opacity of both buttons to 0
+        HTML.setStyle(HTML.getElementUnsafely('signInEmailButton'), { opacity: '0' });
+        HTML.setStyle(HTML.getElementUnsafely('signInGoogleButton'), { opacity: '0' });
+
+        // add it back
+        setTimeout(() => {
+            HTML.setStyle(HTML.getElementUnsafely('signInEmailButton'), { transition: signInEmailButtonTransition });
+            HTML.setStyle(HTML.getElementUnsafely('signInGoogleButton'), { transition: signInGoogleButtonTransition });
+        }, 30);
+    } else {
+        ASSERT(!HTML.getElementUnsafely('signInEmailButton') && !HTML.getElementUnsafely('signInGoogleButton'), "Either both the email and google buttons must be present, or neither.");
+    }
+
     
     const signInButton = HTML.getElement('signInButton');
     const signInText = HTML.getElement('signInText');
@@ -8633,6 +8656,7 @@ function signIn() {
     const password = passwordInput.value;
 
     if (!email || !password) {
+        // TODO: don't use built-in alert
         alert('Please enter both email and password.');
         return;
     }
@@ -8683,6 +8707,12 @@ async function signUp() {
     const passwordInput = HTML.getElement('signInPasswordInput');
     const email = emailInput.value;
     const password = passwordInput.value;
+
+    if (!email || !password) {
+        // TODO: don't use built-in alert
+        alert('Please enter both email and password.');
+        return;
+    }
 
     try {
         const response = await fetch(`https://${SERVER_DOMAIN}/signup`, {
@@ -8861,8 +8891,8 @@ async function signUp() {
             verificationInputs[0].focus();
 
         } else {
-            // TODO: show error message
-            console.error('Sign up failed:', data.error);
+            // TODO: don't use built-in alert
+            alert('Sign up failed: ' + data.error);
         }
     } catch (error) {
         console.error('Sign up error:', error);
@@ -10008,8 +10038,6 @@ function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onTo
     ASSERT(!exists(HTML.getElementUnsafely(id)), "createBooleanToggle: element with id '" + id + "' already exists");
 
     // Colors
-    const accentRgb = hexToRgb(user.palette.accent[1]);
-    const accentColor = `rgb(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b})`;
     const offTrackColor = 'var(--shade-2)';
     const offKnobColor = 'var(--shade-3)';
 
@@ -10022,7 +10050,7 @@ function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onTo
         top: y + 'px',
         width: width + 'px',
         height: height + 'px',
-        backgroundColor: initialState ? accentColor : offTrackColor,
+        backgroundColor: initialState ? 'var(--accent-1)' : offTrackColor,
         borderRadius: (height / 2) + 'px',
         cursor: 'pointer',
         zIndex: String(zIndex),
