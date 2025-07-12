@@ -205,7 +205,7 @@ Reminder JSON:
 	]
 }
 
-Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. IF THE USER SPECIFIES HOUR OF DAY BUT NOT AM OR PM, AND IT IS PAST THE AM HOUR, YOU MUST ASSUME IT IS PM.`
+Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. IF THE USER SPECIFIES HOUR OF DAY BUT NOT AM OR PM, AND IT IS PAST THE AM HOUR, YOU MUST ASSUME IT IS PM. FOR EXAMPLE, IF IT IS 11 AM AND THE USER SAYS "thing at 9", YOU MUST ASSUME IT IS 9 PM.`
 
 let filesOnlyExtractSimplifiedEntitiesPrompt = `You are an AI that takes in the user's files and converts them to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field. Even events that are optional (things to just be aware of) should be included.
 
