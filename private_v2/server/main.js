@@ -402,7 +402,7 @@ async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
     
     try {
         // 1st choice – xAI Grok-4
-        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, titleFormatterPromptNoFiles);
+        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, systemPrompt);
         
         if (content && content.trim() !== '') {
             // Return raw response for frontend parsing
@@ -410,7 +410,7 @@ async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
         } else {
             console.log("xAI Grok-4 failed, falling back to Gemini 2.5 Flash");
             // 2nd choice – Gemini 2.5 Flash
-            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, titleFormatterPromptNoFiles, true);
+            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, systemPrompt, true);
             content = geminiResult.response;
             
             if (content && content.trim() !== '') {
