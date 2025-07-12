@@ -6,3 +6,7 @@ compatibility_date = "2025-07-08"
 binding = "DB"
 database_name = "scribblit"
 database_id = "f9c0de3c-de14-45f6-acc1-3563e63fd84e"
+
+[observability]
+enabled = true
+head_sampling_rate = 1 # capture 100% of logs
