@@ -2765,7 +2765,12 @@ class FilteredInstancesFactory {
                 let eventEndDateTime;
                 let ambiguousEndTime = false;
                 if (eventInstance.endTime === NULL) {
-                    eventEndDateTime = eventStartDateTime.plus({ minutes: 100 }); // Default duration for events with no end time
+                    // Calculate default end time (100 minutes)
+                    let potentialEndDateTime = eventStartDateTime.plus({ minutes: 100 });
+                    // Get end of current day
+                    let endOfDay = eventStartDateTime.endOf('day');
+                    // Cap at end of day to prevent wrapping to next day
+                    eventEndDateTime = potentialEndDateTime > endOfDay ? endOfDay : potentialEndDateTime;
                     ambiguousEndTime = true;
                 } else {
                     if (eventInstance.differentEndDate !== NULL) {
@@ -2826,7 +2831,12 @@ class FilteredInstancesFactory {
                                 });
                         }
                     } else {
-                        instanceEndDateTime = instanceStartDateTime.plus({ hours: 1 }); // Default 1 hour duration
+                        // Calculate default end time (1 hour)
+                        let potentialEndDateTime = instanceStartDateTime.plus({ hours: 1 });
+                        // Get end of current day
+                        let endOfDay = instanceStartDateTime.endOf('day');
+                        // Cap at end of day to prevent wrapping to next day
+                        instanceEndDateTime = potentialEndDateTime > endOfDay ? endOfDay : potentialEndDateTime;
                         ambiguousEndTime = true;
                     }
                     let endMs = instanceEndDateTime.toMillis();
