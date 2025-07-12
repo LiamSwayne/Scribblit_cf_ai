@@ -4961,13 +4961,6 @@ function renderCalendar(days) {
     }
     for (let i = 0; i < 7; i++) {
         if (i >= numberOfDays) { // delete excess elements if they exist
-            // day background element
-            /*
-            let dayBackgroundElement = HTML.getUnsafely('day-background-' + String(i));
-            if (dayBackgroundElement != null) {
-                dayBackgroundElement.remove();
-            }
-            */
             // hour markers
             for (let j = 0; j <= 24; j++) {
                 let hourMarker = HTML.getElementUnsafely(`day${i}hourMarker${j}`);
@@ -9031,6 +9024,8 @@ function measureTextWidth(text, font, fontSize) {
 }
 
 function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
+    ASSERT(exists(aiOutput));
+    ASSERT(type(chain, Union(Chain, NULL)));
     ASSERT(type(outermostJsonCharacters, String));
     ASSERT(outermostJsonCharacters.length === 2);
     ASSERT(outermostJsonCharacters === '[]' || outermostJsonCharacters === '{}');
@@ -9085,7 +9080,9 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
         }
     }
 
-    chain.add(new ProcessingNode(cleanedText, startTime, "Extracting JSON from AI output", Date.now()));
+    if (chain !== NULL) {
+        chain.add(new ProcessingNode(cleanedText, startTime, "Extracting JSON from AI output", Date.now()));
+    }
 
     if (!aiJson) {
         return NULL;
@@ -9303,7 +9300,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
         saveUserData(user);
     }
 
-    return idsOfNewEntities;
+    return { idsOfNewEntities };
 }
 
 async function stepByStepAiRequest(inputText, fileArray, chain) {
@@ -9471,153 +9468,153 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
          });
      });
  
-     const responses2 = await Promise.all(promises);
-     let newEntities = [];
-     let responseJson2s = [];
- 
-     for (let i = 0; i < responses2.length; i++) {
-         const entityChain = entityChains[i];
+    const responses2 = await Promise.all(promises);
+    let newEntities = [];
+    let responseJson2s = [];
 
-         // Handle HTTP errors
-         if (!responses2[i].ok) {
-             log('AI parse request failed for step 2', await responses2[i].text());
-             // Still add an empty (but completed) chain to keep indices aligned
-             entityChain.completeRequest();
-             parallelNode.add(entityChain);
-             continue;
-         }
+    for (let i = 0; i < responses2.length; i++) {
+        const entityChain = entityChains[i];
 
-         const responseJson = await responses2[i].json();
+        // Handle HTTP errors
+        if (!responses2[i].ok) {
+            log('AI parse request failed for step 2', await responses2[i].text());
+            // Still add an empty (but completed) chain to keep indices aligned
+            entityChain.completeRequest();
+            parallelNode.add(entityChain);
+            continue;
+        }
 
-         if (!exists(responseJson.chain)) {
-             log("Error: chain is required for step_by_step:2/2 strategy.");
-             entityChain.completeRequest();
-             parallelNode.add(entityChain);
-             continue;
-         }
+        const responseJson = await responses2[i].json();
 
-         // Add backend response nodes to the entity-specific chain
-         for (const nodeJson of responseJson.chain) {
-             entityChain.add(Chain.nodeFromJson(nodeJson));
-         }
+        if (!exists(responseJson.chain)) {
+            log("Error: chain is required for step_by_step:2/2 strategy.");
+            entityChain.completeRequest();
+            parallelNode.add(entityChain);
+            continue;
+        }
 
-         responseJson2s.push(responseJson);
+        // Add backend response nodes to the entity-specific chain
+        for (const nodeJson of responseJson.chain) {
+            entityChain.add(Chain.nodeFromJson(nodeJson));
+        }
 
-         // --- Validate required fields ---
-         if (!exists(responseJson.aiOutput)) {
-             log("Error: aiOutput is required for step_by_step:2/2 strategy.");
-             entityChain.completeRequest();
-             parallelNode.add(entityChain);
-             continue;
-         }
+        responseJson2s.push(responseJson);
 
-         if (!exists(responseJson.simplifiedEntity)) {
-             log("Error: simplifiedEntity is required for step_by_step:2/2 strategy.");
-             entityChain.completeRequest();
-             parallelNode.add(entityChain);
-             continue;
-         }
+        // --- Validate required fields ---
+        if (!exists(responseJson.aiOutput)) {
+            log("Error: aiOutput is required for step_by_step:2/2 strategy.");
+            entityChain.completeRequest();
+            parallelNode.add(entityChain);
+            continue;
+        }
 
-         if (responseJson.error && responseJson.error.length > 0) {
-             log("Error: " + responseJson.error);
-             entityChain.completeRequest();
-             parallelNode.add(entityChain);
-             continue;
-         }
+        if (!exists(responseJson.simplifiedEntity)) {
+            log("Error: simplifiedEntity is required for step_by_step:2/2 strategy.");
+            entityChain.completeRequest();
+            parallelNode.add(entityChain);
+            continue;
+        }
 
-         // Extract AI JSON and add ProcessingNode to this entity's chain
-         const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, entityChain, '{}');
+        if (responseJson.error && responseJson.error.length > 0) {
+            log("Error: " + responseJson.error);
+            entityChain.completeRequest();
+            parallelNode.add(entityChain);
+            continue;
+        }
 
-         if (aiJson === NULL) {
-             log("Error: Failed to extract JSON from AI output");
-             // TODO: handle this with retry up to two more times, then give up
-             entityChain.completeRequest();
-             parallelNode.add(entityChain);
-             continue;
-         }
+        // Extract AI JSON and add ProcessingNode to this entity's chain
+        const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, entityChain, '{}');
 
-         const simplifiedEntityType = Object.keys(responseJson.simplifiedEntity)[0];
-         const simplifiedEntityName = responseJson.simplifiedEntity[simplifiedEntityType];
+        if (aiJson === NULL) {
+            log("Error: Failed to extract JSON from AI output");
+            // TODO: handle this with retry up to two more times, then give up
+            entityChain.completeRequest();
+            parallelNode.add(entityChain);
+            continue;
+        }
 
-         let startTime = Date.now();
-         try {
-             // Combine simplified entity with the new ai json
-             if (simplifiedEntityType === 'task') {
-                 let newTaskData = TaskData.fromAiJson({
-                     type: 'task',
-                     instances: aiJson.instances,
-                     workSessions: aiJson.workSessions
-                 });
+        const simplifiedEntityType = Object.keys(responseJson.simplifiedEntity)[0];
+        const simplifiedEntityName = responseJson.simplifiedEntity[simplifiedEntityType];
 
-                 if (newTaskData === NULL) {
-                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-                 } else {
-                     let newEntity = new Entity(
-                         Entity.generateId(),
-                         simplifiedEntityName,
-                         '', // description
-                         newTaskData
-                     );
+        let startTime = Date.now();
+        try {
+            // Combine simplified entity with the new ai json
+            if (simplifiedEntityType === 'task') {
+                let newTaskData = TaskData.fromAiJson({
+                    type: 'task',
+                    instances: aiJson.instances,
+                    workSessions: aiJson.workSessions
+                });
 
-                     ASSERT(type(newEntity, Entity) && type(newEntity.data, TaskData));
-                     entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
-                     newEntities.push(newEntity);
-                 }
-             } else if (simplifiedEntityType === 'event') {
-                 let newEventData = EventData.fromAiJson({
-                     type: 'event',
-                     instances: aiJson.instances
-                 });
+                if (newTaskData === NULL) {
+                    entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+                } else {
+                    let newEntity = new Entity(
+                        Entity.generateId(),
+                        simplifiedEntityName,
+                        '', // description
+                        newTaskData
+                    );
 
-                 if (newEventData === NULL) {
-                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-                 } else {
-                     let newEntity = new Entity(
-                         Entity.generateId(),
-                         simplifiedEntityName,
-                         '', // description
-                         newEventData
-                     );
-                     
-                     ASSERT(type(newEntity, Entity) && type(newEntity.data, EventData));
-                     entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
-                     newEntities.push(newEntity);
-                 }
-             } else if (simplifiedEntityType === 'reminder') {
-                 let newReminderData = ReminderData.fromAiJson({
-                     type: 'reminder',
-                     instances: aiJson.instances
-                 });
+                    ASSERT(type(newEntity, Entity) && type(newEntity.data, TaskData));
+                    entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
+                    newEntities.push(newEntity);
+                }
+            } else if (simplifiedEntityType === 'event') {
+                let newEventData = EventData.fromAiJson({
+                    type: 'event',
+                    instances: aiJson.instances
+                });
 
-                 if (newReminderData === NULL) {
-                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-                 } else {
-                     let newEntity = new Entity(
-                         Entity.generateId(),
-                         simplifiedEntityName,
-                         '', // description
-                         newReminderData
-                     );
-                     
-                     ASSERT(type(newEntity, Entity) && type(newEntity.data, ReminderData));
-                     entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
-                     newEntities.push(newEntity);
-                 }
-             } else {
-                 log("Error: invalid simplified entity: " + JSON.stringify(responseJson.simplifiedEntity));
-             }
-         } catch (e) {
-             entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
-         }
+                if (newEventData === NULL) {
+                    entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+                } else {
+                    let newEntity = new Entity(
+                        Entity.generateId(),
+                        simplifiedEntityName,
+                        '', // description
+                        newEventData
+                    );
+                    
+                    ASSERT(type(newEntity, Entity) && type(newEntity.data, EventData));
+                    entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
+                    newEntities.push(newEntity);
+                }
+            } else if (simplifiedEntityType === 'reminder') {
+                let newReminderData = ReminderData.fromAiJson({
+                    type: 'reminder',
+                    instances: aiJson.instances
+                });
 
-         // Finalize this entity's chain and attach it to the ParallelNode
-         entityChain.completeRequest();
-         parallelNode.add(entityChain);
-     }
+                if (newReminderData === NULL) {
+                    entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+                } else {
+                    let newEntity = new Entity(
+                        Entity.generateId(),
+                        simplifiedEntityName,
+                        '', // description
+                        newReminderData
+                    );
+                    
+                    ASSERT(type(newEntity, Entity) && type(newEntity.data, ReminderData));
+                    entityChain.add(new CreatedEntityNode(aiJson, newEntity, startTime, Date.now()));
+                    newEntities.push(newEntity);
+                }
+            } else {
+                log("Error: invalid simplified entity: " + JSON.stringify(responseJson.simplifiedEntity));
+            }
+        } catch (e) {
+            entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+        }
 
-     // All entity chains collected; finalize the parallel node and attach it to the outer chain
-     parallelNode.complete();
-     chain.add(parallelNode);
+        // Finalize this entity's chain and attach it to the ParallelNode
+        entityChain.completeRequest();
+        parallelNode.add(entityChain);
+    }
+
+    // All entity chains collected; finalize the parallel node and attach it to the outer chain
+    parallelNode.complete();
+    chain.add(parallelNode);
 
     // Log out the entities that were created from this step
     log("Entities: ");
@@ -9636,7 +9633,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         saveUserData(user);
     }
 
-    return idsOfNewEntities;
+    // include description of files in the response
+    return { idsOfNewEntities, descriptionOfFiles: responseJson1.descriptionOfFiles };
 }
 
 // Process input when Enter key is pressed
@@ -9686,10 +9684,13 @@ function processInput() {
         // if there are files, the request is more difficult, so use step by step strategy
         let startTime = Date.now();
         let idsOfNewEntities;
+        let descriptionOfFiles = NULL;
         if (fileArray.length > 0) {
             activeStrategy = STRATEGIES.STEP_BY_STEP;
             chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
-            idsOfNewEntities = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
+            response = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
+            idsOfNewEntities = response.idsOfNewEntities;
+            descriptionOfFiles = response.descriptionOfFiles;
         } else {
             activeStrategy = STRATEGIES.SINGLE_CHAIN;
             chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
@@ -9697,14 +9698,15 @@ function processInput() {
         }
 
         // Format entity titles using AI
-        if (idsOfNewEntities && idsOfNewEntities.length > 0) {
+        if (idsOfNewEntities && idsOfNewEntities.length > 0 && descriptionOfFiles !== NULL) {
             let startTime = Date.now();
+            let entityTitleMap = {};
             try {
-                await formatEntityTitles(idsOfNewEntities);
+                entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles);
             } catch (error) {
                 log("ERROR formatting entity titles: " + error.message);
             }
-            chain.add(new FormatEntityTitlesNode(startTime, Date.now()));
+            chain.add(new FormatEntityTitlesNode(startTime, Date.now(), entityTitleMap));
         }
 
         // TODO: query the user's existing entities to see if any of them match the new entities
@@ -9726,15 +9728,18 @@ function processInput() {
 }
 
 // Format entity titles using AI
-async function formatEntityTitles(entityIds) {
+async function formatEntityTitles(entityIds, descriptionOfFiles) {
     ASSERT(type(entityIds, List(String)), "formatEntityTitles: entityIds must be a list of strings");
+    ASSERT(type(descriptionOfFiles, String), "formatEntityTitles: descriptionOfFiles must be a string");
     
     if (entityIds.length === 0) {
         return {};
     }
     
-    // Build the titles object from the entity IDs
+    // Build the titles object from the entity IDs and track original entity data
     const titlesObject = {};
+    const entityTitleMap = {};
+    
     for (const entityId of entityIds) {
         const entity = user.entityArray.find(e => e.id === entityId);
         if (entity) {
@@ -9748,7 +9753,10 @@ async function formatEntityTitles(entityIds) {
             }
             
             if (kind) {
-                titlesObject[`${kind}-${entityId}`] = entity.name;
+                const key = `${kind}-${entityId}`;
+                titlesObject[key] = entity.name;
+                // Store entity id as key with old title
+                entityTitleMap[entityId] = { old: entity.name, new: entity.name }; // placeholder for new title
             }
         }
     }
@@ -9764,18 +9772,67 @@ async function formatEntityTitles(entityIds) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                titles: titlesObject
+                titles: titlesObject,
+                descriptionOfFiles: descriptionOfFiles
             })
         });
         
         if (response.ok) {
-            const formattedTitles = await response.json();
+            const responseData = await response.json();
+
+            // the ai usually returns an array of the new title of each entity
             
-            // Update the entity names in the user's data
-            for (const [key, formattedTitle] of Object.entries(formattedTitles)) {
+            // Handle new response format with raw AI output
+            if (responseData.error) {
+                log("ERROR formatting entity titles (0): " + responseData.error);
+                return {};
+            }
+            
+            if (!responseData.aiOutput) {
+                log("ERROR formatting entity titles (1): Missing aiOutput");
+                return {};
+            }
+                        
+            // Parse the raw AI output using extractJsonFromAiOutput
+            log("responseData.aiOutput: " + responseData.aiOutput);
+            const formattedTitles = extractJsonFromAiOutput(responseData.aiOutput, NULL, '[]');
+            log(formattedTitles);
+            
+            if (formattedTitles === NULL) {
+                log("ERROR formatting entity titles: Failed to parse AI output");
+                return {};
+            }
+            
+            if (!Array.isArray(formattedTitles)) {
+                log("ERROR formatting entity titles: Expected array but got " + typeof formattedTitles);
+                return {};
+            }
+            
+            // Convert array back to object format with original keys
+            const entries = Object.entries(responseData.titlesObject);
+            const titles = entries.map(([key, title]) => title);
+            
+            if (formattedTitles.length !== titles.length) {
+                log("ERROR formatting entity titles: Length mismatch between formatted titles and original titles");
+                return {};
+            }
+            
+            const formattedTitlesObject = {};
+            entries.forEach(([key, _], index) => {
+                formattedTitlesObject[key] = formattedTitles[index];
+            });
+            
+            // Update the entity names in the user's data and build final mapping
+            for (const [key, formattedTitle] of Object.entries(formattedTitlesObject)) {
                 const [, entityId] = key.split('-', 2);
                 const entity = user.entityArray.find(e => e.id === entityId);
                 if (entity && entity.name !== formattedTitle) {
+                    // Update the mapping with the new title
+                    if (entityTitleMap[entityId]) {
+                        entityTitleMap[entityId].new = formattedTitle;
+                    }
+                    
+                    // Update the entity
                     entity.name = formattedTitle;
                 }
             }
@@ -9783,13 +9840,13 @@ async function formatEntityTitles(entityIds) {
             // Save the updated user data
             await saveUserData(user);
             
-            return formattedTitles;
+            return entityTitleMap;
         } else {
-            log("ERROR formatting entity titles: " + response.status);
+            log("ERROR formatting entity titles (2): " + response.status);
             return {};
         }
     } catch (error) {
-        log("ERROR formatting entity titles: " + error.message);
+        log("ERROR formatting entity titles (3): " + error.message);
         return {};
     }
 }

@@ -2940,12 +2940,14 @@ class MergeEntitiesNode {
 }
 
 class FormatEntityTitlesNode {
-    constructor(startTime, endTime) {
+    constructor(startTime, endTime, entityTitleMap = {}) {
         ASSERT(type(startTime, Int));
         ASSERT(type(endTime, Int));
         ASSERT(startTime <= endTime);
+        ASSERT(type(entityTitleMap, Object));
         this.startTime = startTime;
         this.endTime = endTime;
+        this.entityTitleMap = entityTitleMap; // keys: id, values: { old, new }
     }
 
     encode() {
@@ -2953,6 +2955,7 @@ class FormatEntityTitlesNode {
         return {
             startTime: this.startTime,
             endTime: this.endTime,
+            entityTitleMap: this.entityTitleMap,
             _type: 'FormatEntityTitlesNode'
         };
     }
@@ -2960,7 +2963,7 @@ class FormatEntityTitlesNode {
     static decode(json) {
         ASSERT(exists(json));
         ASSERT(json._type === 'FormatEntityTitlesNode');
-        return new FormatEntityTitlesNode(json.startTime, json.endTime);
+        return new FormatEntityTitlesNode(json.startTime, json.endTime, json.entityTitleMap || {});
     }
 }
 
