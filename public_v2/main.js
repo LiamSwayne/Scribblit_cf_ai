@@ -9340,6 +9340,8 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
     }
 
     for (const nodeJson of responseJson.chain) {
+        log("node: ");
+        log(Chain.nodeFromJson(nodeJson));
         chain.add(Chain.nodeFromJson(nodeJson));
     }
 
