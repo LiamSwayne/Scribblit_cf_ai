@@ -235,7 +235,7 @@ let STRATEGIES = {
 // for requests without files it just redirects to one shot
 let activeStrategy = STRATEGIES.STEP_BY_STEP;
 let inputBoxFocused = false;
-let hasRendered = false;
+let hasInitialized = false;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -7289,17 +7289,19 @@ let signInModalState = 'initial'; // 'initial', 'email_input', 'verification'
 
 let proModalOpen = false;
 let proModal = null;
+let proModalAnimating = false;
 
 function openProModal() {
-    if (proModalOpen || exists(HTML.getElementUnsafely('proModal'))) return;
+    if (proModalOpen || proModalAnimating || exists(HTML.getElementUnsafely('proModal'))) return;
     proModalOpen = true;
+    proModalAnimating = true;
     
     const proButton = HTML.getElement('proButton');
     
     // Get current button position and size
     const buttonRect = proButton.getBoundingClientRect();
     const modalWidth = 190;
-    const modalHeight = 80;
+    const modalHeight = 187;
     
     // Align modal right edge with gear right edge (windowBorderMargin from window right)
     const modalRight = windowBorderMargin;
@@ -7338,13 +7340,149 @@ function openProModal() {
         border: '2px solid var(--shade-1)',
         borderRadius: '4px'
     });
+    
+    // Add text content after animation completes
+    setTimeout(() => {
+        // state may have changed since the timeout was set
+        if (!proModalOpen) return;
+
+        // Get modal position for text positioning
+        const modalRect = proModal.getBoundingClientRect();
+        
+        // Generate text content based on user's plan
+        let textContent = '';
+        if (user.plan === 'free') {
+            textContent = `Used ${user.usage} of 100 free AI requests. Upgrade to pro for unlimited requests across unlimited devices as long as you're signed in.`;
+        } else if (user.plan === 'godmode') {
+            textContent = 'You have godmode enabled. You have access to pro at no cost.';
+        } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
+            const isMonthly = user.plan === 'pro-monthly';
+            const price = isMonthly ? '$2 monthly' : '$16 annually';
+            
+            // Get last payment date
+            let lastPaymentText = '';
+            if (user.paymentTimes && user.paymentTimes.length > 0) {
+                const lastPaymentUnix = Math.max(...user.paymentTimes);
+                const lastPaymentDate = new Date(lastPaymentUnix);
+                lastPaymentText = `Your last payment was on ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()}.`;
+            }
+            
+            textContent = `You are currently subscribed to Pro and paying ${price}. ${lastPaymentText} Cancel any time and retain Pro for the rest of the period you paid for.`;
+        }
+        
+        // Create text element
+        const proModalText = HTML.make('div');
+        HTML.setId(proModalText, 'proModalText');
+        HTML.setStyle(proModalText, {
+            position: 'fixed',
+            right: (window.innerWidth - modalRect.right + 10) + 'px',
+            top: (modalRect.top + 24) + 'px',
+            width: (modalRect.width - 20) + 'px',
+            fontFamily: 'MonospacePrimary',
+            fontSize: '10px',
+            color: 'var(--shade-4)',
+            lineHeight: '1.4',
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word',
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
+            textAlign: 'left',
+            zIndex: String(proModalZIndex + 1),
+            opacity: '0',
+            transition: 'opacity 0.2s ease-in'
+        });
+        proModalText.textContent = textContent;
+        
+        HTML.body.appendChild(proModalText);
+        
+        // Create upgrade button (only for free plan)
+        if (user.plan === 'free') {
+            const upgradeButton = HTML.make('button');
+            HTML.setId(upgradeButton, 'proModalUpgradeButton');
+            upgradeButton.textContent = 'upgrade';
+            
+            HTML.setStyle(upgradeButton, {
+                position: 'fixed',
+                right: (window.innerWidth - modalRect.right + 10) + 'px',
+                top: (modalRect.top + modalRect.height - 35) + 'px',
+                width: (modalRect.width - 20) + 'px',
+                height: '25px',
+                fontFamily: 'MonospacePrimary',
+                fontSize: '11px',
+                color: 'var(--shade-4)',
+                backgroundColor: 'var(--shade-1)',
+                border: '1px solid var(--shade-2)',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                zIndex: String(proModalZIndex + 1),
+                opacity: '0',
+                transition: 'opacity 0.2s ease-in, background-color 0.2s ease'
+            });
+            
+            upgradeButton.onclick = () => {
+                // TODO: implement upgrade functionality
+                log('upgrade button clicked');
+            };
+            upgradeButton.onmouseenter = () => {
+                HTML.setStyle(upgradeButton, { backgroundColor: 'var(--shade-2)' });
+            };
+            upgradeButton.onmouseleave = () => {
+                HTML.setStyle(upgradeButton, { backgroundColor: 'var(--shade-1)' });
+            };
+            
+            HTML.body.appendChild(upgradeButton);
+            
+            // Fade in the button
+            setTimeout(() => {
+                HTML.setStyle(upgradeButton, { opacity: '1' });
+            }, 10);
+        }
+        
+        // Fade in the text
+        setTimeout(() => {
+            HTML.setStyle(proModalText, { opacity: '1' });
+        }, 10);
+        
+        // Clear animation flag
+        proModalAnimating = false;
+        
+    }, 400);
 }
 
 function closeProModal() {
-    if (!proModalOpen) return;
+    if (!proModalOpen || proModalAnimating) return;
     proModalOpen = false;
+    proModalAnimating = true;
     
     const proButton = HTML.getElement('proButton');
+    
+    // Fade out text if it exists
+    const proModalText = HTML.getElementUnsafely('proModalText');
+    if (proModalText) {
+        HTML.setStyle(proModalText, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (proModalText && proModalText.parentNode) {
+                HTML.body.removeChild(proModalText);
+            }
+        }, 200);
+    }
+    
+    // Fade out upgrade button if it exists
+    const proModalUpgradeButton = HTML.getElementUnsafely('proModalUpgradeButton');
+    if (proModalUpgradeButton) {
+        HTML.setStyle(proModalUpgradeButton, {
+            opacity: '0',
+            transition: 'opacity 0.2s ease-out'
+        });
+        setTimeout(() => {
+            if (proModalUpgradeButton && proModalUpgradeButton.parentNode) {
+                HTML.body.removeChild(proModalUpgradeButton);
+            }
+        }, 200);
+    }
     
     if (proModal) {
         // Get button position for shrinking animation
@@ -7369,6 +7507,8 @@ function closeProModal() {
                 HTML.body.removeChild(proModal);
                 proModal = null;
             }
+            // Clear animation flag
+            proModalAnimating = false;
         }, 400);
     }
 }
