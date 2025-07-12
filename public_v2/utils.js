@@ -3179,7 +3179,7 @@ class User {
         ASSERT(type(usage, Int));
         ASSERT(usage >= 0);
         ASSERT(type(plan, String));
-        ASSERT(plan === "free" || plan === "pro");
+        ASSERT(plan === "free" || plan === "pro-monthly" || plan === "pro-annually" || plan === "godmode");
         ASSERT(type(timestamp, Int));
         ASSERT(timestamp >= 0);
         ASSERT(type(paymentTimes, List(Int)));
@@ -3263,7 +3263,7 @@ class User {
         ASSERT(json.usage >= 0);
         ASSERT(type(json.timestamp, Int));
         ASSERT(type(json.plan, String));
-        ASSERT(json.plan === "free" || json.plan === "pro");
+        ASSERT(json.plan === "free" || json.plan === "pro-monthly" || json.plan === "pro-annually" || json.plan === "godmode");
         ASSERT(type(json.paymentTimes, List(Int)));
         
         for (const paymentTime of json.paymentTimes) {
