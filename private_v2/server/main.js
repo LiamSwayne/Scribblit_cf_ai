@@ -376,14 +376,23 @@ async function draftEntities(userPrompt, env) {
     }
 
     try {
+        let startTime = Date.now();
         // Use Cerebras for quick draft
         let content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
         console.log("Draft content: ");
         console.log(content);
         
         if (content && content.trim() !== '') {
+            let chain = [{ thinking_request: {
+                model: MODELS.CEREBRAS_MODELS.qwen3,
+                typeOfPrompt: 'convert_text_to_entities',
+                response: content,
+                startTime,
+                endTime: Date.now(),
+                userPrompt: userPrompt
+            }}]
             // Return raw response for frontend parsing
-            return { aiOutput: content, chain: [] }; // Empty chain for now
+            return { aiOutput: content, chain};
         } else {
             console.log("Failed to generate draft: Cerebras returned empty response");
             return SEND({ error: 'Failed to generate draft' }, 475);

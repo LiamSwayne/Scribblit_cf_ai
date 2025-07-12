@@ -9365,9 +9365,6 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
 
     const responseJson = await response.json();
 
-    log("responseJson: ");
-    log(responseJson);
-
     if (responseJson.error && responseJson.error.length > 0) {
         log("Error: " + responseJson.error);
         return;
@@ -9464,9 +9461,6 @@ async function draftAiRequest(inputText, chain) {
 
     const responseJson = await response.json();
 
-    log("Draft responseJson: ");
-    log(responseJson);
-
     if (responseJson.error && responseJson.error.length > 0) {
         log("Draft Error: " + responseJson.error);
         return [];
@@ -9522,9 +9516,6 @@ async function draftAiRequest(inputText, chain) {
         log("Draft Error creating entities: " + e.message);
         return [];
     }
-
-    log("Draft Entities: ");
-    log(newEntities);
 
     newEntities = mergeEntities(newEntities, chain);
 
