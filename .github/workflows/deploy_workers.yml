@@ -89,10 +89,14 @@ jobs:
             STRIPE_SECRET_KEY
             STRIPE_PUBLISHABLE_KEY
             STRIPE_WEBHOOK_SECRET
+            STRIPE_TEST_SECRET_KEY
+            STRIPE_TEST_PUBLISHABLE_KEY
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }} # this doesn't need to be a secret but it's convenient to have it here
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
             
       - name: Minify JS files for frontend
         run: |

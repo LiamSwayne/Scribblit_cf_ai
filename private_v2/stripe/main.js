@@ -1,7 +1,7 @@
-const STRIPE_DOMAIN = 'scribblit-stripe-production.unrono.workers.dev';
-
 // Set to true for testing, false for production
 const TESTING = true;
+
+const STRIPE_DOMAIN = 'scribblit-stripe-production.unrono.workers.dev';
 
 // Stripe product and price IDs
 let STRIPE_PRODUCT_ID;
@@ -16,6 +16,21 @@ if (TESTING) {
     STRIPE_PRODUCT_ID = 'prod_SdkoOMFUxk2a78';
     STRIPE_PRO_MONTHLY_PRICE_ID = 'price_1RiTIq07e2hLMvozj3H1IkGt';
     STRIPE_PRO_ANNUALLY_PRICE_ID = 'price_1Rk9aF07e2hLMvozAu8kBAQN';
+}
+
+// Get the appropriate Stripe keys based on testing mode
+function getStripeKeys(env) {
+    if (TESTING) {
+        return {
+            secretKey: env.STRIPE_TEST_SECRET_KEY,
+            publishableKey: env.STRIPE_TEST_PUBLISHABLE_KEY
+        };
+    } else {
+        return {
+            secretKey: env.STRIPE_SECRET_KEY,
+            publishableKey: env.STRIPE_PUBLISHABLE_KEY
+        };
+    }
 }
 
 function SEND(data, status = 200, headers = {}) {
@@ -42,10 +57,11 @@ function SEND(data, status = 200, headers = {}) {
 }
 
 async function createStripeCheckoutSession(params, env) {
+    const keys = getStripeKeys(env);
     const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+            'Authorization': `Bearer ${keys.secretKey}`,
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
@@ -70,10 +86,11 @@ async function createStripeCheckoutSession(params, env) {
 }
 
 async function createStripeCustomerPortalSession(params, env) {
+    const keys = getStripeKeys(env);
     const response = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+            'Authorization': `Bearer ${keys.secretKey}`,
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
