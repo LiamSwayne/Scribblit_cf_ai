@@ -3709,7 +3709,7 @@ function type(thing, sometype) {
         try { new Chain(thing.chain, thing.initializationTime); return true; } catch (e) { return false; }
     } else if (sometype === RequestNode) {
         if (!(thing instanceof RequestNode)) return false;
-        try { new RequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
+        try { new RequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.startTime, thing.endTime, thing.userPrompt, thing.systemPrompt); return true; } catch (e) { return false; }
     } else if (sometype === RerouteToModelNode) {
         if (!(thing instanceof RerouteToModelNode)) return false;
         try { new RerouteToModelNode(thing.model, thing.startTime, thing.endTime); return true; } catch (e) { return false; }
