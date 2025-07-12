@@ -9437,6 +9437,104 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
     return { idsOfNewEntities };
 }
 
+async function draftAiRequest(inputText, chain) {
+    // Draft never has files, so always skip marking tasks due today or yesterday as complete.
+    const excludeWithinDaysForPastComplete = 1;
+
+    // Send to backend AI endpoint - use draft strategy for quick AI model (Cerebras)
+    const response = await fetch('https://' + SERVER_DOMAIN + '/ai/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            prompt: inputText,
+        })
+    });
+
+    if (!response.ok) {
+        console.error('Draft AI parse request failed', await response.text());
+        return []; // Return empty array instead of undefined
+    }
+
+    const responseJson = await response.json();
+
+    log("Draft responseJson: ");
+    log(responseJson);
+
+    if (responseJson.error && responseJson.error.length > 0) {
+        log("Draft Error: " + responseJson.error);
+        return [];
+    }
+
+    if (!exists(responseJson.chain)) {
+        log("Error: chain not returned by draft strategy.");
+        return [];
+    }
+
+    for (const nodeJson of responseJson.chain) {
+        chain.add(Chain.nodeFromJson(nodeJson));
+    }
+
+    // we asked the ai for an array of entities, so we need to extract it
+    const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '[]');
+
+    if (aiJson === NULL) {
+        log("Draft Error: Failed to extract JSON from AI output");
+        return [];
+    }
+
+    // Convert to internal entities
+    let newEntities = []
+    try {
+        if (Array.isArray(aiJson)) {
+            for (const obj of aiJson) {
+                let startTime = Date.now();
+                try {
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    if (parsedEntity === NULL) {
+                        chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
+                    } else {
+                        chain.add(new CreatedEntityNode(obj, parsedEntity, startTime, Date.now()));
+                        newEntities.push(parsedEntity);
+                    }
+                } catch (e) {
+                    chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
+                    continue;
+                }
+            }
+        } else {
+            let startTime = Date.now();
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            if (parsedEntity === NULL) {
+                chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+            } else {
+                chain.add(new CreatedEntityNode(aiJson, parsedEntity, startTime, Date.now()));
+                newEntities.push(parsedEntity);
+            }
+        }
+    } catch (e) {
+        log("Draft Error creating entities: " + e.message);
+        return [];
+    }
+
+    log("Draft Entities: ");
+    log(newEntities);
+
+    newEntities = mergeEntities(newEntities, chain);
+
+    let idsOfNewEntities = newEntities.map(ent => ent.id);
+
+    // add to user
+    for (const ent of newEntities) {
+        user.entityArray.push(ent);
+    }
+    user.timestamp = Date.now();
+    if (newEntities.length > 0) {
+        saveUserData(user);
+    }
+
+    return idsOfNewEntities; // Return just the array, not wrapped in object
+}
+
 async function stepByStepAiRequest(inputText, fileArray, chain) {
     // Step 1: Get simplified entities
     const response1 = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
@@ -9815,11 +9913,12 @@ function processInput() {
     }
 
     (async () => {
-        // if there are files, the request is more difficult, so use step by step strategy
         let startTime = Date.now();
         let idsOfNewEntities;
         let descriptionOfFiles = NULL;
+        
         if (fileArray.length > 0) {
+            // Handle file case - no draft, sequential processing
             if (activeStrategy === STRATEGIES.STEP_BY_STEP) {
                 chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
                 response = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
@@ -9836,30 +9935,79 @@ function processInput() {
             } else {
                 ASSERT(false, "Invalid active strategy: " + activeStrategy);
             }
+            
+            // Render entities immediately
+            render();
+            
+            // Format entity titles using AI
+            if (idsOfNewEntities && idsOfNewEntities.length > 0) {
+                let titleStartTime = Date.now();
+                let entityTitleMap = {};
+                try {
+                    // for now we use an empty file array so it routes to grok4
+                    entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles, []);
+                } catch (error) {
+                    log("ERROR formatting entity titles: " + error.message);
+                }
+                chain.add(new FormatEntityTitlesNode(titleStartTime, Date.now(), entityTitleMap));
+                
+                // Render again after title correction
+                render();
+            }
         } else {
+            // No files - run draft and main request in parallel
+            let mainStartTime = Date.now();
+            let idsOfNewDraftEntities = null;
+            
+            // Start draft request
+            const draftPromise = draftAiRequest(userTextWithDateInformation, chain);
+            
+            // Start main request
+            let mainPromise;
             if (activeStrategy === STRATEGIES.SINGLE_CHAIN) {
-                chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
-                idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
+                chain.add(new StrategySelectionNode(activeStrategy, mainStartTime, Date.now()));
+                mainPromise = singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
             } else if (activeStrategy === STRATEGIES.STEP_BY_STEP || activeStrategy === STRATEGIES.ONE_SHOT) {
                 // step by step here just redirects to one shot instead because step by step consumes far too many tokens to be worth using for a plain text prompt
-                chain.add(new StrategySelectionNode(STRATEGIES.ONE_SHOT, startTime, Date.now()));
-                idsOfNewEntities = await oneShotAiRequest(userTextWithDateInformation, fileArray, chain);
+                chain.add(new StrategySelectionNode(STRATEGIES.ONE_SHOT, mainStartTime, Date.now()));
+                mainPromise = oneShotAiRequest(userTextWithDateInformation, fileArray, chain);
             } else {
                 ASSERT(false, "Invalid active strategy: " + activeStrategy);
             }
-        }
-
-        // Format entity titles using AI
-        if (idsOfNewEntities && idsOfNewEntities.length > 0) {
-            let startTime = Date.now();
-            let entityTitleMap = {};
-            try {
-                // for now we use an empty file array so it routes to grok4
-                entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles, []);
-            } catch (error) {
-                log("ERROR formatting entity titles: " + error.message);
+            
+            // Handle draft completion
+            draftPromise.then(draftIds => {
+                idsOfNewDraftEntities = draftIds;
+                // Render draft entities immediately
+                render();
+            }).catch(error => {
+                log("ERROR in draft request: " + error.message);
+            });
+            
+            // Wait for main request to complete
+            idsOfNewEntities = await mainPromise;
+            
+            // Delete draft entities and render main entities
+            if (idsOfNewDraftEntities && idsOfNewDraftEntities.length > 0) {
+                user.entityArray = user.entityArray.filter(e => !idsOfNewDraftEntities.includes(e.id));
             }
-            chain.add(new FormatEntityTitlesNode(startTime, Date.now(), entityTitleMap));
+            render();
+            
+            // Format entity titles using AI
+            if (idsOfNewEntities && idsOfNewEntities.length > 0) {
+                let titleStartTime = Date.now();
+                let entityTitleMap = {};
+                try {
+                    // for now we use an empty file array so it routes to grok4
+                    entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles, []);
+                } catch (error) {
+                    log("ERROR formatting entity titles: " + error.message);
+                }
+                chain.add(new FormatEntityTitlesNode(titleStartTime, Date.now(), entityTitleMap));
+                
+                // Render again after title correction
+                render();
+            }
         }
 
         // TODO: query the user's existing entities to see if any of them match the new entities
@@ -9870,10 +10018,9 @@ function processInput() {
         attachedFiles = [];
         updateAttachmentBadge();
 
-        // Re-render UI
-        render();
-
         chain.completeRequest();
+
+        saveUserData(user);
 
         log("Chain: ");
         log(chain);

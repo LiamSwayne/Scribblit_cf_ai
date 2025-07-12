@@ -148,7 +148,7 @@ Task JSON:
 	    {
 		    "type": "due_date_instance"
 		    "date": "YYYY-MM-DD" // OPTIONAL. if a time a is given then assume the due date is today
-		    "time": "HH:MM"// OPTIONAL. if it's due today and the current time is past noon assume numbers below 12 are pm.
+		    "time": "HH:MM"// OPTIONAL
 	    }
 	    {
 		    "type": "due_date_pattern"
@@ -205,7 +205,7 @@ Reminder JSON:
 	]
 }
 
-Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. Don't include useless stuff in the name, like "!!!" or "due"`
+Don't forget to have commas in the JSON. You will return nothing but an array of objects of type task, event, or reminder. If the user specifies hour of day but not am or pm, and it is past the am hour, you must assume it is pm.`
 
 let filesOnlyExtractSimplifiedEntitiesPrompt = `You are an AI that takes in the user's files and converts them to tasks, events, and reminders JSON. If something has to be done *by* a certain date/time but can be done before then, it is a task. If something has to be done at a specific date/time and cannot be done before then, it is an event. It is possible for an event to have only a start time if the end time is unknown. A reminder is a special case of something insignificant to be reminded of at a specific time and date. Only include OPTIONAL fields if the user specified the information needed for that field. Even events that are optional (things to just be aware of) should be included.
 
@@ -369,6 +369,30 @@ let titleFormatterPromptWithFiles = `You are an AI that takes in a title of task
 These titles are being added to the user's personal task manager and calendar, and will be seen in the context of many other tasks, events, and reminders. Make sure that the titles provide enough context to not be confused with other tasks, events, and reminders. For example, if the user has tasks for a class, they may have multiple classes, so you may want to prefix the title with the class name or number. There is not a lot of space to write titles, but you should try to provide enough context to not be confused with other tasks, events, and reminders.
 
 YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Do not include your comments, only the formatted titles in a JSON array.`;
+
+async function draftEntities(userPrompt, env) {
+    if (!userPrompt || userPrompt.trim().length === 0) {
+        return SEND({ error: 'userPrompt is required' }, 475);
+    }
+
+    try {
+        // Use Cerebras for quick draft
+        let content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
+        console.log("Draft content: ");
+        console.log(content);
+        
+        if (content && content.trim() !== '') {
+            // Return raw response for frontend parsing
+            return { aiOutput: content, chain: [] }; // Empty chain for now
+        } else {
+            console.log("Failed to generate draft: Cerebras returned empty response");
+            return SEND({ error: 'Failed to generate draft' }, 475);
+        }
+    } catch (error) {
+        console.log('Error generating draft:', error);
+        return SEND({ error: 'Failed to generate draft: ' + error.message }, 475);
+    }
+}
 
 // must provide either a fileArray or a descriptionOfFiles
 async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
@@ -1753,6 +1777,26 @@ export default {
                     } catch (err) {
                         console.log('AI parse error:', err);
                         return SEND({ error: 'Failed to process AI request: ' + err.message }, 563);
+                    }
+                }
+
+            case '/ai/draft':
+                {
+                    if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
+                    try {
+                        const data = await request.json();
+                        const userPrompt = data.prompt;
+
+                        if (!userPrompt || userPrompt.trim().length === 0) {
+                            return SEND({ error: 'Empty prompt' }, 471);
+                        }
+
+                        const result = await draftEntities(userPrompt, env);
+                        console.log('draft result: ' + JSON.stringify(result));
+                        return SEND(result, 200);
+                    } catch (err) {
+                        console.log('AI draft error:', err);
+                        return SEND({ error: 'Failed to process draft request: ' + err.message }, 563);
                     }
                 }
 
