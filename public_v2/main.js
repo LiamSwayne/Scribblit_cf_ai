@@ -9039,6 +9039,9 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     let startTime = Date.now();
     let cleanedText = aiOutput;
 
+    log("cleanedText: ");
+    log(cleanedText);
+
     // we can remove the model thinking, all that matters is the output
     // maybe the user would like to see this?
     // maybe in pro mode we store this locally so they can look at it and feel more "in control"
@@ -9318,6 +9321,11 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
 }
 
 async function oneShotAiRequest(inputText, fileArray, chain) {
+    log("oneShotAiRequest: ");
+    log(inputText);
+    log(fileArray);
+    log(chain);
+
     // If the request has no attached files, skip marking tasks due today or yesterday as complete.
     const excludeWithinDaysForPastComplete = (fileArray && fileArray.length === 0) ? 1 : 0;
 
@@ -9339,19 +9347,20 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
 
     const responseJson = await response.json();
 
+    log("responseJson: ");
+    log(responseJson);
+
     if (responseJson.error && responseJson.error.length > 0) {
         log("Error: " + responseJson.error);
         return;
     }
 
     if (!exists(responseJson.chain)) {
-        log("Error: chain is required for one_shot strategy.");
+        log("Error: chain not returned by one_shot strategy.");
         return;
     }
 
     for (const nodeJson of responseJson.chain) {
-        log("node: ");
-        log(Chain.nodeFromJson(nodeJson));
         chain.add(Chain.nodeFromJson(nodeJson));
     }
 
@@ -9830,7 +9839,7 @@ function processInput() {
         }
 
         // Format entity titles using AI
-        if (idsOfNewEntities && idsOfNewEntities.length > 0 && type(descriptionOfFiles, String)) {
+        if (idsOfNewEntities && idsOfNewEntities.length > 0) {
             let startTime = Date.now();
             let entityTitleMap = {};
             try {
