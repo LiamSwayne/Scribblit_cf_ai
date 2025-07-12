@@ -2,6 +2,7 @@ const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
 const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
 const PAGES_DOMAIN = 'scribbl.it';
+const FREE_PLAN_USAGE_LIMIT = 100;
 
 let MODELS = {
     GEMINI_MODELS: {
@@ -1315,9 +1316,9 @@ async function checkAndUpdateUsage(authHeader, env, strategy) {
 
     // Check usage limits based on plan
     if (plan === 'free') {
-        if (usage >= 200) {
+        if (usage >= FREE_PLAN_USAGE_LIMIT) {
             return SEND({ 
-                error: 'Usage limit exceeded for free plan (200 requests). Please upgrade to continue using the service.',
+                error: 'Usage limit exceeded for free plan (' + FREE_PLAN_USAGE_LIMIT + ' requests). Please upgrade to continue using the service.',
                 usageExceeded: true 
             }, 470);
         }
