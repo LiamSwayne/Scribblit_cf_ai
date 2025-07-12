@@ -7294,9 +7294,31 @@ let signInModalState = 'initial'; // 'initial', 'email_input', 'verification'
 let proModalOpen = false;
 let proModal = null;
 let proModalAnimating = false;
+let proModalMutex = false; // Prevents concurrent execution of openProModal and closeProModal
 
 function openProModal() {
+    // Check mutex first - if either function is running, return early
+    if (proModalMutex) return;
     if (proModalOpen || proModalAnimating || exists(HTML.getElementUnsafely('proModal'))) return;
+    
+    // Clean up any leftover elements from previous instances
+    const leftoverText = HTML.getElementUnsafely('proModalText');
+    if (leftoverText && leftoverText.parentNode) {
+        HTML.body.removeChild(leftoverText);
+    }
+    
+    const leftoverUpgradeButton = HTML.getElementUnsafely('proModalUpgradeButton');
+    if (leftoverUpgradeButton && leftoverUpgradeButton.parentNode) {
+        HTML.body.removeChild(leftoverUpgradeButton);
+    }
+    
+    const leftoverCancelButton = HTML.getElementUnsafely('proModalCancelButton');
+    if (leftoverCancelButton && leftoverCancelButton.parentNode) {
+        HTML.body.removeChild(leftoverCancelButton);
+    }
+    
+    // Set mutex to prevent concurrent execution
+    proModalMutex = true;
     proModalOpen = true;
     proModalAnimating = true;
     
@@ -7348,7 +7370,17 @@ function openProModal() {
     // Add text content after animation completes
     setTimeout(() => {
         // state may have changed since the timeout was set
-        if (!proModalOpen) return;
+        if (!proModalOpen) {
+            // Clear mutex and return early if modal was closed
+            proModalMutex = false;
+            return;
+        }
+
+        // Ensure proModal still exists
+        if (!proModal) {
+            proModalMutex = false;
+            return;
+        }
 
         // Get modal position for text positioning
         const modalRect = proModal.getBoundingClientRect();
@@ -7374,6 +7406,13 @@ function openProModal() {
             textContent = `You are currently subscribed to Pro and paying ${price}. ${lastPaymentText} Cancel any time and retain Pro for the rest of the period you paid for.`;
         }
         
+        // Check if text element already exists (safety check)
+        const existingText = HTML.getElementUnsafely('proModalText');
+        if (existingText) {
+            proModalMutex = false;
+            return;
+        }
+
         // Create text element
         const proModalText = HTML.make('div');
         HTML.setId(proModalText, 'proModalText');
@@ -7398,6 +7437,9 @@ function openProModal() {
         proModalText.textContent = textContent;
         
         HTML.body.appendChild(proModalText);
+        
+        // Force reflow to ensure opacity: 0 is applied before animation
+        proModalText.offsetHeight;
         
         // Create button based on user's plan
         let actionButton = null;
@@ -7450,25 +7492,38 @@ function openProModal() {
             
             HTML.body.appendChild(actionButton);
             
-            // Fade in the button
+            // Force reflow to ensure opacity: 0 is applied before animation
+            actionButton.offsetHeight;
+            
+            // Fade in the button with proper timing
             setTimeout(() => {
-                HTML.setStyle(actionButton, { opacity: '1' });
-            }, 10);
+                if (actionButton && actionButton.parentNode) {
+                    HTML.setStyle(actionButton, { opacity: '1' });
+                }
+            }, 50);
         }
         
-        // Fade in the text
+        // Fade in the text with proper timing
         setTimeout(() => {
-            HTML.setStyle(proModalText, { opacity: '1' });
-        }, 10);
+            if (proModalText && proModalText.parentNode) {
+                HTML.setStyle(proModalText, { opacity: '1' });
+            }
+        }, 50);
         
-        // Clear animation flag
+        // Clear animation flag and mutex
         proModalAnimating = false;
+        proModalMutex = false;
         
     }, 400);
 }
 
 function closeProModal() {
+    // Check mutex first - if either function is running, return early
+    if (proModalMutex) return;
     if (!proModalOpen || proModalAnimating) return;
+    
+    // Set mutex to prevent concurrent execution
+    proModalMutex = true;
     proModalOpen = false;
     proModalAnimating = true;
     
@@ -7528,8 +7583,9 @@ function closeProModal() {
                 HTML.body.removeChild(proModal);
                 proModal = null;
             }
-            // Clear animation flag
+            // Clear animation flag and mutex
             proModalAnimating = false;
+            proModalMutex = false;
         }, 400);
     }
 }
