@@ -229,7 +229,7 @@ let STRATEGIES = {
 }
 // default strategy is step by step because it's the most robust
 // for requests without files it just redirects to one shot
-let activeStrategy = STRATEGIES.SINGLE_CHAIN;
+let activeStrategy = STRATEGIES.STEP_BY_STEP;
 let inputBoxFocused = false;
 
 // Save user data to localStorage and server
@@ -9226,6 +9226,9 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
         })
     });
 
+    log("response: ");
+    log(response);
+
     if (!response.ok) {
         console.error('AI parse request failed', await response.text());
         return; // keep input for debugging
@@ -9243,12 +9246,17 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
         return;
     }
 
+    if (!exists(responseJson.aiOutput)) {
+        log("Error: aiOutput is required for single_chain strategy.");
+        return;
+    }
+
     for (const nodeJson of responseJson.chain) {
         chain.add(Chain.nodeFromJson(nodeJson));
     }
 
     // we asked the ai for an array of entities, so we need to extract it
-    const aiJson = extractJsonFromAiOutput(responseJson.aiOutput.response, chain, '[]');
+    const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '[]');
 
     if (aiJson === NULL) {
         log("Error: Failed to extract JSON from AI output");
@@ -9814,8 +9822,7 @@ function processInput() {
                 idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
             } else if (activeStrategy === STRATEGIES.STEP_BY_STEP || activeStrategy === STRATEGIES.ONE_SHOT) {
                 // step by step here just redirects to one shot instead because step by step consumes far too many tokens to be worth using for a plain text prompt
-                activeStrategy = STRATEGIES.ONE_SHOT;
-                chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
+                chain.add(new StrategySelectionNode(STRATEGIES.ONE_SHOT, startTime, Date.now()));
                 idsOfNewEntities = await oneShotAiRequest(userTextWithDateInformation, fileArray, chain);
             } else {
                 ASSERT(false, "Invalid active strategy: " + activeStrategy);
