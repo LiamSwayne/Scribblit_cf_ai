@@ -1495,6 +1495,8 @@ const reminderBorderRadius = Math.round(reminderTextHeight * 0.5);
 const reminderCountIndicatorSize = Math.round(reminderFontSize); // 14px (bigger circle)
 const reminderCountFontSize = Math.round(reminderFontSize * 0.75); // 9px (slightly bigger font to match)
 
+let settingsModalHeight = NULL;
+
 let G_reminderDragState = {
     isDragging: false,
     dayIndex: -1,
@@ -7061,7 +7063,7 @@ function renderTaskList() {
 
 function updateSettingsTextPosition() {
     // Only update if settings modal is open and elements exist
-    if (!settingsModalOpen) return;
+    if (!settingsModalOpen || settingsModalHeight === NULL) return;
     
     const settingsModal = HTML.getElementUnsafely('settingsModal');
     if (!exists(settingsModal)) return;
@@ -7590,12 +7592,11 @@ function openSettingsModal() {
     // Get current button position and size
     const buttonRect = settingsButton.getBoundingClientRect();
     const modalWidth = 200;
-    let modalHeight;
     if (LocalData.get('signedIn')) {
-        modalHeight = 100;
+        settingsModalHeight = 92;
     } else {
         // Increased height to accommodate the new "Remove empty time from days" label
-        modalHeight = 68;
+        settingsModalHeight = 68;
     }
     
     // Create modal div that starts as the button background
@@ -7628,7 +7629,7 @@ function openSettingsModal() {
     // Start modal growth animation
     HTML.setStyle(settingsModal, {
         width: modalWidth + 'px',
-        height: modalHeight + 'px',
+        height: settingsModalHeight + 'px',
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         borderRadius: '4px'
@@ -7740,7 +7741,7 @@ function openSettingsModal() {
             HTML.setStyle(logoutButton, {
                 position: 'fixed',
                 right: (modalWidth - 55) + 'px',
-                top: (modalHeight - 15) + 'px',
+                top: (settingsModalHeight - 15) + 'px',
                 width: '60px',
                 height: '20px',
                 fontFamily: 'MonospacePrimary',
@@ -7770,7 +7771,7 @@ function openSettingsModal() {
             HTML.setStyle(featureRequestButton, {
                 position: 'fixed',
                 right: '11px',
-                top: (modalHeight - 15) + 'px',
+                top: (settingsModalHeight - 15) + 'px',
                 width: '120px',
                 height: '20px',
                 fontFamily: 'MonospacePrimary',
@@ -9323,6 +9324,65 @@ function getAuthHeaders() {
     return headers;
 }
 
+async function handleBackendError(response, context = '') {
+    let errorMessage = '';
+    let errorData = null;
+    
+    try {
+        errorData = await response.json();
+    } catch (e) {
+        errorMessage = await response.text();
+    }
+    
+    const statusCode = response.status;
+    
+    // Handle specific auth and usage errors
+    switch (statusCode) {
+        case 470:
+            log(`Usage limit exceeded for free plan (200 requests). Context: ${context}`);
+            // TODO: Display user-friendly message about upgrading plan
+            break;
+        case 471:
+            log(`Pro-monthly subscription expired. Context: ${context}`);
+            // TODO: Display user-friendly message about renewing subscription
+            break;
+        case 472:
+            log(`Pro-annually subscription expired. Context: ${context}`);
+            // TODO: Display user-friendly message about renewing subscription
+            break;
+        case 473:
+            log(`Unknown plan error. Context: ${context}`);
+            // TODO: Display user-friendly message about contacting support
+            break;
+        case 484:
+            log(`User not found in database. Context: ${context}`);
+            // TODO: Display user-friendly message about account issues
+            break;
+        case 485:
+            log(`Strategy is required but not provided. Context: ${context}`);
+            // TODO: Display user-friendly message about technical error
+            break;
+        case 401:
+            log(`Invalid or expired token. Context: ${context}`);
+            // TODO: Display user-friendly message about signing in again
+            // Could also automatically sign out the user here
+            break;
+        case 404:
+            log(`Resource not found. Context: ${context}`);
+            // TODO: Display user-friendly message about resource not found
+            break;
+        default:
+            log(`Backend error (${statusCode}): ${errorMessage || errorData?.error || 'Unknown error'}. Context: ${context}`);
+            // TODO: Display user-friendly message about general error
+            break;
+    }
+    
+    // Log additional error details if available
+    if (errorData) {
+        log(`Error details:`, errorData);
+    }
+}
+
 function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     ASSERT(exists(aiOutput));
     ASSERT(type(chain, Union(Chain, NULL)));
@@ -9524,8 +9584,8 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     log(response);
 
     if (!response.ok) {
-        console.error('AI parse request failed', await response.text());
-        return; // keep input for debugging
+        await handleBackendError(response, 'singleChainAiRequest');
+        return;
     }
 
     const responseJson = await response.json();
@@ -9627,8 +9687,8 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
     });
 
     if (!response.ok) {
-        console.error('AI parse request failed', await response.text());
-        return; // keep input for debugging
+        await handleBackendError(response, 'oneShotAiRequest');
+        return;
     }
 
     const responseJson = await response.json();
@@ -9723,8 +9783,8 @@ async function draftAiRequest(inputText, chain) {
     });
 
     if (!response.ok) {
-        console.error('Draft AI parse request failed', await response.text());
-        return []; // Return empty array instead of undefined
+        await handleBackendError(response, 'draftAiRequest');
+        return []; // Return empty array
     }
 
     const responseJson = await response.json();
@@ -9814,7 +9874,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
     });
 
     if (!response1.ok) {
-        console.error('AI parse request failed for step 1', await response1.text());
+        await handleBackendError(response1, 'stepByStepAiRequest-step1');
         return;
     }
 
@@ -9975,8 +10035,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
         // Handle HTTP errors
         if (!responses2[i].ok) {
-            log('AI parse request failed for step 2', await responses2[i].text());
-            // Still add an empty (but completed) chain to keep indices aligned
+            await handleBackendError(responses2[i], 'stepByStepAiRequest-step2');
+            // still add an empty (but completed) chain
             entityChain.completeRequest();
             parallelNode.add(entityChain);
             continue;
