@@ -237,6 +237,7 @@ let STRATEGIES = {
 let activeStrategy = STRATEGIES.STEP_BY_STEP;
 let inputBoxFocused = false;
 let hasInitialized = false;
+const FREE_PLAN_USAGE_LIMIT = 100;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -7477,7 +7478,7 @@ function openProModal() {
         // Generate text content based on user's plan
         let textContent = '';
         if (user.plan === 'free') {
-            textContent = `Used ${user.usage} of 100 free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in. $2/month or $16/year.`;
+            textContent = `Used ${user.usage} of ${FREE_PLAN_USAGE_LIMIT} free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in. $2/month or $16/year.`;
         } else if (user.plan === 'godmode') {
             textContent = 'You have godmode enabled. You have access to Pro at no cost.';
         } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
@@ -9719,6 +9720,8 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
         })
     });
 
+    user.usage += 1;
+
     log("response: ");
     log(response);
 
@@ -9824,6 +9827,8 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
             strategy: STRATEGIES.ONE_SHOT
         })
     });
+
+    user.usage += 1;
 
     if (!response.ok) {
         await handleBackendError(response, 'oneShotAiRequest');
@@ -10012,6 +10017,8 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
         })
     });
 
+    user.usage += 1;
+
     if (!response1.ok) {
         await handleBackendError(response1, 'stepByStepAiRequest-step1');
         return;
@@ -10149,6 +10156,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
     // (backend response nodes, processing nodes, creation nodes, etc.) related to
     // that entity are grouped together. These chains will later be added to the
     // ParallelNode.
+    // no usage since this is part of step 1 usage
     const entityChains = uniqueSimplifiedEntities.map(() => new Chain());
      const promises = uniqueSimplifiedEntities.map(simplifiedEntity => {
          let promptForStep2 = basePromptForStep2;

@@ -72,6 +72,7 @@ async function createStripeCheckoutSession(params, env) {
             'success_url': params.success_url,
             'cancel_url': params.cancel_url,
             'automatic_tax[enabled]': 'true',
+            'billing_address_collection': 'required',
             'metadata[userId]': params.metadata.userId,
             'metadata[planType]': params.metadata.planType,
         }).toString(),
