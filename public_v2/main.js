@@ -126,11 +126,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('paste', async (e) => {
-    // always prevent default behavior because the handling is pretty complex
-    // and it's good to have fine-grained control rather than default behavior
-    e.preventDefault();
-
     if (e.clipboardData.files.length > 0) {
+        e.preventDefault();
         log('Pasted a file', e.clipboardData.files);
         // add to file array
         for (const file of e.clipboardData.files) {
@@ -155,12 +152,13 @@ document.addEventListener('paste', async (e) => {
         updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
     } else {
         if (signInModalOpen) {
+            e.preventDefault();
             const text = e.clipboardData.getData('text/plain');
             if (text) {
                 // add to email field if neither email nor password is focused
                 const emailInput = HTML.getElement('signInEmailInput');
                 const passwordInput = HTML.getElement('signInPasswordInput');
-                if (document.activeElement !== emailInput && document.activeElement !== passwordInput) {
+                if (document.activeElement.id !== 'signInEmailInput' && document.activeElement.id !== 'signInPasswordInput') {
                     if (emailInput.value.length === 0) {
                         emailInput.value = text;
                     } else if (passwordInput.value.length === 0) {
@@ -169,6 +167,12 @@ document.addEventListener('paste', async (e) => {
                         // just allow the default behavior
                         log('Pasted text: "' + text + '"');
                     }
+                } else if (document.activeElement.id === 'signInEmailInput') {
+                    emailInput.value += text;
+                    // focus the password input
+                    passwordInput.focus();
+                } else if (document.activeElement.id === 'signInPasswordInput') {
+                    passwordInput.value += text;
                 }
             }
         } else {
@@ -231,6 +235,7 @@ let STRATEGIES = {
 // for requests without files it just redirects to one shot
 let activeStrategy = STRATEGIES.STEP_BY_STEP;
 let inputBoxFocused = false;
+let hasRendered = false;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
@@ -1436,7 +1441,8 @@ const signInButtonZIndex = 7003; // above sign-in modal
 const signInTextZIndex = 7004; // above sign-in modal
 const proButtonZIndex = 7005; // above sign-in text; below overlay/text
 const proOverlayZIndex = 7006; // gradient overlay between background and text
-const proTextZIndex = 7007; // highest element in pro button stack
+const proTextZIndex = 7007;
+const proModalZIndex = 7001; // below pro button elements // highest element in pro button stack
 
 // Calendar navigation functions
 function navigateCalendar(direction, shiftHeld = false) {
@@ -5686,6 +5692,7 @@ async function toggleHidingEmptyTimespanInCalendar(enabled) {
     user.settings.hideEmptyTimespanInCalendar = enabled;
     await saveUserData(user);
     renderCalendar(currentDays());
+    renderTimeIndicator(false);
 }
 
 function toggleStacking() {
@@ -7280,6 +7287,88 @@ let signInModalOpen = false;
 let signInModal = null;
 let signInModalState = 'initial'; // 'initial', 'email_input', 'verification'
 
+let proModalOpen = false;
+let proModal = null;
+
+function openProModal() {
+    if (proModalOpen || exists(HTML.getElementUnsafely('proModal'))) return;
+    proModalOpen = true;
+    
+    const proButton = HTML.getElement('proButton');
+    
+    // Get current button position and size
+    const buttonRect = proButton.getBoundingClientRect();
+    const modalWidth = 170;
+    const modalHeight = 80;
+    
+    // Align modal right edge with gear right edge (windowBorderMargin from window right)
+    const modalRight = windowBorderMargin;
+    const buttonRight = window.innerWidth - buttonRect.right;
+    
+    // Create modal div that starts as the button background
+    proModal = HTML.make('div');
+    HTML.setId(proModal, 'proModal');
+    HTML.setStyle(proModal, {
+        position: 'fixed',
+        top: buttonRect.top + 'px',
+        right: buttonRight + 'px',
+        width: buttonRect.width + 'px',
+        height: buttonRect.height + 'px',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
+        borderRadius: '4px',
+        zIndex: String(proModalZIndex),
+        transformOrigin: 'right top',
+        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+    });
+    
+    HTML.body.appendChild(proModal);
+    
+    // Force reflow
+    proModal.offsetHeight;
+    
+    // Start modal growth animation - expand to align right edge with gear
+    HTML.setStyle(proModal, {
+        width: modalWidth + 'px',
+        height: modalHeight + 'px',
+        right: modalRight + 'px',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
+        borderRadius: '4px'
+    });
+}
+
+function closeProModal() {
+    if (!proModalOpen) return;
+    proModalOpen = false;
+    
+    const proButton = HTML.getElement('proButton');
+    
+    if (proModal) {
+        // Get button position for shrinking animation
+        const buttonRect = proButton.getBoundingClientRect();
+        const buttonRight = window.innerWidth - buttonRect.right;
+        
+        // Animate modal back to button size
+        HTML.setStyle(proModal, {
+            width: buttonRect.width + 'px',
+            height: buttonRect.height + 'px',
+            right: buttonRight + 'px',
+            backgroundColor: 'var(--shade-0)',
+            border: '2px solid var(--shade-1)',
+            borderRadius: '4px'
+        });
+        
+        // Remove modal after animation
+        setTimeout(() => {
+            if (proModal) {
+                HTML.body.removeChild(proModal);
+                proModal = null;
+            }
+        }, 400);
+    }
+}
+
 function toggleSettings() {
     if (settingsModalOpen) {
         closeSettingsModal();
@@ -8350,7 +8439,7 @@ function showEmailInputForm() {
         
         const modalRect = signInModal.getBoundingClientRect();
         const modalWidth = modalRect.width;
-        const signInFieldInputHeight = 30;
+        const signInFieldInputHeight = 28;
         
         // Create email input field
         const emailInput = HTML.make('input');
@@ -8361,7 +8450,7 @@ function showEmailInputForm() {
         HTML.setStyle(emailInput, {
             position: 'fixed',
             right: (window.innerWidth - modalRect.right + 10) + 'px',
-            top: (modalRect.top + 34) + 'px',
+            top: (modalRect.top + 37) + 'px',
             width: String(modalWidth - 38) + 'px',
             height: String(signInFieldInputHeight) + 'px',
             fontFamily: 'MonospacePrimary',
@@ -8397,7 +8486,7 @@ function showEmailInputForm() {
         HTML.setStyle(passwordInput, {
             position: 'fixed',
             right: (window.innerWidth - modalRect.right + 10) + 'px',
-            top: (modalRect.top + 73) + 'px',
+            top: (modalRect.top + 75) + 'px',
             width: String(modalWidth - 38) + 'px',
             height: String(signInFieldInputHeight) + 'px',
             fontFamily: 'MonospacePrimary',
@@ -8498,8 +8587,8 @@ function showEmailInputForm() {
         backButton.textContent = 'back';
         HTML.setStyle(backButton, {
             position: 'fixed',
-            right: (window.innerWidth - modalRect.left - 47) + 'px',
-            top: (modalRect.top + 7) + 'px',
+            right: (window.innerWidth - modalRect.left - 50) + 'px',
+            top: (modalRect.top + 10) + 'px',
             width: '40px',
             height: '20px',
             fontFamily: 'MonospacePrimary',
@@ -8522,6 +8611,9 @@ function showEmailInputForm() {
         backButton.onclick = () => handleBackButtonClick();
         
         HTML.body.appendChild(backButton);
+
+        // focus the email input
+        emailInput.focus();
         
         // Fade in the form elements
         setTimeout(() => {
@@ -10881,10 +10973,13 @@ function initProButton(animateFromTop = false) {
         HTML.setStyle(proText, { color: 'var(--shade-3)' });
     };
 
-    // Click handler (placeholder)
+    // Click handler - open pro modal
     proButton.onclick = () => {
-        log('pro upgrade clicked');
-        // TODO: open upgrade modal / redirect to billing
+        if (proModalOpen) {
+            closeProModal();
+        } else {
+            openProModal();
+        }
     };
 
     // Append all three elements (order matters for stacking)
