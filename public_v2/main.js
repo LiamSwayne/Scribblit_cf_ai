@@ -11259,13 +11259,13 @@ function initSignInButton() {
     HTML.body.appendChild(signInButton);
 }
 
-// appears when user is signed in and on free plan
+// appears when user is signed in
 function initProButton(animateFromTop = false) {
     // Prevent duplicate creation
     if (HTML.getElementUnsafely('proButton')) return;
 
-    // Only show the button if the user is signed in AND on the free plan
-    if (!LocalData.get('signedIn') || !user || user.plan !== 'free') {
+    // Only show the button if the user is signed in
+    if (!LocalData.get('signedIn') || !user) {
         return;
     }
 
