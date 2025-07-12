@@ -868,7 +868,63 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
     let chain = [];
     let startTime = 0;
 
-    if (strategy === 'single_chain') {
+    if (strategy === 'one_shot') {
+        // call grok with the files attached and the user's prompt, and go straight to constructing entities
+        // no intermediate steps for describing files or constructing entities in parts
+        
+        // 1st choice – xAI Grok-4
+        startTime = Date.now();
+        content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, constructEntitiesPrompt);
+        if (content && content.trim() !== '') {
+            chain.push({ request: {
+                model: MODELS.XAI_MODELS.grok4,
+                typeOfPrompt: 'convert_files_to_entities_one_shot',
+                response: content,
+                startTime,
+                endTime: Date.now(),
+                userPrompt: userPrompt,
+                systemPrompt: constructEntitiesPrompt
+            }});
+        } else {
+            chain.push({ rerouteToModel: { model: MODELS.ANTHROPIC_MODELS.sonnet, startTime, endTime: Date.now() }});
+            // 2nd choice – Anthropic Sonnet
+            startTime = Date.now();
+            content = await callAnthropicModel(MODELS.ANTHROPIC_MODELS.sonnet, userPrompt, env, fileArray, constructEntitiesPrompt);
+            if (content && content.trim() !== '') {
+                chain.push({ request: {
+                    model: MODELS.ANTHROPIC_MODELS.sonnet,
+                    typeOfPrompt: 'convert_files_to_entities_one_shot',
+                    response: content,
+                    startTime,
+                    endTime: Date.now(),
+                    userPrompt: userPrompt,
+                    systemPrompt: constructEntitiesPrompt
+                }});
+            } else {
+                chain.push({ rerouteToModel: { model: MODELS.GEMINI_MODELS.flash, startTime, endTime: Date.now() }});
+                // 3rd choice – Gemini Flash
+                startTime = Date.now();
+                let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, constructEntitiesPrompt, true);
+                content = geminiResult.response;
+                if (content && content.trim() !== '') {
+                    chain.push({ thinking_request: {
+                        model: MODELS.GEMINI_MODELS.flash,
+                        typeOfPrompt: 'convert_files_to_entities_one_shot',
+                        response: content,
+                        thoughts: geminiResult.thoughts,
+                        startTime,
+                        endTime: Date.now(),
+                        userPrompt: userPrompt,
+                        systemPrompt: constructEntitiesPrompt
+                    }});
+                } else {
+                    return SEND({ error: 'Failed to connect to any AI model for one-shot entity conversion.' }, 481);
+                }
+            }
+        }
+        return { aiOutput: content, chain };
+
+    } else if (strategy === 'single_chain') {
         // STEP 1: Describe files
         startTime = Date.now();
         let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, fileDescriptionPrompt, true);

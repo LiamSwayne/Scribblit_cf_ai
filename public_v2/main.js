@@ -220,8 +220,12 @@ let G_calendarVisibleEndHour = 24;  // hour 1 – 24
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
 let STRATEGIES = {
+    // try to construct entities and process files in a single chain, without intermediate steps
     SINGLE_CHAIN: 'single_chain',
-    STEP_BY_STEP: 'step_by_step'
+    // separate steps for extracting text from files, and for constructing entities, with intermediate steps running in parallel, and a separate ai focusing on each entity
+    STEP_BY_STEP: 'step_by_step',
+    // try to construct entities and process files all at once, without intermediate steps
+    ONE_SHOT: 'one_shot'
 }
 let activeStrategy = NULL;
 let inputBoxFocused = false;
@@ -9303,6 +9307,104 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     return { idsOfNewEntities };
 }
 
+async function oneShotAiRequest(inputText, fileArray, chain) {
+    // If the request has no attached files, skip marking tasks due today or yesterday as complete.
+    const excludeWithinDaysForPastComplete = (fileArray && fileArray.length === 0) ? 1 : 0;
+
+    // Send to backend AI endpoint
+    const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            prompt: inputText,
+            fileArray: fileArray,
+            strategy: STRATEGIES.ONE_SHOT
+        })
+    });
+
+    if (!response.ok) {
+        console.error('AI parse request failed', await response.text());
+        return; // keep input for debugging
+    }
+
+    const responseJson = await response.json();
+
+    if (responseJson.error && responseJson.error.length > 0) {
+        log("Error: " + responseJson.error);
+        return;
+    }
+
+    if (!exists(responseJson.chain)) {
+        log("Error: chain is required for one_shot strategy.");
+        return;
+    }
+
+    for (const nodeJson of responseJson.chain) {
+        chain.add(Chain.nodeFromJson(nodeJson));
+    }
+
+    // we asked the ai for an array of entities, so we need to extract it
+    const aiJson = extractJsonFromAiOutput(responseJson.aiOutput, chain, '[]');
+
+    if (aiJson === NULL) {
+        log("Error: Failed to extract JSON from AI output");
+        // TODO: handle this with retry up to two more times, then give up
+        return;
+    }
+
+    // Convert to internal entities
+    let newEntities = []
+    try {
+        if (Array.isArray(aiJson)) {
+            for (const obj of aiJson) {
+                let startTime = Date.now();
+                try {
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    if (parsedEntity === NULL) {
+                        chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
+                    } else {
+                        chain.add(new CreatedEntityNode(obj, parsedEntity, startTime, Date.now()));
+                        newEntities.push(parsedEntity);
+                    }
+                } catch (e) {
+                    chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
+                    continue;
+                }
+            }
+        } else {
+            let startTime = Date.now();
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            if (parsedEntity === NULL) {
+                chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
+            } else {
+                chain.add(new CreatedEntityNode(aiJson, parsedEntity, startTime, Date.now()));
+                newEntities.push(parsedEntity);
+            }
+        }
+    } catch (e) {
+        log("Error creating entities: " + e.message);
+        return;
+    }
+
+    log("Entities: ");
+    log(newEntities);
+
+    newEntities = mergeEntities(newEntities, chain);
+
+    let idsOfNewEntities = newEntities.map(ent => ent.id);
+
+    // add to user
+    for (const ent of newEntities) {
+        user.entityArray.push(ent);
+    }
+    user.timestamp = Date.now();
+    if (newEntities.length > 0) {
+        saveUserData(user);
+    }
+
+    return { idsOfNewEntities };
+}
+
 async function stepByStepAiRequest(inputText, fileArray, chain) {
     // Step 1: Get simplified entities
     const response1 = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
@@ -9686,9 +9788,9 @@ function processInput() {
         let idsOfNewEntities;
         let descriptionOfFiles = NULL;
         if (fileArray.length > 0) {
-            activeStrategy = STRATEGIES.STEP_BY_STEP;
+            activeStrategy = STRATEGIES.ONE_SHOT;
             chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
-            response = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
+            response = await oneShotAiRequest(userTextWithDateInformation, fileArray, chain);
             idsOfNewEntities = response.idsOfNewEntities;
             descriptionOfFiles = response.descriptionOfFiles;
         } else {
