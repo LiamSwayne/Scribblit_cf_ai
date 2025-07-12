@@ -211,6 +211,7 @@ const SERVER_PRODUCTION_DOMAIN = 'app.scribbl.it';
 // when testing, use the root domain since the other one doesn't allow this origin
 const SERVER_DOMAIN = SERVER_PRODUCTION_DOMAIN;
 const PAGES_DOMAIN = 'scribblit2.pages.dev';
+const STRIPE_DOMAIN = 'scribblit-stripe-production.unrono.workers.dev';
 const DateTime = luxon.DateTime; // .local() sets the timezone to the user's timezone
 let headerButtonSize = 22;
 let firstDayInCalendar = NULL; // the first day shown in calendar
@@ -7102,6 +7103,7 @@ async function init() {
     const token = urlParams.get('token');
     const userId = urlParams.get('id');
     const error = urlParams.get('error');
+    const payment = urlParams.get('payment');
     
     if (error) {
         console.error('OAuth error:', error);
@@ -7127,6 +7129,23 @@ async function init() {
         } catch (error) {
             log('Error loading user data after OAuth: ' + error.message);
         }
+    }
+    
+    // Handle payment success/cancel feedback
+    if (payment === 'success') {
+        // Show success message
+        setTimeout(() => {
+            alert('Payment successful! Your subscription has been activated.');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
+    } else if (payment === 'cancelled') {
+        // Show cancelled message
+        setTimeout(() => {
+            alert('Payment cancelled. You can try again anytime.');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
     }
 
     await fontLoadingPromise;
@@ -7296,6 +7315,76 @@ let proModal = null;
 let proModalAnimating = false;
 let proModalMutex = false; // Prevents concurrent execution of openProModal and closeProModal
 
+async function handleUpgradeButtonClick(actionButton) {
+    try {
+        // Show loading state
+        actionButton.textContent = 'loading...';
+        actionButton.disabled = true;
+        
+                            // Default to pro-monthly as specified (monthly is the default plan)
+                    const response = await fetch(`https://${STRIPE_DOMAIN}/create-checkout-session`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                planType: 'pro-monthly',
+                userId: user.userId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.url) {
+            // Redirect to Stripe checkout
+            window.location.href = data.url;
+        } else {
+            throw new Error(data.error || 'Failed to create checkout session');
+        }
+    } catch (error) {
+        console.error('Error creating checkout session:', error);
+        alert('Failed to initiate upgrade. Please try again.');
+        
+        // Reset button state
+        actionButton.textContent = 'upgrade';
+        actionButton.disabled = false;
+    }
+}
+
+async function handleCancelButtonClick(actionButton) {
+    try {
+        // Show loading state
+        actionButton.textContent = 'loading...';
+        actionButton.disabled = true;
+        
+        const response = await fetch(`https://${STRIPE_DOMAIN}/create-customer-portal-session`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId: user.userId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.url) {
+            // Redirect to Stripe customer portal
+            window.location.href = data.url;
+        } else {
+            throw new Error(data.error || 'Failed to create customer portal session');
+        }
+    } catch (error) {
+        console.error('Error creating customer portal session:', error);
+        alert('Failed to access subscription management. Please try again.');
+        
+        // Reset button state
+        actionButton.textContent = 'cancel';
+        actionButton.disabled = false;
+    }
+}
+
 function openProModal() {
     // Check mutex first - if either function is running, return early
     if (proModalMutex) return;
@@ -7448,19 +7537,13 @@ function openProModal() {
             HTML.setId(actionButton, 'proModalUpgradeButton');
             actionButton.textContent = 'upgrade';
             
-            actionButton.onclick = () => {
-                // TODO: implement upgrade functionality
-                log('upgrade button clicked');
-            };
+            actionButton.onclick = () => handleUpgradeButtonClick(actionButton);
         } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
             actionButton = HTML.make('button');
             HTML.setId(actionButton, 'proModalCancelButton');
             actionButton.textContent = 'cancel';
             
-            actionButton.onclick = () => {
-                // TODO: implement cancel functionality
-                log('cancel button clicked');
-            };
+            actionButton.onclick = () => handleCancelButtonClick(actionButton);
         }
         // No button for godmode plan
         
