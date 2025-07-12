@@ -227,7 +227,9 @@ let STRATEGIES = {
     // try to construct entities and process files all at once, without intermediate steps
     ONE_SHOT: 'one_shot'
 }
-let activeStrategy = NULL;
+// default strategy is step by step because it's the most robust
+// for requests without files it just redirects to one shot
+let activeStrategy = STRATEGIES.SINGLE_CHAIN;
 let inputBoxFocused = false;
 
 // Save user data to localStorage and server
@@ -9790,23 +9792,43 @@ function processInput() {
         let idsOfNewEntities;
         let descriptionOfFiles = NULL;
         if (fileArray.length > 0) {
-            activeStrategy = STRATEGIES.ONE_SHOT;
-            chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
-            response = await oneShotAiRequest(userTextWithDateInformation, fileArray, chain);
-            idsOfNewEntities = response.idsOfNewEntities;
-            descriptionOfFiles = response.descriptionOfFiles;
+            if (activeStrategy === STRATEGIES.STEP_BY_STEP) {
+                chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
+                response = await stepByStepAiRequest(userTextWithDateInformation, fileArray, chain);
+                idsOfNewEntities = response.idsOfNewEntities;
+                ASSERT(type(idsOfNewEntities, List(String)), "idsOfNewEntities must be a list of strings");
+                descriptionOfFiles = response.descriptionOfFiles;
+                ASSERT(type(descriptionOfFiles, String), "descriptionOfFiles must be a string");
+            } else if (activeStrategy === STRATEGIES.ONE_SHOT) {
+                chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
+                idsOfNewEntities = await oneShotAiRequest(userTextWithDateInformation, fileArray, chain);
+            } else if (activeStrategy === STRATEGIES.SINGLE_CHAIN) {
+                chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
+                idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
+            } else {
+                ASSERT(false, "Invalid active strategy: " + activeStrategy);
+            }
         } else {
-            activeStrategy = STRATEGIES.SINGLE_CHAIN;
-            chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
-            idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
+            if (activeStrategy === STRATEGIES.SINGLE_CHAIN) {
+                chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
+                idsOfNewEntities = await singleChainAiRequest(userTextWithDateInformation, fileArray, chain);
+            } else if (activeStrategy === STRATEGIES.STEP_BY_STEP || activeStrategy === STRATEGIES.ONE_SHOT) {
+                // step by step here just redirects to one shot instead because step by step consumes far too many tokens to be worth using for a plain text prompt
+                activeStrategy = STRATEGIES.ONE_SHOT;
+                chain.add(new StrategySelectionNode(activeStrategy, startTime, Date.now()));
+                idsOfNewEntities = await oneShotAiRequest(userTextWithDateInformation, fileArray, chain);
+            } else {
+                ASSERT(false, "Invalid active strategy: " + activeStrategy);
+            }
         }
 
         // Format entity titles using AI
-        if (idsOfNewEntities && idsOfNewEntities.length > 0 && descriptionOfFiles !== NULL) {
+        if (idsOfNewEntities && idsOfNewEntities.length > 0 && type(descriptionOfFiles, String)) {
             let startTime = Date.now();
             let entityTitleMap = {};
             try {
-                entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles, fileArray);
+                // for now we use an empty file array so it routes to grok4
+                entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles, []);
             } catch (error) {
                 log("ERROR formatting entity titles: " + error.message);
             }
@@ -9891,11 +9913,15 @@ async function formatEntityTitles(entityIds, descriptionOfFiles, fileArray) {
             // Handle new response format with raw AI output
             if (responseData.error) {
                 log("ERROR formatting entity titles (0): " + responseData.error);
+                log("responseData: ");
+                log(responseData);
                 return {};
             }
             
             if (!responseData.aiOutput) {
                 log("ERROR formatting entity titles (1): Missing aiOutput");
+                log("responseData: ");
+                log(responseData);
                 return {};
             }
                         

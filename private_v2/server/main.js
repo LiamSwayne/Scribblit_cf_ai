@@ -400,30 +400,46 @@ async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
         systemPrompt = titleFormatterPromptNoFiles;
     }
     
-    try {
-        // 1st choice – xAI Grok-4
-        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, systemPrompt);
+    if (fileArray && fileArray.length > 0) {
+        // gemini
+        const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, systemPrompt, true);
+        content = geminiResult.response;
         
         if (content && content.trim() !== '') {
             // Return raw response for frontend parsing
             return { aiOutput: content, titlesObject };
         } else {
-            console.log("xAI Grok-4 failed, falling back to Gemini 2.5 Flash");
-            // 2nd choice – Gemini 2.5 Flash
-            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, systemPrompt, true);
-            content = geminiResult.response;
+            console.log("Failed to format titles: Gemini 2.5 Flash returned empty response");
+            return SEND({ error: 'Failed to format titles' }, 475);
+        }
+    } else {
+        try {
+            // 1st choice – xAI Grok-4
+            let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], systemPrompt);
+            console.log("content: ");
+            console.log(content);
             
             if (content && content.trim() !== '') {
                 // Return raw response for frontend parsing
                 return { aiOutput: content, titlesObject };
             } else {
-                console.log("Failed to format titles: both models returned empty response");
-                return SEND({ error: 'Failed to format titles' }, 475);
+                console.log("xAI Grok-4 failed, falling back to Gemini 2.5 Flash");
+                // 2nd choice – Gemini 2.5 Flash
+                const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, systemPrompt, true);
+                content = geminiResult.response;
+                
+                if (content && content.trim() !== '') {
+                    // Return raw response for frontend parsing
+                    return { aiOutput: content, titlesObject };
+                } else {
+                    console.log("Failed to format titles: both models returned empty response");
+                    return SEND({ error: 'Failed to format titles' }, 475);
+                }
             }
+        } catch (error) {
+            console.log('Error formatting titles:', error);
+            return SEND({ error: 'Failed to format titles' }, 475);
         }
-    } catch (error) {
-        console.log('Error formatting titles:', error);
-        return SEND({ error: 'Failed to format titles' }, 475);
     }
 }
 
@@ -469,7 +485,8 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
                             text: `File: ${fileName}\nContent:\n${textContent}`
                         });
                     } catch (err) {
-                        console.error('Error decoding base64 text file:', err);
+                        console.log('Error decoding base64 text file:', err);
+                        return SEND({ error: 'Error decoding base64 text file: ' + err }, 475);
                     }
                 } else if (mediaType.startsWith('application/pdf')) {
                     // Add PDF using inline data
@@ -531,7 +548,7 @@ async function callGeminiModel(modelName, userPrompt, env, fileArray=[], system_
             thoughts: thoughts.join('')
         };
     } catch (err) {
-        console.error('Gemini model error:', err);
+        console.log('Gemini model error:', err);
         // empty response triggers reroute to another model
         return { response: '', thoughts: '' };
     }
@@ -562,7 +579,7 @@ async function callCerebrasModel(modelName, userPrompt, env, system_prompt) {
         const result = await resp.json();
         return result.choices?.[0]?.message?.content || '';
     } catch (err) {
-        console.error('Cerebras model error:', err);
+        console.log('Cerebras model error:', err);
         // empty response triggers reroute to another model
         return '';
     }
@@ -606,7 +623,8 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
                         text: `File: ${fileName}\nContent:\n${textContent}`
                     });
                 } catch (err) {
-                    console.error('Error decoding base64 text file:', err);
+                    console.log('Error decoding base64 text file:', err);
+                    return SEND({ error: 'Error decoding base64 text file: ' + err }, 475);
                 }
             } else if (mediaType.startsWith('application/pdf')) {
                 content.push({
@@ -646,9 +664,7 @@ async function callAnthropicModel(modelName, userPrompt, env, fileArray=[], syst
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.log("Anthropic API error: " + errorText);
-        // empty response triggers reroute to another model
-        return '';
+        return SEND({ error: 'Anthropic API error: ' + errorText }, 475);
     }
 
     const result = await response.json();
@@ -696,8 +712,8 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[], system_pr
             const groqResult = await groqResp.json();
             return groqResult.choices?.[0]?.message?.content || '';
         } catch (err) {
-            console.error('Groq model error:', err);
-            return '';
+            console.log('Groq model error:', err);
+            return SEND({ error: 'Groq model error: ' + err }, 475);
         }
     } else if (modelName === 'meta-llama/llama-4-maverick-17b-128e-instruct') {
         // TODO: implement Maverick
@@ -713,7 +729,8 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[], system_pr
 
 async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_prompt) {
     if (!Object.values(MODELS.XAI_MODELS).includes(modelName)) {
-        throw new Error('Unsupported xAI model: ' + modelName);
+        console.log("Unsupported xAI model: " + modelName);
+        return SEND({ error: 'Unsupported xAI model: ' + modelName }, 474);
     }
     
     try {
@@ -746,14 +763,31 @@ async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_pro
                             const textContent = atob(base64Data);
                             content[0].text += `\n\nFile: ${fileName}\nContent:\n${textContent}`;
                         } catch (err) {
-                            console.error('Error decoding base64 text file:', err);
+                            console.log('Error decoding base64 text file:', err);
+                            return SEND({ error: 'Error decoding base64 text file: ' + err }, 475);
                         }
                     }
                 }
                 
                 messages[1].content = content;
+            } else if (modelName === MODELS.XAI_MODELS.grok4) {
+                // For Grok-4, only allow text files
+                for (const file of fileArray) {
+                    const mediaType = file.mimeType || 'application/octet-stream';
+                    if (!mediaType.startsWith('text/')) {
+                        console.log("Grok-4 does not support non-text file types.");
+                        SEND({ error: 'Grok-4 does not support non-text file types.' }, 475); // Return an error if non-text file is detected
+                    }
+                    try {
+                        const textContent = atob(file.data);
+                        messages[1].content += `\n\nFile: ${file.name}\nContent:\n${textContent}`;
+                    } catch (err) {
+                        console.log('Error decoding base64 text file for Grok-4:', err);
+                        return SEND({ error: 'Error decoding base64 text file for Grok-4: ' + err }, 475);
+                    }
+                }
             } else {
-                // For non-vision models, add text files to the prompt
+                // For other non-vision models, add text files to the prompt
                 let additionalContent = '';
                 for (const file of fileArray) {
                     const base64Data = file.data;
@@ -765,7 +799,8 @@ async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_pro
                             const textContent = atob(base64Data);
                             additionalContent += `\n\nFile: ${fileName}\nContent:\n${textContent}`;
                         } catch (err) {
-                            console.error('Error decoding base64 text file:', err);
+                            console.log('Error decoding base64 text file:', err);
+                            return SEND({ error: 'Error decoding base64 text file: ' + err }, 475);
                         }
                     }
                 }
@@ -794,7 +829,7 @@ async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_pro
         if (!response.ok) {
             const errorText = await response.text();
             console.log("xAI API error: " + errorText);
-            return '';
+            return ''; // reroute to another model
         }
         
         const result = await response.json();
@@ -802,8 +837,8 @@ async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_pro
         console.log(result);
         return result.choices?.[0]?.message?.content || '';
     } catch (err) {
-        console.error('xAI model error:', err);
-        return '';
+        console.log('xAI model error:', err);
+        return ''; // reroute to another model
     }
 }
 
@@ -869,17 +904,21 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
     let startTime = 0;
 
     if (strategy === 'one_shot') {
-        // call grok with the files attached and the user's prompt, and go straight to constructing entities
+        // call AI with the files attached and the user's prompt, and go straight to constructing entities
         // no intermediate steps for describing files or constructing entities in parts
         
-        // 1st choice – xAI Grok-4
+        // 1st choice – Gemini Flash
         startTime = Date.now();
-        content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, constructEntitiesPrompt);
+        let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, constructEntitiesPrompt, true);
+        content = geminiResult.response;
+        let thoughts = geminiResult.thoughts;
+
         if (content && content.trim() !== '') {
-            chain.push({ request: {
-                model: MODELS.XAI_MODELS.grok4,
+            chain.push({ thinking_request: {
+                model: MODELS.GEMINI_MODELS.flash,
                 typeOfPrompt: 'convert_files_to_entities_one_shot',
                 response: content,
+                thoughts: thoughts,
                 startTime,
                 endTime: Date.now(),
                 userPrompt: userPrompt,
@@ -901,29 +940,10 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
                     systemPrompt: constructEntitiesPrompt
                 }});
             } else {
-                chain.push({ rerouteToModel: { model: MODELS.GEMINI_MODELS.flash, startTime, endTime: Date.now() }});
-                // 3rd choice – Gemini Flash
-                startTime = Date.now();
-                let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, constructEntitiesPrompt, true);
-                content = geminiResult.response;
-                if (content && content.trim() !== '') {
-                    chain.push({ thinking_request: {
-                        model: MODELS.GEMINI_MODELS.flash,
-                        typeOfPrompt: 'convert_files_to_entities_one_shot',
-                        response: content,
-                        thoughts: geminiResult.thoughts,
-                        startTime,
-                        endTime: Date.now(),
-                        userPrompt: userPrompt,
-                        systemPrompt: constructEntitiesPrompt
-                    }});
-                } else {
-                    return SEND({ error: 'Failed to connect to any AI model for one-shot entity conversion.' }, 481);
-                }
+                return SEND({ error: 'Failed to connect to any AI model for one-shot entity conversion.' }, 481);
             }
         }
         return { aiOutput: content, chain };
-
     } else if (strategy === 'single_chain') {
         // STEP 1: Describe files
         startTime = Date.now();
@@ -964,18 +984,16 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         // never include the file array beyond this point because we include the description of it instead
         // STEP 2: Convert to JSON
         const newPrompt = createPromptWithFileDescription(userPrompt, descriptionOfFiles);
-
+        console.log("newPrompt: ");
+        console.log(newPrompt);
+        
         startTime = Date.now();
-        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, [], constructEntitiesPrompt, true);
-        content = geminiResult.response;
-        thoughts = geminiResult.thoughts;
-
+        content = await callXaiModel(MODELS.XAI_MODELS.grok4, newPrompt, env, [], constructEntitiesPrompt);
         if (content && content.trim() !== '') {
-            chain.push({ thinking_request: {
-                model: MODELS.GEMINI_MODELS.flash,
+            chain.push({ request: {
+                model: MODELS.XAI_MODELS.grok4,
                 typeOfPrompt: 'convert_files_to_entities',
                 response: content,
-                thoughts: thoughts,
                 startTime,
                 endTime: Date.now(),
                 userPrompt: newPrompt,
@@ -1054,16 +1072,13 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
         const newPrompt = 'I attached some files to my prompt. Here is the prompt: ' + userPrompt + '. Here is a description of the files: ' + descriptionOfFiles;
 
         startTime = Date.now();
-        geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, newPrompt, env, [], filesOnlyExtractSimplifiedEntitiesPrompt, true);
-        content = geminiResult.response;
-        thoughts = geminiResult.thoughts;
+        content = await callXaiModel(MODELS.XAI_MODELS.grok4, newPrompt, env, [], filesOnlyExtractSimplifiedEntitiesPrompt);
 
         if (content && content.trim() !== '') {
-            chain.push({ thinking_request: {
-                model: MODELS.GEMINI_MODELS.flash,
+            chain.push({ request: {
+                model: MODELS.XAI_MODELS.grok4,
                 typeOfPrompt: 'extract_simplified_entities',
                 response: content,
-                thoughts: thoughts,
                 startTime,
                 endTime: Date.now(),
                 userPrompt: newPrompt,
@@ -1224,7 +1239,7 @@ async function callAiModel(userPrompt, fileArray, env, strategy, simplifiedEntit
             return SEND({ error: 'No prompt or files provided.' }, 400);
         }
     } catch (err) {
-        console.error('callAiModel error:', err);
+        console.log('callAiModel error:', err);
         return SEND({ error: 'Error in callAiModel: ' + err.message }, 467);
     }
 }
@@ -1321,7 +1336,7 @@ export default {
                         });
 
                     } catch (err) {
-                        console.error('Signup error:', err);
+                        console.log('Signup error:', err);
                         return SEND({
                             error: 'Failed to process signup request.'
                         }, 500);
@@ -1386,7 +1401,7 @@ export default {
                         });
 
                     } catch (err) {
-                        console.error('Email verification error:', err);
+                        console.log('Email verification error:', err);
                         return SEND({
                             error: 'Failed to process email verification.'
                         }, 500);
@@ -1437,7 +1452,7 @@ export default {
                         });
 
                     } catch (err) {
-                        console.error('Login error:', err);
+                        console.log('Login error:', err);
                         return SEND({
                             error: 'Failed to process login request.'
                         }, 500);
@@ -1497,7 +1512,7 @@ export default {
                         });
 
                     } catch (err) {
-                        console.error('Get user error:', err);
+                        console.log('Get user error:', err);
                         return SEND({
                             error: 'Failed to get user data.'
                         }, 500);
@@ -1540,7 +1555,7 @@ export default {
 
                         return SEND({ success: true });
                     } catch (err) {
-                        console.error('Update user error:', err);
+                        console.log('Update user error:', err);
                         return SEND({ error: 'Failed to update user data.' }, 500);
                     }
                 }
@@ -1674,7 +1689,7 @@ export default {
                         return Response.redirect(`https://${PAGES_DOMAIN}/?token=${token}&id=${user_id}`, 302);
                         
                     } catch (err) {
-                        console.error('Google OAuth callback error:', err);
+                        console.log('Google OAuth callback error:', err);
                         return Response.redirect(`https://${PAGES_DOMAIN}/?error=callback_error`, 302);
                     }
                 }
@@ -1715,7 +1730,7 @@ export default {
                         console.log('result: ' + JSON.stringify(result));
                         return SEND(result, 200);
                     } catch (err) {
-                        console.error('AI parse error:', err);
+                        console.log('AI parse error:', err);
                         return SEND({ error: 'Failed to process AI request: ' + err.message }, 563);
                     }
                 }
