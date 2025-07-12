@@ -42,6 +42,7 @@ async function createStripeCheckoutSession(params, env) {
             'customer_email': params.customer_email,
             'success_url': params.success_url,
             'cancel_url': params.cancel_url,
+            'automatic_tax[enabled]': 'true',
             'metadata[userId]': params.metadata.userId,
             'metadata[planType]': params.metadata.planType,
         }).toString(),
@@ -274,8 +275,8 @@ export default {
                             price_id: planConfig.price_id,
                             mode: planConfig.mode,
                             customer_email: user.email,
-                            success_url: `https://app.scribbl.it?payment=success`,
-                            cancel_url: `https://app.scribbl.it?payment=cancelled`,
+                            success_url: `https://scribbl.it?payment=success`,
+                            cancel_url: `https://scribbl.it?payment=cancelled`,
                             metadata: {
                                 userId: userId,
                                 planType: planType
@@ -317,7 +318,7 @@ export default {
                         // Create customer portal session
                         const portalSession = await createStripeCustomerPortalSession({
                             customer: user.stripe_account_id,
-                            return_url: 'https://app.scribbl.it'
+                            return_url: 'https://scribbl.it'
                         }, env);
 
                         return SEND({ url: portalSession.url });
