@@ -9702,7 +9702,7 @@ function processInput() {
             let startTime = Date.now();
             let entityTitleMap = {};
             try {
-                entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles);
+                entityTitleMap = await formatEntityTitles(idsOfNewEntities, descriptionOfFiles, fileArray);
             } catch (error) {
                 log("ERROR formatting entity titles: " + error.message);
             }
@@ -9728,9 +9728,10 @@ function processInput() {
 }
 
 // Format entity titles using AI
-async function formatEntityTitles(entityIds, descriptionOfFiles) {
+async function formatEntityTitles(entityIds, descriptionOfFiles, fileArray) {
     ASSERT(type(entityIds, List(String)), "formatEntityTitles: entityIds must be a list of strings");
     ASSERT(type(descriptionOfFiles, String), "formatEntityTitles: descriptionOfFiles must be a string");
+    ASSERT(exists(fileArray), "formatEntityTitles: fileArray must be provided");
     
     if (entityIds.length === 0) {
         return {};
@@ -9773,10 +9774,11 @@ async function formatEntityTitles(entityIds, descriptionOfFiles) {
             },
             body: JSON.stringify({
                 titles: titlesObject,
-                descriptionOfFiles: descriptionOfFiles
+                descriptionOfFiles: descriptionOfFiles,
+                fileArray: fileArray
             })
         });
-        
+
         if (response.ok) {
             const responseData = await response.json();
 

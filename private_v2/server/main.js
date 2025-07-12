@@ -364,7 +364,8 @@ let fileDescriptionPrompt = `You are an AI that takes in files and describes the
 
 let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
 
-async function formatTitlesGivenFiles(titlesObject, descriptionOfFiles, env) {
+// must provide either a fileArray or a descriptionOfFiles
+async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
     // titlesObject is like {"task-abc123": "Complete homework", "event-def456": "Meeting with John", ...}
     if (!titlesObject || typeof titlesObject !== 'object' || Object.keys(titlesObject).length === 0) {
         return SEND({ error: 'titlesObject is required and must be a non-empty object' }, 475);
@@ -373,11 +374,20 @@ async function formatTitlesGivenFiles(titlesObject, descriptionOfFiles, env) {
     const entries = Object.entries(titlesObject);
     const titles = entries.map(([key, title]) => title);
     
-    const userPrompt = `Here's a description of some files the user attached to their prompt: ${descriptionOfFiles}\n\nHere are the titles to format: ${JSON.stringify(titles)}`;
+    let userPrompt;
+    // first choice is to use files, but if not use description of files, and if neither are provided just use the titles
+    if (fileArray && fileArray.length > 0) {
+        // just use the normal prompt, and the files will be attached
+        userPrompt = `Here are the titles to format: ${JSON.stringify(titles)}.`;
+    } else if (descriptionOfFiles && descriptionOfFiles.trim()) {
+        userPrompt = `Here's a description of some files the user attached to their prompt: ${descriptionOfFiles}\n\nHere are the titles to format: ${JSON.stringify(titles)}`;
+    } else {
+        userPrompt = `Here are the titles to format: ${JSON.stringify(titles)}.`;
+    }
     
     try {
         // 1st choice – xAI Grok-4
-        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], titleFormatterPrompt);
+        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, titleFormatterPrompt);
         
         if (content && content.trim() !== '') {
             // Return raw response for frontend parsing
@@ -385,7 +395,7 @@ async function formatTitlesGivenFiles(titlesObject, descriptionOfFiles, env) {
         } else {
             console.log("xAI Grok-4 failed, falling back to Gemini 2.5 Flash");
             // 2nd choice – Gemini 2.5 Flash
-            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], titleFormatterPrompt, true);
+            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, titleFormatterPrompt, true);
             content = geminiResult.response;
             
             if (content && content.trim() !== '') {
@@ -773,6 +783,8 @@ async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_pro
         }
         
         const result = await response.json();
+        console.log("xAI result: ");
+        console.log(result);
         return result.choices?.[0]?.message?.content || '';
     } catch (err) {
         console.error('xAI model error:', err);
@@ -1644,12 +1656,13 @@ export default {
                         const data = await request.json();
                         const titlesObject = data.titles;
                         const descriptionOfFiles = data.descriptionOfFiles;
+                        const fileArray = data.fileArray;
 
                         if (!titlesObject || typeof titlesObject !== 'object') {
                             return SEND({ error: 'Invalid request: titles object required' }, 400);
                         }
 
-                        const result = await formatTitlesGivenFiles(titlesObject, descriptionOfFiles, env);
+                        const result = await formatTitles(titlesObject, descriptionOfFiles, fileArray, env);
                         
                         return SEND(result, 200);
                     } catch (err) {
