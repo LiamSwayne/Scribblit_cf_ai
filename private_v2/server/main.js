@@ -385,7 +385,7 @@ async function draftEntities(userPrompt, env) {
         if (content && content.trim() !== '') {
             let chain = [{ thinking_request: {
                 model: MODELS.CEREBRAS_MODELS.qwen3,
-                typeOfPrompt: 'convert_text_to_entities',
+                typeOfPrompt: 'draft_convert_text_to_entities',
                 response: content,
                 startTime,
                 endTime: Date.now(),
