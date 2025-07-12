@@ -364,11 +364,11 @@ let fileDescriptionPrompt = `You are an AI that takes in files and describes the
 
 let titleFormatterPromptNoFiles = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Titles are often already correct and don't need to be changed. Do not include your comments, only the formatted titles in a JSON array.`;
 
-let titleFormatterPromptWithFiles = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Titles are often already correct and don't need to be changed.
+let titleFormatterPromptWithFiles = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Titles are often already correct and don't need to be changed.
 
 These titles are being added to the user's personal task manager and calendar, and will be seen in the context of many other tasks, events, and reminders. Make sure that the titles provide enough context to not be confused with other tasks, events, and reminders. For example, if the user has tasks for a class, they may have multiple classes, so you may want to prefix the title with the class name or number. There is not a lot of space to write titles, but you should try to provide enough context to not be confused with other tasks, events, and reminders.
 
-Do not include your comments, only the formatted titles in a JSON array.`;
+YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Do not include your comments, only the formatted titles in a JSON array.`;
 
 // must provide either a fileArray or a descriptionOfFiles
 async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
