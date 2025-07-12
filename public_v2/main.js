@@ -9065,9 +9065,6 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     let startTime = Date.now();
     let cleanedText = aiOutput;
 
-    log("cleanedText: ");
-    log(cleanedText);
-
     // we can remove the model thinking, all that matters is the output
     // maybe the user would like to see this?
     // maybe in pro mode we store this locally so they can look at it and feel more "in control"
