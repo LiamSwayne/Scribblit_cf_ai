@@ -360,9 +360,15 @@ You have to capture all of the times this reminder occurs as one object, using a
 
 You only job is to return the json object. Return nothing but the json object.`;
 
-let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text. A different AI handles the user's prompt, but it may be helpful context for you. Your job is not to handle the user's request, only to describe the files.`;
+let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your comments, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text. A different AI handles the user's prompt, but it may be helpful context for you. Your job is not to handle the user's request, only to describe the files.`;
 
-let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
+let titleFormatterPromptNoFiles = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Titles are often already correct and don't need to be changed. Do not include your comments, only the formatted titles in a JSON array.`;
+
+let titleFormatterPromptWithFiles = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Titles are often already correct and don't need to be changed.
+
+These titles are being added to the user's personal task manager and calendar, and will be seen in the context of many other tasks, events, and reminders. Make sure that the titles provide enough context to not be confused with other tasks, events, and reminders. For example, if the user has tasks for a class, they may have multiple classes, so you may want to prefix the title with the class name or number. There is not a lot of space to write titles, but you should try to provide enough context to not be confused with other tasks, events, and reminders.
+
+Do not include your comments, only the formatted titles in a JSON array.`;
 
 // must provide either a fileArray or a descriptionOfFiles
 async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
@@ -384,10 +390,19 @@ async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
     } else {
         userPrompt = `Here are the titles to format: ${JSON.stringify(titles)}.`;
     }
+
+    let includesFiles = (fileArray && fileArray.length > 0) || (descriptionOfFiles && descriptionOfFiles.trim());
+
+    let systemPrompt;
+    if (includesFiles) {
+        systemPrompt = titleFormatterPromptWithFiles;
+    } else {
+        systemPrompt = titleFormatterPromptNoFiles;
+    }
     
     try {
         // 1st choice – xAI Grok-4
-        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, titleFormatterPrompt);
+        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, fileArray, titleFormatterPromptNoFiles);
         
         if (content && content.trim() !== '') {
             // Return raw response for frontend parsing
@@ -395,7 +410,7 @@ async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
         } else {
             console.log("xAI Grok-4 failed, falling back to Gemini 2.5 Flash");
             // 2nd choice – Gemini 2.5 Flash
-            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, titleFormatterPrompt, true);
+            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, fileArray, titleFormatterPromptNoFiles, true);
             content = geminiResult.response;
             
             if (content && content.trim() !== '') {
