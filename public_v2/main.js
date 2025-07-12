@@ -7153,6 +7153,8 @@ async function init() {
     // how fast did the page load and render?
     const loadTime = performance.now();
     log(`Initial render in ${Math.round(loadTime)}ms`);
+    
+    hasInitialized = true;
 }
 
 // Grid Background with Cursor Fade Effect
