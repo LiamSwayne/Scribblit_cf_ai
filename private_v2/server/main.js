@@ -20,6 +20,10 @@ let MODELS = {
     
     CEREBRAS_MODELS: {
         qwen3: 'qwen-3-32b'
+    },
+    
+    XAI_MODELS: {
+        grok4: 'grok-4',
     }
 }
 
@@ -358,9 +362,9 @@ You only job is to return the json object. Return nothing but the json object.`;
 
 let fileDescriptionPrompt = `You are an AI that takes in files and describes them with as much detail as possible. Do not include your thoughts, only the description. Use as much detail as possible, especially regarding dates and times. If the file contains text, extract 100% of the text. A different AI handles the user's prompt, but it may be helpful context for you. Your job is not to handle the user's request, only to describe the files.`;
 
-let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to be more readable. Every title should be in sentence case. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
+let titleFormatterPrompt = `You are an AI that takes in a title of tasks, events, and reminders, and formats them to fix mistakes made by another AI. YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Remove unhelpful words like "!!!" or "due" that don't add to the meaning of the title. Instead of saying "Complete reading 8.1", just say "Reading 8.1" because the word "complete" is already implied by the fact that it's a task. Many titles are already correct and don't need to be changed. Do not include your thoughts, only the formatted titles in a JSON array.`;
 
-async function formatTitles(titlesObject, env) {
+async function formatTitlesGivenFiles(titlesObject, descriptionOfFiles, env) {
     // titlesObject is like {"task-abc123": "Complete homework", "event-def456": "Meeting with John", ...}
     if (!titlesObject || typeof titlesObject !== 'object' || Object.keys(titlesObject).length === 0) {
         return SEND({ error: 'titlesObject is required and must be a non-empty object' }, 475);
@@ -369,27 +373,31 @@ async function formatTitles(titlesObject, env) {
     const entries = Object.entries(titlesObject);
     const titles = entries.map(([key, title]) => title);
     
-    const userPrompt = `Here are the titles to format: ${JSON.stringify(titles)}`;
+    const userPrompt = `Here's a description of some files the user attached to their prompt: ${descriptionOfFiles}\n\nHere are the titles to format: ${JSON.stringify(titles)}`;
     
     try {
-        const response = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, titleFormatterPrompt);
+        // 1st choice – xAI Grok-4
+        let content = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], titleFormatterPrompt);
         
-        if (response && response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content) {
-            const formattedTitles = JSON.parse(response.choices[0].message.content);
+        if (content && content.trim() !== '') {
+            // Return raw response for frontend parsing
+            return { aiOutput: content, titlesObject };
+        } else {
+            console.log("xAI Grok-4 failed, falling back to Gemini 2.5 Flash");
+            // 2nd choice – Gemini 2.5 Flash
+            const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], titleFormatterPrompt, true);
+            content = geminiResult.response;
             
-            if (Array.isArray(formattedTitles) && formattedTitles.length === titles.length) {
-                const result = {};
-                entries.forEach(([key, _], index) => {
-                    result[key] = formattedTitles[index];
-                });
-                return result;
+            if (content && content.trim() !== '') {
+                // Return raw response for frontend parsing
+                return { aiOutput: content, titlesObject };
+            } else {
+                console.log("Failed to format titles: both models returned empty response");
+                return SEND({ error: 'Failed to format titles' }, 475);
             }
         }
-        
-        // If AI response is invalid, return original titles
-        return titlesObject;
     } catch (error) {
-        console.error('Error formatting titles:', error);
+        console.log('Error formatting titles:', error);
         return SEND({ error: 'Failed to format titles' }, 475);
     }
 }
@@ -675,6 +683,100 @@ async function callGroqModel(modelName, userPrompt, env, fileArray=[], system_pr
         return SEND({
             error: 'Unsupported Groq model: ' + modelName
         }, 474);
+    }
+}
+
+async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_prompt) {
+    if (!Object.values(MODELS.XAI_MODELS).includes(modelName)) {
+        throw new Error('Unsupported xAI model: ' + modelName);
+    }
+    
+    try {
+        const messages = [
+            { role: 'system', content: system_prompt },
+            { role: 'user', content: userPrompt }
+        ];
+        
+        // Handle files for vision models and text files
+        if (fileArray && fileArray.length > 0) {
+            // Check if this is a vision model
+            if (modelName.includes('vision')) {
+                // For vision models, create content array with text and images
+                const content = [{ type: 'text', text: userPrompt }];
+                
+                for (const file of fileArray) {
+                    const base64Data = file.data;
+                    const mediaType = file.mimeType || 'application/octet-stream';
+                    const fileName = file.name;
+                    
+                    if (mediaType.startsWith('image/')) {
+                        content.push({
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:${mediaType};base64,${base64Data}`
+                            }
+                        });
+                    } else if (mediaType.startsWith('text/')) {
+                        try {
+                            const textContent = atob(base64Data);
+                            content[0].text += `\n\nFile: ${fileName}\nContent:\n${textContent}`;
+                        } catch (err) {
+                            console.error('Error decoding base64 text file:', err);
+                        }
+                    }
+                }
+                
+                messages[1].content = content;
+            } else {
+                // For non-vision models, add text files to the prompt
+                let additionalContent = '';
+                for (const file of fileArray) {
+                    const base64Data = file.data;
+                    const mediaType = file.mimeType || 'application/octet-stream';
+                    const fileName = file.name;
+                    
+                    if (mediaType.startsWith('text/')) {
+                        try {
+                            const textContent = atob(base64Data);
+                            additionalContent += `\n\nFile: ${fileName}\nContent:\n${textContent}`;
+                        } catch (err) {
+                            console.error('Error decoding base64 text file:', err);
+                        }
+                    }
+                }
+                if (additionalContent) {
+                    messages[1].content += additionalContent;
+                }
+            }
+        }
+        
+        const requestBody = {
+            model: modelName,
+            messages: messages,
+            max_tokens: 8192,
+            temperature: 0.7
+        };
+        
+        const response = await fetch('https://api.x.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${env.XAI_API_KEY}`
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.log("xAI API error: " + errorText);
+            return '';
+        }
+        
+        const result = await response.json();
+        return result.choices?.[0]?.message?.content || '';
+    } catch (err) {
+        console.error('xAI model error:', err);
+        return '';
     }
 }
 
@@ -1541,12 +1643,14 @@ export default {
                     try {
                         const data = await request.json();
                         const titlesObject = data.titles;
+                        const descriptionOfFiles = data.descriptionOfFiles;
 
                         if (!titlesObject || typeof titlesObject !== 'object') {
                             return SEND({ error: 'Invalid request: titles object required' }, 400);
                         }
 
-                        const result = await formatTitles(titlesObject, env);
+                        const result = await formatTitlesGivenFiles(titlesObject, descriptionOfFiles, env);
+                        
                         return SEND(result, 200);
                     } catch (err) {
                         console.error('Title format error:', err);
