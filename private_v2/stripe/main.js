@@ -1,9 +1,22 @@
 const STRIPE_DOMAIN = 'scribblit-stripe-production.unrono.workers.dev';
 
+// Set to true for testing, false for production
+const TESTING = true;
+
 // Stripe product and price IDs
-const STRIPE_PRODUCT_ID = 'prod_SdkoOMFUxk2a78';
-const STRIPE_PRO_MONTHLY_PRICE_ID = 'price_1RiTIq07e2hLMvozj3H1IkGt';
-const STRIPE_PRO_ANNUALLY_PRICE_ID = 'price_1Rk9aF07e2hLMvozAu8kBAQN';
+let STRIPE_PRODUCT_ID;
+let STRIPE_PRO_MONTHLY_PRICE_ID;
+let STRIPE_PRO_ANNUALLY_PRICE_ID;
+
+if (TESTING) {
+    STRIPE_PRODUCT_ID = 'prod_SfWB55ew8abFcJ';
+    STRIPE_PRO_MONTHLY_PRICE_ID = 'price_1RkB9507e2hLMvozVocQY1uf';
+    STRIPE_PRO_ANNUALLY_PRICE_ID = 'price_1RkBAM07e2hLMvozwS2GoJlk';
+} else {
+    STRIPE_PRODUCT_ID = 'prod_SdkoOMFUxk2a78';
+    STRIPE_PRO_MONTHLY_PRICE_ID = 'price_1RiTIq07e2hLMvozj3H1IkGt';
+    STRIPE_PRO_ANNUALLY_PRICE_ID = 'price_1Rk9aF07e2hLMvozAu8kBAQN';
+}
 
 function SEND(data, status = 200, headers = {}) {
     const corsHeaders = {
