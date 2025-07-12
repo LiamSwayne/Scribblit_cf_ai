@@ -125,37 +125,12 @@ async function handleCheckoutSessionCompleted(session, env) {
         const planType = session.metadata.planType;
         const customerId = session.customer;
 
-        console.log('Checkout session completed data:', {
-            userId: userId,
-            planType: planType,
-            customerId: customerId,
-            sessionId: session.id,
-            paymentStatus: session.payment_status
-        });
-
-        // Check if user exists first
-        const existingUser = await env.DB.prepare('SELECT * FROM users WHERE user_id = ?').bind(userId).first();
-        console.log('User lookup result:', existingUser ? 'User found' : 'User not found');
-
-        if (!existingUser) {
-            console.error('User not found in database:', userId);
-            return;
-        }
-
         // Update user with Stripe customer ID and plan
-        const result = await env.DB.prepare(`
+        await env.DB.prepare(`
             UPDATE users 
             SET stripe_account_id = ?, plan = ?
             WHERE user_id = ?
         `).bind(customerId, planType, userId).run();
-
-        console.log('Database update result:', {
-            success: result.success,
-            changes: result.changes,
-            userId: userId,
-            planType: planType,
-            customerId: customerId
-        });
 
         console.log(`Updated user ${userId} to plan ${planType}`);
     } catch (error) {
@@ -263,7 +238,7 @@ async function handlePaymentFailed(invoice, env) {
         const customerId = invoice.customer;
         
         // Get user by customer ID
-        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_account_id = ?')
+        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_customer_id = ?')
             .bind(customerId).first();
         
         if (!user) {
@@ -386,10 +361,6 @@ export default {
 
             case '/webhook':
                 {
-                    if (request.method === 'GET') {
-                        return SEND({ message: 'Webhook endpoint is accessible', testing: TESTING }, 200);
-                    }
-                    
                     if (request.method !== 'POST') {
                         return SEND({ error: 'Method not allowed' }, 405);
                     }
@@ -398,14 +369,7 @@ export default {
                         const body = await request.text();
                         const signature = request.headers.get('stripe-signature');
                         
-                        console.log('Webhook received:', {
-                            hasSignature: !!signature,
-                            bodyLength: body.length,
-                            testMode: TESTING
-                        });
-                        
                         if (!signature) {
-                            console.error('Missing stripe-signature header');
                             return SEND({ error: 'Missing stripe-signature header' }, 400);
                         }
 
@@ -413,41 +377,29 @@ export default {
                         const event = await verifyStripeWebhook(body, signature, env.STRIPE_WEBHOOK_SECRET);
                         
                         if (!event) {
-                            console.error('Invalid webhook signature');
                             return SEND({ error: 'Invalid signature' }, 400);
                         }
-
-                        console.log('Webhook event:', {
-                            type: event.type,
-                            id: event.id,
-                            created: event.created
-                        });
 
                         // Handle different event types
                         switch (event.type) {
                             case 'checkout.session.completed':
-                                console.log('Handling checkout.session.completed');
                                 await handleCheckoutSessionCompleted(event.data.object, env);
                                 break;
                                 
                             case 'customer.subscription.created':
                             case 'customer.subscription.updated':
-                                console.log(`Handling ${event.type}`);
                                 await handleSubscriptionUpdated(event.data.object, env);
                                 break;
                                 
                             case 'customer.subscription.deleted':
-                                console.log('Handling customer.subscription.deleted');
                                 await handleSubscriptionDeleted(event.data.object, env);
                                 break;
                                 
                             case 'invoice.payment_succeeded':
-                                console.log('Handling invoice.payment_succeeded');
                                 await handlePaymentSucceeded(event.data.object, env);
                                 break;
                                 
                             case 'invoice.payment_failed':
-                                console.log('Handling invoice.payment_failed');
                                 await handlePaymentFailed(event.data.object, env);
                                 break;
                                 
