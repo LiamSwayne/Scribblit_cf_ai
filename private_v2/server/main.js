@@ -1278,6 +1278,47 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
     }
 }
 
+function isUserAllowedRequest(plan, paymentTimes, usage) {
+    const now = Date.now();
+    const currentMonth = new Date(now).getMonth();
+    const currentYear = new Date(now).getFullYear();
+    
+    // Parse payment times array
+    let parsedPaymentTimes = [];
+    try {
+        parsedPaymentTimes = typeof paymentTimes === 'string' ? JSON.parse(paymentTimes) : paymentTimes;
+    } catch (err) {
+        console.log('Error parsing payment times:', err);
+        parsedPaymentTimes = [];
+    }
+    
+    // Check if user has active subscription
+    const hasActiveSubscription = parsedPaymentTimes.some(paymentTime => {
+        const paymentDate = new Date(paymentTime);
+        const paymentMonth = paymentDate.getMonth();
+        const paymentYear = paymentDate.getFullYear();
+        // Consider subscription active if payment was made in current month or previous month
+        return (paymentYear === currentYear && paymentMonth >= currentMonth - 1) ||
+               (paymentYear === currentYear - 1 && paymentMonth === 11 && currentMonth === 0);
+    });
+    
+    // Define usage limits based on plan
+    let usageLimit;
+    if (plan === 'free') {
+        usageLimit = 10; // 10 requests per month for free users
+    } else if (plan === 'pro' || plan === 'premium') {
+        if (hasActiveSubscription) {
+            usageLimit = 1000; // 1000 requests per month for paid users
+        } else {
+            usageLimit = 10; // Downgrade to free limits if subscription expired
+        }
+    } else {
+        usageLimit = 10; // Default to free limits for unknown plans
+    }
+    
+    return usage < usageLimit;
+}
+
 async function callAiModel(userPrompt, fileArray, env, strategy, simplifiedEntity=null) {
     try {
         const promptProvided = userPrompt && userPrompt.trim() !== '';
@@ -1770,6 +1811,39 @@ export default {
                 {
                     if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
                     try {
+                        // Check authentication
+                        const authHeader = request.headers.get('Authorization');
+                        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                            return SEND({ error: 'Authorization header is missing or invalid.' }, 401);
+                        }
+
+                        const token = authHeader.substring(7); // Remove 'Bearer '
+                        const email = await verifyToken(token, env.SECRET_KEY);
+
+                        if (!email) {
+                            return SEND({ error: 'Invalid or expired token.' }, 401);
+                        }
+
+                        // Get user data from database
+                        const user = await env.DB.prepare(
+                            'SELECT user_id, plan, payment_times, usage FROM users WHERE email = ?'
+                        ).bind(email).first();
+
+                        if (!user) {
+                            return SEND({ error: 'User not found.' }, 404);
+                        }
+
+                        // Check if user is allowed to make this request
+                        const isAllowed = isUserAllowedRequest(user.plan, user.payment_times, user.usage);
+                        
+                        if (!isAllowed) {
+                            return SEND({ 
+                                error: 'Usage limit exceeded. Please upgrade your plan or wait for next month.',
+                                usageLimit: user.plan === 'free' ? 10 : 1000,
+                                currentUsage: user.usage
+                            }, 429);
+                        }
+
                         const data = await request.json();
                         const userText = data.prompt;
                         const fileArray = data.fileArray;
@@ -1782,6 +1856,14 @@ export default {
 
                         const result = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
                         console.log('result: ' + JSON.stringify(result));
+                        
+                        // If the request was successful, increment usage
+                        if (result && !result.error) {
+                            await env.DB.prepare(
+                                'UPDATE users SET usage = usage + 1 WHERE email = ?'
+                            ).bind(email).run();
+                        }
+
                         return SEND(result, 200);
                     } catch (err) {
                         console.log('AI parse error:', err);
