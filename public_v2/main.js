@@ -5804,129 +5804,145 @@ function renderTimeIndicator(onSchedule) {
     if (exists(existingTriangle)) {
         existingTriangle.remove();
     }
+    let existingMasker = HTML.getElementUnsafely('time-indicator-mask');
+ 	if (exists(existingMasker)) {
+ 		existingMasker.remove();
+ 	}
+ 
+     // 2. Find if today is being rendered
+     const days = currentDays();
+     const today = getDayNDaysFromToday(0);
+     let todayIndex = -1;
+     for (let i = 0; i < days.length; i++) {
+         if (days[i] && days[i].year === today.year && days[i].month === today.month && days[i].day === today.day) {
+              todayIndex = i;
+              break;
+          }
+      }
+ 
+      // 3. If today is not rendered, we are done.
+      if (todayIndex === -1) {
+          return;
+      }
+ 
+     // 4. Get dimensions and visible hour range
+      const now = DateTime.local();
+      const day = days[todayIndex];
+      const dayColumnDimensions = getDayColumnDimensions(todayIndex);
+ 
+      // This logic is duplicated from renderDay to correctly calculate the timed area
+   	let startOfTodayUnix = DateTime.local(day.year, day.month, day.day).startOf('day').plus({ hours: user.settings.startOfDayOffset }).toMillis();
+ 	let endOfTodayUnix = DateTime.local(day.year, day.month, day.day).endOf('day').plus({ hours: user.settings.endOfDayOffset }).plus({ milliseconds: 1 }).toMillis();
 
-    // 2. Find if today is being rendered
-    const days = currentDays();
-    const today = getDayNDaysFromToday(0);
-    let todayIndex = -1;
-    for (let i = 0; i < days.length; i++) {
-        if (days[i].year === today.year && days[i].month === today.month && days[i].day === today.day) {
-            todayIndex = i;
-            break;
-        }
-    }
+      let G_filteredAllDayInstances = [];
+       for (let entity of user.entityArray) {
+          if (type(entity.data, TaskData)) {
+               if (entity.data.workSessions.length > 0) { // check length not just > 0
+                  for (let patternIndex = 0; patternIndex < entity.data.workSessions.length; patternIndex++) {
+                      const workSession = entity.data.workSessions[patternIndex];
+                     const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, patternIndex, day, startOfTodayUnix, endOfTodayUnix);
+                      factoryResults.forEach(res => {
+                          if (type(res, FilteredAllDayInstance)) G_filteredAllDayInstances.push(res);
+                      });
+                  }
+              }
+          } else if (type(entity.data, EventData)) {
+              for (let patternIndex = 0; patternIndex < entity.data.instances.length; patternIndex++) {
+                  const eventInst = entity.data.instances[patternIndex];
+                 const factoryResults = FilteredInstancesFactory.fromEvent(entity, eventInst, patternIndex, day, startOfTodayUnix, endOfTodayUnix);
+                   factoryResults.forEach(res => {
+                      if (type(res, FilteredAllDayInstance)) G_filteredAllDayInstances.push(res);
+                  });
+              }
+          }
+      }
+      const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4;
+      const timedEventAreaHeight = dayColumnDimensions.height - totalAllDayEventsHeight;
+      const timedEventAreaTop = dayColumnDimensions.top + totalAllDayEventsHeight;
+ 
+   	const startOfTodayAbs = now.startOf('day');
+ 	const totalDayMs = 24 * 60 * 60 * 1000;
+ 	const timeSinceMidnightMs = now.toMillis() - startOfTodayAbs.toMillis();
+ 	const timeProportion24h = timeSinceMidnightMs / totalDayMs;
 
-    // 3. If today is not rendered, we are done.
-    if (todayIndex === -1) {
-        return;
-    }
+ 	const visibleStartHour = G_calendarVisibleStartHour;
+ 	const visibleEndHour = G_calendarVisibleEndHour;
+ 	const visibleDurationHours = visibleEndHour - visibleStartHour;
 
-    // 4. Calculate position
-    const now = DateTime.local();
-    const day = days[todayIndex];
-    let dayTime = DateTime.local(day.year, day.month, day.day);
+ 	const fullDayVirtualHeight = timedEventAreaHeight * (24 / visibleDurationHours);
+ 	const virtualDayTop = timedEventAreaTop - (visibleStartHour * (fullDayVirtualHeight / 24));
+ 	const positionY = virtualDayTop + (timeProportion24h * fullDayVirtualHeight);
 
-    const startOfVisibleDay = dayTime.startOf('day').plus({ hours: user.settings.startOfDayOffset });
-    const endOfVisibleDay = dayTime.endOf('day').plus({ hours: user.settings.endOfDayOffset }).plus({milliseconds: 1});
+ 	// 5. Create a masking div to clip the indicator
+ 	const masker = HTML.make('div');
+ 	HTML.setId(masker, 'time-indicator-mask');
+ 	const triangleWidth = 10;
+ 	HTML.setStyle(masker, {
+ 		position: 'fixed',
+ 		left: `${dayColumnDimensions.left - (triangleWidth / 2)}px`,
+ 		top: `${timedEventAreaTop}px`,
+ 		width: `${dayColumnDimensions.width + triangleWidth + 1}px`, // made this a bit wider so the line can extend all the way to the divider between days
+ 		height: `${timedEventAreaHeight}px`,
+ 		overflow: 'hidden',
+ 		pointerEvents: 'none',
+ 		zIndex: String(currentTimeIndicatorZIndex)
+ 	 });
+ 	HTML.body.appendChild(masker);
 
-    const totalDayDuration = endOfVisibleDay.toMillis() - startOfVisibleDay.toMillis();
-    const timeSinceStart = now.toMillis() - startOfVisibleDay.toMillis();
+ 	const relativePositionY = positionY - timedEventAreaTop;
+ 
+ 	// 6. Create time marker line inside the masker
+      const timeMarker = HTML.make('div');
+      HTML.setId(timeMarker, 'time-marker');
+      const timeMarkerHeight = 2;
 
-    if (timeSinceStart < 0 || timeSinceStart > totalDayDuration) {
-        return;
-    }
-
-    const timeProportion = timeSinceStart / totalDayDuration;
-
-    const dayColumnDimensions = getDayColumnDimensions(todayIndex);
-
-    // This logic is duplicated from renderDay to correctly calculate the timed area
-    let startOfDayUnix = startOfVisibleDay.toMillis();
-    let endOfDayUnix = endOfVisibleDay.toMillis();
-    let G_filteredAllDayInstances = [];
-     for (let entity of user.entityArray) {
-        if (type(entity.data, TaskData)) {
-             if (entity.data.workSessions.length > 0) { // check length not just > 0
-                for (let patternIndex = 0; patternIndex < entity.data.workSessions.length; patternIndex++) {
-                    const workSession = entity.data.workSessions[patternIndex];
-                    const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, patternIndex, day, startOfDayUnix, endOfDayUnix);
-                    factoryResults.forEach(res => {
-                        if (type(res, FilteredAllDayInstance)) G_filteredAllDayInstances.push(res);
-                    });
-                }
-            }
-        } else if (type(entity.data, EventData)) {
-            for (let patternIndex = 0; patternIndex < entity.data.instances.length; patternIndex++) {
-                const eventInst = entity.data.instances[patternIndex];
-                const factoryResults = FilteredInstancesFactory.fromEvent(entity, eventInst, patternIndex, day, startOfDayUnix, endOfDayUnix);
-                 factoryResults.forEach(res => {
-                    if (type(res, FilteredAllDayInstance)) G_filteredAllDayInstances.push(res);
-                });
-            }
-        }
-    }
-
-    const totalAllDayEventsHeight = G_filteredAllDayInstances.length * allDayEventHeight + 4;
-    const timedEventAreaHeight = dayColumnDimensions.height - totalAllDayEventsHeight;
-    const timedEventAreaTop = dayColumnDimensions.top + totalAllDayEventsHeight;
-
-    const positionY = timedEventAreaTop + (timeProportion * timedEventAreaHeight);
-
-    // 5. Create time marker line directly on body
-    const timeMarker = HTML.make('div');
-    HTML.setId(timeMarker, 'time-marker');
-    const timeMarkerHeight = 2;
-    
-    // Determine if this day is a rightmost day
-    const numberOfDays = LocalData.get('numberOfDays');
-    const isStacking = LocalData.get('stacking');
-    let isRightmostDay = false;
-    
-    if (isStacking) {
-        // In stacking mode, there are two rightmost days (one per row)
-        const topRowRightmost = Math.floor(numberOfDays / 2) - 1;
-        const bottomRowRightmost = numberOfDays - 1;
-        isRightmostDay = (todayIndex === topRowRightmost || todayIndex === bottomRowRightmost);
-    } else {
-        // In non-stacking mode, only the last day is rightmost
-        isRightmostDay = (todayIndex === numberOfDays - 1);
-    }
-    
-    // Extend time marker to divider line if not rightmost day
-    const timeMarkerWidth = isRightmostDay ? dayColumnDimensions.width : dayColumnDimensions.width + 7;
-    
-    HTML.setStyle(timeMarker, {
-        position: 'fixed',
-        left: String(dayColumnDimensions.left) + 'px',
-        width: String(timeMarkerWidth) + 'px',
-        top: String(positionY) + 'px',
-        height: '2px',
-        backgroundColor: vibrantRedColor,
-        opacity: '0.33',
-        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441), // on top of all reminders
-        pointerEvents: 'none',
-    });
-    HTML.body.appendChild(timeMarker);
-
-    // 6. Create time triangle directly on body
-    const timeTriangle = HTML.make('div');
-    HTML.setId(timeTriangle, 'time-triangle');
-    const timeTriangleHeight = 16;
-    const timeTriangleWidth = 10;
-    HTML.setStyle(timeTriangle, {
-        position: 'fixed',
-        left: String(dayColumnDimensions.left - 5) + 'px',
-        top: String(positionY - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)) + 'px',
-        width: '0px',
-        height: '0px',
-        borderLeft: String(timeTriangleWidth) + 'px solid ' + vibrantRedColor,
-        borderTop: String(timeTriangleHeight / 2) + 'px solid transparent',
-        borderBottom: String(timeTriangleHeight / 2) + 'px solid transparent',
-        zIndex: String(reminderBaseZIndex + reminderIndexIncreaseOnHover + 1441), // on top of all reminders
-        pointerEvents: 'none',
-    });
-    HTML.body.appendChild(timeTriangle);
-}
+      // Determine if this day is a rightmost day
+      const numberOfDays = LocalData.get('numberOfDays');
+      const isStacking = LocalData.get('stacking');
+      let isRightmostDay = false;
+      
+      if (isStacking) {
+          // In stacking mode, there are two rightmost days (one per row)
+          const topRowRightmost = Math.floor(numberOfDays / 2) - 1;
+          const bottomRowRightmost = numberOfDays - 1;
+          isRightmostDay = (todayIndex === topRowRightmost && topRowRightmost >= 0) || (todayIndex === bottomRowRightmost);
+      } else {
+          // In non-stacking mode, only the last day is rightmost
+          isRightmostDay = (todayIndex === numberOfDays - 1);
+      }
+      
+      // Extend time marker to divider line if not rightmost day
+ 	const timeMarkerWidth = isRightmostDay ? dayColumnDimensions.width : dayColumnDimensions.width + 7;
+      
+      HTML.setStyle(timeMarker, {
+         position: 'absolute',
+         left: `${triangleWidth / 2}px`,
+         width: String(timeMarkerWidth) + 'px',
+         top: `${relativePositionY}px`,
+         height: '2px',
+         backgroundColor: vibrantRedColor,
+         opacity: '0.33',
+         pointerEvents: 'none',
+      });
+ 	masker.appendChild(timeMarker);
+ 
+    // 7. Create time triangle inside the masker
+      const timeTriangle = HTML.make('div');
+      HTML.setId(timeTriangle, 'time-triangle');
+      const timeTriangleHeight = 16;
+      HTML.setStyle(timeTriangle, {
+         position: 'absolute',
+         left: '0px',
+         top: `${relativePositionY - (timeTriangleHeight / 2) + (timeMarkerHeight / 2)}px`,
+         width: '0px',
+         height: '0px',
+         borderLeft: `${triangleWidth}px solid ${vibrantRedColor}`,
+         borderTop: String(timeTriangleHeight / 2) + 'px solid transparent',
+         borderBottom: String(timeTriangleHeight / 2) + 'px solid transparent',
+         pointerEvents: 'none',
+      });
+ 	masker.appendChild(timeTriangle);
+ }
 
 function renderInputBox() {
     let inputBox = HTML.getElementUnsafely('inputBox');
@@ -9321,11 +9337,6 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
 }
 
 async function oneShotAiRequest(inputText, fileArray, chain) {
-    log("oneShotAiRequest: ");
-    log(inputText);
-    log(fileArray);
-    log(chain);
-
     // If the request has no attached files, skip marking tasks due today or yesterday as complete.
     const excludeWithinDaysForPastComplete = (fileArray && fileArray.length === 0) ? 1 : 0;
 
