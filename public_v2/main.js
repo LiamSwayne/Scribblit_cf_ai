@@ -7298,12 +7298,14 @@ function openProModal() {
     
     // Get current button position and size
     const buttonRect = proButton.getBoundingClientRect();
-    const modalWidth = 170;
+    const modalWidth = 190;
     const modalHeight = 80;
     
     // Align modal right edge with gear right edge (windowBorderMargin from window right)
     const modalRight = windowBorderMargin;
     const buttonRight = window.innerWidth - buttonRect.right;
+    // Position to grow from under center of pro button
+    const growFromRight = buttonRight + (buttonRect.width / 2);
     
     // Create modal div that starts as the button background
     proModal = HTML.make('div');
@@ -7311,9 +7313,9 @@ function openProModal() {
     HTML.setStyle(proModal, {
         position: 'fixed',
         top: buttonRect.top + 'px',
-        right: buttonRight + 'px',
-        width: buttonRect.width + 'px',
-        height: buttonRect.height + 'px',
+        right: growFromRight + 'px',
+        width: '0px',
+        height: '0px',
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         borderRadius: '4px',
@@ -7348,12 +7350,14 @@ function closeProModal() {
         // Get button position for shrinking animation
         const buttonRect = proButton.getBoundingClientRect();
         const buttonRight = window.innerWidth - buttonRect.right;
+        // Position to shrink back to under center of pro button
+        const shrinkToRight = buttonRight + (buttonRect.width / 2);
         
-        // Animate modal back to button size
+        // Animate modal back to 0 size
         HTML.setStyle(proModal, {
-            width: buttonRect.width + 'px',
-            height: buttonRect.height + 'px',
-            right: buttonRight + 'px',
+            width: '0px',
+            height: '0px',
+            right: shrinkToRight + 'px',
             backgroundColor: 'var(--shade-0)',
             border: '2px solid var(--shade-1)',
             borderRadius: '4px'
