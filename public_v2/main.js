@@ -7477,12 +7477,12 @@ function openProModal() {
         // Generate text content based on user's plan
         let textContent = '';
         if (user.plan === 'free') {
-            textContent = `Used ${user.usage} of 100 free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in.`;
+            textContent = `Used ${user.usage} of 100 free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in. $2/month or $16/year.`;
         } else if (user.plan === 'godmode') {
             textContent = 'You have godmode enabled. You have access to Pro at no cost.';
         } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
             const isMonthly = user.plan === 'pro-monthly';
-            const price = isMonthly ? '$2 monthly' : '$16 annually';
+            const price = isMonthly ? '$2/month' : '$16/year';
             
             // Get last payment date
             let lastPaymentText = '';
@@ -7545,8 +7545,8 @@ function openProModal() {
             
             actionButton.onclick = () => handleCancelButtonClick(actionButton);
         }
-        // No button for godmode plan
         
+        // No button for godmode plan
         if (actionButton) {
             HTML.setStyle(actionButton, {
                 position: 'fixed',

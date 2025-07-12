@@ -97,7 +97,7 @@ async function handleCheckoutSessionCompleted(session, env) {
         // Update user with Stripe customer ID and plan
         await env.DB.prepare(`
             UPDATE users 
-            SET stripe_customer_id = ?, plan = ?
+            SET stripe_account_id = ?, plan = ?
             WHERE user_id = ?
         `).bind(customerId, planType, userId).run();
 
@@ -112,7 +112,7 @@ async function handleSubscriptionUpdated(subscription, env) {
         const customerId = subscription.customer;
         
         // Get user by customer ID
-        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_customer_id = ?')
+        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_account_id = ?')
             .bind(customerId).first();
         
         if (!user) {
@@ -147,7 +147,7 @@ async function handleSubscriptionDeleted(subscription, env) {
         const customerId = subscription.customer;
         
         // Get user by customer ID
-        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_customer_id = ?')
+        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_account_id = ?')
             .bind(customerId).first();
         
         if (!user) {
@@ -171,7 +171,7 @@ async function handlePaymentSucceeded(invoice, env) {
         const paymentTime = invoice.status_transitions?.paid_at * 1000; // Convert to milliseconds
         
         // Get user by customer ID
-        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_customer_id = ?')
+        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_account_id = ?')
             .bind(customerId).first();
         
         if (!user) {
@@ -310,13 +310,13 @@ export default {
                         }
 
                         // Check if user has a Stripe customer ID
-                        if (!user.stripe_customer_id) {
+                        if (!user.stripe_account_id) {
                             return SEND({ error: 'User has no active subscription' }, 400);
                         }
 
                         // Create customer portal session
                         const portalSession = await createStripeCustomerPortalSession({
-                            customer: user.stripe_customer_id,
+                            customer: user.stripe_account_id,
                             return_url: 'https://app.scribbl.it'
                         }, env);
 
