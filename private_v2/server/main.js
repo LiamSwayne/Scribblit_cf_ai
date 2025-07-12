@@ -843,46 +843,48 @@ async function callXaiModel(modelName, userPrompt, env, fileArray=[], system_pro
 }
 
 async function handlePromptOnly(userPrompt, env) {
+    console.log("handlePromptOnly called");
+    
     let content;
     let chain = [];
     let startTime = 0;
 
-    // 1st choice – Gemini Flash
     startTime = Date.now();
-    content = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
-    if (content.response && content.response.trim() !== '') {
-        chain.push({ thinking_request: {
-            model: MODELS.GEMINI_MODELS.flash,
+    let grokResult = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], constructEntitiesPrompt);
+    if (grokResult && grokResult.trim() !== '') {
+        content = grokResult;
+        chain.push({ request: {
+            model: MODELS.XAI_MODELS.grok4,
             typeOfPrompt: 'convert_text_to_entities',
-            response: content.response,
-            thoughts: content.thoughts,
+            response: grokResult,
             startTime,
             endTime: Date.now(),
             userPrompt: userPrompt,
             systemPrompt: constructEntitiesPrompt
         }});
     } else {
-        chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
-        // 2nd choice – Cerebras Qwen3
-        startTime = Date.now();
-        content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
+        // use Gemini Flash
+        let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
+        content = geminiResult.response;
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
-                model: MODELS.CEREBRAS_MODELS.qwen3,
+                model: MODELS.GEMINI_MODELS.flash,
                 typeOfPrompt: 'convert_text_to_entities',
-                response: content,
+                response: geminiResult.response,
+                thoughts: geminiResult.thoughts,
                 startTime,
                 endTime: Date.now(),
-                userPrompt: userPrompt
+                userPrompt: userPrompt,
+                systemPrompt: constructEntitiesPrompt
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
-            // 3rd choice – Groq Qwen3
+            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
+            // reroute to Cerebras Qwen3
             startTime = Date.now();
-            content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], constructEntitiesPrompt);
+            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
-                    model: MODELS.GROQ_MODELS.qwen3,
+                    model: MODELS.CEREBRAS_MODELS.qwen3,
                     typeOfPrompt: 'convert_text_to_entities',
                     response: content,
                     startTime,
@@ -890,11 +892,30 @@ async function handlePromptOnly(userPrompt, env) {
                     userPrompt: userPrompt
                 }});
             } else {
-                return SEND({ error: 'Failed to connect to any AI model.' }, 481);
+                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
+                // reroute to Groq Qwen3
+                startTime = Date.now();
+                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], constructEntitiesPrompt);
+                if (content && content.trim() !== '') {
+                    chain.push({ thinking_request: {
+                        model: MODELS.GROQ_MODELS.qwen3,
+                        typeOfPrompt: 'convert_text_to_entities',
+                        response: content,
+                        startTime,
+                        endTime: Date.now(),
+                        userPrompt: userPrompt
+                    }});
+                } else {
+                    return SEND({ error: 'Failed to connect to any AI model.' }, 481);
+                }
             }
         }
     }
 
+    console.log("handlePromptOnly return content:");
+    console.log(content);
+    console.log("handlePromptOnly return chain:");
+    console.log(chain);
     return { aiOutput: content, chain };
 }
 
