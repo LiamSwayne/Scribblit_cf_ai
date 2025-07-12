@@ -7303,7 +7303,7 @@ function openProModal() {
     // Get current button position and size
     const buttonRect = proButton.getBoundingClientRect();
     const modalWidth = 190;
-    const modalHeight = 187;
+    const modalHeight = user.plan === 'godmode' ? 70 : 187;
     
     // Align modal right edge with gear right edge (windowBorderMargin from window right)
     const modalRight = windowBorderMargin;
@@ -7354,9 +7354,9 @@ function openProModal() {
         // Generate text content based on user's plan
         let textContent = '';
         if (user.plan === 'free') {
-            textContent = `Used ${user.usage} of 100 free AI requests. Upgrade to pro for unlimited requests across unlimited devices as long as you're signed in.`;
+            textContent = `Used ${user.usage} of 100 free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in.`;
         } else if (user.plan === 'godmode') {
-            textContent = 'You have godmode enabled. You have access to pro at no cost.';
+            textContent = 'You have godmode enabled. You have access to Pro at no cost.';
         } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
             const isMonthly = user.plan === 'pro-monthly';
             const price = isMonthly ? '$2 monthly' : '$16 annually';
@@ -7397,13 +7397,31 @@ function openProModal() {
         
         HTML.body.appendChild(proModalText);
         
-        // Create upgrade button (only for free plan)
+        // Create button based on user's plan
+        let actionButton = null;
         if (user.plan === 'free') {
-            const upgradeButton = HTML.make('button');
-            HTML.setId(upgradeButton, 'proModalUpgradeButton');
-            upgradeButton.textContent = 'upgrade';
+            actionButton = HTML.make('button');
+            HTML.setId(actionButton, 'proModalUpgradeButton');
+            actionButton.textContent = 'upgrade';
             
-            HTML.setStyle(upgradeButton, {
+            actionButton.onclick = () => {
+                // TODO: implement upgrade functionality
+                log('upgrade button clicked');
+            };
+        } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
+            actionButton = HTML.make('button');
+            HTML.setId(actionButton, 'proModalCancelButton');
+            actionButton.textContent = 'cancel';
+            
+            actionButton.onclick = () => {
+                // TODO: implement cancel functionality
+                log('cancel button clicked');
+            };
+        }
+        // No button for godmode plan
+        
+        if (actionButton) {
+            HTML.setStyle(actionButton, {
                 position: 'fixed',
                 right: (window.innerWidth - modalRect.right + 10) + 'px',
                 top: (modalRect.top + modalRect.height - 35) + 'px',
@@ -7421,22 +7439,18 @@ function openProModal() {
                 transition: 'opacity 0.2s ease-in, background-color 0.2s ease'
             });
             
-            upgradeButton.onclick = () => {
-                // TODO: implement upgrade functionality
-                log('upgrade button clicked');
+            actionButton.onmouseenter = () => {
+                HTML.setStyle(actionButton, { backgroundColor: 'var(--shade-2)' });
             };
-            upgradeButton.onmouseenter = () => {
-                HTML.setStyle(upgradeButton, { backgroundColor: 'var(--shade-2)' });
-            };
-            upgradeButton.onmouseleave = () => {
-                HTML.setStyle(upgradeButton, { backgroundColor: 'var(--shade-1)' });
+            actionButton.onmouseleave = () => {
+                HTML.setStyle(actionButton, { backgroundColor: 'var(--shade-1)' });
             };
             
-            HTML.body.appendChild(upgradeButton);
+            HTML.body.appendChild(actionButton);
             
             // Fade in the button
             setTimeout(() => {
-                HTML.setStyle(upgradeButton, { opacity: '1' });
+                HTML.setStyle(actionButton, { opacity: '1' });
             }, 10);
         }
         
@@ -7472,16 +7486,19 @@ function closeProModal() {
         }, 200);
     }
     
-    // Fade out upgrade button if it exists
+    // Fade out action button if it exists (upgrade or cancel)
     const proModalUpgradeButton = HTML.getElementUnsafely('proModalUpgradeButton');
-    if (proModalUpgradeButton) {
-        HTML.setStyle(proModalUpgradeButton, {
+    const proModalCancelButton = HTML.getElementUnsafely('proModalCancelButton');
+    const actionButton = proModalUpgradeButton || proModalCancelButton;
+    
+    if (actionButton) {
+        HTML.setStyle(actionButton, {
             opacity: '0',
             transition: 'opacity 0.2s ease-out'
         });
         setTimeout(() => {
-            if (proModalUpgradeButton && proModalUpgradeButton.parentNode) {
-                HTML.body.removeChild(proModalUpgradeButton);
+            if (actionButton && actionButton.parentNode) {
+                HTML.body.removeChild(actionButton);
             }
         }, 200);
     }
@@ -9293,6 +9310,19 @@ function measureTextWidth(text, font, fontSize) {
     return width;
 }
 
+function getAuthHeaders() {
+    const token = LocalData.get('token');
+    const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    } else {
+        headers['Authorization'] = 'Bearer notSignedIn';
+    }
+    
+    return headers;
+}
+
 function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     ASSERT(exists(aiOutput));
     ASSERT(type(chain, Union(Chain, NULL)));
@@ -9482,7 +9512,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
     // Send to backend AI endpoint
     const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
             prompt: inputText,
             fileArray: fileArray,
@@ -9588,7 +9618,7 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
     // Send to backend AI endpoint
     const response = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
             prompt: inputText,
             fileArray: fileArray,
@@ -9775,7 +9805,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
     // Step 1: Get simplified entities
     const response1 = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
             prompt: inputText,
             fileArray: fileArray,
@@ -9926,7 +9956,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
          promptForStep2 += ` Here is the entity you have been given: ${JSON.stringify(simplifiedEntity)}.`;
          return fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
+             headers: getAuthHeaders(),
              body: JSON.stringify({
                  prompt: promptForStep2,
                  fileArray: [],
