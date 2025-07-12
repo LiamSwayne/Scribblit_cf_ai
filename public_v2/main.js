@@ -7485,15 +7485,26 @@ function openProModal() {
             const isMonthly = user.plan === 'pro-monthly';
             const price = isMonthly ? '$2/month' : '$16/year';
             
-            // Get last payment date
-            let lastPaymentText = '';
+            // Get last payment date and calculate next payment date
+            let lastPaymentText = 'Last payment date: N/A';
+            let nextPaymentText = 'Next payment date: N/A';
+            
             if (user.paymentTimes && user.paymentTimes.length > 0) {
                 const lastPaymentUnix = Math.max(...user.paymentTimes);
                 const lastPaymentDate = new Date(lastPaymentUnix);
-                lastPaymentText = `Your last payment was on ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()}.`;
+                lastPaymentText = `Last payment date: ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()}`;
+                
+                // Calculate next payment date
+                const nextPaymentDate = new Date(lastPaymentDate);
+                if (isMonthly) {
+                    nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+                } else {
+                    nextPaymentDate.setFullYear(nextPaymentDate.getFullYear() + 1);
+                }
+                nextPaymentText = `Next payment date: ${nextPaymentDate.getMonth() + 1}/${nextPaymentDate.getDate()}/${nextPaymentDate.getFullYear()}`;
             }
             
-            textContent = `You are currently subscribed to Pro and paying ${price}. ${lastPaymentText} Cancel any time and retain Pro for the rest of the period you paid for.`;
+            textContent = `You are currently subscribed to Pro and paying ${price}.\n\n${lastPaymentText}\n${nextPaymentText}\n\nCancel any time and retain Pro for the rest of the period you paid for.`;
         }
         
         // Check if text element already exists (safety check)
