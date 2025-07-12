@@ -1278,45 +1278,93 @@ async function handlePromptWithFiles(userPrompt, fileArray, env, strategy, simpl
     }
 }
 
-function isUserAllowedRequest(plan, paymentTimes, usage) {
-    const now = Date.now();
-    const currentMonth = new Date(now).getMonth();
-    const currentYear = new Date(now).getFullYear();
+async function checkAndUpdateUsage(authHeader, env, strategy) {
+    const token = authHeader.substring(7);
     
-    // Parse payment times array
-    let parsedPaymentTimes = [];
-    try {
-        parsedPaymentTimes = typeof paymentTimes === 'string' ? JSON.parse(paymentTimes) : paymentTimes;
-    } catch (err) {
-        console.log('Error parsing payment times:', err);
-        parsedPaymentTimes = [];
+    // Check if token is "notSignedIn"
+    if (token === 'notSignedIn') {
+        return null;
     }
+
+    if (!strategy) {
+        return SEND({ error: 'Strategy is required.' }, 485);
+    }
+
+    if (strategy === 'step_by_step:2/2') {
+        return null;
+    }
+
+    // Verify actual token
+    const userEmail = await verifyToken(token, env.SECRET_KEY);
+    if (!userEmail) {
+        return SEND({ error: 'Invalid or expired token.' }, 401);
+    }
+
+    // Get user data from database
+    const userData = await env.DB.prepare(
+        'SELECT user_id, email, plan, payment_times, usage FROM users WHERE email = ?'
+    ).bind(userEmail).first();
     
-    // Check if user has active subscription
-    const hasActiveSubscription = parsedPaymentTimes.some(paymentTime => {
-        const paymentDate = new Date(paymentTime);
-        const paymentMonth = paymentDate.getMonth();
-        const paymentYear = paymentDate.getFullYear();
-        // Consider subscription active if payment was made in current month or previous month
-        return (paymentYear === currentYear && paymentMonth >= currentMonth - 1) ||
-               (paymentYear === currentYear - 1 && paymentMonth === 11 && currentMonth === 0);
-    });
-    
-    // Define usage limits based on plan
-    let usageLimit;
+    if (!userData) {
+        return SEND({ error: 'User not found.' }, 484);
+    }
+
+    const plan = userData.plan;
+    const paymentTimes = JSON.parse(userData.payment_times || '[]');
+    const usage = userData.usage;
+
+    // Check usage limits based on plan
     if (plan === 'free') {
-        usageLimit = 10; // 10 requests per month for free users
-    } else if (plan === 'pro' || plan === 'premium') {
-        if (hasActiveSubscription) {
-            usageLimit = 1000; // 1000 requests per month for paid users
-        } else {
-            usageLimit = 10; // Downgrade to free limits if subscription expired
+        if (usage >= 200) {
+            return SEND({ 
+                error: 'Usage limit exceeded for free plan (200 requests). Please upgrade to continue using the service.',
+                usageExceeded: true 
+            }, 470);
         }
+    } else if (plan === 'pro-monthly') {
+        // Check if payment was made within last 31 days
+        const now = Date.now();
+        const hasValidPayment = paymentTimes.some(paymentTime => {
+            const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
+            return daysSincePayment <= 31;
+        });
+        
+        if (!hasValidPayment) {
+            return SEND({ 
+                error: 'Pro-monthly subscription expired. Please renew your subscription to continue using the service.',
+                subscriptionExpired: true 
+            }, 471);
+        }
+    } else if (plan === 'pro-annually') {
+        // Check if payment was made within last 366 days
+        const now = Date.now();
+        const hasValidPayment = paymentTimes.some(paymentTime => {
+            const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
+            return daysSincePayment <= 366;
+        });
+        
+        if (!hasValidPayment) {
+            return SEND({ 
+                error: 'Pro-annually subscription expired. Please renew your subscription to continue using the service.',
+                subscriptionExpired: true 
+            }, 472);
+        }
+    } else if (plan === 'godmode') {
+        // Godmode has no limits
     } else {
-        usageLimit = 10; // Default to free limits for unknown plans
+        // Unknown plan - return error
+        return SEND({ 
+            error: 'Unknown plan type: ' + plan + '. Please contact support.',
+            unknownPlan: true 
+        }, 473);
     }
-    
-    return usage < usageLimit;
+
+    // If we get here, usage is allowed. Update usage count.
+    await env.DB.prepare(
+        'UPDATE users SET usage = usage + 1 WHERE email = ?'
+    ).bind(userEmail).run();
+
+    return null; // Success, continue processing
 }
 
 async function callAiModel(userPrompt, fileArray, env, strategy, simplifiedEntity=null) {
@@ -1811,39 +1859,6 @@ export default {
                 {
                     if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
                     try {
-                        // Check authentication
-                        const authHeader = request.headers.get('Authorization');
-                        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                            return SEND({ error: 'Authorization header is missing or invalid.' }, 401);
-                        }
-
-                        const token = authHeader.substring(7); // Remove 'Bearer '
-                        const email = await verifyToken(token, env.SECRET_KEY);
-
-                        if (!email) {
-                            return SEND({ error: 'Invalid or expired token.' }, 401);
-                        }
-
-                        // Get user data from database
-                        const user = await env.DB.prepare(
-                            'SELECT user_id, plan, payment_times, usage FROM users WHERE email = ?'
-                        ).bind(email).first();
-
-                        if (!user) {
-                            return SEND({ error: 'User not found.' }, 404);
-                        }
-
-                        // Check if user is allowed to make this request
-                        const isAllowed = isUserAllowedRequest(user.plan, user.payment_times, user.usage);
-                        
-                        if (!isAllowed) {
-                            return SEND({ 
-                                error: 'Usage limit exceeded. Please upgrade your plan or wait for next month.',
-                                usageLimit: user.plan === 'free' ? 10 : 1000,
-                                currentUsage: user.usage
-                            }, 429);
-                        }
-
                         const data = await request.json();
                         const userText = data.prompt;
                         const fileArray = data.fileArray;
@@ -1854,16 +1869,18 @@ export default {
                             return SEND({ error: 'Empty request body' }, 471);
                         }
 
-                        const result = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
-                        console.log('result: ' + JSON.stringify(result));
+                        // Check usage limits and update usage if allowed
+                        const authHeader = request.headers.get('Authorization');
+                        const usageCheck = await checkAndUpdateUsage(authHeader, env, strategy);
                         
-                        // If the request was successful, increment usage
-                        if (result && !result.error) {
-                            await env.DB.prepare(
-                                'UPDATE users SET usage = usage + 1 WHERE email = ?'
-                            ).bind(email).run();
+                        // If usageCheck returns a response, it means there was an error
+                        if (usageCheck) {
+                            return usageCheck;
                         }
 
+                        // Process the AI request
+                        const result = await callAiModel(userText, fileArray, env, strategy, simplifiedEntity);
+                        console.log('result: ' + JSON.stringify(result));
                         return SEND(result, 200);
                     } catch (err) {
                         console.log('AI parse error:', err);
