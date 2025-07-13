@@ -1,4 +1,4 @@
-let TESTING = true;
+let TESTING = false;
 let TESTING_USER_IS_EMPTY = false;
 let TESTING_SHOW_LOGS = true;
 
