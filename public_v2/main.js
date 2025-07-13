@@ -277,10 +277,7 @@ async function saveUserData(user) {
             ASSERT(type(token, String));
             const response = await fetch(`https://${SERVER_DOMAIN}/update-user`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     data: userJson.data,
                     dataspec: userJson.dataspec,
@@ -339,9 +336,7 @@ async function loadUserData() {
             try {
                 const response = await fetch(`https://${SERVER_DOMAIN}/get-user`, {
                     method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: getAuthHeaders()
                 });
                 
                 if (response.ok) {
@@ -7325,9 +7320,7 @@ async function handleUpgradeButtonClick(actionButton) {
                             // Default to pro-monthly as specified (monthly is the default plan)
                     const response = await fetch(`https://${STRIPE_DOMAIN}/create-checkout-session`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 planType: 'pro-monthly',
                 userId: user.userId
@@ -7360,9 +7353,7 @@ async function handleCancelButtonClick(actionButton) {
         
         const response = await fetch(`https://${STRIPE_DOMAIN}/create-customer-portal-session`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 userId: user.userId
             })
@@ -9150,9 +9141,7 @@ function signIn() {
 
     fetch(url, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ email, password }),
     })
     .then(response => response.json())
@@ -9201,9 +9190,7 @@ async function signUp() {
     try {
         const response = await fetch(`https://${SERVER_DOMAIN}/signup`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ email, password })
         });
 
@@ -9406,9 +9393,7 @@ async function verifyEmail() {
     try {
         const response = await fetch(`https://${SERVER_DOMAIN}/verify-email`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ email, code })
         });
 
@@ -9505,8 +9490,9 @@ function measureTextWidth(text, font, fontSize) {
 function getAuthHeaders() {
     const token = LocalData.get('token');
     const headers = { 'Content-Type': 'application/json' };
-    
-    if (token) {
+    ASSERT(type(token, Union(NonEmptyString, NULL)));
+
+    if (token === NULL) {
         headers['Authorization'] = `Bearer ${token}`;
     } else {
         headers['Authorization'] = 'Bearer notSignedIn';
@@ -9971,7 +9957,7 @@ async function draftAiRequest(inputText, chain) {
     // Send to backend AI endpoint - use draft strategy for quick AI model (Cerebras)
     const response = await fetch('https://' + SERVER_DOMAIN + '/ai/draft', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
             prompt: inputText,
         })
@@ -10593,9 +10579,7 @@ async function formatEntityTitles(entityIds, descriptionOfFiles, fileArray) {
     try {
         const response = await fetch(`https://${SERVER_DOMAIN}/ai/title-format`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 titles: titlesObject,
                 descriptionOfFiles: descriptionOfFiles,
