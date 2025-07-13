@@ -373,82 +373,6 @@ async function saveUserData(user) {
 
 // Load user data from localStorage and server, returns a User object
 async function loadUserData() {
-    // Check for OAuth callback parameters first
-    const urlParams = new URLSearchParams(window.location.search);
-    const oauthToken = urlParams.get('token');
-    const oauthUserId = urlParams.get('id');
-    const oauthError = urlParams.get('error');
-    
-    // Handle OAuth error
-    if (oauthError) {
-        console.error('OAuth error:', oauthError);
-        alert('Sign in failed. Please try again.');
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return User.createDefault();
-    }
-    
-    // Handle OAuth success
-    if (oauthToken && oauthUserId) {
-        // Store OAuth token and mark as signed in
-        LocalData.set('token', oauthToken);
-        LocalData.set('signedIn', true);
-        
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Now fetch user data from server with the OAuth token
-        try {
-            const response = await fetch(`https://${SERVER_DOMAIN}/get-user`, {
-                method: 'GET',
-                headers: getAuthHeaders()
-            });
-            
-            if (response.ok) {
-                const serverResponse = await response.json();
-                
-                // Update token if server provided a new one
-                if (serverResponse.token) {
-                    LocalData.set('token', serverResponse.token);
-                }
-                
-                // Parse server user data
-                let serverUser = null;
-                if (serverResponse.user) {
-                    try {
-                        serverUser = User.decode(serverResponse.user);
-                        // Ensure userId is set from OAuth
-                        if (serverUser.userId === NULL) {
-                            serverUser.userId = oauthUserId;
-                        }
-                    } catch (parseError) {
-                        log("ERROR parsing server user data: " + parseError.message);
-                        log("serverResponse.user: ");
-                        log(serverResponse.user);
-                        log("trace: " + parseError.stack);
-                        serverUser = null;
-                    }
-                }
-                
-                if (serverUser) {
-                    log('Google OAuth sign in successful');
-                    return serverUser;
-                } else {
-                    log('No server user data available after OAuth, creating default user');
-                    return User.createDefault();
-                }
-            } else {
-                const errorData = await response.json();
-                log("ERROR fetching user data from server after OAuth: " + (errorData.error || 'Unknown error'));
-                return User.createDefault();
-            }
-        } catch (e) {
-            log("ERROR connecting to server after OAuth: " + e.message);
-            return User.createDefault();
-        }
-    }
-    
-    // Normal flow - not OAuth
     if (LocalData.get('signedIn')) {
         try {
             const token = LocalData.get('token');
@@ -5095,12 +5019,8 @@ function renderCalendar(days) {
             }
         }
 
-        // i think this section below is a bit of a hack and not well written, but i'm a hack fraud so sure this works
-
         // Fallback – if no timed content exists, center G_calendarMinimumHours around noon
-        let isFallback = false;
         if (globalEarliestMs === 24 * MS_PER_HOUR) {
-            isFallback = true;
             const centerHour = 12; // noon
             const halfSpan = Math.floor(G_calendarMinimumHours / 2);
             globalEarliestMs = Math.max(0, centerHour - halfSpan) * MS_PER_HOUR;
@@ -5108,8 +5028,8 @@ function renderCalendar(days) {
         }
 
         // Convert to hours and expand by 1 hour (bounded 0-24)
-        let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - (isFallback ? 0 : 1));
-        let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + (isFallback ? 0 : 1));
+        let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
+        let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + 1);
 
         // Ensure span is at least G_calendarMinimumHours hours
         while (latestHour - earliestHour < G_calendarMinimumHours) {
@@ -5504,6 +5424,7 @@ function initNumberOfCalendarDaysButton() {
         left: '50%',
         transform: 'translate(-50%, -50%)',
         fontSize: '14px',
+        fontWeight: 'bold',
         fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         zIndex: '12',
@@ -7267,10 +7188,40 @@ function render() {
 window.onresize = render;
 
 async function init() {
-    // Handle payment success/cancel feedback
+    // Check for OAuth callback parameters
     const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const userId = urlParams.get('id');
+    const error = urlParams.get('error');
     const payment = urlParams.get('payment');
     
+    if (error) {
+        console.error('OAuth error:', error);
+        alert('Sign in failed. Please try again.');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (token && userId) {
+        // OAuth success - store token and user info
+        LocalData.set('token', token);
+        LocalData.set('signedIn', true);
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Load user data from server
+        try {
+            user = await loadUserData();
+            if (user) {
+                user.userId = userId;
+                await saveUserData(user);
+                log('Google OAuth sign in successful');
+            }
+        } catch (error) {
+            log('Error loading user data after OAuth: ' + error.message);
+        }
+    }
+    
+    // Handle payment success/cancel feedback
     if (payment === 'success') {
         // Show success message
         setTimeout(() => {
@@ -7286,7 +7237,7 @@ async function init() {
             window.history.replaceState({}, document.title, window.location.pathname);
         }, 1000);
     }
-    
+
     await fontLoadingPromise;
     user = await userPromise;
 
