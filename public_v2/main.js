@@ -250,6 +250,7 @@ document.addEventListener('paste', async (e) => {
             renderInputBox();
             renderTaskList();
         } else if (signInModalOpen) {
+            // because we got to this branch we already know we're not on the verification page
             const text = e.clipboardData.getData('text/plain');
             if (!HTML.getElement('signInEmailInput').focused && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
                 e.preventDefault();
@@ -258,6 +259,10 @@ document.addEventListener('paste', async (e) => {
             } else if (!HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length > 0 && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInPasswordInput').value.length === 0) {
                 e.preventDefault();
                 HTML.getElement('signInPasswordInput').value = text;
+            } else if (HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
+                e.preventDefault();
+                HTML.getElement('signInEmailInput').value = text;
+                HTML.getElement('signInEmailInput').focus();
             } else {
                 log('Pasted text: "' + text + '"');
             }
