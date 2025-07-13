@@ -5,8 +5,8 @@ let TESTING_SHOW_LOGS = true;
 function ASSERT(condition, message="") {
     if (typeof(condition) != "boolean") {
         console.error('MALFORMED ASSERTION');
-    }
-    if (!condition && TESTING_SHOW_LOGS) {
+        console.trace();
+    } else if (!condition && TESTING_SHOW_LOGS) {
         if (message == "") {
             console.error('ASSERTION FAILED');
         } else {
