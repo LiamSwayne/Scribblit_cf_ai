@@ -1,5 +1,5 @@
 // Load LocalData immediately
-LocalData.load();
+// LocalData.load();
 
 // start loading fonts immediately on page load
 const fontDefinitions = [
