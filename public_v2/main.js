@@ -389,6 +389,8 @@ async function loadUserData() {
     }
     
     // Handle OAuth success
+    // this only runs when we have been redirected from google oauth
+    // it is removed from the url after this runs so this only runs once per session
     if (oauthToken && oauthUserId) {
         // Store OAuth token and mark as signed in
         LocalData.set('token', oauthToken);
@@ -413,7 +415,7 @@ async function loadUserData() {
                 }
                 
                 // Parse server user data
-                let serverUser = null;
+                let serverUser = NULL;
                 if (serverResponse.user) {
                     try {
                         serverUser = User.decode(serverResponse.user);
@@ -426,16 +428,61 @@ async function loadUserData() {
                         log("serverResponse.user: ");
                         log(serverResponse.user);
                         log("trace: " + parseError.stack);
-                        serverUser = null;
+                        serverUser = NULL;
                     }
                 }
                 
-                if (serverUser) {
-                    log('Google OAuth sign in successful');
+                if (serverUser === NULL) {
+                    log("No server user data available after OAuth, searching for local user data");
+                    const userDataLocal = localStorage.getItem("userData");
+                    if (userDataLocal) {
+                        try {
+                            const userJsonLocal = JSON.parse(userDataLocal);
+                            serverUser = User.decode(userJsonLocal);
+                        } catch (parseError) {
+                            log("ERROR parsing local user data (discarding): " + parseError.message);
+                            log("trace: " + parseError.stack);
+                        }
+                    } else {
+                        log("No local user data found, creating default user");
+                        serverUser = User.createDefault();
+                    }
+
                     return serverUser;
                 } else {
-                    log('No server user data available after OAuth, creating default user');
-                    return User.createDefault();
+                    ASSERT(type(serverUser, User));
+                    log('Google OAuth sign in successful');
+
+                    // merge with local user data if any
+                    const userDataLocal = localStorage.getItem("userData");
+                    if (userDataLocal) {
+                        let userJsonLocal = NULL;
+                        try {
+                            userJsonLocal = JSON.parse(userDataLocal);
+                        } catch (parseError) {
+                            log("ERROR parsing local user data (discarding): " + parseError.message);
+                            log("trace: " + parseError.stack);
+
+                            return serverUser;
+                        }
+
+                        if (userJsonLocal !== NULL) {
+                            const localUser = User.decode(userJsonLocal);
+                            let originalLength = serverUser.entityArray.length;
+                            for (const entity of localUser.entityArray) {
+                                if (!serverUser.entityArray.some(e => e.id === entity.id)) { 
+                                    serverUser.entityArray.push(entity);
+                                }
+                            }
+                            let newLength = serverUser.entityArray.length;
+                            log("Merged local and server entity arrays in Oauth branch");
+                            if (newLength > originalLength) {
+                                saveUserData(serverUser);
+                            }
+                        }
+                    }
+
+                    return serverUser;
                 }
             } else {
                 const errorData = await response.json();
@@ -509,12 +556,19 @@ async function loadUserData() {
                         
                         // Create a proper merged user without modifying the original serverUser
                         const localUser = User.decode(userJsonLocal);
+                        let originalLength = serverUser.entityArray.length;
                         for (const entity of localUser.entityArray) {
                             if (!serverUser.entityArray.some(e => e.id === entity.id)) {
                                 serverUser.entityArray.push(entity);
                             }
                         }
+                        let newLength = serverUser.entityArray.length;
                         log("Merged local and server entity arrays");
+
+                        if (newLength > originalLength) {
+                            saveUserData(serverUser);
+                        }
+
                         return serverUser;
                     } else if (serverUser) {
                         log("Using server user data (no local data available)");
