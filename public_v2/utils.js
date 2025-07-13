@@ -3182,7 +3182,7 @@ class User {
         ASSERT(plan === "free" || plan === "pro-monthly" || plan === "pro-annually" || plan === "godmode");
         ASSERT(type(timestamp, Int));
         ASSERT(timestamp >= 0);
-        ASSERT(type(paymentTimes, Dict(String, Number)));
+        ASSERT(type(paymentTimes, Dict(String, Number)), "payment did not match expected type: " + String(paymentTimes));
         for (const [paymentTime, amount] of Object.entries(paymentTimes)) {
             ASSERT(parseInt(paymentTime) >= 0);
             ASSERT(amount >= 0);
@@ -3705,7 +3705,7 @@ function type(thing, sometype) {
         try { new Entity(thing.id, thing.name, thing.description, thing.data); return true; } catch (e) { return false; }
     } else if (sometype === User) {
         if (!(thing instanceof User)) return false;
-        try { new User(thing.entityArray, thing.settings, thing.palette, thing.userId, thing.email, thing.usage, thing.timestamp, thing.plan, []); return true; } catch (e) { return false; }
+        try { new User(thing.entityArray, thing.settings, thing.palette, thing.userId, thing.email, thing.usage, thing.timestamp, thing.plan, thing.paymentTimes); return true; } catch (e) { return false; }
     } else if (sometype === Chain) {
         if (!(thing instanceof Chain)) return false;
         try { new Chain(thing.chain, thing.initializationTime); return true; } catch (e) { return false; }
