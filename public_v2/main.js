@@ -5178,13 +5178,24 @@ function renderDividers() {
             maxRight = Math.max(maxRight, dim.left + dim.width);
         }
 
-        const hDividerLeft = Math.max(minLeft - (gapBetweenColumns / 2), gapBetweenColumns / 2);
+        let hDividerLeft = Math.max(minLeft - (gapBetweenColumns / 2), gapBetweenColumns / 2);
         let hDividerWidth;
         if (numberOfDays % 2 == 1) {
             hDividerWidth = maxRight - minLeft;
         } else {
             hDividerWidth = maxRight - minLeft + (gapBetweenColumns / 2) + 1;
         }
+
+        // When the number of days is even (stacking mode), we draw a full-height
+        // vertical divider at the far left. Make the horizontal divider start
+        // just to the right of that so the two don't overlap.
+        if (numberOfDays % 2 === 0) {
+            // shift a bit more than before so the horizontal divider ends just
+            // before the leftmost vertical divider without overlapping.
+            hDividerLeft += dividerWidth + 5;  // move right by full divider width plus 1px
+            hDividerWidth -= dividerWidth + 5; // shorten width accordingly
+        }
+
         const hDividerHeight = dividerWidth;
         const hDividerBorderRadius = hDividerHeight / 2;
 
@@ -5213,8 +5224,20 @@ function renderDividers() {
             const dim = getDayColumnDimensions(i);
             const vDividerWidth = dividerWidth;
             const vDividerLeft = dim.left - (gapBetweenColumns / 2) - 1;
-            const vDividerTop = dim.top - topOfCalendarDay + 6;
-            const vDividerHeight = dim.height + topOfCalendarDay - 6;
+            let vDividerTop;
+            let vDividerHeight;
+
+            // When in stacking mode with an EVEN number of days, make the leftmost
+            // vertical divider span the full calendar height so that it matches
+            // the height seen in non-stacking mode.
+            if (numberOfDays % 2 === 0 && i === 0) {
+                vDividerTop = windowBorderMargin + headerSpace + 6;
+                vDividerHeight = window.innerHeight - (2 * windowBorderMargin) - headerSpace - 7;
+            } else {
+                vDividerTop = dim.top - topOfCalendarDay + 6;
+                vDividerHeight = dim.height + topOfCalendarDay - 5;
+            }
+            
             const vDividerBorderRadius = vDividerWidth / 2;
 
             HTML.setStyle(vDivider, {
