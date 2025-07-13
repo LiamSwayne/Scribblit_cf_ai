@@ -1,5 +1,5 @@
 // Load LocalData immediately
-// LocalData.load();
+LocalData.load();
 
 // start loading fonts immediately on page load
 const fontDefinitions = [
@@ -5077,16 +5077,11 @@ function renderCalendar(days) {
         let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + (isFallback ? 0 : 1));
 
         // Ensure span is at least G_calendarMinimumHours hours
-        while (latestHour - earliestHour < G_calendarMinimumHours) {
+        if (latestHour - earliestHour < G_calendarMinimumHours) {
             const missing = G_calendarMinimumHours - (latestHour - earliestHour);
             const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
             earliestHour -= expandStart;
             latestHour = Math.min(24, latestHour + (missing - expandStart));
-            
-            // Safety check to prevent infinite loop
-            if (earliestHour === 0 && latestHour === 24) {
-                break;
-            }
         }
 
         G_calendarVisibleStartHour = earliestHour;
