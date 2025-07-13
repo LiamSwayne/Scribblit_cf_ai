@@ -305,6 +305,7 @@ const FREE_PLAN_USAGE_LIMIT = 100;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
+    return;
     ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
     ASSERT(type(LocalData.get('signedIn'), Boolean));
