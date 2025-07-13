@@ -1810,7 +1810,7 @@ export default {
                                 0, // usage
                                 Date.now(), // timestamp
                                 'free', // plan
-                                '[]', // payment_times
+                                '{}', // payment_times
                                 '[]', // login_attempts
                                 'google', // provider
                                 googleUser.id // provider_id
