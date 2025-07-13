@@ -222,6 +222,7 @@ const spaceForTaskDateAndTime = 30; // px
 const dividerWidth = 3; // px width for both horizontal and vertical dividers
 let G_calendarVisibleStartHour = 0; // hour 0 – 23
 let G_calendarVisibleEndHour = 24;  // hour 1 – 24
+let G_calendarMinimumHours = 10; // minimum hours to show when hideEmptyTimespanInCalendar is enabled
 const vibrantRedColor = '#ff4444';
 let activeCheckboxIds = new Set();
 let STRATEGIES = {
@@ -4955,22 +4956,29 @@ function renderCalendar(days) {
             }
         }
 
-        // Fallback – if no timed content exists, show 8am to 8pm
+        // Fallback – if no timed content exists, center G_calendarMinimumHours around noon
         if (globalEarliestMs === 24 * MS_PER_HOUR) {
-            globalEarliestMs = 8 * MS_PER_HOUR;   // 8am
-            globalLatestMs   = 20 * MS_PER_HOUR;  // 8pm
+            const centerHour = 12; // noon
+            const halfSpan = Math.floor(G_calendarMinimumHours / 2);
+            globalEarliestMs = Math.max(0, centerHour - halfSpan) * MS_PER_HOUR;
+            globalLatestMs = Math.min(24, centerHour + halfSpan) * MS_PER_HOUR;
         }
 
-        // Convert to hours and expand by ±1 hour (bounded 0-24)
+        // Convert to hours and expand by 1 hour (bounded 0-24)
         let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
         let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + 1);
 
-        // Ensure span is at least 12 hours
-        if (latestHour - earliestHour < 12) {
-            const missing = 12 - (latestHour - earliestHour);
+        // Ensure span is at least G_calendarMinimumHours hours
+        while (latestHour - earliestHour < G_calendarMinimumHours) {
+            const missing = G_calendarMinimumHours - (latestHour - earliestHour);
             const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
             earliestHour -= expandStart;
             latestHour = Math.min(24, latestHour + (missing - expandStart));
+            
+            // Safety check to prevent infinite loop
+            if (earliestHour === 0 && latestHour === 24) {
+                break;
+            }
         }
 
         G_calendarVisibleStartHour = earliestHour;
@@ -9493,9 +9501,9 @@ function getAuthHeaders() {
     ASSERT(type(token, Union(NonEmptyString, NULL)));
 
     if (token === NULL) {
-        headers['Authorization'] = `Bearer ${token}`;
-    } else {
         headers['Authorization'] = 'Bearer notSignedIn';
+    } else {
+        headers['Authorization'] = 'Bearer ' + token;
     }
     
     return headers;
@@ -10468,7 +10476,7 @@ function processInput() {
             // No files - run draft and main request in parallel
             let mainStartTime = Date.now();
             let idsOfNewDraftEntities = null;
-            
+
             // Start draft request
             const draftPromise = draftAiRequest(userTextWithDateInformation, chain);
             
