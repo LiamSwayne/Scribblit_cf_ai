@@ -201,6 +201,8 @@ async function handlePaymentSucceeded(invoice, env) {
     try {
         const customerId = invoice.customer;
         const paymentTime = invoice.status_transitions?.paid_at * 1000; // Convert to milliseconds
+        const amountInCents = invoice.amount_paid;
+        const dollarAmount = amountInCents / 100; // Convert cents to dollars
         
         // Get user by customer ID
         const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_account_id = ?')
@@ -211,24 +213,25 @@ async function handlePaymentSucceeded(invoice, env) {
             return;
         }
 
-        // Update payment times
-        let paymentTimes = [];
+        // Update payment times as dict of unix timestamp to dollar amount
+        let paymentTimes = {};
         if (user.payment_times) {
             try {
                 paymentTimes = JSON.parse(user.payment_times);
             } catch (e) {
                 console.error('Error parsing payment times:', e);
+                paymentTimes = {};
             }
         }
         
         if (paymentTime) {
-            paymentTimes.push(paymentTime);
+            paymentTimes[paymentTime.toString()] = dollarAmount;
         }
 
         await env.DB.prepare('UPDATE users SET payment_times = ? WHERE user_id = ?')
             .bind(JSON.stringify(paymentTimes), user.user_id).run();
 
-        console.log(`Updated payment times for user ${user.user_id}`);
+        console.log(`Updated payment times for user ${user.user_id}: $${dollarAmount}`);
     } catch (error) {
         console.error('Error handling payment succeeded:', error);
     }
@@ -239,7 +242,7 @@ async function handlePaymentFailed(invoice, env) {
         const customerId = invoice.customer;
         
         // Get user by customer ID
-        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_customer_id = ?')
+        const user = await env.DB.prepare('SELECT * FROM users WHERE stripe_account_id = ?')
             .bind(customerId).first();
         
         if (!user) {
@@ -247,8 +250,8 @@ async function handlePaymentFailed(invoice, env) {
             return;
         }
 
-        // For payment failures, we might want to send an email or notification
-        // For now, we'll just log it
+        // maybe email them? not really a problem since they just ended up not paying
+        // much smaller issue than accidentally paying
         console.log(`Payment failed for user ${user.user_id}`);
     } catch (error) {
         console.error('Error handling payment failed:', error);
