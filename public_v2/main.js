@@ -5504,7 +5504,6 @@ function initNumberOfCalendarDaysButton() {
         left: '50%',
         transform: 'translate(-50%, -50%)',
         fontSize: '14px',
-        fontWeight: 'bold',
         fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         zIndex: '12',
