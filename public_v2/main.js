@@ -7709,7 +7709,7 @@ function openProModal() {
             if (hasValidProAccess) {
                 const lastPaymentText = `${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()}`;
                 const validUntilText = `${validUntilDate.getMonth() + 1}/${validUntilDate.getDate()}/${validUntilDate.getFullYear()}`;
-                textContent = `You are not subscribed to Pro but have access to it until ${validUntilText}.\n\nLast payment date: ${lastPaymentText} ($${lastPaymentAmount})`;
+                textContent = `You are not subscribed to Pro but have access to it until ${validUntilText}.\n\Last payment: ${lastPaymentText} ($${lastPaymentAmount})`;
             } else {
                 textContent = `Used ${user.usage} of ${FREE_PLAN_USAGE_LIMIT} free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in. $2/month or $16/year.`;
             }
@@ -7720,15 +7720,15 @@ function openProModal() {
             const price = isMonthly ? '$2/month' : '$16/year';
             
             // Get last payment date and calculate next payment date
-            let lastPaymentText = 'Last payment date: N/A';
-            let nextPaymentText = 'Next payment date: N/A';
+            let lastPaymentText = 'Last payment: N/A';
+            let nextPaymentText = 'Next payment: N/A';
             
             if (user.paymentTimes && Object.keys(user.paymentTimes).length > 0) {
                 const paymentTimestamps = Object.keys(user.paymentTimes).map(Number);
                 const lastPaymentUnix = Math.max(...paymentTimestamps);
                 const lastPaymentDate = new Date(lastPaymentUnix);
                 const lastPaymentAmount = user.paymentTimes[lastPaymentUnix.toString()];
-                lastPaymentText = `Last payment date: ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()} ($${lastPaymentAmount})`;
+                lastPaymentText = `Last payment: ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()} ($${lastPaymentAmount})`;
                 
                 // Calculate next payment date
                 const nextPaymentDate = new Date(lastPaymentDate);
@@ -7737,7 +7737,7 @@ function openProModal() {
                 } else {
                     nextPaymentDate.setFullYear(nextPaymentDate.getFullYear() + 1);
                 }
-                nextPaymentText = `Next payment date: ${nextPaymentDate.getMonth() + 1}/${nextPaymentDate.getDate()}/${nextPaymentDate.getFullYear()}`;
+                nextPaymentText = `Next payment: ${nextPaymentDate.getMonth() + 1}/${nextPaymentDate.getDate()}/${nextPaymentDate.getFullYear()}`;
             }
             
             textContent = `You are currently subscribed to Pro and paying ${price}.\n\n${lastPaymentText}\n${nextPaymentText}\n\nCancel any time and retain Pro for the rest of the period you paid for.`;
