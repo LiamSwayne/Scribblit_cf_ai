@@ -1314,52 +1314,41 @@ async function checkAndUpdateUsage(authHeader, env, strategy) {
     const paymentTimes = JSON.parse(userData.payment_times || '{}');
     const usage = userData.usage;
 
-    // Check usage limits based on plan
-    if (plan === 'free') {
+    // Check if user has valid pro access based on payment history
+    // This works even if they cancelled but are still within their paid period
+    let hasValidProAccess = false;
+    
+    if (plan === 'godmode') {
+        hasValidProAccess = true;
+    } else {
+        // Check payment history - deduce subscription type from amount
+        const now = Date.now();
+        
+        for (const [paymentTimeStr, amount] of Object.entries(paymentTimes)) {
+            const paymentTime = parseInt(paymentTimeStr);
+            const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
+            
+            // Deduce subscription type from payment amount
+            if (amount === 2.00 && daysSincePayment <= 31) {
+                // Monthly subscription still valid
+                hasValidProAccess = true;
+                break;
+            } else if (amount === 16.00 && daysSincePayment <= 366) {
+                // Annual subscription still valid
+                hasValidProAccess = true;
+                break;
+            }
+        }
+    }
+    
+    // If no valid pro access, check free plan limits
+    if (!hasValidProAccess) {
         if (usage >= FREE_PLAN_USAGE_LIMIT) {
             return SEND({ 
                 error: 'Usage limit exceeded for free plan (' + FREE_PLAN_USAGE_LIMIT + ' requests). Please upgrade to continue using the service.',
                 usageExceeded: true 
             }, 470);
         }
-    } else if (plan === 'pro-monthly') {
-        // Check if payment was made within last 31 days
-        const now = Date.now();
-        const paymentTimestamps = Object.keys(paymentTimes).map(Number);
-        const hasValidPayment = paymentTimestamps.some(paymentTime => {
-            const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
-            return daysSincePayment <= 31;
-        });
-        
-        if (!hasValidPayment) {
-            return SEND({ 
-                error: 'Pro-monthly subscription expired. Please renew your subscription to continue using the service.',
-                subscriptionExpired: true 
-            }, 471);
-        }
-    } else if (plan === 'pro-annually') {
-        // Check if payment was made within last 366 days
-        const now = Date.now();
-        const paymentTimestamps = Object.keys(paymentTimes).map(Number);
-        const hasValidPayment = paymentTimestamps.some(paymentTime => {
-            const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
-            return daysSincePayment <= 366;
-        });
-        
-        if (!hasValidPayment) {
-            return SEND({ 
-                error: 'Pro-annually subscription expired. Please renew your subscription to continue using the service.',
-                subscriptionExpired: true 
-            }, 472);
-        }
-    } else if (plan === 'godmode') {
-        // Godmode has no limits
-    } else {
-        // Unknown plan - return error
-        return SEND({ 
-            error: 'Unknown plan type: ' + plan + '. Please contact support.',
-            unknownPlan: true 
-        }, 473);
     }
 
     // If we get here, usage is allowed. Update usage count.

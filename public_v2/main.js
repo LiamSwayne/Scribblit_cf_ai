@@ -7478,7 +7478,45 @@ function openProModal() {
         // Generate text content based on user's plan
         let textContent = '';
         if (user.plan === 'free') {
-            textContent = `Used ${user.usage} of ${FREE_PLAN_USAGE_LIMIT} free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in. $2/month or $16/year.`;
+            // Check if user has valid pro access despite being on free plan (cancelled but still within paid period)
+            let hasValidProAccess = false;
+            let validUntilDate = null;
+            let lastPaymentDate = null;
+            let lastPaymentAmount = null;
+            
+            if (user.paymentTimes && Object.keys(user.paymentTimes).length > 0) {
+                const now = Date.now();
+                
+                for (const [paymentTimeStr, amount] of Object.entries(user.paymentTimes)) {
+                    const paymentTime = parseInt(paymentTimeStr);
+                    const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
+                    
+                    // Deduce subscription type from payment amount
+                    if (amount === 2.00 && daysSincePayment <= 31) {
+                        // Monthly subscription still valid
+                        hasValidProAccess = true;
+                        validUntilDate = new Date(paymentTime + (31 * 24 * 60 * 60 * 1000));
+                        lastPaymentDate = new Date(paymentTime);
+                        lastPaymentAmount = amount;
+                        break;
+                    } else if (amount === 16.00 && daysSincePayment <= 366) {
+                        // Annual subscription still valid
+                        hasValidProAccess = true;
+                        validUntilDate = new Date(paymentTime + (366 * 24 * 60 * 60 * 1000));
+                        lastPaymentDate = new Date(paymentTime);
+                        lastPaymentAmount = amount;
+                        break;
+                    }
+                }
+            }
+            
+            if (hasValidProAccess) {
+                const lastPaymentText = `${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()}`;
+                const validUntilText = `${validUntilDate.getMonth() + 1}/${validUntilDate.getDate()}/${validUntilDate.getFullYear()}`;
+                textContent = `You are not subscribed to Pro but have access to it until ${validUntilText}.\n\nLast payment date: ${lastPaymentText} ($${lastPaymentAmount})`;
+            } else {
+                textContent = `Used ${user.usage} of ${FREE_PLAN_USAGE_LIMIT} free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in. $2/month or $16/year.`;
+            }
         } else if (user.plan === 'godmode') {
             textContent = 'You have godmode enabled. You have access to Pro at no cost.';
         } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
