@@ -5167,15 +5167,23 @@ function renderCalendar(days) {
 
         // Ensure span is at least G_calendarMinimumHours hours
         while (latestHour - earliestHour < G_calendarMinimumHours) {
-            const missing = G_calendarMinimumHours - (latestHour - earliestHour);
-            const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
-            earliestHour -= expandStart;
-            latestHour = Math.min(24, latestHour + (missing - expandStart));
-            
-            // Safety check to prevent infinite loop
+            // Safety check to prevent infinite loop - if we're already at maximum span, break
             if (earliestHour === 0 && latestHour === 24) {
                 break;
             }
+            
+            const missing = G_calendarMinimumHours - (latestHour - earliestHour);
+            const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
+            const newEarliestHour = earliestHour - expandStart;
+            const newLatestHour = Math.min(24, latestHour + (missing - expandStart));
+            
+            // If we can't expand further (values don't change), break to prevent infinite loop
+            if (newEarliestHour === earliestHour && newLatestHour === latestHour) {
+                break;
+            }
+            
+            earliestHour = newEarliestHour;
+            latestHour = newLatestHour;
         }
 
         G_calendarVisibleStartHour = earliestHour;
