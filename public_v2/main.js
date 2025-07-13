@@ -17,6 +17,7 @@ for (const font of fontDefinitions) {
 }
 
 async function loadFonts() {
+    log('loadFonts called');
     const fontPromises = fontDefinitions.map(async (fontDef) => {
         let cachedBase64 = preservedFontCss[fontDef.key];
         if (cachedBase64) {
@@ -305,6 +306,7 @@ const FREE_PLAN_USAGE_LIMIT = 100;
 
 // Save user data to localStorage and server
 async function saveUserData(user) {  
+    log('saveUserData called');
     return;
     ASSERT(exists(user), "no user passed to saveUserData");
     ASSERT(type(user, User));
@@ -374,6 +376,7 @@ async function saveUserData(user) {
 
 // Load user data from localStorage and server, returns a User object
 async function loadUserData() {
+    log('loadUserData called');
     return User.createDefault();
     if (LocalData.get('signedIn')) {
         try {
@@ -506,6 +509,7 @@ let userPromise = loadUserData();
 let user;
 
 function hexToRgb(hex) {
+    log('hexToRgb called');
     ASSERT(type(hex, String));
     ASSERT((hex.startsWith('#') && hex.length === 7 ) || hex.length === 6, "Invalid hex color: " + hex);
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -518,6 +522,7 @@ function hexToRgb(hex) {
 }
 
 function formatTaskTime(time, fontSize, colonColor) {
+    log('formatTaskTime called');
     ASSERT(type(time, TimeField));
     ASSERT(type(user, User));
     ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24');
@@ -543,6 +548,7 @@ function formatTaskTime(time, fontSize, colonColor) {
 
 // returns today's ISO date or the date offset from today by the given number of days
 function getDayNDaysFromToday(offset) {
+    log('getDayNDaysFromToday called');
     ASSERT(type(offset, Int) && offset >= 0 && offset < 7);
     let dt = DateTime.local();
     if (offset > 0) {
@@ -555,6 +561,7 @@ function getDayNDaysFromToday(offset) {
 let entityArray = [];
 
 function createFakeEntityArray() {
+    log('createFakeEntityArray called');
     const baseDate = DateTime.local(); // Use a single base for all calculations
     const today = new DateField(baseDate.year, baseDate.month, baseDate.day);
 
@@ -1463,6 +1470,7 @@ if (TESTING) {
 }
 
 function applyPalette(palette) {
+    log('applyPalette called');
     ASSERT(type(palette, Dict(String, List(String))));
     const root = document.documentElement;
     palette.shades.forEach((shade, index) => {
@@ -1479,6 +1487,7 @@ function applyPalette(palette) {
 }
 
 function addFakeEntitiesToUser() {
+    log('addFakeEntitiesToUser called');
     ASSERT(type(user, User));
     ASSERT(LocalData.get('signedIn'), "addFakeEntitiesToUser: user is not signed in");
     user.entityArray.push(...createFakeEntityArray());
@@ -1509,6 +1518,7 @@ const proModalZIndex = 7001; // below pro button elements // highest element in 
 
 // Calendar navigation functions
 function navigateCalendar(direction, shiftHeld = false) {
+    log('navigateCalendar called');
     ASSERT(type(direction, String));
     ASSERT(direction === 'left' || direction === 'right');
     ASSERT(type(shiftHeld, Boolean));
@@ -1594,6 +1604,7 @@ let inputBoxPlaceHolderWithAttachedFiles = "You can send a request to the backen
 let goalPlaceholderText = inputBoxDefaultPlaceholder;
 let currentlyRunningPlaceholderAnimation = false;
 async function updateInputBoxPlaceholder(goalText) {
+    log('updateInputBoxPlaceholder called');
     ASSERT(type(goalText, String));
     goalPlaceholderText = goalText;
 
@@ -1631,6 +1642,7 @@ async function updateInputBoxPlaceholder(goalText) {
 }
 
 function updateAttachmentBadge() {
+    log('updateAttachmentBadge called');
     const badgeId = 'attachmentBadge';
     const inputBox = HTML.getElementUnsafely('inputBox');
     if (!exists(inputBox)) return;
@@ -1673,6 +1685,7 @@ function updateAttachmentBadge() {
 }
 
 function initDragAndDrop() {
+    log('initDragAndDrop called');
     const dropTarget = document.body;
 
     // TODO: add overlay
@@ -1756,6 +1769,7 @@ document.addEventListener('mousemove', (e) => {
 
 // Function to clean up all hover overlay elements
 function cleanupAllHoverOverlays() {
+    log('cleanupAllHoverOverlays called');
     // Clean up all border and text overlays that might be left behind
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
         for (let segmentIndex = 0; segmentIndex < 50; segmentIndex++) { // Arbitrary high number
@@ -1774,6 +1788,7 @@ function cleanupAllHoverOverlays() {
 
 // Function to restore hover state for element under mouse
 function restoreHoverState() {
+    log('restoreHoverState called');
     // Small delay to ensure render is complete
     setTimeout(() => {
         const elementUnderMouse = document.elementFromPoint(lastMouseX, lastMouseY);
@@ -1788,6 +1803,7 @@ function restoreHoverState() {
 
 // Initialize global shift key tracking
 function initGlobalShiftKeyTracking() {
+    log('initGlobalShiftKeyTracking called');
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Shift' && !G_shiftKeyState.isHeld) {
             G_shiftKeyState.isHeld = true;
@@ -1804,11 +1820,13 @@ function initGlobalShiftKeyTracking() {
 }
 
 function registerShiftKeyCallback(callback) {
+    log('registerShiftKeyCallback called');
     G_shiftKeyState.callbacks.push(callback);
 }
 
 // the current days to display
 function currentDays() {
+    log('currentDays called');
     // firstDayInCalendar must be DateField
     if (firstDayInCalendar == NULL) {
         firstDayInCalendar = getDayNDaysFromToday(0);
@@ -1832,6 +1850,7 @@ function currentDays() {
 // returns today, yesterday, tomorrow, or the day of the week
 // 'day' must be an ISO date string in 'YYYY-MM-DD' format
 function dayOfWeekOrRelativeDay(day) {
+    log('dayOfWeekOrRelativeDay called');
     ASSERT(type(day, DateField));
     // Convert to DateTime for comparison
     let date = DateTime.local(day.year, day.month, day.day);
@@ -1925,6 +1944,7 @@ let HTML = new class HTMLroot {
 
     // function to cleanly apply styles to an element
     setStyle(element, styles) {
+        log('setStyle called');
         ASSERT(exists(element), "HTML.setStyle: element is undefined or null");
         ASSERT(type(styles, Dict(String, String)), "HTML.setStyle: styles is not a dictionary of strings to string");
         ASSERT(Object.keys(styles).length > 0);
@@ -2036,6 +2056,7 @@ HTML.body.appendChild(logo);
 const logoHeight = 22.15; // i measured it
 
 function toggleCheckbox(checkboxElement, onlyRendering) {
+    log('toggleCheckbox called');
     let isChecked = HTML.getData(checkboxElement, 'IS_CHECKED');
     ASSERT(type(isChecked, Boolean));
     ASSERT(type(onlyRendering, Boolean));
@@ -2196,6 +2217,7 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
 
 // quick function to know whether a section color should be white for active or grey for inactive
 function updateTaskSectionNames(onlyRendering) {
+    log('updateTaskSectionNames called');
     ASSERT(type(onlyRendering, Boolean), "onlyRendering is not a boolean");
     let activeColor = 'var(--shade-4)';
     let inactiveColor = 'var(--shade-3)';
@@ -2253,6 +2275,7 @@ let confettiAnimationCurrentlyPlaying = false;
 let lastClickedCheckbox = NULL;
 
 function playConfettiAnimation() {
+    log('playConfettiAnimation called');
     const checkboxBounds = lastClickedCheckbox.getBoundingClientRect();
     const centerX = checkboxBounds.left + checkboxBounds.width / 2;
     const centerY = checkboxBounds.top + checkboxBounds.height / 2;
@@ -2381,6 +2404,7 @@ function playConfettiAnimation() {
 
 // how many columns of calendar days plus the task list
 function numberOfColumns() {
+    log('numberOfColumns called');
     ASSERT(type(LocalData.get('stacking'), Boolean) && type(LocalData.get('numberOfDays'), Int));
     if (LocalData.get('stacking')) {
         return Math.floor(LocalData.get('numberOfDays') / 2) + 1;
@@ -2389,6 +2413,7 @@ function numberOfColumns() {
 }
 
 function nthHourText(n) {
+    log('nthHourText called');
     ASSERT(type(n, Int));
     ASSERT(0 <= n && n < 24, "nthHourText n out of range 0-23");
     ASSERT(type(user, User));
@@ -2418,6 +2443,7 @@ function nthHourText(n) {
 
 // Helper function to convert day of week string to Luxon weekday index (1-7, Mon-Sun)
 function dayOfWeekStringToIndex(dayOfWeekString) {
+    log('dayOfWeekStringToIndex called');
     ASSERT(type(dayOfWeekString, DAY_OF_WEEK));
     switch (dayOfWeekString) {
         case 'monday': return 1;
@@ -2433,6 +2459,7 @@ function dayOfWeekStringToIndex(dayOfWeekString) {
 }
 
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
+    log('generateInstancesFromPattern called');
     ASSERT(type(instance, Union(RecurringTaskInstance, RecurringEventInstance, RecurringReminderInstance)));
     ASSERT(type(startUnix, Union(Int, NULL)));
     ASSERT(type(endUnix, Union(Int, NULL)));
@@ -2986,6 +3013,7 @@ class FilteredInstancesFactory {
 };
 
 function renderDay(day, index) {
+    log('renderDay called');
     ASSERT(type(day, DateField) && type(index, Int));
     
     // get unix start and end of day with user's offsets
@@ -3138,6 +3166,7 @@ function renderDay(day, index) {
 // the extra DOM elements are removed. For the remaining (or newly created) elements, 
 // their content/style is updated to reflect the current all-day instances.
 function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementActualTop, dayElemLeft, day) {
+    log('renderAllDayInstances called');
     ASSERT(type(allDayInstances, List(FilteredAllDayInstance)));
     ASSERT(type(dayIndex, Int));
     ASSERT(type(colWidth, Number));
@@ -3275,6 +3304,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
 }
 
 function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft, dayStartUnix, dayEndUnix) {
+    log('renderSegmentOfDayInstances called');
     ASSERT(type(segmentInstances, List(FilteredSegmentOfDayInstance)));
     ASSERT(type(dayIndex, Int));
     ASSERT(type(colWidth, Number));
@@ -3611,6 +3641,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
 const G_animationFrameMap = new Map();
 
 function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, timedAreaHeight) {
+    log('updateStackPositions called');
     ASSERT(type(dayIndex, Int) && type(groupIndex, Int) && type(isHovering, Boolean));
     ASSERT(type(timedAreaTop, Number) && type(timedAreaHeight, Number));
 
@@ -3653,6 +3684,7 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
     const baseAnimationTop = parseFloat(primaryTextElement.style.top);
 
     function animationLoop() {
+        log('animationLoop called');
         let anyChanges = false;
         
         for (let stackIndex = 1; stackIndex < groupLength; stackIndex++) {
@@ -3710,6 +3742,7 @@ function updateStackPositions(dayIndex, groupIndex, isHovering, timedAreaTop, ti
 }
 
 function handleReminderDragMove(e) {
+    log('handleReminderDragMove called');
     if (!G_reminderDragState.isDragging) return;
     
     e.preventDefault();
@@ -3910,6 +3943,7 @@ function handleReminderDragMove(e) {
 }
 
 function handleReminderDragEnd(e) {
+    log('handleReminderDragEnd called');
     if (!G_reminderDragState.isDragging) return;
     
     e.preventDefault();
@@ -4021,6 +4055,7 @@ function handleReminderDragEnd(e) {
 }
 
 function handleReminderDragCancel(e) {
+    log('handleReminderDragCancel called');
     if (e.key !== 'Escape' || !G_reminderDragState.isDragging) return;
     
     e.preventDefault();
@@ -4075,6 +4110,7 @@ function handleReminderDragCancel(e) {
 
 // New function to render reminder instances
 function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAreaTop, timedAreaHeight, dayElemLeft, dayStartUnix, dayEndUnix) {
+    log('renderReminderInstances called');
     ASSERT(type(reminderInstances, List(FilteredReminderInstance)));
     ASSERT(type(dayIndex, Int));
     ASSERT(type(colWidth, Number));
@@ -4108,6 +4144,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
     }
 
     function getReminderElementsFromIndex(dayIdx, grpIdx, stackSize) {
+        log('getReminderElementsFromIndex called');
         ASSERT(type(dayIdx, Int));
         ASSERT(type(grpIdx, Int));
         ASSERT(type(stackSize, Int));
@@ -4935,6 +4972,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 let topOfCalendarDay = 20; // px
 
 function getDayColumnDimensions(dayIndex) {    
+    log('getDayColumnDimensions called');
     const numberOfDays = LocalData.get('numberOfDays');
     const isStacking = LocalData.get('stacking');
     ASSERT(type(dayIndex, Int) && dayIndex >= 0 && dayIndex < numberOfDays);
@@ -4965,6 +5003,7 @@ function getDayColumnDimensions(dayIndex) {
 }
 
 function renderCalendar(days) {
+    log('renderCalendar called');
     const numberOfDays = LocalData.get('numberOfDays');
     const isStacking = LocalData.get('stacking');
 
@@ -5209,6 +5248,7 @@ function renderCalendar(days) {
 }
 
 function renderDividers() {
+    log('renderDividers called');
     // 1. Cleanup old dividers
     let hDivider = HTML.getElementUnsafely('horizontal-divider');
     if (exists(hDivider)) hDivider.remove();
@@ -5351,6 +5391,7 @@ function renderDividers() {
 }
 
 function toggleNumberOfCalendarDays(increment, shiftHeld = false) {
+    log('toggleNumberOfCalendarDays called');
     const currentDays = LocalData.get('numberOfDays');
     ASSERT(type(currentDays, Int));
     ASSERT(1 <= currentDays && currentDays <= 7);
@@ -5397,6 +5438,7 @@ function toggleNumberOfCalendarDays(increment, shiftHeld = false) {
 }
 
 function initNumberOfCalendarDaysButton() {
+    log('initNumberOfCalendarDaysButton called');
     // Track hover state for top and bottom halves
     let isHoveringTop = false;
     let isHoveringBottom = false;
@@ -5673,6 +5715,7 @@ function initNumberOfCalendarDaysButton() {
 }
 
 function toggleAmPmOr24(formatSelection) {
+    log('toggleAmPmOr24 called');
     ASSERT(type(user.settings.ampmOr24, String));
     ASSERT(user.settings.ampmOr24 == 'ampm' || user.settings.ampmOr24 == '24');
     ASSERT(formatSelection == '24hr' || formatSelection == 'AM/PM');
@@ -5783,6 +5826,7 @@ function toggleAmPmOr24(formatSelection) {
 }
 
 async function toggleHidingEmptyTimespanInCalendar(enabled) {
+    log('toggleHidingEmptyTimespanInCalendar called');
     ASSERT(type(enabled, Boolean), "toggleHidingEmptyTimespanInCalendar: enabled must be boolean");
     if (!exists(user.settings)) {
         user.settings = {};
@@ -5794,6 +5838,7 @@ async function toggleHidingEmptyTimespanInCalendar(enabled) {
 }
 
 function toggleStacking() {
+    log('toggleStacking called');
     ASSERT(type(LocalData.get('stacking'), Boolean));
     LocalData.set('stacking', !LocalData.get('stacking'));
     // Note: No need to save user data since stacking is LocalData (device-specific)
@@ -5802,6 +5847,7 @@ function toggleStacking() {
 }
 
 function initStackingButton() {
+    log('initStackingButton called');
     // Stacking button container
     let stackingButton = HTML.make('div');
     HTML.setId(stackingButton, 'stackingButton');
@@ -5902,6 +5948,7 @@ function initStackingButton() {
 
 let currentMin = NULL;
 function renderTimeIndicator(onSchedule) {
+    log('renderTimeIndicator called');
     ASSERT(type(onSchedule, Boolean));
     // if render is called it could be for any reason, so we want to update
     // but if this is being called on a schedule (every second), we may not need to update
@@ -6060,6 +6107,7 @@ function renderTimeIndicator(onSchedule) {
  }
 
 function renderInputBox() {
+    log('renderInputBox called');
     let inputBox = HTML.getElementUnsafely('inputBox');
 
     if (!exists(inputBox)) {
@@ -6265,6 +6313,7 @@ function renderInputBox() {
 
 // are there any incomplete tasks in the range?
 function hasIncompleteTasksInRange(startUnix, endUnix) {
+    log('hasIncompleteTasksInRange called');
     ASSERT(type(startUnix, Int));
     ASSERT(type(endUnix, Int));
 
@@ -6279,6 +6328,7 @@ function hasIncompleteTasksInRange(startUnix, endUnix) {
 }
 
 function getTasksInRange(startUnix, endUnix) {
+    log('getTasksInRange called');
     ASSERT(type(startUnix, Int));
     ASSERT(type(endUnix, Int));
 
@@ -6340,6 +6390,7 @@ function getTasksInRange(startUnix, endUnix) {
 let totalRenderedTaskCount = 0;
 
 function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, taskListTop, taskHeight, spaceForTaskDateAndTime, taskListContainer) {
+    log('renderTaskDueDateInfo called');
     ASSERT(type(task, Object));
     ASSERT(type(taskIndex, Int));
     ASSERT(type(taskTopPosition, Number));
@@ -6516,6 +6567,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
 }
 
 function renderTaskListSection(section, index, currentTop, taskListLeft, taskListTop, taskListWidth, sectionHeaderHeight, taskHeight, separatorHeight, numberOfSections) {
+    log('renderTaskListSection called');
     const taskListContainer = HTML.getElement('taskListContainer');
     const headerId = `taskListHeader-${section.name}`;
     let headerEl = HTML.getElementUnsafely(headerId);
@@ -6860,6 +6912,7 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
 // whenever the input box is at max height and can scroll.
 // "instant" controls whether the opacity transition is animated.
 function updateInputBoxGradients(instant) {
+    log('updateInputBoxGradients called');
     ASSERT(type(instant, Boolean));
 
     const inputBox = HTML.getElementUnsafely('inputBox');
@@ -6951,6 +7004,7 @@ function updateInputBoxGradients(instant) {
 // in stacking mode) whenever the task-list content overflows its viewport.
 // "instant" controls whether the opacity transition is animated.
 function updateTaskListBottomGradient(instant) {
+    log('updateTaskListBottomGradient called');
     ASSERT(type(instant, Boolean));
 
     ASSERT(type(taskListManualHeightAdjustment, Number));
@@ -7006,6 +7060,7 @@ function updateTaskListBottomGradient(instant) {
 }
 
 function renderTaskList() {
+    log('renderTaskList called');
     // Instead of removing all elements, we'll hide them first and show/reuse as needed
     for (let i = 0; i < totalRenderedTaskCount; i++) {
         const taskElementId = `task-${i}`;
@@ -7158,6 +7213,7 @@ function renderTaskList() {
 }
 
 function updateSettingsTextPosition() {
+    log('updateSettingsTextPosition called');
     // Only update if settings modal is open and elements exist
     if (!settingsModalOpen || settingsModalHeight === NULL) return;
     
@@ -7178,6 +7234,7 @@ function updateSettingsTextPosition() {
 }
 
 function render() {
+    log('render called');
     columnWidth = ((window.innerWidth - (2*windowBorderMargin) - gapBetweenColumns*(numberOfColumns() - 1)) / numberOfColumns()); // 1 fewer gaps than columns
     ASSERT(!isNaN(columnWidth), "columnWidth must be a float");
     renderCalendar(currentDays());
@@ -7193,6 +7250,7 @@ function render() {
 window.onresize = render;
 
 async function init() {
+    log('init called');
     // Check for OAuth callback parameters
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
@@ -7275,6 +7333,7 @@ async function init() {
 
 // Grid Background with Cursor Fade Effect
 function initGridBackground() {
+    log('initGridBackground called');
     // Create the grid background element
     const gridBackground = HTML.make('div');
     gridBackground.id = 'grid-background';
@@ -7315,6 +7374,7 @@ function initGridBackground() {
     let vignetteRadius = 2000; // Start with a very large radius (effectively no vignette)
     
     function updateGridMask(x, y, targetRadius = 200) {
+        log('updateGridMask called');
         mouseX = x;
         mouseY = y;
         const maskX = (x / window.innerWidth) * 100;
@@ -7331,11 +7391,13 @@ function initGridBackground() {
     }
     
     function animateVignetteRadius(targetRadius) {
+        log('animateVignetteRadius called');
         const startRadius = vignetteRadius;
         const startTime = performance.now();
         const duration = 500; // 500ms animation
         
         function animate(currentTime) {
+            log('animate called');
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
             
@@ -7360,11 +7422,13 @@ function initGridBackground() {
     }
     
     function fadeGridIn() {
+        log('fadeGridIn called');
         mouseInWindow = true;
         gridBackground.style.opacity = '1';
     }
     
     function fadeGridOut() {
+        log('fadeGridOut called');
         mouseInWindow = false;
         gridBackground.style.opacity = '0';
     }
@@ -7411,6 +7475,7 @@ let proModalAnimating = false;
 let proModalMutex = false; // Prevents concurrent execution of openProModal and closeProModal
 
 async function handleUpgradeButtonClick(actionButton) {
+    log('handleUpgradeButtonClick called');
     try {
         // Show loading state
         actionButton.textContent = 'loading...';
@@ -7445,6 +7510,7 @@ async function handleUpgradeButtonClick(actionButton) {
 }
 
 async function handleCancelButtonClick(actionButton) {
+    log('handleCancelButtonClick called');
     try {
         // Show loading state
         actionButton.textContent = 'loading...';
@@ -7477,6 +7543,7 @@ async function handleCancelButtonClick(actionButton) {
 }
 
 function openProModal() {
+    log('openProModal called');
     // Check mutex first - if either function is running, return early
     if (proModalMutex) return;
     if (proModalOpen || proModalAnimating || exists(HTML.getElementUnsafely('proModal'))) return;
@@ -7743,6 +7810,7 @@ function openProModal() {
 }
 
 function closeProModal() {
+    log('closeProModal called');
     // Check mutex first - if either function is running, return early
     if (proModalMutex) return;
     if (!proModalOpen || proModalAnimating) return;
@@ -7816,6 +7884,7 @@ function closeProModal() {
 }
 
 function toggleSettings() {
+    log('toggleSettings called');
     if (settingsModalOpen) {
         closeSettingsModal();
     } else {
@@ -7824,6 +7893,7 @@ function toggleSettings() {
 }
 
 function openSettingsModal() {
+    log('openSettingsModal called');
     if (settingsModalOpen || exists(HTML.getElementUnsafely('settingsModal'))) return;
     settingsModalOpen = true;
     
@@ -8345,6 +8415,7 @@ function openSettingsModal() {
 
 // Animated typing effect for "Settings" text
 async function animateSettingsText(textElement) {
+    log('animateSettingsText called');
     const text = "Settings";
     const cursor = '\u2588'; // Unicode full block character
     
@@ -8387,6 +8458,7 @@ async function animateSettingsText(textElement) {
 }
 
 function closeSettingsModal() {
+    log('closeSettingsModal called');
     if (!settingsModalOpen) return;
     settingsModalOpen = false;
     
@@ -8552,6 +8624,7 @@ function closeSettingsModal() {
 }
 
 function toggleSignIn() {
+    log('toggleSignIn called');
     if (signInModalOpen) {
         closeSignInModal();
     } else {
@@ -8560,6 +8633,7 @@ function toggleSignIn() {
 }
 
 function openSignInModal() {
+    log('openSignInModal called');
     if (signInModalOpen || exists(HTML.getElementUnsafely('signInModal'))) return;
     signInModalOpen = true;
 
@@ -8660,6 +8734,7 @@ function openSignInModal() {
 }
 
 function slideSignInButtonOffScreen() {
+    log('slideSignInButtonOffScreen called');
     // Warp (genie) effect: button is pulled toward the settings gear while being vertically squished
     const signInButton = HTML.getElementUnsafely('signInButton');
     if (!signInButton) return;
@@ -8701,6 +8776,7 @@ function slideSignInButtonOffScreen() {
 }
 
 function animateGearSpin() {
+    log('animateGearSpin called');
     const gearIcon = HTML.getElementUnsafely('gearIcon');
     if (!gearIcon) return;
     
@@ -8720,6 +8796,7 @@ function animateGearSpin() {
     const startTime = performance.now();
     
     function animateStep(currentTime) {
+        log('animateStep called');
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / animationDuration, 1);
         
@@ -8752,6 +8829,7 @@ function animateGearSpin() {
 }
 
 function closeSignInModal(slideButtonOffScreen = false) {
+    log('closeSignInModal called');
     if (!signInModalOpen) return;
     signInModalOpen = false;
     signInModalState = 'initial'; // Reset state when modal closes
@@ -8832,6 +8910,7 @@ function closeSignInModal(slideButtonOffScreen = false) {
 
 // Helper functions for sign-in modal state management
 function showEmailInputForm() {
+    log('showEmailInputForm called');
     // Add autofill style override for Chrome's autofill background (only insert once)
     if (!HTML.getElementUnsafely('autoFillOverrideStyle')) {
         const styleEl = HTML.make('style');
@@ -9073,6 +9152,7 @@ function showEmailInputForm() {
 }
 
 function showInitialButtons() {
+    log('showInitialButtons called');
     // Get modal position for content positioning
     const signInModal = HTML.getElement('signInModal');
     if (!signInModal) return;
@@ -9159,6 +9239,7 @@ function showInitialButtons() {
 }
 
 function handleBackButtonClick() {
+    log('handleBackButtonClick called');
     if (signInModalState === 'verification') {
         // Go back to email input form
         signInModalState = 'email_input';
@@ -9223,6 +9304,7 @@ function handleBackButtonClick() {
 }
 
 function signIn() {
+    log('signIn called');
     const emailInput = HTML.getElement('signInEmailInput');
     const passwordInput = HTML.getElement('signInPasswordInput');
 
@@ -9275,6 +9357,7 @@ function signIn() {
 }
 
 async function signUp() {
+    log('signUp called');
     const emailInput = HTML.getElement('signInEmailInput');
     const passwordInput = HTML.getElement('signInPasswordInput');
     const email = emailInput.value;
@@ -9470,6 +9553,7 @@ async function signUp() {
 }
 
 async function verifyEmail() {
+    log('verifyEmail called');
     const emailInput = HTML.getElement('signInEmailInput');
     const email = emailInput.value;
     
@@ -9529,6 +9613,7 @@ async function verifyEmail() {
 }
 
 function logout() {
+    log('logout called');
     // Clear authentication data
     LocalData.set('signedIn', false);
     LocalData.set('token', NULL);
@@ -9562,6 +9647,7 @@ function logout() {
 
 // Helper function to measure text width
 function measureTextWidth(text, font, fontSize) {
+    log('measureTextWidth called');
     ASSERT(type(text, String));
     ASSERT(type(font, String));
     ASSERT(type(fontSize, Number));
@@ -9587,6 +9673,7 @@ function measureTextWidth(text, font, fontSize) {
 }
 
 function getAuthHeaders() {
+    log('getAuthHeaders called');
     const token = LocalData.get('token');
     const headers = { 'Content-Type': 'application/json' };
     ASSERT(type(token, Union(NonEmptyString, NULL)));
@@ -9601,6 +9688,7 @@ function getAuthHeaders() {
 }
 
 async function handleBackendError(response, context = '') {
+    log('handleBackendError called');
     let errorMessage = '';
     let errorData = null;
     
@@ -9660,6 +9748,7 @@ async function handleBackendError(response, context = '') {
 }
 
 function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
+    log('extractJsonFromAiOutput called');
     ASSERT(exists(aiOutput));
     ASSERT(type(chain, Union(Chain, NULL)));
     ASSERT(type(outermostJsonCharacters, String));
@@ -9728,6 +9817,7 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
 }
 
 function mergeEntities(entityArray, chain) {
+    log('mergeEntities called');
     ASSERT(type(entityArray, List(Entity)));
 
     // Group entities by type
@@ -9842,6 +9932,7 @@ function mergeEntities(entityArray, chain) {
 }
 
 async function singleChainAiRequest(inputText, fileArray, chain) {
+    log('singleChainAiRequest called');
     // If the request has no attached files, skip marking tasks due today or yesterday as complete.
     const excludeWithinDaysForPastComplete = (fileArray && fileArray.length === 0) ? 1 : 0;
 
@@ -9950,6 +10041,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
 }
 
 async function oneShotAiRequest(inputText, fileArray, chain) {
+    log('oneShotAiRequest called');
     // If the request has no attached files, skip marking tasks due today or yesterday as complete.
     const excludeWithinDaysForPastComplete = (fileArray && fileArray.length === 0) ? 1 : 0;
 
@@ -10050,6 +10142,7 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
 }
 
 async function draftAiRequest(inputText, chain) {
+    log('draftAiRequest called');
     // Draft never has files, so always skip marking tasks due today or yesterday as complete.
     const excludeWithinDaysForPastComplete = 1;
 
@@ -10142,6 +10235,7 @@ async function draftAiRequest(inputText, chain) {
 }
 
 async function stepByStepAiRequest(inputText, fileArray, chain) {
+    log('stepByStepAiRequest called');
     // Step 1: Get simplified entities
     const response1 = await fetch('https://' + SERVER_DOMAIN + '/ai/parse', {
         method: 'POST',
@@ -10480,6 +10574,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
 
 // Process input when Enter key is pressed
 function processInput() {
+    log('processInput called');
     const inputBox = HTML.getElement('inputBox');
     
     const inputText = inputBox.value.trim();
@@ -10633,6 +10728,7 @@ function processInput() {
 
 // Format entity titles using AI
 async function formatEntityTitles(entityIds, descriptionOfFiles, fileArray) {
+    log('formatEntityTitles called');
     ASSERT(type(entityIds, List(String)), "formatEntityTitles: entityIds must be a list of strings");
     ASSERT(type(descriptionOfFiles, String), "formatEntityTitles: descriptionOfFiles must be a string");
     ASSERT(exists(fileArray), "formatEntityTitles: fileArray must be provided");
@@ -10761,6 +10857,7 @@ async function formatEntityTitles(entityIds, descriptionOfFiles, fileArray) {
 
 // Creates a multiple choice selector with smooth transitions
 function createSelector(options, orientation, id, x, y, width, height, zIndex, font, fontSize, onSelectionChange, initialSelection, minWaitTime, alignmentSide) {
+    log('createSelector called');
     // Robust assertions
     ASSERT(type(options, List(String)), "createSelector: options must be a list of strings");
     ASSERT(options.length >= 2, "createSelector: must have at least 2 options");
@@ -11062,6 +11159,7 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
 
 // Deletes a selector and all its components
 function deleteSelector(id) {
+    log('deleteSelector called');
     ASSERT(type(id, NonEmptyString), "deleteSelector: id must be a non-empty string");
     
     const background = HTML.getElementUnsafely(id);
@@ -11107,6 +11205,7 @@ function deleteSelector(id) {
 
 // Creates a boolean toggle with smooth transitions
 function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onToggle, alignmentSide) {
+    log('createBooleanToggle called');
     ASSERT(type(id, NonEmptyString), "createBooleanToggle: id must be a non-empty string");
     ASSERT(type(x, Number), "createBooleanToggle: x must be a number");
     ASSERT(type(y, Number), "createBooleanToggle: y must be a number");
@@ -11194,6 +11293,7 @@ function createBooleanToggle(id, x, y, width, height, zIndex, initialState, onTo
 }
 
 function deleteBooleanToggle(id) {
+    log('deleteBooleanToggle called');
     ASSERT(type(id, NonEmptyString), "deleteBooleanToggle: id must be a non-empty string");
 
     const track = HTML.getElementUnsafely(id);
@@ -11221,6 +11321,7 @@ function deleteBooleanToggle(id) {
 }
 
 function initSettingsButton() {
+    log('initSettingsButton called');
     // Track base rotation that accumulates with each click
     let baseRotation = 0;
     // Track if gear animation is in progress
@@ -11333,6 +11434,7 @@ function initSettingsButton() {
 }
 
 function initSignInButton() {
+    log('initSignInButton called');
     // Only show sign-in button if user is not signed in
     if (LocalData.get('signedIn')) {
         return;
@@ -11398,6 +11500,7 @@ function initSignInButton() {
 
 // appears when user is signed in
 function initProButton(animateFromTop = false) {
+    log('initProButton called');
     // Prevent duplicate creation
     if (HTML.getElementUnsafely('proButton')) return;
 
@@ -11510,6 +11613,7 @@ function initProButton(animateFromTop = false) {
  }
 
 function initLeftNavigationButton() {
+    log('initLeftNavigationButton called');
     // Track hover state for this button
     let isHovering = false;
     
@@ -11614,6 +11718,7 @@ function initLeftNavigationButton() {
 }
 
 function initRightNavigationButton() {
+    log('initRightNavigationButton called');
     // Track hover state for this button
     let isHovering = false;
     
