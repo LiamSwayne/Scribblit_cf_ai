@@ -1465,7 +1465,7 @@ export default {
                                 0, // usage
                                 Date.now(), // timestamp
                                 'free', // plan
-                                '[]', // payment_times
+                                '{}', // payment_times
                                 '[]', // login_attempts
                                 'email', // provider
                                 password_hash,
