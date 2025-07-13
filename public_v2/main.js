@@ -373,6 +373,7 @@ async function saveUserData(user) {
 
 // Load user data from localStorage and server, returns a User object
 async function loadUserData() {
+    return User.createDefault();
     if (LocalData.get('signedIn')) {
         try {
             const token = LocalData.get('token');
