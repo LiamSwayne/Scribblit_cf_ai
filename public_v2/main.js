@@ -11762,4 +11762,3 @@ function initRightNavigationButton() {
 }
 
 init();
-//
