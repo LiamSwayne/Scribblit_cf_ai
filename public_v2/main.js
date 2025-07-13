@@ -5095,8 +5095,12 @@ function renderCalendar(days) {
             }
         }
 
+        // i think this section below is a bit of a hack and not well written, but i'm a hack fraud so sure this works
+
         // Fallback – if no timed content exists, center G_calendarMinimumHours around noon
+        let isFallback = false;
         if (globalEarliestMs === 24 * MS_PER_HOUR) {
+            isFallback = true;
             const centerHour = 12; // noon
             const halfSpan = Math.floor(G_calendarMinimumHours / 2);
             globalEarliestMs = Math.max(0, centerHour - halfSpan) * MS_PER_HOUR;
@@ -5104,8 +5108,8 @@ function renderCalendar(days) {
         }
 
         // Convert to hours and expand by 1 hour (bounded 0-24)
-        let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - 1);
-        let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + 1);
+        let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - (isFallback ? 0 : 1));
+        let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + (isFallback ? 0 : 1));
 
         // Ensure span is at least G_calendarMinimumHours hours
         while (latestHour - earliestHour < G_calendarMinimumHours) {
