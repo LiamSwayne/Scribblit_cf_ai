@@ -1,4 +1,4 @@
-let TESTING = true;
+let TESTING = false;
 let TESTING_USER_IS_EMPTY = false;
 let TESTING_SHOW_LOGS = true;
 
@@ -6,7 +6,7 @@ function ASSERT(condition, message="") {
     if (typeof(condition) != "boolean") {
         console.error('MALFORMED ASSERTION');
     }
-    if (!condition) {
+    if (!condition && TESTING_SHOW_LOGS) {
         if (message == "") {
             console.error('ASSERTION FAILED');
         } else {
