@@ -151,31 +151,7 @@ document.addEventListener('paste', async (e) => {
 
         updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
     } else {
-        if (signInModalOpen) {
-            e.preventDefault();
-            const text = e.clipboardData.getData('text/plain');
-            if (text) {
-                // add to email field if neither email nor password is focused
-                const emailInput = HTML.getElement('signInEmailInput');
-                const passwordInput = HTML.getElement('signInPasswordInput');
-                if (document.activeElement.id !== 'signInEmailInput' && document.activeElement.id !== 'signInPasswordInput') {
-                    if (emailInput.value.length === 0) {
-                        emailInput.value = text;
-                    } else if (passwordInput.value.length === 0) {
-                        passwordInput.value = text;
-                    } else {
-                        // just allow the default behavior
-                        log('Pasted text: "' + text + '"');
-                    }
-                } else if (document.activeElement.id === 'signInEmailInput') {
-                    emailInput.value += text;
-                    // focus the password input
-                    passwordInput.focus();
-                } else if (document.activeElement.id === 'signInPasswordInput') {
-                    passwordInput.value += text;
-                }
-            }
-        } else {
+        if (HTML.getElement('inputBox').focused || !signInModalOpen) {
             const text = e.clipboardData.getData('text/plain');
             if (text) {
                 log('Pasted text: "' + text + '"');
