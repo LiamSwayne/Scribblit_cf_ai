@@ -7709,7 +7709,7 @@ function openProModal() {
             if (hasValidProAccess) {
                 const lastPaymentText = `${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()}`;
                 const validUntilText = `${validUntilDate.getMonth() + 1}/${validUntilDate.getDate()}/${validUntilDate.getFullYear()}`;
-                textContent = `You are not subscribed to Pro but have access to it until ${validUntilText}.\n\Last payment: ${lastPaymentText} ($${lastPaymentAmount})`;
+                textContent = `You are not subscribed to Pro but have access to it until ${validUntilText}.\n\Last payment: ${lastPaymentText} $${lastPaymentAmount}`;
             } else {
                 textContent = `Used ${user.usage} of ${FREE_PLAN_USAGE_LIMIT} free AI requests. Upgrade to Pro for unlimited requests across unlimited devices as long as you're signed in. $2/month or $16/year.`;
             }
@@ -7728,7 +7728,7 @@ function openProModal() {
                 const lastPaymentUnix = Math.max(...paymentTimestamps);
                 const lastPaymentDate = new Date(lastPaymentUnix);
                 const lastPaymentAmount = user.paymentTimes[lastPaymentUnix.toString()];
-                lastPaymentText = `Last payment: ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()} ($${lastPaymentAmount})`;
+                lastPaymentText = `Last payment: ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()} $${lastPaymentAmount}`;
                 
                 // Calculate next payment date
                 const nextPaymentDate = new Date(lastPaymentDate);
