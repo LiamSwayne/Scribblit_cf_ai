@@ -150,8 +150,74 @@ document.addEventListener('paste', async (e) => {
         inputBox.focus();
 
         updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
-    } else {
-        if (HTML.getElement('inputBox').focused || !signInModalOpen) {
+    } else if (signInModalState === 'verification' && e.clipboardData.getData('text/plain')) {
+            const text = e.clipboardData.getData('text/plain');
+            e.preventDefault();
+            log('Pasted verification code: "' + text + '"');
+            
+            // Get all verification inputs
+            const verificationInputs = [];
+            for (let i = 0; i < 6; i++) {
+                const input = HTML.getElementUnsafely(`verificationInput${i}`);
+                if (input) {
+                    verificationInputs.push(input);
+                }
+            }
+            
+            if (verificationInputs.length === 6) {
+                // Find currently focused input to determine position
+                let currentPosition = 0;
+                for (let i = 0; i < 6; i++) {
+                    if (document.activeElement === verificationInputs[i]) {
+                        currentPosition = i;
+                        break;
+                    }
+                }
+                
+                // Extract only numeric characters from pasted text
+                const numericText = text.replace(/\D/g, '');
+                
+                if (numericText.length === 6) {
+                    // If exactly 6 characters, set all 6 inputs regardless of position
+                    for (let i = 0; i < 6; i++) {
+                        verificationInputs[i].value = numericText[i];
+                    }
+                    // Focus the last input
+                    verificationInputs[5].focus();
+                } else if (numericText.length > 6) {
+                    // If more than 6 characters, fill from current position onwards
+                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
+                        verificationInputs[i].value = numericText[i - currentPosition];
+                    }
+                    // Focus the last input
+                    verificationInputs[5].focus();
+                } else if (numericText.length > 0) {
+                    // If less than 6 characters, fill from current position onwards
+                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
+                        verificationInputs[i].value = numericText[i - currentPosition];
+                    }
+                    // Focus the input after the last filled one
+                    const lastFilledPosition = currentPosition + numericText.length - 1;
+                    if (lastFilledPosition < 5) {
+                        verificationInputs[lastFilledPosition + 1].focus();
+                    } else {
+                        verificationInputs[5].focus();
+                    }
+                }
+                
+                // Check if all inputs are filled and verify if so
+                let code = '';
+                for (let j = 0; j < 6; j++) {
+                    code += verificationInputs[j].value;
+                }
+                
+                if (code.length === 6 && /^\d{6}$/.test(code)) {
+                    verifyEmail();
+                }
+            }
+            
+            return;
+        } else if (HTML.getElement('inputBox').focused || !signInModalOpen) {
             const text = e.clipboardData.getData('text/plain');
             if (text) {
                 log('Pasted text: "' + text + '"');
@@ -168,17 +234,33 @@ document.addEventListener('paste', async (e) => {
                 });
                 updateAttachmentBadge();
                 updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
-            } else {
+                e.preventDefault();
+                inputBox.focus();
+            } else if (!HTML.getElement('inputBox').focused) {
+                e.preventDefault();
                 const inputBox = HTML.getElement('inputBox');
+                inputBox.value += text;
                 inputBox.focus();
                 // add it to the input box content
-                log('Pasted text: "' + text + '"');
-                inputBox.value += text;
                 if (attachedFiles.length === 0) {
                     updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
                 }
             }
-        }
+
+            renderInputBox();
+            renderTaskList();
+        } else if (signInModalOpen) {
+            const text = e.clipboardData.getData('text/plain');
+            if (!HTML.getElement('signInEmailInput').focused && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
+                e.preventDefault();
+                HTML.getElement('signInEmailInput').value = text;
+                HTML.getElement('signInPasswordInput').focus();
+            } else if (!HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length > 0 && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInPasswordInput').value.length === 0) {
+                e.preventDefault();
+                HTML.getElement('signInPasswordInput').value = text;
+            } else {
+                log('Pasted text: "' + text + '"');
+            }
     }
 });
 
@@ -10529,11 +10611,6 @@ function processInput() {
 
         // TODO: query the user's existing entities to see if any of them match the new entities
         // if it seems like the ai has created an entity that the user already has, delete the new entity
-
-        // Clear input box
-        inputBox.value = '';
-        attachedFiles = [];
-        updateAttachmentBadge();
 
         chain.completeRequest();
 
