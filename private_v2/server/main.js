@@ -1311,7 +1311,7 @@ async function checkAndUpdateUsage(authHeader, env, strategy) {
     }
 
     const plan = userData.plan;
-    const paymentTimes = JSON.parse(userData.payment_times || '[]');
+    const paymentTimes = JSON.parse(userData.payment_times || '{}');
     const usage = userData.usage;
 
     // Check usage limits based on plan
@@ -1325,7 +1325,8 @@ async function checkAndUpdateUsage(authHeader, env, strategy) {
     } else if (plan === 'pro-monthly') {
         // Check if payment was made within last 31 days
         const now = Date.now();
-        const hasValidPayment = paymentTimes.some(paymentTime => {
+        const paymentTimestamps = Object.keys(paymentTimes).map(Number);
+        const hasValidPayment = paymentTimestamps.some(paymentTime => {
             const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
             return daysSincePayment <= 31;
         });
@@ -1339,7 +1340,8 @@ async function checkAndUpdateUsage(authHeader, env, strategy) {
     } else if (plan === 'pro-annually') {
         // Check if payment was made within last 366 days
         const now = Date.now();
-        const hasValidPayment = paymentTimes.some(paymentTime => {
+        const paymentTimestamps = Object.keys(paymentTimes).map(Number);
+        const hasValidPayment = paymentTimestamps.some(paymentTime => {
             const daysSincePayment = (now - paymentTime) / (1000 * 60 * 60 * 24);
             return daysSincePayment <= 366;
         });

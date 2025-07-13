@@ -7381,7 +7381,7 @@ async function handleCancelButtonClick(actionButton) {
         alert('Failed to access subscription management. Please try again.');
         
         // Reset button state
-        actionButton.textContent = 'cancel';
+        actionButton.textContent = 'manage subscription';
         actionButton.disabled = false;
     }
 }
@@ -7489,10 +7489,12 @@ function openProModal() {
             let lastPaymentText = 'Last payment date: N/A';
             let nextPaymentText = 'Next payment date: N/A';
             
-            if (user.paymentTimes && user.paymentTimes.length > 0) {
-                const lastPaymentUnix = Math.max(...user.paymentTimes);
+            if (user.paymentTimes && Object.keys(user.paymentTimes).length > 0) {
+                const paymentTimestamps = Object.keys(user.paymentTimes).map(Number);
+                const lastPaymentUnix = Math.max(...paymentTimestamps);
                 const lastPaymentDate = new Date(lastPaymentUnix);
-                lastPaymentText = `Last payment date: ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()}`;
+                const lastPaymentAmount = user.paymentTimes[lastPaymentUnix.toString()];
+                lastPaymentText = `Last payment date: ${lastPaymentDate.getMonth() + 1}/${lastPaymentDate.getDate()}/${lastPaymentDate.getFullYear()} ($${lastPaymentAmount})`;
                 
                 // Calculate next payment date
                 const nextPaymentDate = new Date(lastPaymentDate);
@@ -7553,7 +7555,7 @@ function openProModal() {
         } else if (user.plan === 'pro-monthly' || user.plan === 'pro-annually') {
             actionButton = HTML.make('button');
             HTML.setId(actionButton, 'proModalCancelButton');
-            actionButton.textContent = 'cancel';
+            actionButton.textContent = 'manage subscription';
             
             actionButton.onclick = () => handleCancelButtonClick(actionButton);
         }

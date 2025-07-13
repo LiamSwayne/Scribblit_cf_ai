@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     usage INTEGER NOT NULL,                 -- usage count (>= 0)
     timestamp INTEGER NOT NULL,             -- timestamp (ms since epoch)
     plan TEXT NOT NULL, -- subscription plan
-    payment_times TEXT NOT NULL, -- array of unix times of payment
+    payment_times TEXT NOT NULL, -- JSON object mapping unix timestamps to dollar amounts (e.g., {"1672531200000": 2.00})
     login_attempts TEXT NOT NULL, -- array of unix times they attempted login
     provider TEXT NOT NULL, -- OAuth provider (e.g. 'email' or 'google')
     provider_id TEXT, -- OAuth provider user ID (e.g. provider sub/id)

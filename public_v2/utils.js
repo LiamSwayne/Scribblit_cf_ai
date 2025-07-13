@@ -3182,9 +3182,10 @@ class User {
         ASSERT(plan === "free" || plan === "pro-monthly" || plan === "pro-annually" || plan === "godmode");
         ASSERT(type(timestamp, Int));
         ASSERT(timestamp >= 0);
-        ASSERT(type(paymentTimes, List(Int)));
-        for (const paymentTime of paymentTimes) {
-            ASSERT(paymentTime >= 0);
+        ASSERT(type(paymentTimes, Dict(String, Number)));
+        for (const [paymentTime, amount] of Object.entries(paymentTimes)) {
+            ASSERT(parseInt(paymentTime) >= 0);
+            ASSERT(amount >= 0);
         }
 
         // Assert that both userId and email are null, or both are non-null
@@ -3264,10 +3265,11 @@ class User {
         ASSERT(type(json.timestamp, Int));
         ASSERT(type(json.plan, String));
         ASSERT(json.plan === "free" || json.plan === "pro-monthly" || json.plan === "pro-annually" || json.plan === "godmode");
-        ASSERT(type(json.paymentTimes, List(Int)));
+        ASSERT(type(json.paymentTimes, Dict(String, Number)));
         
-        for (const paymentTime of json.paymentTimes) {
-            ASSERT(paymentTime >= 0);
+        for (const [paymentTime, amount] of Object.entries(json.paymentTimes)) {
+            ASSERT(parseInt(paymentTime) >= 0);
+            ASSERT(amount >= 0);
         }
 
         if (json.dataspec === 1) {
@@ -3340,7 +3342,7 @@ class User {
             0, // usage
             Date.now(), // timestamp
             "free", // plan
-            [] // paymentTimes
+            {} // paymentTimes
         );
     }
 }
