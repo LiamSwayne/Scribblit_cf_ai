@@ -9661,20 +9661,16 @@ const editorModalVignetteZIndex = 12000;
 const editorModalKindSelectorId = 'editorModalKindSelector';
 let editorModalDataEmpty = {
     kind: '',
+    name: '',
+    description: '',
 
     _event: {
-        title: '',
-        description: '',
     },
 
     _task: {
-        title: '',
-        description: '',
     },
     
     _reminder: {
-        title: '',
-        description: '',
     },
 }
 // deep copy needed
@@ -9758,20 +9754,6 @@ function editorModalKindChange(selectedOption) {
         
         editorModalData.kind = newKind;
         
-        // Update title input with the new kind's title
-        const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
-        if (exists(titleInput)) {
-            let newTitle = '';
-            if (newKind === 'event') {
-                newTitle = editorModalData._event.title;
-            } else if (newKind === 'task') {
-                newTitle = editorModalData._task.title;
-            } else if (newKind === 'reminder') {
-                newTitle = editorModalData._reminder.title;
-            }
-            titleInput.value = newTitle;
-        }
-        
         if (newKind === 'event') {
             editorModalInitEvent();
         } else if (newKind === 'task') {
@@ -9799,18 +9781,14 @@ function initEditorModal(id) {
     
     // Determine entity type and populate initial data
     if (type(entity.data, TaskData)) {
-        editorModalData.kind = 'task';
-        editorModalData._task.title = entity.name;
-        editorModalData._task.description = entity.description;
+        // TODO
     } else if (type(entity.data, EventData)) {
-        editorModalData.kind = 'event';
-        editorModalData._event.title = entity.name;
-        editorModalData._event.description = entity.description;
+        // TODO
     } else if (type(entity.data, ReminderData)) {
-        editorModalData.kind = 'reminder';
-        editorModalData._reminder.title = entity.name;
-        editorModalData._reminder.description = entity.description;
+        // TODO
     }
+    editorModalData.name = entity.name;
+    editorModalData.description = entity.description;
     
     // Modal dimensions
     const modalWidth = 300;
@@ -9940,30 +9918,12 @@ function initEditorModal(id) {
         borderBottomLeftRadius: '0px',
         borderBottomRightRadius: '0px',
     });
-    
-    // Get current title based on entity type
-    let currentTitle = '';
-    if (editorModalData.kind === 'event') {
-        currentTitle = editorModalData._event.title;
-    } else if (editorModalData.kind === 'task') {
-        currentTitle = editorModalData._task.title;
-    } else if (editorModalData.kind === 'reminder') {
-        currentTitle = editorModalData._reminder.title;
-    }
-    
-    titleInput.value = currentTitle;
-    titleInput.placeholder = 'Enter title...';
+    titleInput.placeholder = 'Enter name...';
     
     // Add input event listener to update editorModalData
     titleInput.addEventListener('input', function() {
-        const newTitle = titleInput.value;
-        if (editorModalData.kind === 'event') {
-            editorModalData._event.title = newTitle;
-        } else if (editorModalData.kind === 'task') {
-            editorModalData._task.title = newTitle;
-        } else if (editorModalData.kind === 'reminder') {
-            editorModalData._reminder.title = newTitle;
-        }
+        const newName = titleInput.value;
+        editorModalData.name = newName;
     });
     
     HTML.body.appendChild(titleInput);
