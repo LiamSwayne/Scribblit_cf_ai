@@ -8068,7 +8068,8 @@ function openSettingsModal() {
             toggleAmPmOr24,              // onSelectionChange: callback function
             user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
             0.9,                         // minWaitTime: minimum time between option changes
-            'right'                      // alignmentSide: position using left or right
+            'right',                      // alignmentSide: position using left or right
+            false                          // equalSpacing: whether to space options evenly
         );
 
         // Add logout button if user is signed in
@@ -8352,10 +8353,16 @@ function openSettingsModal() {
                                 'timeFormatSelector',
                                 modalRect.width - 145,
                                 modalRect.top + 20,
-                                72, 20, 7002, 'MonospacePrimary', 10,
+                                72,
+                                20,
+                                7002,
+                                'MonospacePrimary',
+                                10,
                                 toggleAmPmOr24,
                                 user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',
-                                0.9, 'right'
+                                0.9,
+                                'right',
+                                false
                             );
                             
                             // Re-create boolean toggle
@@ -8445,7 +8452,7 @@ async function animateSettingsText(textElement) {
 }
 
 function initTrashIcon() {
-    let trashIconClass = Entity.generateId();
+    let trashIconClass = randomAlphabetString(8);
     let trashIcon = `<?xml version="1.0" encoding="UTF-8"?>
         <svg id="svg" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 400 400">
         <defs>
@@ -9640,6 +9647,230 @@ function logout() {
     render();
     
     log("User logged out successfully");
+}
+
+// Editor modal variables
+let editorModalOpen = false;
+let editorModal = null;
+let editorModalVignette = null;
+const editorModalBaseZIndex = 12001;
+const editorModalVignetteZIndex = 12000;
+const editorModalKindSelectorId = 'editorModalKindSelector';
+let editorModalDataEmpty = {
+    kind: '',
+
+    _event: {
+        title: '',
+        description: '',
+    },
+
+    _task: {
+        title: '',
+        description: '',
+    },
+    
+    _reminder: {
+        title: '',
+        description: '',
+    },
+}
+// deep copy needed
+let editorModalData = NULL;
+
+let editorModalActiveEntityId = NULL;
+
+function initEditorModal(id) {
+    // entity id
+    ASSERT(type(id, NonEmptyString));
+    ASSERT(user.entityArray.some(e => e.id === id), "initEditorModal: entity id passed, but entity not found");
+
+    if (editorModalOpen || exists(HTML.getElementUnsafely('editorModal'))) return;
+    editorModalOpen = true;
+
+    editorModalData = JSON.parse(JSON.stringify(editorModalDataEmpty));
+    editorModalActiveEntityId = id;
+    
+    // Modal dimensions
+    const modalWidth = 300;
+    const modalHeight = 700;
+    
+    // Calculate center position
+    const modalLeft = (window.innerWidth - modalWidth) / 2;
+    const modalTop = (window.innerHeight - modalHeight) / 2;
+    
+    // Create vignette background
+    editorModalVignette = HTML.make('div');
+    HTML.setId(editorModalVignette, 'editorModalVignette');
+    HTML.setStyle(editorModalVignette, {
+        position: 'fixed',
+        top: '0px',
+        left: '0px',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        zIndex: String(editorModalVignetteZIndex),
+        cursor: 'pointer',
+        opacity: '0',
+        transition: 'opacity 0.3s ease'
+    });
+    
+    // Close modal when vignette is clicked
+    editorModalVignette.onclick = () => {
+        closeEditorModal();
+    };
+    
+    HTML.body.appendChild(editorModalVignette);
+    
+    // Create modal background
+    editorModal = HTML.make('div');
+    HTML.setId(editorModal, 'editorModal');
+    HTML.setStyle(editorModal, {
+        position: 'fixed',
+        top: modalTop + 'px',
+        left: modalLeft + 'px',
+        width: modalWidth + 'px',
+        height: modalHeight + 'px',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
+        borderRadius: '12px',
+        zIndex: String(editorModalBaseZIndex),
+        opacity: '0',
+        transform: 'scale(0.9)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+    });
+    
+    HTML.body.appendChild(editorModal);
+    
+    // Create X button in top right corner
+    const closeButton = HTML.make('div');
+    HTML.setId(closeButton, 'editorModalCloseButton');
+    HTML.setStyle(closeButton, {
+        position: 'fixed',
+        top: (modalTop + 10) + 'px',
+        left: (modalLeft + modalWidth - 30) + 'px',
+        width: '20px',
+        height: '20px',
+        fontSize: '16px',
+        fontFamily: 'MonospacePrimary',
+        color: 'var(--shade-3)',
+        cursor: 'pointer',
+        zIndex: String(editorModalBaseZIndex + 1),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: '0',
+        transition: 'opacity 0.3s ease, color 0.2s ease'
+    });
+    closeButton.textContent = '×';
+    
+    // Close button hover effects
+    closeButton.onmouseenter = () => {
+        HTML.setStyle(closeButton, { color: 'var(--shade-4)' });
+    };
+    closeButton.onmouseleave = () => {
+        HTML.setStyle(closeButton, { color: 'var(--shade-3)' });
+    };
+    
+    // Close modal when X is clicked
+    closeButton.onclick = () => {
+        closeEditorModal();
+    };
+    
+    HTML.body.appendChild(closeButton);
+    
+    // Create selector for three options (Event, Task, Reminder)
+    const selectorTop = modalTop + 20;
+    const selectorLeft = modalLeft + 5;
+    const selectorWidth = modalWidth - 6;
+    const selectorHeight = 28;
+    
+    createSelector(
+        ['Event', 'Task', 'Reminder'],    // options
+        'horizontal',                      // orientation
+        editorModalKindSelectorId,            // id
+        selectorLeft,                     // x
+        selectorTop,                      // y
+        selectorWidth,                    // width
+        selectorHeight,                   // height
+        editorModalBaseZIndex + 1,        // zIndex
+        'PrimaryRegular',                 // font
+        16,                               // fontSize (relatively large)
+        (selectedOption) => {             // onSelectionChange
+            console.log('Selected:', selectedOption);
+
+        },
+        'Event',                          // initialSelection
+        0.2,                              // minWaitTime
+        'left',                           // alignmentSide
+        true                              // equalSpacing
+    );
+    
+    // Force reflow
+    editorModalVignette.offsetHeight;
+    editorModal.offsetHeight;
+    closeButton.offsetHeight;
+    
+    // Animate modal in
+    setTimeout(() => {
+        HTML.setStyle(editorModalVignette, { opacity: '1' });
+        HTML.setStyle(editorModal, { 
+            opacity: '1',
+            transform: 'scale(1)'
+        });
+        HTML.setStyle(closeButton, { opacity: '1' });
+    }, 50);
+}
+
+function closeEditorModal() {
+    if (!editorModalOpen) return;
+
+    // delete selector animates itself
+    deleteSelector(editorModalKindSelectorId);
+
+    // clear data
+    editorModalData = NULL;
+    editorModalActiveEntityId = NULL;
+    
+    // Animate modal out
+    if (editorModalVignette) {
+        HTML.setStyle(editorModalVignette, { opacity: '0' });
+    }
+    
+    if (editorModal) {
+        HTML.setStyle(editorModal, { 
+            opacity: '0',
+            transform: 'scale(0.9)'
+        });
+    }
+    
+    const closeButton = HTML.getElementUnsafely('editorModalCloseButton');
+    if (closeButton) {
+        HTML.setStyle(closeButton, { opacity: '0' });
+    }
+    
+    // Remove elements after animation
+    setTimeout(() => {
+        if (editorModalVignette && editorModalVignette.parentNode) {
+            HTML.body.removeChild(editorModalVignette);
+            editorModalVignette = null;
+        }
+        
+        if (editorModal && editorModal.parentNode) {
+            HTML.body.removeChild(editorModal);
+            editorModal = null;
+        }
+        
+        if (closeButton && closeButton.parentNode) {
+            HTML.body.removeChild(closeButton);
+        }
+
+        editorModalOpen = false;
+    }, 300);
+}
+
+// called when the window is resized
+function repositionEditorModal() {
+    // TODO
 }
 
 // Helper function to measure text width
@@ -10842,7 +11073,7 @@ async function formatEntityTitles(entityIds, descriptionOfFiles, fileArray) {
 }
 
 // Creates a multiple choice selector with smooth transitions
-function createSelector(options, orientation, id, x, y, width, height, zIndex, font, fontSize, onSelectionChange, initialSelection, minWaitTime, alignmentSide) {
+function createSelector(options, orientation, id, x, y, width, height, zIndex, font, fontSize, onSelectionChange, initialSelection, minWaitTime, alignmentSide, equalSpacing) {
     // Robust assertions
     ASSERT(type(options, List(String)), "createSelector: options must be a list of strings");
     ASSERT(options.length >= 2, "createSelector: must have at least 2 options");
@@ -10865,6 +11096,7 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     ASSERT(minWaitTime >= 0, "createSelector: minWaitTime must be non-negative");
     ASSERT(type(alignmentSide, String), "createSelector: alignmentSide must be a string");
     ASSERT(alignmentSide === "left" || alignmentSide === "right", "createSelector: alignmentSide must be 'left' or 'right'");
+    ASSERT(type(equalSpacing, Boolean), "createSelector: equalSpacing must be a boolean");
     
     // Check if ID already exists
     ASSERT(!exists(HTML.getElementUnsafely(id)), "createSelector: element with id '" + id + "' already exists");
@@ -10906,14 +11138,16 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     const availableWidth = innerWidth - totalSpacing;
     const availableHeight = innerHeight - totalSpacing;
     
-    // Ensure we have enough space
-    if (orientation === "horizontal") {
-        ASSERT(totalTextWidth <= availableWidth, "createSelector: not enough horizontal space for all options");
-    } else {
-        ASSERT(totalTextWidth <= availableHeight, "createSelector: not enough vertical space for all options");
+    // Ensure we have enough space (only check when not using equal spacing)
+    if (!equalSpacing) {
+        if (orientation === "horizontal") {
+            ASSERT(totalTextWidth <= availableWidth, "createSelector: not enough horizontal space for all options");
+        } else {
+            ASSERT(totalTextWidth <= availableHeight, "createSelector: not enough vertical space for all options");
+        }
     }
     
-    // Calculate option positions and dimensions proportionally based on text measurements
+    // Calculate option positions and dimensions
     const optionData = [];
     let currentPos = 0;
     
@@ -10924,17 +11158,27 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         let optionWidth, optionHeight, optionX, optionY;
         
         if (orientation === "horizontal") {
-            // Allocate width proportionally based on text measurement
-            const textProportion = textWidth / totalTextWidth;
-            optionWidth = availableWidth * textProportion;
+            if (equalSpacing) {
+                // Divide available width equally among all options
+                optionWidth = availableWidth / options.length;
+            } else {
+                // Allocate width proportionally based on text measurement
+                const textProportion = textWidth / totalTextWidth;
+                optionWidth = availableWidth * textProportion;
+            }
             optionHeight = innerHeight;
             optionX = currentPos;
             optionY = 0;
             currentPos += optionWidth + (i < options.length - 1 ? minSpacing : 0);
         } else {
-            // Allocate height proportionally based on text measurement
-            const textProportion = textWidth / totalTextWidth;
-            optionHeight = availableHeight * textProportion;
+            if (equalSpacing) {
+                // Divide available height equally among all options
+                optionHeight = availableHeight / options.length;
+            } else {
+                // Allocate height proportionally based on text measurement
+                const textProportion = textWidth / totalTextWidth;
+                optionHeight = availableHeight * textProportion;
+            }
             optionWidth = innerWidth;
             optionX = 0;
             optionY = currentPos;
@@ -11332,7 +11576,7 @@ function initSettingsButton() {
         zIndex: String(settingsButtonZIndex)
     });
 
-    let gearIconClass = Entity.generateId();
+    let gearIconClass = randomAlphabetString(8);
     let gearIconSvg = `
         <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 100 100">
             <defs>

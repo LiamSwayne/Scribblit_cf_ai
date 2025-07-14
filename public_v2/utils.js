@@ -63,6 +63,12 @@ function wait(ms, func) {
     setTimeout(func, ms);
 }
 
+function randomAlphabetString(length) {
+    ASSERT(type(length, Int), "randomAlphabetString: length must be an integer");
+    ASSERT(length > 0, "randomAlphabetString: length must be positive");
+    return Array.from({ length }, () => String.fromCharCode(Math.floor(Math.random() * 26) + 97)).join('');
+}
+
 const defaultCutoffUnix = 1947483647; // about the year 2031
 
 // One day in milliseconds.
