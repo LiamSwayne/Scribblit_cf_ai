@@ -3359,6 +3359,11 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
                 allDayEventElement.style.opacity = '0.5';
             }
         });
+        
+        // on click open the edit modal
+        allDayEventElement.addEventListener('click', function() {
+            initEditorModal(allDayEventData.id);
+        });
 
         // Create/Update asterisk indicator
         let asteriskElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventAsterisk${i}`);
@@ -9703,12 +9708,70 @@ function editorModalInitReminder() {
     // TODO: Initialize reminder-specific elements
 }
 
+// only call when some kind is already selected (which should be always)
 function editorModalKindChange(selectedOption) {
+    ASSERT(exists(editorModalData), "editorModalKindChange: editorModalData is not initialized");
+    ASSERT(exists(editorModalData.kind), "editorModalKindChange: editorModalData.kind is not initialized");
+    ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange: editorModalData.kind is invalid");
+    
     const newKind = selectedOption.toLowerCase();
     
-    if (editorModalData.kind === '') {
-        // If no current kind, just set the new kind and init
+    // Close current kind, then init new kind
+    const currentKind = editorModalData.kind;
+    let closeFunction;
+    
+    if (currentKind === 'event') {
+        closeFunction = editorModalCloseEvent;
+    } else if (currentKind === 'task') {
+        closeFunction = editorModalCloseTask;
+    } else if (currentKind === 'reminder') {
+        closeFunction = editorModalCloseReminder;
+    } else {
+        ASSERT(false, "editorModalKindChange: invalid kind");
+    }
+    
+    // Close current, then change kind and init new
+    closeFunction().then(() => {
+        // copy over latest data (which means data from the previous kind) to this new kind
+        // ex: if they were editing task at 9:40pm and go to reminder, you can infer that they likely want the reminder to be at 9:40pm
+        if (currentKind === 'event' && newKind === 'task') {
+            // event -> task transition
+            
+        } else if (currentKind === 'event' && newKind === 'reminder') {
+            // event -> reminder transition
+            
+        } else if (currentKind === 'task' && newKind === 'event') {
+            // task -> event transition
+            
+        } else if (currentKind === 'task' && newKind === 'reminder') {
+            // task -> reminder transition
+            
+        } else if (currentKind === 'reminder' && newKind === 'event') {
+            // reminder -> event transition
+            
+        } else if (currentKind === 'reminder' && newKind === 'task') {
+            // reminder -> task transition
+            
+        } else {
+            ASSERT(false, "editorModalKindChange: invalid kind transition");
+        }
+        
         editorModalData.kind = newKind;
+        
+        // Update title input with the new kind's title
+        const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
+        if (exists(titleInput)) {
+            let newTitle = '';
+            if (newKind === 'event') {
+                newTitle = editorModalData._event.title;
+            } else if (newKind === 'task') {
+                newTitle = editorModalData._task.title;
+            } else if (newKind === 'reminder') {
+                newTitle = editorModalData._reminder.title;
+            }
+            titleInput.value = newTitle;
+        }
+        
         if (newKind === 'event') {
             editorModalInitEvent();
         } else if (newKind === 'task') {
@@ -9716,57 +9779,7 @@ function editorModalKindChange(selectedOption) {
         } else if (newKind === 'reminder') {
             editorModalInitReminder();
         }
-    } else {
-        // Close current kind, then init new kind
-        const currentKind = editorModalData.kind;
-        let closeFunction;
-        
-        if (currentKind === 'event') {
-            closeFunction = editorModalCloseEvent;
-        } else if (currentKind === 'task') {
-            closeFunction = editorModalCloseTask;
-        } else if (currentKind === 'reminder') {
-            closeFunction = editorModalCloseReminder;
-        } else {
-            ASSERT(false, "editorModalKindChange: invalid kind");
-        }
-        
-        // Close current, then change kind and init new
-        closeFunction().then(() => {
-            // copy over latest data (which means data from the previous kind) to this new kind
-            // ex: if they were editing task at 9:40pm and go to reminder, you can infer that they likely want the reminder to be at 9:40pm
-            if (currentKind === 'event' && newKind === 'task') {
-                // event -> task transition
-                
-            } else if (currentKind === 'event' && newKind === 'reminder') {
-                // event -> reminder transition
-                
-            } else if (currentKind === 'task' && newKind === 'event') {
-                // task -> event transition
-                
-            } else if (currentKind === 'task' && newKind === 'reminder') {
-                // task -> reminder transition
-                
-            } else if (currentKind === 'reminder' && newKind === 'event') {
-                // reminder -> event transition
-                
-            } else if (currentKind === 'reminder' && newKind === 'task') {
-                // reminder -> task transition
-                
-            } else {
-                ASSERT(false, "editorModalKindChange: invalid kind transition");
-            }
-            
-            editorModalData.kind = newKind;
-            if (newKind === 'event') {
-                editorModalInitEvent();
-            } else if (newKind === 'task') {
-                editorModalInitTask();
-            } else if (newKind === 'reminder') {
-                editorModalInitReminder();
-            }
-        });
-    }
+    });
 }
 
 function initEditorModal(id) {
@@ -9779,6 +9792,25 @@ function initEditorModal(id) {
 
     editorModalData = JSON.parse(JSON.stringify(editorModalDataEmpty));
     editorModalActiveEntityId = id;
+    
+    // Get the entity and populate initial data
+    const entity = user.entityArray.find(e => e.id === id);
+    ASSERT(exists(entity), "initEditorModal: entity not found");
+    
+    // Determine entity type and populate initial data
+    if (type(entity.data, TaskData)) {
+        editorModalData.kind = 'task';
+        editorModalData._task.title = entity.name;
+        editorModalData._task.description = entity.description;
+    } else if (type(entity.data, EventData)) {
+        editorModalData.kind = 'event';
+        editorModalData._event.title = entity.name;
+        editorModalData._event.description = entity.description;
+    } else if (type(entity.data, ReminderData)) {
+        editorModalData.kind = 'reminder';
+        editorModalData._reminder.title = entity.name;
+        editorModalData._reminder.description = entity.description;
+    }
     
     // Modal dimensions
     const modalWidth = 300;
@@ -9825,7 +9857,7 @@ function initEditorModal(id) {
         borderRadius: '12px',
         zIndex: String(editorModalBaseZIndex),
         opacity: '0',
-        transform: 'scale(0.9)',
+        transition: 'opacity 0.3s ease'
     });
     
     HTML.body.appendChild(editorModal);
@@ -9835,8 +9867,11 @@ function initEditorModal(id) {
     HTML.setId(closeButton, 'editorModalCloseButton');
     HTML.setStyle(closeButton, {
         position: 'fixed',
-        top: (modalTop + 10) + 'px',
-        left: (modalLeft + modalWidth - 30) + 'px',
+        top: (modalTop) + 'px',
+        paddingTop: '0px',
+        paddingLeft: '1px',
+        paddingRight: '3px',
+        left: (modalLeft + modalWidth - 24) + 'px',
         width: '20px',
         height: '20px',
         fontSize: '16px',
@@ -9848,7 +9883,13 @@ function initEditorModal(id) {
         alignItems: 'center',
         justifyContent: 'center',
         opacity: '0',
-        transition: 'opacity 0.3s ease, color 0.2s ease'
+        transition: 'opacity 0.3s ease',
+        borderTopRightRadius: '10px',
+        borderBottomRightRadius: '0px',
+        borderTopLeftRadius: '0px',
+        borderBottomLeftRadius: '0px',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
     });
     // Create SVG X icon
     closeButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="var(--shade-3)" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -9868,8 +9909,67 @@ function initEditorModal(id) {
     
     HTML.body.appendChild(closeButton);
     
-    // Create selector for three options (Event, Task, Reminder)
-    const selectorTop = modalTop + 35;
+    // Create title input in top left corner
+    const titleInputTop = modalTop;
+    const titleInputLeft = modalLeft;
+    const titleInputWidth = modalWidth - 22; // Leave space for close button
+    const titleInputHeight = 24;
+    
+    const titleInput = HTML.make('input');
+    HTML.setId(titleInput, 'editorModalTitleInput');
+    HTML.setStyle(titleInput, {
+        position: 'fixed',
+        top: titleInputTop + 'px',
+        left: titleInputLeft + 'px',
+        width: titleInputWidth + 'px',
+        height: titleInputHeight + 'px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '2px solid var(--shade-1)',
+        outline: 'none',
+        zIndex: String(editorModalBaseZIndex + 1),
+        opacity: '0',
+        transition: 'opacity 0.3s ease',
+        paddingLeft: '4px',
+        paddingRight: '4px',
+        boxSizing: 'border-box',
+        borderTopLeftRadius: '10px',
+        borderTopRightRadius: '0px',
+        borderBottomLeftRadius: '0px',
+        borderBottomRightRadius: '0px',
+    });
+    
+    // Get current title based on entity type
+    let currentTitle = '';
+    if (editorModalData.kind === 'event') {
+        currentTitle = editorModalData._event.title;
+    } else if (editorModalData.kind === 'task') {
+        currentTitle = editorModalData._task.title;
+    } else if (editorModalData.kind === 'reminder') {
+        currentTitle = editorModalData._reminder.title;
+    }
+    
+    titleInput.value = currentTitle;
+    titleInput.placeholder = 'Enter title...';
+    
+    // Add input event listener to update editorModalData
+    titleInput.addEventListener('input', function() {
+        const newTitle = titleInput.value;
+        if (editorModalData.kind === 'event') {
+            editorModalData._event.title = newTitle;
+        } else if (editorModalData.kind === 'task') {
+            editorModalData._task.title = newTitle;
+        } else if (editorModalData.kind === 'reminder') {
+            editorModalData._reminder.title = newTitle;
+        }
+    });
+    
+    HTML.body.appendChild(titleInput);
+    
+    // Create selector for three options (Event, Task, Reminder) - moved down to make room for title
+    const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
     const selectorWidth = modalWidth - 6;
     const selectorHeight = 28;
@@ -9888,7 +9988,7 @@ function initEditorModal(id) {
         onSelectionChange: (selectedOption) => {
             editorModalKindChange(selectedOption);
         },
-        initialSelection: 'Event',
+        initialSelection: editorModalData.kind === 'event' ? 'Event' : editorModalData.kind === 'task' ? 'Task' : 'Reminder',
         minWaitTime: 0.2,
         alignmentSide: 'left',
         equalSpacing: true,
@@ -9899,15 +9999,16 @@ function initEditorModal(id) {
     editorModalVignette.offsetHeight;
     editorModal.offsetHeight;
     closeButton.offsetHeight;
+    titleInput.offsetHeight;
     
     // Animate modal in
     setTimeout(() => {
         HTML.setStyle(editorModalVignette, { opacity: '1' });
         HTML.setStyle(editorModal, { 
             opacity: '1',
-            transform: 'scale(1)'
         });
         HTML.setStyle(closeButton, { opacity: '1' });
+        HTML.setStyle(titleInput, { opacity: '1' });
     }, 50);
 }
 
@@ -9929,13 +10030,17 @@ function closeEditorModal() {
     if (editorModal) {
         HTML.setStyle(editorModal, { 
             opacity: '0',
-            transform: 'scale(0.9)'
         });
     }
     
     const closeButton = HTML.getElementUnsafely('editorModalCloseButton');
     if (closeButton) {
         HTML.setStyle(closeButton, { opacity: '0' });
+    }
+    
+    const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
+    if (titleInput) {
+        HTML.setStyle(titleInput, { opacity: '0' });
     }
     
     // Remove elements after animation
@@ -9952,6 +10057,11 @@ function closeEditorModal() {
         
         if (closeButton && closeButton.parentNode) {
             HTML.body.removeChild(closeButton);
+        }
+        
+        const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
+        if (titleInput && titleInput.parentNode) {
+            HTML.body.removeChild(titleInput);
         }
 
         editorModalOpen = false;
@@ -9988,8 +10098,19 @@ function updateEditorModalPosition() {
         });
     }
     
+    // Update title input position
+    const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
+    if (exists(titleInput)) {
+        const titleInputTop = modalTop;
+        const titleInputLeft = modalLeft;
+        HTML.setStyle(titleInput, {
+            top: titleInputTop + 'px',
+            left: titleInputLeft + 'px',
+        });
+    }
+    
     // Update selector position using moveSelector
-    const selectorTop = modalTop + 20;
+    const selectorTop = modalTop + 37;
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
