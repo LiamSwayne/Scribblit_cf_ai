@@ -96,179 +96,6 @@ async function loadFonts() {
 
 const fontLoadingPromise = loadFonts();
 
-// Global mouse position tracking for robust hover detection
-// this is expensive, but it's needed to fix a hover bug until i find a better solution
-window.lastMouseX = 0;
-window.lastMouseY = 0;
-document.addEventListener('mousemove', (e) => {
-    window.lastMouseX = e.clientX;
-    window.lastMouseY = e.clientY;
-});
-
-// Calendar navigation keyboard handlers
-document.addEventListener('keydown', (e) => {
-    // Don't process arrow keys when user is typing in text inputs
-    if (currentlyTyping) return;
-    
-    if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        navigateCalendar('left', e.shiftKey);
-    } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        navigateCalendar('right', e.shiftKey);
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        toggleNumberOfCalendarDays(true, e.shiftKey);
-    } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        toggleNumberOfCalendarDays(false, e.shiftKey);
-    }
-});
-
-document.addEventListener('paste', async (e) => {
-    if (e.clipboardData.files.length > 0) {
-        e.preventDefault();
-        log('Pasted a file', e.clipboardData.files);
-        // add to file array
-        for (const file of e.clipboardData.files) {
-            const base64Data = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-            attachedFiles.push({
-                name: file.name,
-                mimeType: file.type,
-                data: base64Data,
-                size: file.size
-            });
-            updateAttachmentBadge();
-        }
-        // if we focus earlier, for some reason chrome pastes the name as well
-        const inputBox = HTML.getElement('inputBox');
-        inputBox.focus();
-
-        updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
-    } else if (signInModalState === 'verification' && e.clipboardData.getData('text/plain')) {
-            const text = e.clipboardData.getData('text/plain');
-            e.preventDefault();
-            log('Pasted verification code: "' + text + '"');
-            
-            // Get all verification inputs
-            const verificationInputs = [];
-            for (let i = 0; i < 6; i++) {
-                const input = HTML.getElementUnsafely(`verificationInput${i}`);
-                if (input) {
-                    verificationInputs.push(input);
-                }
-            }
-            
-            if (verificationInputs.length === 6) {
-                // Find currently focused input to determine position
-                let currentPosition = 0;
-                for (let i = 0; i < 6; i++) {
-                    if (document.activeElement === verificationInputs[i]) {
-                        currentPosition = i;
-                        break;
-                    }
-                }
-                
-                // Extract only numeric characters from pasted text
-                const numericText = text.replace(/\D/g, '');
-                
-                if (numericText.length === 6) {
-                    // If exactly 6 characters, set all 6 inputs regardless of position
-                    for (let i = 0; i < 6; i++) {
-                        verificationInputs[i].value = numericText[i];
-                    }
-                    // Focus the last input
-                    verificationInputs[5].focus();
-                } else if (numericText.length > 6) {
-                    // If more than 6 characters, fill from current position onwards
-                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
-                        verificationInputs[i].value = numericText[i - currentPosition];
-                    }
-                    // Focus the last input
-                    verificationInputs[5].focus();
-                } else if (numericText.length > 0) {
-                    // If less than 6 characters, fill from current position onwards
-                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
-                        verificationInputs[i].value = numericText[i - currentPosition];
-                    }
-                    // Focus the input after the last filled one
-                    const lastFilledPosition = currentPosition + numericText.length - 1;
-                    if (lastFilledPosition < 5) {
-                        verificationInputs[lastFilledPosition + 1].focus();
-                    } else {
-                        verificationInputs[5].focus();
-                    }
-                }
-                
-                // Check if all inputs are filled and verify if so
-                let code = '';
-                for (let j = 0; j < 6; j++) {
-                    code += verificationInputs[j].value;
-                }
-                
-                if (code.length === 6 && /^\d{6}$/.test(code)) {
-                    verifyEmail();
-                }
-            }
-            
-            return;
-        } else if (HTML.getElement('inputBox').focused || !signInModalOpen) {
-            const text = e.clipboardData.getData('text/plain');
-            if (text) {
-                log('Pasted text: "' + text + '"');
-            }
-
-            if (text.length > 1000) {
-                log('Pasted text is too long, make it a file');
-                // add to file array
-                attachedFiles.push({
-                    name: 'pasted_text_' + String(Date.now()) + '.txt',
-                    mimeType: 'text/plain',
-                    data: text,
-                    size: text.length
-                });
-                updateAttachmentBadge();
-                updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
-                e.preventDefault();
-                inputBox.focus();
-            } else if (!HTML.getElement('inputBox').focused) {
-                e.preventDefault();
-                const inputBox = HTML.getElement('inputBox');
-                inputBox.value += text;
-                inputBox.focus();
-                // add it to the input box content
-                if (attachedFiles.length === 0) {
-                    updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
-                }
-            }
-
-            renderInputBox();
-            renderTaskList();
-        } else if (signInModalOpen) {
-            // because we got to this branch we already know we're not on the verification page
-            const text = e.clipboardData.getData('text/plain');
-            if (!HTML.getElement('signInEmailInput').focused && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
-                e.preventDefault();
-                HTML.getElement('signInEmailInput').value = text;
-                HTML.getElement('signInPasswordInput').focus();
-            } else if (!HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length > 0 && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInPasswordInput').value.length === 0) {
-                e.preventDefault();
-                HTML.getElement('signInPasswordInput').value = text;
-            } else if (HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
-                e.preventDefault();
-                HTML.getElement('signInEmailInput').value = text;
-                HTML.getElement('signInEmailInput').focus();
-            } else {
-                log('Pasted text: "' + text + '"');
-            }
-    }
-});
-
 const SERVER_DOMAIN_ROOT = 'scribblit-production.unrono.workers.dev';
 const SERVER_PRODUCTION_DOMAIN = 'app.scribbl.it';
 // when testing, use the root domain since the other one doesn't allow this origin
@@ -632,6 +459,182 @@ async function loadUserData() {
 
 let userPromise = loadUserData();
 let user;
+
+// END OF URGENT LOADING CODE
+// all code above must run as soon as possible to increase page load speed
+
+// Global mouse position tracking for robust hover detection
+// this is expensive, but it's needed to fix a hover bug until i find a better solution
+window.lastMouseX = 0;
+window.lastMouseY = 0;
+document.addEventListener('mousemove', (e) => {
+    window.lastMouseX = e.clientX;
+    window.lastMouseY = e.clientY;
+});
+
+// Calendar navigation keyboard handlers
+document.addEventListener('keydown', (e) => {
+    // Don't process arrow keys when user is typing in text inputs
+    if (currentlyTyping) return;
+    
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateCalendar('left', e.shiftKey);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateCalendar('right', e.shiftKey);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        toggleNumberOfCalendarDays(true, e.shiftKey);
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        toggleNumberOfCalendarDays(false, e.shiftKey);
+    }
+});
+
+document.addEventListener('paste', async (e) => {
+    if (e.clipboardData.files.length > 0) {
+        e.preventDefault();
+        log('Pasted a file', e.clipboardData.files);
+        // add to file array
+        for (const file of e.clipboardData.files) {
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            attachedFiles.push({
+                name: file.name,
+                mimeType: file.type,
+                data: base64Data,
+                size: file.size
+            });
+            updateAttachmentBadge();
+        }
+        // if we focus earlier, for some reason chrome pastes the name as well
+        const inputBox = HTML.getElement('inputBox');
+        inputBox.focus();
+
+        updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
+    } else if (signInModalState === 'verification' && e.clipboardData.getData('text/plain')) {
+            const text = e.clipboardData.getData('text/plain');
+            e.preventDefault();
+            log('Pasted verification code: "' + text + '"');
+            
+            // Get all verification inputs
+            const verificationInputs = [];
+            for (let i = 0; i < 6; i++) {
+                const input = HTML.getElementUnsafely(`verificationInput${i}`);
+                if (input) {
+                    verificationInputs.push(input);
+                }
+            }
+            
+            if (verificationInputs.length === 6) {
+                // Find currently focused input to determine position
+                let currentPosition = 0;
+                for (let i = 0; i < 6; i++) {
+                    if (document.activeElement === verificationInputs[i]) {
+                        currentPosition = i;
+                        break;
+                    }
+                }
+                
+                // Extract only numeric characters from pasted text
+                const numericText = text.replace(/\D/g, '');
+                
+                if (numericText.length === 6) {
+                    // If exactly 6 characters, set all 6 inputs regardless of position
+                    for (let i = 0; i < 6; i++) {
+                        verificationInputs[i].value = numericText[i];
+                    }
+                    // Focus the last input
+                    verificationInputs[5].focus();
+                } else if (numericText.length > 6) {
+                    // If more than 6 characters, fill from current position onwards
+                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
+                        verificationInputs[i].value = numericText[i - currentPosition];
+                    }
+                    // Focus the last input
+                    verificationInputs[5].focus();
+                } else if (numericText.length > 0) {
+                    // If less than 6 characters, fill from current position onwards
+                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
+                        verificationInputs[i].value = numericText[i - currentPosition];
+                    }
+                    // Focus the input after the last filled one
+                    const lastFilledPosition = currentPosition + numericText.length - 1;
+                    if (lastFilledPosition < 5) {
+                        verificationInputs[lastFilledPosition + 1].focus();
+                    } else {
+                        verificationInputs[5].focus();
+                    }
+                }
+                
+                // Check if all inputs are filled and verify if so
+                let code = '';
+                for (let j = 0; j < 6; j++) {
+                    code += verificationInputs[j].value;
+                }
+                
+                if (code.length === 6 && /^\d{6}$/.test(code)) {
+                    verifyEmail();
+                }
+            }
+            
+            return;
+        } else if (HTML.getElement('inputBox').focused || !signInModalOpen) {
+            const text = e.clipboardData.getData('text/plain');
+            if (text) {
+                log('Pasted text: "' + text + '"');
+            }
+
+            if (text.length > 1000) {
+                log('Pasted text is too long, make it a file');
+                // add to file array
+                attachedFiles.push({
+                    name: 'pasted_text_' + String(Date.now()) + '.txt',
+                    mimeType: 'text/plain',
+                    data: text,
+                    size: text.length
+                });
+                updateAttachmentBadge();
+                updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
+                e.preventDefault();
+                inputBox.focus();
+            } else if (!HTML.getElement('inputBox').focused) {
+                e.preventDefault();
+                const inputBox = HTML.getElement('inputBox');
+                inputBox.value += text;
+                inputBox.focus();
+                // add it to the input box content
+                if (attachedFiles.length === 0) {
+                    updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
+                }
+            }
+
+            renderInputBox();
+            renderTaskList();
+        } else if (signInModalOpen) {
+            // because we got to this branch we already know we're not on the verification page
+            const text = e.clipboardData.getData('text/plain');
+            if (!HTML.getElement('signInEmailInput').focused && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
+                e.preventDefault();
+                HTML.getElement('signInEmailInput').value = text;
+                HTML.getElement('signInPasswordInput').focus();
+            } else if (!HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length > 0 && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInPasswordInput').value.length === 0) {
+                e.preventDefault();
+                HTML.getElement('signInPasswordInput').value = text;
+            } else if (HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
+                e.preventDefault();
+                HTML.getElement('signInEmailInput').value = text;
+                HTML.getElement('signInEmailInput').focus();
+            } else {
+                log('Pasted text: "' + text + '"');
+            }
+    }
+});
 
 function hexToRgb(hex) {
     ASSERT(type(hex, String));
@@ -7328,57 +7331,6 @@ function render() {
 
 window.onresize = render;
 
-async function init() {
-    // Handle payment success/cancel feedback
-    const urlParams = new URLSearchParams(window.location.search);
-    const payment = urlParams.get('payment');
-    
-    if (payment === 'success') {
-        // Show success message
-        setTimeout(() => {
-            alert('Payment successful! Your subscription has been activated.');
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }, 1000);
-    } else if (payment === 'cancelled') {
-        // Show cancelled message
-        setTimeout(() => {
-            alert('Payment cancelled. You can try again anytime.');
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }, 1000);
-    }
-    
-    await fontLoadingPromise;
-    user = await userPromise;
-
-    applyPalette(user.palette);
-    if (firstDayInCalendar == NULL) {
-        // Set firstDayInCalendar to today on page load
-        firstDayInCalendar = getDayNDaysFromToday(0);
-    }
-    
-    initGridBackground();
-    initGlobalShiftKeyTracking();
-    initNumberOfCalendarDaysButton();
-    initStackingButton();
-    initRightNavigationButton();
-    initLeftNavigationButton();
-    initSettingsButton();
-    initSignInButton();
-    initProButton();
-    initDragAndDrop();
-    render();
-    // refresh every second, the function will exit if it isn't a new minute
-    setInterval(() => renderTimeIndicator(true), 1000);
-
-    // how fast did the page load and render?
-    const loadTime = performance.now();
-    log(`Initial render in ${Math.round(loadTime)}ms`);
-    
-    hasInitialized = true;
-}
-
 // Grid Background with Cursor Fade Effect
 function initGridBackground() {
     // Create the grid background element
@@ -8490,6 +8442,30 @@ async function animateSettingsText(textElement) {
     if (settingsModalOpen) {
         textElement.textContent = text;
     }
+}
+
+function initTrashIcon() {
+    let trashIconClass = Entity.generateId();
+    let trashIcon = `<?xml version="1.0" encoding="UTF-8"?>
+        <svg id="svg" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 400 400">
+        <defs>
+            <style>
+            .${trashIconClass} {
+                fill: var(--shade-1);
+                fill-rule: evenodd;
+            }
+            </style>
+        </defs>
+            <g id="svgg">
+                <path id="path0" class="${trashIconClass}" d="M159.8,1.1c-14.1,4.5-20.2,12.2-27.4,34.2l-3.8,11.5-39.5.2-39.5.2-5.5,2.7c-3.4,1.6-7.2,4.4-9.8,7-2.7,2.7-5.4,6.5-7,9.8l-2.7,5.5-.2,19.2c-.3,21.5-.1,22.2,5.8,24.7,4.8,2,337.2,1.5,340.5-.5,5-3.1,5.3-4.5,5-25l-.3-18.4-2.7-5.5c-3.5-7.2-9.7-13.4-16.9-16.9l-5.5-2.7-39.5-.2-39.5-.2-3.8-11.5c-6.6-20.2-11-26.5-22.2-32l-5.9-2.9-38.3-.2c-29.5-.1-39,0-41.4.8M234.8,25.1c1.3.7,3,2,3.7,2.8,1.2,1.3,6.8,16.5,6.8,18.3s-20.4.6-45.3.6-45.3-.3-45.3-.6c0-1.8,5.6-17,6.8-18.3,3.8-4.2,5.4-4.4,40.1-4.2,27,.1,31.2.3,33.2,1.4M50.4,145.9c.2,2,4.5,52.9,9.4,113.1,4.9,60.2,9.3,111.2,9.8,113.5,2.4,12.1,11.8,22.4,23.6,26.1,7.6,2.4,206.9,2.2,214-.2,12.4-4.2,21.5-14.9,23.6-27.7.3-1.7,4.5-52.2,9.4-112.1,4.9-59.9,9.1-110.7,9.4-112.7l.4-3.7H49.9l.4,3.7M136,168.2c5.3,3.6,5-2.4,5,91.2s0,84.9-1.4,87.3c-3,5.6-10.9,7.4-16.3,3.8-5.3-3.6-5,2.4-5-91.2s-.3-87.6,5-91.2c1.8-1.2,3.8-1.8,6.3-1.8s4.5.6,6.3,1.8M206.3,168.2c5.3,3.6,5-2.4,5,91.2s0,84.9-1.4,87.3c-3,5.6-10.9,7.4-16.3,3.8-5.3-3.6-5,2.4-5-91.2s-.3-87.6,5-91.2c1.8-1.2,3.8-1.8,6.3-1.8s4.5.6,6.3,1.8M276.3,167.9c5.7,3.5,5.3-3.1,5.3,91.4s0,84.9-1.4,87.3c-4.1,7.6-16.2,7.4-20.1-.3-2-3.9-1.7-170.8.2-174.4,1.9-3.5,5.6-5.6,9.9-5.6s4.5.6,6,1.5"/>
+            </g>
+        </svg>`;
+
+    // add trash icon to HTML.body
+    const trashIconElem = HTML.make('div');
+    trashIconElem.innerHTML = trashIcon;
+    HTML.setId(trashIconElem, "trashIcon");
+    HTML.body.appendChild(trashIconElem);
 }
 
 function closeSettingsModal() {
@@ -11356,18 +11332,18 @@ function initSettingsButton() {
         zIndex: String(settingsButtonZIndex)
     });
 
+    let gearIconClass = Entity.generateId();
     let gearIconSvg = `
         <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 100 100">
             <defs>
                 <style>
-                .st0 {
+                .${gearIconClass} {
                     fill: var(--shade-3);
                 }
                 </style>
             </defs>
-            <path class="st0" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1,.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.6,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
-        </svg>
-    `
+            <path class="${gearIconClass}" d="M89,46.1c0-1.5-.7-2.5-2-2.9-.9-.3-1.9-.7-2.9-1h-.1c-.8-.3-1.6-.7-2.5-.9-.6-.2-1-.6-1.2-1.2-.3-.9-.7-1.8-1.1-2.7v-.2c-.4-.7-.6-1.3-.8-1.9-.2-.5-.2-1,0-1.5.4-.8.8-1.7,1.2-2.5.6-1.2,1.1-2.3,1.6-3.5.4-.9.2-2.2-.5-2.9-.9-.9-1.8-1.9-2.7-2.8-.8-.8-1.6-1.7-2.4-2.5-1-1-2.1-1.2-3.4-.6-1.9.9-3.8,1.8-5.7,2.7-.5.2-1,.2-1.5,0-.7-.2-1.3-.5-2-.8h-.2c-.9-.4-1.8-.8-2.7-1.1-.6-.2-1-.7-1.2-1.2-.3-.8-.6-1.6-.8-2.4-.4-1.1-.8-2.2-1.2-3.3-.4-1.3-1.3-1.9-2.6-1.9-2.6,0-4.9,0-7.3,0h0c-1.3,0-2.2.6-2.7,1.9-.5,1.6-1.3,3.6-2.1,5.7-.2.5-.6.9-1.1,1.1-1.6.7-3.2,1.3-5,2-.5.2-1,.2-1.5,0-2-.9-4-1.9-5.7-2.7-.4-.2-.9-.4-1.5-.4s-1.4.3-2,.9c-1.6,1.7-3.3,3.4-5,5-1,1-1.2,2.1-.6,3.3.9,1.9,1.8,3.8,2.7,5.7.2.5.6,1.1,0,1.6-.7,1.7-1.5,3.3-2.3,5-.2.5-.6.8-1.1,1-2,.7-4.1,1.5-6.2,2.1-1.4.4-2.1,1.4-2,2.8,0,2.2,0,4.5,0,7.1,0,1.4.6,2.3,2,2.7,1.2.4,2.4.8,3.6,1.2h.3c.7.4,1.5.6,2.2.9.6.2,1,.6,1.2,1.2.6,1.7,1.4,3.3,2.2,4.9.3.6.3,1.2,0,1.8-.5,1-1,2-1.4,3-.4.9-.8,1.7-1.2,2.5-.6,1.2-.4,2.3.5,3.2,1.7,1.7,3.4,3.4,5.1,5.1,1,1,2,1.2,3.3.6,1.9-.9,3.8-1.9,5.7-2.7.3-.1.5-.2.8-.2s.5,0,.8.2c1.7.7,3.4,1.5,5,2.2.5.2.8.6,1,1.1.6,1.6,1.3,3.6,2,5.8.5,1.6,1.5,2.3,3.1,2.3h.2c.9,0,1.9,0,3,0s2.5,0,3.5,0h.1c1.4,0,2.4-.7,2.8-2.1.4-1.3.9-2.6,1.3-3.9.2-.7.5-1.3.7-2,.2-.6.6-1,1.2-1.2,1.7-.7,3.3-1.4,4.9-2.1.5-.3,1.2-.3,1.7,0,1.2.6,2.4,1.1,3.6,1.7l.6.3c.4.2.7.3,1,.5,0,0,.2,0,.2.1.4.2,1,.5,1.6.5.6,0,1.2-.3,1.6-.7.8-.8,1.5-1.6,2.3-2.4l.9-.9c.8-.9,1.6-1.6,2.3-2.3.7-.8.8-2.1.4-3-.5-1.1-1-2.3-1.6-3.4v-.2c-.5-.8-.8-1.5-1.2-2.3-.2-.5-.2-1,0-1.5.6-1.7,1.2-3.3,1.9-5,.2-.5.6-.9,1.1-1.1,1.6-.7,3.4-1.3,5.4-2,.6-.2,2.2-.8,2.1-3,0-2,0-4.1,0-6.8ZM65.5,49.6c0,8.2-6.7,14.9-15,14.8-8.3,0-14.9-6.7-14.8-15.1,0-8.2,6.7-14.7,15.1-14.7,8.1,0,14.7,6.8,14.7,15Z"/>
+        </svg>`
     
     // Gear icon (separate div, positioned independently, above background)
     let gearIcon = HTML.make('div');
@@ -11821,6 +11797,57 @@ function initRightNavigationButton() {
     rightNavButton.appendChild(rightArrow1);
     rightNavButton.appendChild(rightArrow2);
     HTML.body.appendChild(rightNavButton);
+}
+
+async function init() {
+    // Handle payment success/cancel feedback
+    const urlParams = new URLSearchParams(window.location.search);
+    const payment = urlParams.get('payment');
+    
+    if (payment === 'success') {
+        // Show success message
+        setTimeout(() => {
+            alert('Payment successful! Your subscription has been activated.');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
+    } else if (payment === 'cancelled') {
+        // Show cancelled message
+        setTimeout(() => {
+            alert('Payment cancelled. You can try again anytime.');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
+    }
+    
+    await fontLoadingPromise;
+    user = await userPromise;
+
+    applyPalette(user.palette);
+    if (firstDayInCalendar == NULL) {
+        // Set firstDayInCalendar to today on page load
+        firstDayInCalendar = getDayNDaysFromToday(0);
+    }
+    
+    initGridBackground();
+    initGlobalShiftKeyTracking();
+    initNumberOfCalendarDaysButton();
+    initStackingButton();
+    initRightNavigationButton();
+    initLeftNavigationButton();
+    initSettingsButton();
+    initSignInButton();
+    initProButton();
+    initDragAndDrop();
+    render();
+    // refresh every second, the function will exit if it isn't a new minute
+    setInterval(() => renderTimeIndicator(true), 1000);
+
+    // how fast did the page load and render?
+    const loadTime = performance.now();
+    log(`Initial render in ${Math.round(loadTime)}ms`);
+    
+    hasInitialized = true;
 }
 
 init();
