@@ -7327,6 +7327,7 @@ function render() {
     updateTaskListBottomGradient(false); // fade animation on normal render/resize
     updateInputBoxGradients(false); // update input box gradients on render/resize
     updateSettingsTextPosition(); // update settings text position on render/resize
+    updateEditorModalPosition(); // update editor modal position on render/resize
 }
 
 window.onresize = render;
@@ -9666,6 +9667,98 @@ let editorModalData = NULL;
 
 let editorModalActiveEntityId = NULL;
 
+// Editor modal close functions - delete their elements and do nothing else for now
+async function editorModalCloseEvent() {
+    // TODO: Delete event-specific elements
+}
+
+async function editorModalCloseTask() {
+    // TODO: Delete task-specific elements  
+}
+
+async function editorModalCloseReminder() {
+    // TODO: Delete reminder-specific elements
+}
+
+// Editor modal init functions - do what you'd expect but empty for now
+function editorModalInitEvent() {
+    // TODO: Initialize event-specific elements
+}
+
+function editorModalInitTask() {
+    // TODO: Initialize task-specific elements
+}
+
+function editorModalInitReminder() {
+    // TODO: Initialize reminder-specific elements
+}
+
+function editorModalKindChange(selectedOption) {
+    const newKind = selectedOption.toLowerCase();
+    
+    if (editorModalData.kind === '') {
+        // If no current kind, just set the new kind and init
+        editorModalData.kind = newKind;
+        if (newKind === 'event') {
+            editorModalInitEvent();
+        } else if (newKind === 'task') {
+            editorModalInitTask();
+        } else if (newKind === 'reminder') {
+            editorModalInitReminder();
+        }
+    } else {
+        // Close current kind, then init new kind
+        const currentKind = editorModalData.kind;
+        let closeFunction;
+        
+        if (currentKind === 'event') {
+            closeFunction = editorModalCloseEvent;
+        } else if (currentKind === 'task') {
+            closeFunction = editorModalCloseTask;
+        } else if (currentKind === 'reminder') {
+            closeFunction = editorModalCloseReminder;
+        } else {
+            ASSERT(false, "editorModalKindChange: invalid kind");
+        }
+        
+        // Close current, then change kind and init new
+        closeFunction().then(() => {
+            // copy over latest data (which means data from the previous kind) to this new kind
+            // ex: if they were editing task at 9:40pm and go to reminder, you can infer that they likely want the reminder to be at 9:40pm
+            if (currentKind === 'event' && newKind === 'task') {
+                // event -> task transition
+                
+            } else if (currentKind === 'event' && newKind === 'reminder') {
+                // event -> reminder transition
+                
+            } else if (currentKind === 'task' && newKind === 'event') {
+                // task -> event transition
+                
+            } else if (currentKind === 'task' && newKind === 'reminder') {
+                // task -> reminder transition
+                
+            } else if (currentKind === 'reminder' && newKind === 'event') {
+                // reminder -> event transition
+                
+            } else if (currentKind === 'reminder' && newKind === 'task') {
+                // reminder -> task transition
+                
+            } else {
+                ASSERT(false, "editorModalKindChange: invalid kind transition");
+            }
+            
+            editorModalData.kind = newKind;
+            if (newKind === 'event') {
+                editorModalInitEvent();
+            } else if (newKind === 'task') {
+                editorModalInitTask();
+            } else if (newKind === 'reminder') {
+                editorModalInitReminder();
+            }
+        });
+    }
+}
+
 function initEditorModal(id) {
     // entity id
     ASSERT(type(id, NonEmptyString));
@@ -9723,7 +9816,6 @@ function initEditorModal(id) {
         zIndex: String(editorModalBaseZIndex),
         opacity: '0',
         transform: 'scale(0.9)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
     });
     
     HTML.body.appendChild(editorModal);
@@ -9748,7 +9840,7 @@ function initEditorModal(id) {
         opacity: '0',
         transition: 'opacity 0.3s ease, color 0.2s ease'
     });
-    closeButton.textContent = '×';
+    closeButton.textContent = 'X';
     
     // Close button hover effects
     closeButton.onmouseenter = () => {
@@ -9783,8 +9875,7 @@ function initEditorModal(id) {
         font: 'PrimaryRegular',
         fontSize: 16,
         onSelectionChange: (selectedOption) => {
-            console.log('Selected:', selectedOption);
-
+            editorModalKindChange(selectedOption);
         },
         initialSelection: 'Event',
         minWaitTime: 0.2,
@@ -9854,6 +9945,45 @@ function closeEditorModal() {
 
         editorModalOpen = false;
     }, 300);
+}
+
+// Updates the position of the editor modal and all its elements
+function updateEditorModalPosition() {
+    if (!editorModalOpen) return;
+    
+    // Modal dimensions (same as in initEditorModal)
+    const modalWidth = 300;
+    const modalHeight = 700;
+    
+    // Calculate center position (same logic as initEditorModal)
+    const modalLeft = (window.innerWidth - modalWidth) / 2;
+    const modalTop = (window.innerHeight - modalHeight) / 2;
+    
+    // Update main modal position
+    const modal = HTML.getElementUnsafely('editorModal');
+    if (exists(modal)) {
+        HTML.setStyle(modal, {
+            top: modalTop + 'px',
+            left: modalLeft + 'px',
+        });
+    }
+    
+    // Update close button position
+    const closeButton = HTML.getElementUnsafely('editorModalCloseButton');
+    if (exists(closeButton)) {
+        HTML.setStyle(closeButton, {
+            top: (modalTop + 10) + 'px',
+            left: (modalLeft + modalWidth - 30) + 'px',
+        });
+    }
+    
+    // Update selector position using moveSelector
+    const selectorTop = modalTop + 20;
+    const selectorLeft = modalLeft + 5;
+    
+    moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
+    
+    // editorModalVignette is full-screen so it doesn't need repositioning
 }
 
 // called when the window is resized
@@ -11469,6 +11599,145 @@ function deleteSelector(id) {
             }
         }
     }, 300);
+}
+
+// Moves a selector to new x,y coordinates instantly (no animation)
+function moveSelector(id, newX, newY) {
+    ASSERT(type(id, NonEmptyString), "moveSelector: id must be a non-empty string");
+    ASSERT(type(newX, Number), "moveSelector: newX must be a number");
+    ASSERT(type(newY, Number), "moveSelector: newY must be a number");
+    
+    const background = HTML.getElementUnsafely(id);
+    if (!exists(background)) {
+        return; // Selector doesn't exist
+    }
+    
+    // Get stored data from background element
+    const options = HTML.getData(background, 'options');
+    const orientation = HTML.getData(background, 'orientation');
+    const selectedIndex = HTML.getData(background, 'selectedIndex');
+    
+    ASSERT(type(options, List(String)), "moveSelector: invalid options data");
+    ASSERT(type(orientation, String), "moveSelector: invalid orientation data");
+    ASSERT(type(selectedIndex, Number), "moveSelector: invalid selectedIndex data");
+    
+    // Get current styles to extract width, height, and other properties
+    const backgroundStyles = window.getComputedStyle(background);
+    const width = parseInt(backgroundStyles.width);
+    const height = parseInt(backgroundStyles.height);
+    const zIndex = backgroundStyles.zIndex;
+    const alignmentSide = backgroundStyles.left !== 'auto' ? 'left' : 'right';
+    
+    // Calculate padding (same as createSelector)
+    const padding = 2;
+    const innerWidth = width - (padding * 2);
+    const innerHeight = height - (padding * 2);
+    
+    // Move background element
+    const backgroundUpdateStyles = {
+        top: newY + 'px',
+        transition: 'none' // Remove any existing transitions
+    };
+    if (alignmentSide === 'left') {
+        backgroundUpdateStyles.left = newX + 'px';
+    } else {
+        backgroundUpdateStyles.right = newX + 'px';
+    }
+    HTML.setStyle(background, backgroundUpdateStyles);
+    
+    // Get highlight element and move it
+    const highlight = HTML.getElementUnsafely(id + '_highlight');
+    if (exists(highlight)) {
+        // Need to recreate option positioning logic to calculate highlight position
+        const textWidths = [];
+        let totalTextWidth = 0;
+        
+        // Measure text widths (need to get font info from first text element)
+        const firstTextElement = HTML.getElementUnsafely(id + '_text_0');
+        if (exists(firstTextElement)) {
+            const textStyles = window.getComputedStyle(firstTextElement);
+            const font = textStyles.fontFamily.replace(/"/g, ''); // Remove quotes
+            const fontSize = parseInt(textStyles.fontSize);
+            
+            for (const option of options) {
+                const textWidth = measureTextWidth(option, font, fontSize);
+                textWidths.push(textWidth);
+                totalTextWidth += textWidth;
+            }
+            
+            // Calculate option positions (same logic as createSelector)
+            const minSpacing = 2;
+            const totalSpacing = (options.length - 1) * minSpacing;
+            const availableWidth = innerWidth - totalSpacing;
+            const availableHeight = innerHeight - totalSpacing;
+            
+            const optionData = [];
+            let currentPos = 0;
+            
+            for (let i = 0; i < options.length; i++) {
+                const textWidth = textWidths[i];
+                let optionWidth, optionHeight, optionX, optionY;
+                
+                if (orientation === "horizontal") {
+                    // Equal spacing (most common case)
+                    optionWidth = availableWidth / options.length;
+                    optionHeight = innerHeight;
+                    optionX = currentPos;
+                    optionY = 0;
+                    currentPos += optionWidth + (i < options.length - 1 ? minSpacing : 0);
+                } else {
+                    // Vertical
+                    optionHeight = availableHeight / options.length;
+                    optionWidth = innerWidth;
+                    optionX = 0;
+                    optionY = currentPos;
+                    currentPos += optionHeight + (i < options.length - 1 ? minSpacing : 0);
+                }
+                
+                optionData.push({
+                    width: optionWidth,
+                    height: optionHeight,
+                    x: optionX,
+                    y: optionY
+                });
+            }
+            
+            // Move highlight to selected option position
+            const selectedOption = optionData[selectedIndex];
+            const highlightUpdateStyles = {
+                top: (newY + padding + selectedOption.y) + 'px',
+                width: selectedOption.width + 'px',
+                height: selectedOption.height + 'px',
+                transition: 'none' // Remove any existing transitions
+            };
+            if (alignmentSide === 'left') {
+                highlightUpdateStyles.left = (newX + padding + selectedOption.x) + 'px';
+            } else {
+                highlightUpdateStyles.right = (newX + padding + (innerWidth - selectedOption.x - selectedOption.width)) + 'px';
+            }
+            HTML.setStyle(highlight, highlightUpdateStyles);
+            
+            // Move all text elements
+            for (let i = 0; i < options.length; i++) {
+                const textElement = HTML.getElementUnsafely(id + '_text_' + i);
+                if (exists(textElement)) {
+                    const optionInfo = optionData[i];
+                    const textUpdateStyles = {
+                        top: (newY + padding + optionInfo.y) + 'px',
+                        width: optionInfo.width + 'px',
+                        height: optionInfo.height + 'px',
+                        transition: 'none' // Remove any existing transitions
+                    };
+                    if (alignmentSide === 'left') {
+                        textUpdateStyles.left = (newX + padding + optionInfo.x) + 'px';
+                    } else {
+                        textUpdateStyles.right = (newX + padding + (innerWidth - optionInfo.x - optionInfo.width)) + 'px';
+                    }
+                    HTML.setStyle(textElement, textUpdateStyles);
+                }
+            }
+        }
+    }
 }
 
 // Creates a boolean toggle with smooth transitions
