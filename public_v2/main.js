@@ -5152,45 +5152,55 @@ function renderCalendar(days) {
             }
         }
 
-        // i think this section below is a bit of a hack and not well written, but i'm a hack fraud so sure this works
+        // calculate the hours to show
+        
+        // noEventsShown is true if no timed events or reminders were found
+        // (globalEarliestMs remains at its initial value of 24 * MS_PER_HOUR)
+        const noEventsShown = (globalEarliestMs === 24 * MS_PER_HOUR);
 
-        // Fallback – if no timed content exists, center G_calendarMinimumHours around noon
-        let isFallback = false;
-        if (globalEarliestMs === 24 * MS_PER_HOUR) {
-            isFallback = true;
-            const centerHour = 12; // noon
-            const halfSpan = Math.floor(G_calendarMinimumHours / 2);
-            globalEarliestMs = Math.max(0, centerHour - halfSpan) * MS_PER_HOUR;
-            globalLatestMs = Math.min(24, centerHour + halfSpan) * MS_PER_HOUR;
-        }
-
-        // Convert to hours and expand by 1 hour (bounded 0-24)
-        let earliestHour = Math.max(0, Math.floor(globalEarliestMs / MS_PER_HOUR) - (isFallback ? 0 : 1));
-        let latestHour   = Math.min(24, Math.ceil(globalLatestMs / MS_PER_HOUR) + (isFallback ? 0 : 1));
-
-        // Ensure span is at least G_calendarMinimumHours hours
-        while (latestHour - earliestHour < G_calendarMinimumHours) {
-            // Safety check to prevent infinite loop - if we're already at maximum span, break
-            if (earliestHour === 0 && latestHour === 24) {
-                break;
+        if (noEventsShown) {
+            // if there are no events, then both of the bounds should have their original values, not just globalEarliestMs
+            ASSERT(globalLatestMs === 0, "renderCalendar: globalLatestMs is not 0 when no events are shown");
+            // just start at noon and move outward
+            globalEarliestMs = (12 * MS_PER_HOUR) - (G_calendarMinimumHours * MS_PER_HOUR / 2);
+            globalLatestMs = (12 * MS_PER_HOUR) + (G_calendarMinimumHours * MS_PER_HOUR / 2);
+        } else {
+            // if earliest / latest is on an hour exactly, we have to add 1 hour if possible
+            if (globalEarliestMs % MS_PER_HOUR === 0) {
+                globalEarliestMs -= MS_PER_HOUR;
+            } else {
+                globalEarliestMs = Math.floor(globalEarliestMs / MS_PER_HOUR) * MS_PER_HOUR;
             }
             
-            const missing = G_calendarMinimumHours - (latestHour - earliestHour);
-            const expandStart = Math.min(earliestHour, Math.floor(missing / 2));
-            const newEarliestHour = earliestHour - expandStart;
-            const newLatestHour = Math.min(24, latestHour + (missing - expandStart));
-            
-            // If we can't expand further (values don't change), break to prevent infinite loop
-            if (newEarliestHour === earliestHour && newLatestHour === latestHour) {
-                break;
+            if (globalLatestMs % MS_PER_HOUR === 0) {
+                globalLatestMs += MS_PER_HOUR;
+            } else {
+                globalLatestMs = Math.ceil(globalLatestMs / MS_PER_HOUR) * MS_PER_HOUR;
             }
-            
-            earliestHour = newEarliestHour;
-            latestHour = newLatestHour;
+
+            // now expand outwards until the minimum hours are reached
+            let iterations = 0;
+            while (globalLatestMs - globalEarliestMs < G_calendarMinimumHours * MS_PER_HOUR) {
+                if (iterations % 2 == 0) {
+                    if (globalLatestMs + MS_PER_HOUR <= 24 * MS_PER_HOUR) {
+                        globalLatestMs += MS_PER_HOUR;
+                    }
+                } else {
+                    if (globalEarliestMs - MS_PER_HOUR >= 0) {
+                        globalEarliestMs -= MS_PER_HOUR;
+                    }
+                }
+
+                // safety check
+                if (iterations > 24) {
+                    ASSERT(false, "renderCalendar: failed to expand outwards to minimum hours");
+                }
+                iterations++;
+            }
         }
 
-        G_calendarVisibleStartHour = earliestHour;
-        G_calendarVisibleEndHour   = latestHour;
+        G_calendarVisibleStartHour = globalEarliestMs / MS_PER_HOUR;
+        G_calendarVisibleEndHour   = globalLatestMs / MS_PER_HOUR;
     } else {
         // Full-day view
         G_calendarVisibleStartHour = 0;
@@ -9840,7 +9850,8 @@ function initEditorModal(id) {
         opacity: '0',
         transition: 'opacity 0.3s ease, color 0.2s ease'
     });
-    closeButton.textContent = 'X';
+    // Create SVG X icon
+    closeButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M3.5 12.5l9-9" stroke="var(--shade-3)" stroke-width="2" stroke-linecap="round"/></svg>';
     
     // Close button hover effects
     closeButton.onmouseenter = () => {
@@ -9858,7 +9869,7 @@ function initEditorModal(id) {
     HTML.body.appendChild(closeButton);
     
     // Create selector for three options (Event, Task, Reminder)
-    const selectorTop = modalTop + 20;
+    const selectorTop = modalTop + 35;
     const selectorLeft = modalLeft + 5;
     const selectorWidth = modalWidth - 6;
     const selectorHeight = 28;
