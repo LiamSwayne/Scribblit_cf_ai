@@ -8054,23 +8054,27 @@ function openSettingsModal() {
             'right'
         );
 
-        createSelector(
-            ['24hr', 'AM/PM'],           // options: array of selectable strings
-            'horizontal',                // orientation: layout direction
-            'timeFormatSelector',        // id: unique identifier for this selector
-            modalRect.width - 140,          // x: 5px from left side of modal
-            modalRect.top + 19.5,          // y: 20px from top of modal
-            72,                          // width: total selector width in pixels
-            20,                          // height: total selector height in pixels
-            7002,                        // zIndex: layer positioning (above settings modal)
-            'MonospacePrimary',                 // font: font family for text rendering
-            10,                          // fontSize: text size in pixels
-            toggleAmPmOr24,              // onSelectionChange: callback function
-            user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',  // initialSelection: current time format
-            0.9,                         // minWaitTime: minimum time between option changes
-            'right',                      // alignmentSide: position using left or right
-            false                          // equalSpacing: whether to space options evenly
-        );
+        // Shared configuration for AM/PM selector
+        const ampmSelectorConfig = {
+            options: ['24hr', 'AM/PM'],
+            orientation: 'horizontal',
+            id: 'timeFormatSelector',
+            x: modalRect.width - 140,
+            y: modalRect.top + 19.5,
+            width: 72,
+            height: 20,
+            zIndex: 7002,
+            font: 'MonospacePrimary',
+            fontSize: 10,
+            onSelectionChange: toggleAmPmOr24,
+            initialSelection: user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',
+            minWaitTime: 0.9,
+            alignmentSide: 'right',
+            equalSpacing: false,
+            accentMode: 'transition'
+        };
+
+        createSelector(ampmSelectorConfig);
 
         // Add logout button if user is signed in
         if (LocalData.get('signedIn')) {
@@ -8346,24 +8350,7 @@ function openSettingsModal() {
                             HTML.setStyle(logoutButton, { display: 'block', opacity: '0' });
                             HTML.setStyle(featureRequestButton, { display: 'block', opacity: '0' });
 
-                            // Re-create selector
-                            createSelector(
-                                ['24hr', 'AM/PM'],
-                                'horizontal',
-                                'timeFormatSelector',
-                                modalRect.width - 145,
-                                modalRect.top + 20,
-                                72,
-                                20,
-                                7002,
-                                'MonospacePrimary',
-                                10,
-                                toggleAmPmOr24,
-                                user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',
-                                0.9,
-                                'right',
-                                false
-                            );
+                            createSelector(ampmSelectorConfig);
                             
                             // Re-create boolean toggle
                             createBooleanToggle(
@@ -9784,26 +9771,27 @@ function initEditorModal(id) {
     const selectorWidth = modalWidth - 6;
     const selectorHeight = 28;
     
-    createSelector(
-        ['Event', 'Task', 'Reminder'],    // options
-        'horizontal',                      // orientation
-        editorModalKindSelectorId,            // id
-        selectorLeft,                     // x
-        selectorTop,                      // y
-        selectorWidth,                    // width
-        selectorHeight,                   // height
-        editorModalBaseZIndex + 1,        // zIndex
-        'PrimaryRegular',                 // font
-        16,                               // fontSize (relatively large)
-        (selectedOption) => {             // onSelectionChange
+    createSelector({
+        options: ['Event', 'Task', 'Reminder'],
+        orientation: 'horizontal',
+        id: editorModalKindSelectorId,
+        x: selectorLeft,
+        y: selectorTop,
+        width: selectorWidth,
+        height: selectorHeight,
+        zIndex: editorModalBaseZIndex + 1,
+        font: 'PrimaryRegular',
+        fontSize: 16,
+        onSelectionChange: (selectedOption) => {
             console.log('Selected:', selectedOption);
 
         },
-        'Event',                          // initialSelection
-        0.2,                              // minWaitTime
-        'left',                           // alignmentSide
-        true                              // equalSpacing
-    );
+        initialSelection: 'Event',
+        minWaitTime: 0.2,
+        alignmentSide: 'left',
+        equalSpacing: true,
+        accentMode: 'transition'
+    });
     
     // Force reflow
     editorModalVignette.offsetHeight;
@@ -11072,31 +11060,53 @@ async function formatEntityTitles(entityIds, descriptionOfFiles, fileArray) {
     }
 }
 
+// Helper function to interpolate between two colors
+function interpolateColor(color1Rgb, color2Rgb, factor) {
+    return {
+        r: Math.round(color1Rgb.r + (color2Rgb.r - color1Rgb.r) * factor),
+        g: Math.round(color1Rgb.g + (color2Rgb.g - color1Rgb.g) * factor),
+        b: Math.round(color1Rgb.b + (color2Rgb.b - color1Rgb.b) * factor)
+    };
+}
+
 // Creates a multiple choice selector with smooth transitions
-function createSelector(options, orientation, id, x, y, width, height, zIndex, font, fontSize, onSelectionChange, initialSelection, minWaitTime, alignmentSide, equalSpacing) {
+function createSelector(config) {
     // Robust assertions
-    ASSERT(type(options, List(String)), "createSelector: options must be a list of strings");
-    ASSERT(options.length >= 2, "createSelector: must have at least 2 options");
-    ASSERT(type(orientation, String), "createSelector: orientation must be a string");
-    ASSERT(orientation === "horizontal" || orientation === "vertical", "createSelector: orientation must be 'horizontal' or 'vertical'");
-    ASSERT(type(id, NonEmptyString), "createSelector: id must be a non-empty string");
-    ASSERT(type(x, Number), "createSelector: x must be a number");
-    ASSERT(type(y, Number), "createSelector: y must be a number");
-    ASSERT(type(width, Number), "createSelector: width must be a number");
-    ASSERT(type(height, Number), "createSelector: height must be a number");
-    ASSERT(width > 0, "createSelector: width must be positive");
-    ASSERT(height > 0, "createSelector: height must be positive");
-    ASSERT(type(zIndex, Int), "createSelector: zIndex must be an integer");
-    ASSERT(type(font, String), "createSelector: font must be a string");
-    ASSERT(type(fontSize, Number), "createSelector: fontSize must be a number");
-    ASSERT(fontSize > 0, "createSelector: fontSize must be positive");
-    ASSERT(type(onSelectionChange, Function), "createSelector: onSelectionChange must be a function");
-    ASSERT(type(initialSelection, String), "createSelector: initialSelection must be a string");
-    ASSERT(type(minWaitTime, Number), "createSelector: minWaitTime must be a number");
-    ASSERT(minWaitTime >= 0, "createSelector: minWaitTime must be non-negative");
-    ASSERT(type(alignmentSide, String), "createSelector: alignmentSide must be a string");
-    ASSERT(alignmentSide === "left" || alignmentSide === "right", "createSelector: alignmentSide must be 'left' or 'right'");
-    ASSERT(type(equalSpacing, Boolean), "createSelector: equalSpacing must be a boolean");
+    ASSERT(type(config, Object), "createSelector: config must be an object");
+    ASSERT(type(config.options, List(String)), "createSelector: config.options must be a list of strings");
+    ASSERT(config.options.length >= 2, "createSelector: must have at least 2 options");
+    ASSERT(type(config.orientation, String), "createSelector: config.orientation must be a string");
+    ASSERT(config.orientation === "horizontal" || config.orientation === "vertical", "createSelector: config.orientation must be 'horizontal' or 'vertical'");
+    ASSERT(type(config.id, NonEmptyString), "createSelector: config.id must be a non-empty string");
+    ASSERT(type(config.x, Number), "createSelector: config.x must be a number");
+    ASSERT(type(config.y, Number), "createSelector: config.y must be a number");
+    ASSERT(type(config.width, Number), "createSelector: config.width must be a number");
+    ASSERT(type(config.height, Number), "createSelector: config.height must be a number");
+    ASSERT(config.width > 0, "createSelector: config.width must be positive");
+    ASSERT(config.height > 0, "createSelector: config.height must be positive");
+    ASSERT(type(config.zIndex, Int), "createSelector: config.zIndex must be an integer");
+    ASSERT(type(config.font, String), "createSelector: config.font must be a string");
+    ASSERT(type(config.fontSize, Number), "createSelector: config.fontSize must be a number");
+    ASSERT(config.fontSize > 0, "createSelector: config.fontSize must be positive");
+    ASSERT(type(config.onSelectionChange, Function), "createSelector: config.onSelectionChange must be a function");
+    ASSERT(type(config.initialSelection, String), "createSelector: config.initialSelection must be a string");
+    ASSERT(type(config.minWaitTime, Number), "createSelector: config.minWaitTime must be a number");
+    ASSERT(config.minWaitTime >= 0, "createSelector: config.minWaitTime must be non-negative");
+    ASSERT(type(config.alignmentSide, String), "createSelector: config.alignmentSide must be a string");
+    ASSERT(config.alignmentSide === "left" || config.alignmentSide === "right", "createSelector: config.alignmentSide must be 'left' or 'right'");
+    ASSERT(type(config.equalSpacing, Boolean), "createSelector: config.equalSpacing must be a boolean");
+    ASSERT(type(config.accentMode, Number) || type(config.accentMode, String), "createSelector: config.accentMode must be a number or string");
+    if (type(config.accentMode, Number)) {
+        ASSERT(config.accentMode === 0 || config.accentMode === 1, "createSelector: config.accentMode must be 0, 1, or 'transition'");
+    } else {
+        ASSERT(config.accentMode === "transition", "createSelector: config.accentMode must be 0, 1, or 'transition'");
+    }
+    
+    // Destructure config for easier access
+    const {
+        options, orientation, id, x, y, width, height, zIndex, font, fontSize,
+        onSelectionChange, initialSelection, minWaitTime, alignmentSide, equalSpacing, accentMode
+    } = config;
     
     // Check if ID already exists
     ASSERT(!exists(HTML.getElementUnsafely(id)), "createSelector: element with id '" + id + "' already exists");
@@ -11226,8 +11236,26 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
     HTML.setId(highlight, id + '_highlight');
     const selectedOption = optionData[initialIndex];
     
-    // Get accent color and convert to rgba with 0.4 opacity
-    const accentColorHex = user.palette.accent[1]; // secondary accent color
+    // Function to get accent color for an option index
+    function getAccentColorForIndex(optionIndex) {
+        if (accentMode === 0) {
+            return user.palette.accent[0];
+        } else if (accentMode === 1) {
+            return user.palette.accent[1];
+        } else if (accentMode === "transition") {
+            if (options.length === 1) {
+                return user.palette.accent[0];
+            }
+            const factor = optionIndex / (options.length - 1);
+            const color1Rgb = hexToRgb(user.palette.accent[0]);
+            const color2Rgb = hexToRgb(user.palette.accent[1]);
+            const interpolatedRgb = interpolateColor(color1Rgb, color2Rgb, factor);
+            return `#${interpolatedRgb.r.toString(16).padStart(2, '0')}${interpolatedRgb.g.toString(16).padStart(2, '0')}${interpolatedRgb.b.toString(16).padStart(2, '0')}`;
+        }
+    }
+    
+    // Get accent color for the initially selected option
+    const accentColorHex = getAccentColorForIndex(initialIndex);
     const accentColorRgb = hexToRgb(accentColorHex);
     const accentColorRgba = `rgba(${accentColorRgb.r}, ${accentColorRgb.g}, ${accentColorRgb.b}, 0.4)`;
     
@@ -11300,12 +11328,19 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
                 HTML.setData(background, 'selectedIndex', i);
                 HTML.setData(background, 'lastSelectionTime', currentTime);
                 
+                // Get the new accent color for the selected option
+                const newAccentColorHex = getAccentColorForIndex(i);
+                const newAccentColorRgb = hexToRgb(newAccentColorHex);
+                const newAccentColorRgba = `rgba(${newAccentColorRgb.r}, ${newAccentColorRgb.g}, ${newAccentColorRgb.b}, 0.4)`;
+                const newBlendedTextColor = `rgb(${Math.round(shade4ColorRgb.r * 0.8 + newAccentColorRgb.r * 0.2)}, ${Math.round(shade4ColorRgb.g * 0.8 + newAccentColorRgb.g * 0.2)}, ${Math.round(shade4ColorRgb.b * 0.8 + newAccentColorRgb.b * 0.2)})`;
+                
                 // Move highlight smoothly
                 const targetOption = optionData[i];
                 const updateHighlightStyles = {
                     top: (y + padding + targetOption.y) + 'px',
                     width: targetOption.width + 'px',
                     height: targetOption.height + 'px',
+                    backgroundColor: newAccentColorRgba,
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 };
                 if (alignmentSide === 'left') {
@@ -11318,7 +11353,7 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
                 // Update text colors with smooth transitions
                 for (let j = 0; j < textElements.length; j++) {
                     HTML.setStyle(textElements[j], {
-                        color: j === i ? blendedTextColor : 'var(--shade-3)',
+                        color: j === i ? newBlendedTextColor : 'var(--shade-3)',
                         transition: 'color 0.3s ease'
                     });
                 }
@@ -11332,8 +11367,13 @@ function createSelector(options, orientation, id, x, y, width, height, zIndex, f
         textElement.onmouseenter = () => {
             const currentIndex = HTML.getData(background, 'selectedIndex');
             if (currentIndex !== i) {
+                // Get the accent color for this option for hover effect
+                const hoverAccentColorHex = getAccentColorForIndex(i);
+                const hoverAccentColorRgb = hexToRgb(hoverAccentColorHex);
+                const hoverBlendedTextColor = `rgb(${Math.round(shade4ColorRgb.r * 0.8 + hoverAccentColorRgb.r * 0.2)}, ${Math.round(shade4ColorRgb.g * 0.8 + hoverAccentColorRgb.g * 0.2)}, ${Math.round(shade4ColorRgb.b * 0.8 + hoverAccentColorRgb.b * 0.2)})`;
+                
                 HTML.setStyle(textElement, {
-                    color: blendedTextColor,
+                    color: hoverBlendedTextColor,
                     transition: 'color 0.2s ease'
                 });
             }
