@@ -9919,6 +9919,7 @@ function initEditorModal(id) {
         borderBottomRightRadius: '0px',
     });
     titleInput.placeholder = 'Enter name...';
+    titleInput.value = editorModalData.name;
     
     // Add input event listener to update editorModalData
     titleInput.addEventListener('input', function() {
@@ -9970,6 +9971,47 @@ function initEditorModal(id) {
         HTML.setStyle(closeButton, { opacity: '1' });
         HTML.setStyle(titleInput, { opacity: '1' });
     }, 50);
+}
+
+// date pattern editor functions
+function initEveryNDaysPatternEditor() {
+    // TODO: Implement EveryNDaysPattern editor
+}
+
+function initMonthlyPatternEditor() {
+    // TODO: Implement MonthlyPattern editor
+}
+
+function initAnnuallyPatternEditor() {
+    // TODO: Implement AnnuallyPattern editor
+}
+
+function initNthWeekdayOfMonthsPatternEditor() {
+    // TODO: Implement NthWeekdayOfMonthsPattern editor
+}
+
+function initDateEditor() {
+    // TODO: Implement date editor
+}
+
+function closeEveryNDaysPatternEditor() {
+    // TODO: Implement close function for EveryNDaysPattern editor
+}
+
+function closeMonthlyPatternEditor() {
+    // TODO: Implement close function for MonthlyPattern editor
+}
+
+function closeAnnuallyPatternEditor() {
+    // TODO: Implement close function for AnnuallyPattern editor
+}
+
+function closeNthWeekdayOfMonthsPatternEditor() {
+    // TODO: Implement close function for NthWeekdayOfMonthsPattern editor
+}
+
+function closeDateEditor() {
+    // TODO: Implement close function for date editor
 }
 
 function closeEditorModal() {
