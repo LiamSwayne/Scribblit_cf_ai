@@ -9781,11 +9781,11 @@ function initEditorModal(id) {
     
     // Determine entity type and populate initial data
     if (type(entity.data, TaskData)) {
-        // TODO
+        editorModalData.kind = 'task';
     } else if (type(entity.data, EventData)) {
-        // TODO
+        editorModalData.kind = 'event';
     } else if (type(entity.data, ReminderData)) {
-        // TODO
+        editorModalData.kind = 'reminder';
     }
     editorModalData.name = entity.name;
     editorModalData.description = entity.description;
