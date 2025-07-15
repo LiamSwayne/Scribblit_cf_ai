@@ -9902,6 +9902,7 @@ function initEditorModal(id) {
         borderBottomRightRadius: '0px',
     });
     titleInput.placeholder = 'Enter name...';
+    titleInput.value = editorModalData.name;
     
     // Add input event listener to update editorModalData
     titleInput.addEventListener('input', function() {
@@ -10064,6 +10065,47 @@ function updateEditorModalPosition() {
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
     
     // editorModalVignette is full-screen so it doesn't need repositioning
+}
+
+// Date Pattern Editor Functions
+function initEveryNDaysPatternEditor() {
+    // TODO: Implement EveryNDaysPattern editor
+}
+
+function initMonthlyPatternEditor() {
+    // TODO: Implement MonthlyPattern editor
+}
+
+function initAnnuallyPatternEditor() {
+    // TODO: Implement AnnuallyPattern editor
+}
+
+function initNthWeekdayOfMonthsPatternEditor() {
+    // TODO: Implement NthWeekdayOfMonthsPattern editor
+}
+
+function initDateEditor() {
+    // TODO: Implement date editor
+}
+
+function closeEveryNDaysPatternEditor() {
+    // TODO: Implement close function for EveryNDaysPattern editor
+}
+
+function closeMonthlyPatternEditor() {
+    // TODO: Implement close function for MonthlyPattern editor
+}
+
+function closeAnnuallyPatternEditor() {
+    // TODO: Implement close function for AnnuallyPattern editor
+}
+
+function closeNthWeekdayOfMonthsPatternEditor() {
+    // TODO: Implement close function for NthWeekdayOfMonthsPattern editor
+}
+
+function closeDateEditor() {
+    // TODO: Implement close function for date editor
 }
 
 // Helper function to measure text width
