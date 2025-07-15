@@ -3023,6 +3023,21 @@ class CompleteRequestNode {
         this.startTime = startTime;
         this.endTime = Date.now();
     }
+
+    encode() {
+        ASSERT(type(this, CompleteRequestNode));
+        return {
+            startTime: this.startTime,
+            endTime: this.endTime,
+            _type: 'CompleteRequestNode'
+        };
+    }
+
+    static decode(json) {
+        ASSERT(exists(json));
+        ASSERT(json._type === 'CompleteRequestNode');
+        return new CompleteRequestNode(json.startTime, json.endTime);
+    }
 }
 
 function decodeNode(nodeJson) {
