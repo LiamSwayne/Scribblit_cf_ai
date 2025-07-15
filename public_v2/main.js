@@ -9794,10 +9794,6 @@ function initEditorModal(id) {
     const modalWidth = 300;
     const modalHeight = 700;
     
-    // Calculate center position
-    const modalLeft = (window.innerWidth - modalWidth) / 2;
-    const modalTop = (window.innerHeight - modalHeight) / 2;
-    
     // Create vignette background
     editorModalVignette = HTML.make('div');
     HTML.setId(editorModalVignette, 'editorModalVignette');
@@ -9826,8 +9822,6 @@ function initEditorModal(id) {
     HTML.setId(editorModal, 'editorModal');
     HTML.setStyle(editorModal, {
         position: 'fixed',
-        top: modalTop + 'px',
-        left: modalLeft + 'px',
         width: modalWidth + 'px',
         height: modalHeight + 'px',
         backgroundColor: 'var(--shade-0)',
@@ -9845,11 +9839,9 @@ function initEditorModal(id) {
     HTML.setId(closeButton, 'editorModalCloseButton');
     HTML.setStyle(closeButton, {
         position: 'fixed',
-        top: (modalTop) + 'px',
         paddingTop: '0px',
         paddingLeft: '1px',
         paddingRight: '3px',
-        left: (modalLeft + modalWidth - 24) + 'px',
         width: '20px',
         height: '20px',
         fontSize: '16px',
@@ -9888,19 +9880,10 @@ function initEditorModal(id) {
     HTML.body.appendChild(closeButton);
     
     // Create title input in top left corner
-    const titleInputTop = modalTop;
-    const titleInputLeft = modalLeft;
-    const titleInputWidth = modalWidth - 22; // Leave space for close button
-    const titleInputHeight = 24;
-    
     const titleInput = HTML.make('input');
     HTML.setId(titleInput, 'editorModalTitleInput');
     HTML.setStyle(titleInput, {
         position: 'fixed',
-        top: titleInputTop + 'px',
-        left: titleInputLeft + 'px',
-        width: titleInputWidth + 'px',
-        height: titleInputHeight + 'px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
         color: 'var(--shade-4)',
@@ -9929,8 +9912,6 @@ function initEditorModal(id) {
     HTML.body.appendChild(titleInput);
     
     // Create selector for three options (Event, Task, Reminder) - moved down to make room for title
-    const selectorTop = modalTop + 27;
-    const selectorLeft = modalLeft + 5;
     const selectorWidth = modalWidth - 6;
     const selectorHeight = 28;
     
@@ -9938,8 +9919,8 @@ function initEditorModal(id) {
         options: ['Event', 'Task', 'Reminder'],
         orientation: 'horizontal',
         id: editorModalKindSelectorId,
-        x: selectorLeft,
-        y: selectorTop,
+        x: 0, // Will be positioned by updateEditorModalPosition
+        y: 0, // Will be positioned by updateEditorModalPosition
         width: selectorWidth,
         height: selectorHeight,
         zIndex: editorModalBaseZIndex + 1,
@@ -9954,6 +9935,9 @@ function initEditorModal(id) {
         equalSpacing: true,
         accentMode: 'transition'
     });
+    
+    // Position all elements using single point of control
+    updateEditorModalPosition();
     
     // Force reflow
     editorModalVignette.offsetHeight;
@@ -10053,8 +10037,8 @@ function updateEditorModalPosition() {
     const closeButton = HTML.getElementUnsafely('editorModalCloseButton');
     if (exists(closeButton)) {
         HTML.setStyle(closeButton, {
-            top: (modalTop + 10) + 'px',
-            left: (modalLeft + modalWidth - 30) + 'px',
+            top: (modalTop) + 'px',
+            left: (modalLeft + modalWidth - 24) + 'px',
         });
     }
     
@@ -10063,14 +10047,18 @@ function updateEditorModalPosition() {
     if (exists(titleInput)) {
         const titleInputTop = modalTop;
         const titleInputLeft = modalLeft;
+        const titleInputWidth = modalWidth - 22;
+        const titleInputHeight = 24;
         HTML.setStyle(titleInput, {
             top: titleInputTop + 'px',
             left: titleInputLeft + 'px',
+            width: titleInputWidth + 'px',
+            height: titleInputHeight + 'px',
         });
     }
     
     // Update selector position using moveSelector
-    const selectorTop = modalTop + 37;
+    const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
