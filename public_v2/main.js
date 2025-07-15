@@ -9946,6 +9946,46 @@ function initEditorModal(id) {
         accentMode: 'transition'
     });
     
+    // Create description textarea positioned relative to bottom of modal
+    const descriptionTextarea = HTML.make('textarea');
+    HTML.setId(descriptionTextarea, 'editorModalDescriptionTextarea');
+    HTML.setStyle(descriptionTextarea, {
+        position: 'fixed',
+        width: (editorModalWidth - 12) + 'px',
+        height: '120px',
+        fontSize: '12px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '4px',
+        outline: 'none',
+        zIndex: String(editorModalBaseZIndex + 1),
+        opacity: '0',
+        transition: 'opacity 0.3s ease, border 0.2s ease',
+        padding: '8px',
+        boxSizing: 'border-box',
+        resize: 'none',
+        overflow: 'auto',
+    });
+    descriptionTextarea.placeholder = 'Description...';
+    descriptionTextarea.value = editorModalData.description;
+    
+    // Add input event listener to update editorModalData
+    descriptionTextarea.addEventListener('input', function() {
+        editorModalData.description = descriptionTextarea.value;
+    });
+    
+    // Add focus/blur effects
+    descriptionTextarea.addEventListener('focus', function() {
+        HTML.setStyle(descriptionTextarea, { border: '1px solid var(--accent-1)' });
+    });
+    descriptionTextarea.addEventListener('blur', function() {
+        HTML.setStyle(descriptionTextarea, { border: '1px solid var(--shade-2)' });
+    });
+    
+    HTML.body.appendChild(descriptionTextarea);
+    
     // Position all elements
     updateEditorModalPosition();
     
@@ -9954,6 +9994,7 @@ function initEditorModal(id) {
     editorModal.offsetHeight;
     closeButton.offsetHeight;
     titleInput.offsetHeight;
+    descriptionTextarea.offsetHeight;
     
     // Animate modal in
     setTimeout(() => {
@@ -9963,6 +10004,8 @@ function initEditorModal(id) {
         });
         HTML.setStyle(closeButton, { opacity: '1' });
         HTML.setStyle(titleInput, { opacity: '1' });
+        
+        HTML.setStyle(descriptionTextarea, { opacity: '1' });
     }, 50);
 }
 
@@ -10043,6 +10086,11 @@ function closeEditorModal() {
         HTML.setStyle(titleInput, { opacity: '0' });
     }
     
+    const descriptionTextarea = HTML.getElementUnsafely('editorModalDescriptionTextarea');
+    if (descriptionTextarea) {
+        HTML.setStyle(descriptionTextarea, { opacity: '0' });
+    }
+    
     // Remove elements after animation
     setTimeout(() => {
         if (editorModalVignette && editorModalVignette.parentNode) {
@@ -10062,6 +10110,11 @@ function closeEditorModal() {
         const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
         if (titleInput && titleInput.parentNode) {
             HTML.body.removeChild(titleInput);
+        }
+        
+        const descriptionTextarea = HTML.getElementUnsafely('editorModalDescriptionTextarea');
+        if (descriptionTextarea && descriptionTextarea.parentNode) {
+            HTML.body.removeChild(descriptionTextarea);
         }
 
         editorModalOpen = false;
@@ -10112,6 +10165,18 @@ function updateEditorModalPosition() {
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
+    
+    // Update description textarea position - positioned relative to bottom of modal
+    const descriptionTextarea = HTML.getElementUnsafely('editorModalDescriptionTextarea');
+    if (exists(descriptionTextarea)) {
+        const descriptionBottom = 5; // Distance from bottom of modal
+        const descriptionTop = modalTop + editorModalHeight - 120 - descriptionBottom; // 120 is textarea height
+        const descriptionLeft = modalLeft + 8;
+        HTML.setStyle(descriptionTextarea, {
+            top: descriptionTop + 'px',
+            left: descriptionLeft + 'px',
+        });
+    }
     
     // editorModalVignette is full-screen so it doesn't need repositioning
 }
