@@ -10009,10 +10009,70 @@ function initEditorModal(id) {
     }, 50);
 }
 
-function initDateField(left, top) {
+// doesn't handle any input validation
+// left and top are relative to the editor modal top left corner
+// TODO finish
+function initDateFieldInput(left, top) {
     ASSERT(type(left, Number));
     ASSERT(type(top, Number));
-    // TODO: Implement date field editor
+    
+    // three fields using monospace
+    const style = {
+        position: 'fixed',
+        fontFamily: 'MonospacePrimary',
+        fontSize: '12px',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '4px',
+        outline: 'none',
+        zIndex: String(editorModalBaseZIndex + 1),
+        opacity: '0',
+        transition: 'opacity 0.3s ease',
+    }
+
+    const yearInput = HTML.make('input');
+    HTML.setStyle(yearInput, style);
+    HTML.body.appendChild(yearInput);
+
+    const monthInput = HTML.make('input');
+    HTML.setStyle(monthInput, style);
+    HTML.body.appendChild(monthInput);
+
+    const dayInput = HTML.make('input');
+    HTML.setStyle(dayInput, style);
+    HTML.body.appendChild(dayInput);
+
+    // slash between first and second, and second and third
+    const slash1 = HTML.make('div');
+    HTML.setStyle(slash1, {
+        position: 'fixed',
+        fontFamily: 'MonospacePrimary',
+        fontSize: '12px',
+        color: 'var(--shade-4)',
+    });
+
+    const slash2 = HTML.make('div');
+    HTML.setStyle(slash2, {
+        position: 'fixed',
+        fontFamily: 'MonospacePrimary',
+        fontSize: '12px',
+        color: 'var(--shade-4)',
+    });
+
+    // follow user preference for year, month, day
+
+    // 2 digit year
+
+    return {
+        year: yearInput,
+        month: monthInput,
+        day: dayInput
+    }
+}
+
+function isValidDate(dateString) {
+
 }
 
 // date pattern editor functions
@@ -10042,7 +10102,7 @@ function initDateInstanceEditor(top) {
     // TODO: Implement date editor
 }
 
-function closeDateField() {
+function closeDateFieldInput() {
     // TODO: Implement close function for date field editor
 }
 
