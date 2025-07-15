@@ -9659,6 +9659,8 @@ let editorModalVignette = null;
 const editorModalBaseZIndex = 12001;
 const editorModalVignetteZIndex = 12000;
 const editorModalKindSelectorId = 'editorModalKindSelector';
+const editorModalWidth = 300;
+const editorModalHeight = 700;
 let editorModalDataEmpty = {
     kind: '',
     name: '',
@@ -9789,14 +9791,11 @@ function initEditorModal(id) {
     }
     editorModalData.name = entity.name;
     editorModalData.description = entity.description;
-    
-    // Modal dimensions
-    const modalWidth = 300;
-    const modalHeight = 700;
+
     
     // Calculate center position
-    const modalLeft = (window.innerWidth - modalWidth) / 2;
-    const modalTop = (window.innerHeight - modalHeight) / 2;
+    const modalLeft = (window.innerWidth - editorModalWidth) / 2;
+    const modalTop = (window.innerHeight - editorModalHeight) / 2;
     
     // Create vignette background
     editorModalVignette = HTML.make('div');
@@ -9826,10 +9825,8 @@ function initEditorModal(id) {
     HTML.setId(editorModal, 'editorModal');
     HTML.setStyle(editorModal, {
         position: 'fixed',
-        top: modalTop + 'px',
-        left: modalLeft + 'px',
-        width: modalWidth + 'px',
-        height: modalHeight + 'px',
+        width: editorModalWidth + 'px',
+        height: editorModalHeight + 'px',
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         borderRadius: '12px',
@@ -9845,11 +9842,9 @@ function initEditorModal(id) {
     HTML.setId(closeButton, 'editorModalCloseButton');
     HTML.setStyle(closeButton, {
         position: 'fixed',
-        top: (modalTop) + 'px',
         paddingTop: '0px',
         paddingLeft: '1px',
         paddingRight: '3px',
-        left: (modalLeft + modalWidth - 24) + 'px',
         width: '20px',
         height: '20px',
         fontSize: '16px',
@@ -9888,19 +9883,11 @@ function initEditorModal(id) {
     HTML.body.appendChild(closeButton);
     
     // Create title input in top left corner
-    const titleInputTop = modalTop;
-    const titleInputLeft = modalLeft;
-    const titleInputWidth = modalWidth - 22; // Leave space for close button
-    const titleInputHeight = 24;
-    
     const titleInput = HTML.make('input');
     HTML.setId(titleInput, 'editorModalTitleInput');
     HTML.setStyle(titleInput, {
         position: 'fixed',
-        top: titleInputTop + 'px',
-        left: titleInputLeft + 'px',
-        width: titleInputWidth + 'px',
-        height: titleInputHeight + 'px',
+        height: '24px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
         color: 'var(--shade-4)',
@@ -9932,7 +9919,7 @@ function initEditorModal(id) {
     // Create selector for three options (Event, Task, Reminder) - moved down to make room for title
     const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
-    const selectorWidth = modalWidth - 6;
+    const selectorWidth = editorModalWidth - 6;
     const selectorHeight = 28;
     
     createSelector({
@@ -9955,6 +9942,9 @@ function initEditorModal(id) {
         equalSpacing: true,
         accentMode: 'transition'
     });
+    
+    // Position all elements
+    updateEditorModalPosition();
     
     // Force reflow
     editorModalVignette.offsetHeight;
@@ -10074,13 +10064,9 @@ function closeEditorModal() {
 function updateEditorModalPosition() {
     if (!editorModalOpen) return;
     
-    // Modal dimensions (same as in initEditorModal)
-    const modalWidth = 300;
-    const modalHeight = 700;
-    
-    // Calculate center position (same logic as initEditorModal)
-    const modalLeft = (window.innerWidth - modalWidth) / 2;
-    const modalTop = (window.innerHeight - modalHeight) / 2;
+    // Calculate center position
+    const modalLeft = (window.innerWidth - editorModalWidth) / 2;
+    const modalTop = (window.innerHeight - editorModalHeight) / 2;
     
     // Update main modal position
     const modal = HTML.getElementUnsafely('editorModal');
@@ -10095,8 +10081,8 @@ function updateEditorModalPosition() {
     const closeButton = HTML.getElementUnsafely('editorModalCloseButton');
     if (exists(closeButton)) {
         HTML.setStyle(closeButton, {
-            top: (modalTop + 10) + 'px',
-            left: (modalLeft + modalWidth - 30) + 'px',
+            top: (modalTop) + 'px',
+            left: (modalLeft + editorModalWidth - 24) + 'px',
         });
     }
     
@@ -10105,14 +10091,16 @@ function updateEditorModalPosition() {
     if (exists(titleInput)) {
         const titleInputTop = modalTop;
         const titleInputLeft = modalLeft;
+        const titleInputWidth = editorModalWidth - 22; // Leave space for close button
         HTML.setStyle(titleInput, {
             top: titleInputTop + 'px',
             left: titleInputLeft + 'px',
+            width: titleInputWidth + 'px',
         });
     }
     
     // Update selector position using moveSelector
-    const selectorTop = modalTop + 37;
+    const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
