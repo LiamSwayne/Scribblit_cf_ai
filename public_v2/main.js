@@ -477,6 +477,9 @@ document.addEventListener('keydown', (e) => {
     // Don't process arrow keys when user is typing in text inputs
     if (currentlyTyping) return;
     
+    // Don't process arrow keys when editor modal is open
+    if (editorModalOpen) return;
+    
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
         navigateCalendar('left', e.shiftKey);
