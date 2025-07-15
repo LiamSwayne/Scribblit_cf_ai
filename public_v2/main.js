@@ -9828,6 +9828,8 @@ function initEditorModal(id) {
     HTML.setId(editorModal, 'editorModal');
     HTML.setStyle(editorModal, {
         position: 'fixed',
+        top: modalTop + 'px',
+        left: modalLeft + 'px',
         width: editorModalWidth + 'px',
         height: editorModalHeight + 'px',
         backgroundColor: 'var(--shade-0)',
@@ -9844,7 +9846,9 @@ function initEditorModal(id) {
     const closeButton = HTML.make('div');
     HTML.setId(closeButton, 'editorModalCloseButton');
     HTML.setStyle(closeButton, {
-        position: 'fixed',
+        position: 'absolute',
+        top: '0px',
+        right: '0px',
         paddingTop: '0px',
         paddingLeft: '1px',
         paddingRight: '3px',
@@ -9854,7 +9858,6 @@ function initEditorModal(id) {
         fontFamily: 'MonospacePrimary',
         color: 'var(--shade-3)',
         cursor: 'pointer',
-        zIndex: String(editorModalBaseZIndex + 1),
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -9883,13 +9886,16 @@ function initEditorModal(id) {
         closeEditorModal();
     };
     
-    HTML.body.appendChild(closeButton);
+    editorModal.appendChild(closeButton);
     
     // Create title input in top left corner
     const titleInput = HTML.make('input');
     HTML.setId(titleInput, 'editorModalTitleInput');
     HTML.setStyle(titleInput, {
-        position: 'fixed',
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        width: (editorModalWidth - 24) + 'px',
         height: '24px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
@@ -9897,7 +9903,6 @@ function initEditorModal(id) {
         backgroundColor: 'var(--shade-0)',
         border: '2px solid var(--shade-1)',
         outline: 'none',
-        zIndex: String(editorModalBaseZIndex + 1),
         opacity: '0',
         transition: 'opacity 0.3s ease',
         paddingLeft: '4px',
@@ -9917,7 +9922,7 @@ function initEditorModal(id) {
         editorModalData.name = newName;
     });
     
-    HTML.body.appendChild(titleInput);
+    editorModal.appendChild(titleInput);
     
     // Create selector for three options (Event, Task, Reminder) - moved down to make room for title
     const selectorTop = modalTop + 27;
@@ -9950,8 +9955,10 @@ function initEditorModal(id) {
     const descriptionTextarea = HTML.make('textarea');
     HTML.setId(descriptionTextarea, 'editorModalDescriptionTextarea');
     HTML.setStyle(descriptionTextarea, {
-        position: 'fixed',
-        width: (editorModalWidth - 12) + 'px',
+        position: 'absolute',
+        bottom: '5px',
+        left: '8px',
+        width: (editorModalWidth - 18) + 'px',
         height: '120px',
         fontSize: '12px',
         fontFamily: 'PrimaryRegular',
@@ -9960,7 +9967,6 @@ function initEditorModal(id) {
         border: '1px solid var(--shade-2)',
         borderRadius: '4px',
         outline: 'none',
-        zIndex: String(editorModalBaseZIndex + 1),
         opacity: '0',
         transition: 'opacity 0.3s ease, border 0.2s ease',
         padding: '8px',
@@ -9984,9 +9990,9 @@ function initEditorModal(id) {
         HTML.setStyle(descriptionTextarea, { border: '1px solid var(--shade-2)' });
     });
     
-    HTML.body.appendChild(descriptionTextarea);
+    editorModal.appendChild(descriptionTextarea);
     
-    // Position all elements
+    // Position selector
     updateEditorModalPosition();
     
     // Force reflow
@@ -10174,26 +10180,12 @@ function closeEditorModal() {
             HTML.body.removeChild(editorModal);
             editorModal = null;
         }
-        
-        if (closeButton && closeButton.parentNode) {
-            HTML.body.removeChild(closeButton);
-        }
-        
-        const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
-        if (titleInput && titleInput.parentNode) {
-            HTML.body.removeChild(titleInput);
-        }
-        
-        const descriptionTextarea = HTML.getElementUnsafely('editorModalDescriptionTextarea');
-        if (descriptionTextarea && descriptionTextarea.parentNode) {
-            HTML.body.removeChild(descriptionTextarea);
-        }
 
         editorModalOpen = false;
     }, 300);
 }
 
-// Updates the position of the editor modal and all its elements
+// Updates the position of the editor modal and selector
 function updateEditorModalPosition() {
     if (!editorModalOpen) return;
     
@@ -10210,47 +10202,11 @@ function updateEditorModalPosition() {
         });
     }
     
-    // Update close button position
-    const closeButton = HTML.getElementUnsafely('editorModalCloseButton');
-    if (exists(closeButton)) {
-        HTML.setStyle(closeButton, {
-            top: (modalTop) + 'px',
-            left: (modalLeft + editorModalWidth - 24) + 'px',
-        });
-    }
-    
-    // Update title input position
-    const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
-    if (exists(titleInput)) {
-        const titleInputTop = modalTop;
-        const titleInputLeft = modalLeft;
-        const titleInputWidth = editorModalWidth - 22; // Leave space for close button
-        HTML.setStyle(titleInput, {
-            top: titleInputTop + 'px',
-            left: titleInputLeft + 'px',
-            width: titleInputWidth + 'px',
-        });
-    }
-    
     // Update selector position using moveSelector
     const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
-    
-    // Update description textarea position - positioned relative to bottom of modal
-    const descriptionTextarea = HTML.getElementUnsafely('editorModalDescriptionTextarea');
-    if (exists(descriptionTextarea)) {
-        const descriptionBottom = 5; // Distance from bottom of modal
-        const descriptionTop = modalTop + editorModalHeight - 120 - descriptionBottom; // 120 is textarea height
-        const descriptionLeft = modalLeft + 8;
-        HTML.setStyle(descriptionTextarea, {
-            top: descriptionTop + 'px',
-            left: descriptionLeft + 'px',
-        });
-    }
-    
-    // editorModalVignette is full-screen so it doesn't need repositioning
 }
 
 // Helper function to measure text width
