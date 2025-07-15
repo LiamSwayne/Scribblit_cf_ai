@@ -3193,7 +3193,7 @@ class Chain {
 class User {
     constructor(entityArray, settings, palette, userId, email, usage, timestamp, plan, paymentTimes) {
         ASSERT(type(entityArray, List(Entity)));
-        ASSERT(type(settings, Dict(String, Union(Boolean, Int, String))));
+        ASSERT(type(settings, Dict(String, Union(Boolean, Int, String, List(NonEmptyString)))));
         ASSERT(type(palette, Dict(String, List(String))));
         ASSERT(type(userId, Union(String, NULL)));
         ASSERT(type(email, Union(String, NULL)));
@@ -3218,7 +3218,7 @@ class User {
         ASSERT(type(settings.hideEmptyTimespanInCalendar, Boolean));
         
         // Validate dateFormat
-        ASSERT(type(settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings");
+        ASSERT(type(settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings: " + String(settings.dateFormat));
         ASSERT(settings.dateFormat.length === 3, "dateFormat must have exactly 3 elements");
         const dateFormatCounts = { Y: 0, M: 0, D: 0 };
         for (const part of settings.dateFormat) {
@@ -3330,7 +3330,7 @@ class User {
             ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
             ASSERT(type(data.settings.ampmOr24, String));
             ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
-            ASSERT(type(data.settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings");
+            ASSERT(type(data.settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings: " + String(data.settings.dateFormat));
             ASSERT(data.settings.dateFormat.length === 3, "dateFormat must have exactly 3 elements");
             const dateFormatCounts = { Y: 0, M: 0, D: 0 };
             for (const part of data.settings.dateFormat) {
