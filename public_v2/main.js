@@ -7949,7 +7949,7 @@ function openSettingsModal() {
     
     // Get current button position and size
     const buttonRect = settingsButton.getBoundingClientRect();
-    const modalWidth = 200;
+    const modalWidth = 210;
     if (LocalData.get('signedIn')) {
         settingsModalHeight = 92;
     } else {
@@ -10017,13 +10017,12 @@ function initEditorModal(id) {
 
 // doesn't handle any input validation
 // left and top are relative to the editor modal top left corner
-// TODO finish
 function initDateFieldInput(left, top) {
     ASSERT(type(left, Number));
     ASSERT(type(top, Number));
     
     // three fields using monospace
-    const style = {
+    const baseStyle = {
         position: 'fixed',
         fontFamily: 'MonospacePrimary',
         fontSize: '12px',
@@ -10035,18 +10034,24 @@ function initDateFieldInput(left, top) {
         zIndex: String(editorModalBaseZIndex + 1),
         opacity: '0',
         transition: 'opacity 0.3s ease',
+        height: '20px',
+        textAlign: 'center',
+        top: top + 'px',
     }
 
     const yearInput = HTML.make('input');
-    HTML.setStyle(yearInput, style);
+    yearInput.setAttribute('maxlength', '2'); // 2 digit year
+    HTML.setStyle(yearInput, {...baseStyle, width: '20px'});
     HTML.body.appendChild(yearInput);
 
     const monthInput = HTML.make('input');
-    HTML.setStyle(monthInput, style);
+    monthInput.setAttribute('maxlength', '2');
+    HTML.setStyle(monthInput, {...baseStyle, width: '20px'});
     HTML.body.appendChild(monthInput);
 
     const dayInput = HTML.make('input');
-    HTML.setStyle(dayInput, style);
+    dayInput.setAttribute('maxlength', '2');
+    HTML.setStyle(dayInput, {...baseStyle, width: '20px'});
     HTML.body.appendChild(dayInput);
 
     // slash between first and second, and second and third
@@ -10056,7 +10061,13 @@ function initDateFieldInput(left, top) {
         fontFamily: 'MonospacePrimary',
         fontSize: '12px',
         color: 'var(--shade-4)',
+        top: (top + 3) + 'px',
+        zIndex: String(editorModalBaseZIndex + 1),
+        opacity: '0',
+        transition: 'opacity 0.3s ease',
     });
+    slash1.textContent = '/';
+    HTML.body.appendChild(slash1);
 
     const slash2 = HTML.make('div');
     HTML.setStyle(slash2, {
@@ -10064,16 +10075,58 @@ function initDateFieldInput(left, top) {
         fontFamily: 'MonospacePrimary',
         fontSize: '12px',
         color: 'var(--shade-4)',
+        top: (top + 3) + 'px',
+        zIndex: String(editorModalBaseZIndex + 1),
+        opacity: '0',
+        transition: 'opacity 0.3s ease',
     });
+    slash2.textContent = '/';
+    HTML.body.appendChild(slash2);
 
-    // follow user preference for year, month, day
+    // Map field types to input elements
+    const fieldMap = {
+        'Y': yearInput,
+        'M': monthInput,
+        'D': dayInput
+    };
 
-    // 2 digit year
+    // Get user's preferred date format order
+    const dateFormat = user.settings.dateFormat; // ['M', 'D', 'Y'] or similar
+    
+    // Position elements based on user preference
+    let currentLeft = left;
+    const fieldWidth = 20;
+    const slashWidth = 8;
+    
+    // Position first field
+    const firstField = fieldMap[dateFormat[0]];
+    HTML.setStyle(firstField, {left: currentLeft + 'px'});
+    currentLeft += fieldWidth + 2; // 2px spacing
+    
+    // Position first slash
+    HTML.setStyle(slash1, {left: currentLeft + 'px'});
+    currentLeft += slashWidth;
+    
+    // Position second field
+    const secondField = fieldMap[dateFormat[1]];
+    HTML.setStyle(secondField, {left: currentLeft + 'px'});
+    currentLeft += fieldWidth + 2; // 2px spacing
+    
+    // Position second slash
+    HTML.setStyle(slash2, {left: currentLeft + 'px'});
+    currentLeft += slashWidth;
+    
+    // Position third field
+    const thirdField = fieldMap[dateFormat[2]];
+    HTML.setStyle(thirdField, {left: currentLeft + 'px'});
 
     return {
         year: yearInput,
         month: monthInput,
-        day: dayInput
+        day: dayInput,
+        slash1: slash1,
+        slash2: slash2,
+        elements: [firstField, slash1, secondField, slash2, thirdField]
     }
 }
 
