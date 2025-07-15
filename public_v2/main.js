@@ -9692,15 +9692,15 @@ async function editorModalCloseReminder() {
 }
 
 // Editor modal init functions - do what you'd expect but empty for now
-function editorModalInitEvent() {
+function editorModalInitEvent(x, y) {
     // TODO: Initialize event-specific elements
 }
 
-function editorModalInitTask() {
+function editorModalInitTask(x, y) {
     // TODO: Initialize task-specific elements
 }
 
-function editorModalInitReminder() {
+function editorModalInitReminder(x, y) {
     // TODO: Initialize reminder-specific elements
 }
 
@@ -9708,7 +9708,8 @@ function editorModalInitReminder() {
 function editorModalKindChange(selectedOption) {
     ASSERT(exists(editorModalData), "editorModalKindChange: editorModalData is not initialized");
     ASSERT(exists(editorModalData.kind), "editorModalKindChange: editorModalData.kind is not initialized");
-    ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange: editorModalData.kind is invalid");
+    ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange -- editorModalData.kind is invalid: " + editorModalData.kind);
+    log(editorModalData.kind);
     
     const newKind = selectedOption.toLowerCase();
     
@@ -9755,11 +9756,11 @@ function editorModalKindChange(selectedOption) {
         editorModalData.kind = newKind;
         
         if (newKind === 'event') {
-            editorModalInitEvent();
+            editorModalInitEvent(0, 0); // TODO: Pass actual x, y coordinates
         } else if (newKind === 'task') {
-            editorModalInitTask();
+            editorModalInitTask(0, 0); // TODO: Pass actual x, y coordinates
         } else if (newKind === 'reminder') {
-            editorModalInitReminder();
+            editorModalInitReminder(0, 0); // TODO: Pass actual x, y coordinates
         }
     });
 }
@@ -9780,14 +9781,14 @@ function initEditorModal(id) {
     ASSERT(exists(entity), "initEditorModal: entity not found");
     
     // Determine entity type and populate initial data
-    if (type(entity.data, TaskData)) {
-        // TODO
-    } else if (type(entity.data, EventData)) {
-        // TODO
-    } else if (type(entity.data, ReminderData)) {
-        // TODO
-    }
     editorModalData.name = entity.name;
+    if (type(entity.data, TaskData)) {
+        editorModalData.kind = 'task';
+    } else if (type(entity.data, EventData)) {
+        editorModalData.kind = 'event';
+    } else if (type(entity.data, ReminderData)) {
+        editorModalData.kind = 'reminder';
+    }
     editorModalData.description = entity.description;
     
     // Modal dimensions
@@ -10068,23 +10069,23 @@ function updateEditorModalPosition() {
 }
 
 // Date Pattern Editor Functions
-function initEveryNDaysPatternEditor() {
+function initEveryNDaysPatternEditor(x, y) {
     // TODO: Implement EveryNDaysPattern editor
 }
 
-function initMonthlyPatternEditor() {
+function initMonthlyPatternEditor(x, y) {
     // TODO: Implement MonthlyPattern editor
 }
 
-function initAnnuallyPatternEditor() {
+function initAnnuallyPatternEditor(x, y) {
     // TODO: Implement AnnuallyPattern editor
 }
 
-function initNthWeekdayOfMonthsPatternEditor() {
+function initNthWeekdayOfMonthsPatternEditor(x, y) {
     // TODO: Implement NthWeekdayOfMonthsPattern editor
 }
 
-function initDateEditor() {
+function initDateEditor(x, y) {
     // TODO: Implement date editor
 }
 
@@ -10106,6 +10107,55 @@ function closeNthWeekdayOfMonthsPatternEditor() {
 
 function closeDateEditor() {
     // TODO: Implement close function for date editor
+}
+
+// Instance Editor Functions
+function initNonRecurringTaskInstanceEditor(x, y) {
+    // TODO: Implement NonRecurringTaskInstance editor
+}
+
+function initRecurringTaskInstanceEditor(x, y) {
+    // TODO: Implement RecurringTaskInstance editor
+}
+
+function initNonRecurringEventInstanceEditor(x, y) {
+    // TODO: Implement NonRecurringEventInstance editor
+}
+
+function initRecurringEventInstanceEditor(x, y) {
+    // TODO: Implement RecurringEventInstance editor
+}
+
+function initNonRecurringReminderInstanceEditor(x, y) {
+    // TODO: Implement NonRecurringReminderInstance editor
+}
+
+function initRecurringReminderInstanceEditor(x, y) {
+    // TODO: Implement RecurringReminderInstance editor
+}
+
+function closeNonRecurringTaskInstanceEditor() {
+    // TODO: Implement close function for NonRecurringTaskInstance editor
+}
+
+function closeRecurringTaskInstanceEditor() {
+    // TODO: Implement close function for RecurringTaskInstance editor
+}
+
+function closeNonRecurringEventInstanceEditor() {
+    // TODO: Implement close function for NonRecurringEventInstance editor
+}
+
+function closeRecurringEventInstanceEditor() {
+    // TODO: Implement close function for RecurringEventInstance editor
+}
+
+function closeNonRecurringReminderInstanceEditor() {
+    // TODO: Implement close function for NonRecurringReminderInstance editor
+}
+
+function closeRecurringReminderInstanceEditor() {
+    // TODO: Implement close function for RecurringReminderInstance editor
 }
 
 // Helper function to measure text width
