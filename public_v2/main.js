@@ -10078,11 +10078,6 @@ function updateEditorModalPosition() {
     // editorModalVignette is full-screen so it doesn't need repositioning
 }
 
-// called when the window is resized
-function repositionEditorModal() {
-    // TODO
-}
-
 // Helper function to measure text width
 function measureTextWidth(text, font, fontSize) {
     ASSERT(type(text, String));
