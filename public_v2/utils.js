@@ -3216,6 +3216,18 @@ class User {
         ASSERT(settings.ampmOr24 === 'ampm' || settings.ampmOr24 === '24');
         // how many hours to offset
         ASSERT(type(settings.hideEmptyTimespanInCalendar, Boolean));
+        
+        // Validate dateFormat
+        ASSERT(type(settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings");
+        ASSERT(settings.dateFormat.length === 3, "dateFormat must have exactly 3 elements");
+        const dateFormatCounts = { Y: 0, M: 0, D: 0 };
+        for (const part of settings.dateFormat) {
+            if (part === 'Y') dateFormatCounts.Y++;
+            else if (part === 'M') dateFormatCounts.M++;
+            else if (part === 'D') dateFormatCounts.D++;
+        }
+        ASSERT(dateFormatCounts.Y === 1 && dateFormatCounts.M === 1 && dateFormatCounts.D === 1, "dateFormat must contain exactly one 'Y', one 'M', and one 'D'");
+        
         // Validate palette structure
         ASSERT(type(palette.accent, List(String)));
         ASSERT(type(palette.shades, List(String)));
@@ -3318,6 +3330,15 @@ class User {
             ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
             ASSERT(type(data.settings.ampmOr24, String));
             ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
+            ASSERT(type(data.settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings");
+            ASSERT(data.settings.dateFormat.length === 3, "dateFormat must have exactly 3 elements");
+            const dateFormatCounts = { Y: 0, M: 0, D: 0 };
+            for (const part of data.settings.dateFormat) {
+                if (part === 'Y') dateFormatCounts.Y++;
+                else if (part === 'M') dateFormatCounts.M++;
+                else if (part === 'D') dateFormatCounts.D++;
+            }
+            ASSERT(dateFormatCounts.Y === 1 && dateFormatCounts.M === 1 && dateFormatCounts.D === 1, "dateFormat must contain exactly one 'Y', one 'M', and one 'D'");
             ASSERT(exists(data.palette));
             ASSERT(type(data.palette.accent, List(String)));
             ASSERT(type(data.palette.shades, List(String)));
@@ -3356,6 +3377,7 @@ class User {
             {
                 ampmOr24: 'ampm',
                 hideEmptyTimespanInCalendar: true,
+                dateFormat: ['M', 'D', 'Y'],
             },
             palettes.dark,
             NULL, // userId
