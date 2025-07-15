@@ -9692,15 +9692,15 @@ async function editorModalCloseReminder() {
 }
 
 // Editor modal init functions - do what you'd expect but empty for now
-function editorModalInitEvent(x, y) {
+function editorModalInitEvent() {
     // TODO: Initialize event-specific elements
 }
 
-function editorModalInitTask(x, y) {
+function editorModalInitTask() {
     // TODO: Initialize task-specific elements
 }
 
-function editorModalInitReminder(x, y) {
+function editorModalInitReminder() {
     // TODO: Initialize reminder-specific elements
 }
 
@@ -9708,8 +9708,7 @@ function editorModalInitReminder(x, y) {
 function editorModalKindChange(selectedOption) {
     ASSERT(exists(editorModalData), "editorModalKindChange: editorModalData is not initialized");
     ASSERT(exists(editorModalData.kind), "editorModalKindChange: editorModalData.kind is not initialized");
-    ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange -- editorModalData.kind is invalid: " + editorModalData.kind);
-    log(editorModalData.kind);
+    ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange: editorModalData.kind is invalid");
     
     const newKind = selectedOption.toLowerCase();
     
@@ -9756,11 +9755,11 @@ function editorModalKindChange(selectedOption) {
         editorModalData.kind = newKind;
         
         if (newKind === 'event') {
-            editorModalInitEvent(0, 0); // TODO: Pass actual x, y coordinates
+            editorModalInitEvent();
         } else if (newKind === 'task') {
-            editorModalInitTask(0, 0); // TODO: Pass actual x, y coordinates
+            editorModalInitTask();
         } else if (newKind === 'reminder') {
-            editorModalInitReminder(0, 0); // TODO: Pass actual x, y coordinates
+            editorModalInitReminder();
         }
     });
 }
@@ -9781,7 +9780,6 @@ function initEditorModal(id) {
     ASSERT(exists(entity), "initEditorModal: entity not found");
     
     // Determine entity type and populate initial data
-    editorModalData.name = entity.name;
     if (type(entity.data, TaskData)) {
         editorModalData.kind = 'task';
     } else if (type(entity.data, EventData)) {
@@ -9789,11 +9787,16 @@ function initEditorModal(id) {
     } else if (type(entity.data, ReminderData)) {
         editorModalData.kind = 'reminder';
     }
+    editorModalData.name = entity.name;
     editorModalData.description = entity.description;
     
     // Modal dimensions
     const modalWidth = 300;
     const modalHeight = 700;
+    
+    // Calculate center position
+    const modalLeft = (window.innerWidth - modalWidth) / 2;
+    const modalTop = (window.innerHeight - modalHeight) / 2;
     
     // Create vignette background
     editorModalVignette = HTML.make('div');
@@ -9823,6 +9826,8 @@ function initEditorModal(id) {
     HTML.setId(editorModal, 'editorModal');
     HTML.setStyle(editorModal, {
         position: 'fixed',
+        top: modalTop + 'px',
+        left: modalLeft + 'px',
         width: modalWidth + 'px',
         height: modalHeight + 'px',
         backgroundColor: 'var(--shade-0)',
@@ -9840,9 +9845,11 @@ function initEditorModal(id) {
     HTML.setId(closeButton, 'editorModalCloseButton');
     HTML.setStyle(closeButton, {
         position: 'fixed',
+        top: (modalTop) + 'px',
         paddingTop: '0px',
         paddingLeft: '1px',
         paddingRight: '3px',
+        left: (modalLeft + modalWidth - 24) + 'px',
         width: '20px',
         height: '20px',
         fontSize: '16px',
@@ -9881,10 +9888,19 @@ function initEditorModal(id) {
     HTML.body.appendChild(closeButton);
     
     // Create title input in top left corner
+    const titleInputTop = modalTop;
+    const titleInputLeft = modalLeft;
+    const titleInputWidth = modalWidth - 22; // Leave space for close button
+    const titleInputHeight = 24;
+    
     const titleInput = HTML.make('input');
     HTML.setId(titleInput, 'editorModalTitleInput');
     HTML.setStyle(titleInput, {
         position: 'fixed',
+        top: titleInputTop + 'px',
+        left: titleInputLeft + 'px',
+        width: titleInputWidth + 'px',
+        height: titleInputHeight + 'px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
         color: 'var(--shade-4)',
@@ -9914,6 +9930,8 @@ function initEditorModal(id) {
     HTML.body.appendChild(titleInput);
     
     // Create selector for three options (Event, Task, Reminder) - moved down to make room for title
+    const selectorTop = modalTop + 27;
+    const selectorLeft = modalLeft + 5;
     const selectorWidth = modalWidth - 6;
     const selectorHeight = 28;
     
@@ -9921,8 +9939,8 @@ function initEditorModal(id) {
         options: ['Event', 'Task', 'Reminder'],
         orientation: 'horizontal',
         id: editorModalKindSelectorId,
-        x: 0, // Will be positioned by updateEditorModalPosition
-        y: 0, // Will be positioned by updateEditorModalPosition
+        x: selectorLeft,
+        y: selectorTop,
         width: selectorWidth,
         height: selectorHeight,
         zIndex: editorModalBaseZIndex + 1,
@@ -9937,9 +9955,6 @@ function initEditorModal(id) {
         equalSpacing: true,
         accentMode: 'transition'
     });
-    
-    // Position all elements using single point of control
-    updateEditorModalPosition();
     
     // Force reflow
     editorModalVignette.offsetHeight;
@@ -9956,6 +9971,47 @@ function initEditorModal(id) {
         HTML.setStyle(closeButton, { opacity: '1' });
         HTML.setStyle(titleInput, { opacity: '1' });
     }, 50);
+}
+
+// date pattern editor functions
+function initEveryNDaysPatternEditor() {
+    // TODO: Implement EveryNDaysPattern editor
+}
+
+function initMonthlyPatternEditor() {
+    // TODO: Implement MonthlyPattern editor
+}
+
+function initAnnuallyPatternEditor() {
+    // TODO: Implement AnnuallyPattern editor
+}
+
+function initNthWeekdayOfMonthsPatternEditor() {
+    // TODO: Implement NthWeekdayOfMonthsPattern editor
+}
+
+function initDateEditor() {
+    // TODO: Implement date editor
+}
+
+function closeEveryNDaysPatternEditor() {
+    // TODO: Implement close function for EveryNDaysPattern editor
+}
+
+function closeMonthlyPatternEditor() {
+    // TODO: Implement close function for MonthlyPattern editor
+}
+
+function closeAnnuallyPatternEditor() {
+    // TODO: Implement close function for AnnuallyPattern editor
+}
+
+function closeNthWeekdayOfMonthsPatternEditor() {
+    // TODO: Implement close function for NthWeekdayOfMonthsPattern editor
+}
+
+function closeDateEditor() {
+    // TODO: Implement close function for date editor
 }
 
 function closeEditorModal() {
@@ -10039,8 +10095,8 @@ function updateEditorModalPosition() {
     const closeButton = HTML.getElementUnsafely('editorModalCloseButton');
     if (exists(closeButton)) {
         HTML.setStyle(closeButton, {
-            top: (modalTop) + 'px',
-            left: (modalLeft + modalWidth - 24) + 'px',
+            top: (modalTop + 10) + 'px',
+            left: (modalLeft + modalWidth - 30) + 'px',
         });
     }
     
@@ -10049,113 +10105,19 @@ function updateEditorModalPosition() {
     if (exists(titleInput)) {
         const titleInputTop = modalTop;
         const titleInputLeft = modalLeft;
-        const titleInputWidth = modalWidth - 22;
-        const titleInputHeight = 24;
         HTML.setStyle(titleInput, {
             top: titleInputTop + 'px',
             left: titleInputLeft + 'px',
-            width: titleInputWidth + 'px',
-            height: titleInputHeight + 'px',
         });
     }
     
     // Update selector position using moveSelector
-    const selectorTop = modalTop + 27;
+    const selectorTop = modalTop + 37;
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
     
     // editorModalVignette is full-screen so it doesn't need repositioning
-}
-
-// Date Pattern Editor Functions
-function initEveryNDaysPatternEditor(x, y) {
-    // TODO: Implement EveryNDaysPattern editor
-}
-
-function initMonthlyPatternEditor(x, y) {
-    // TODO: Implement MonthlyPattern editor
-}
-
-function initAnnuallyPatternEditor(x, y) {
-    // TODO: Implement AnnuallyPattern editor
-}
-
-function initNthWeekdayOfMonthsPatternEditor(x, y) {
-    // TODO: Implement NthWeekdayOfMonthsPattern editor
-}
-
-function initDateEditor(x, y) {
-    // TODO: Implement date editor
-}
-
-function closeEveryNDaysPatternEditor() {
-    // TODO: Implement close function for EveryNDaysPattern editor
-}
-
-function closeMonthlyPatternEditor() {
-    // TODO: Implement close function for MonthlyPattern editor
-}
-
-function closeAnnuallyPatternEditor() {
-    // TODO: Implement close function for AnnuallyPattern editor
-}
-
-function closeNthWeekdayOfMonthsPatternEditor() {
-    // TODO: Implement close function for NthWeekdayOfMonthsPattern editor
-}
-
-function closeDateEditor() {
-    // TODO: Implement close function for date editor
-}
-
-// Instance Editor Functions
-function initNonRecurringTaskInstanceEditor(x, y) {
-    // TODO: Implement NonRecurringTaskInstance editor
-}
-
-function initRecurringTaskInstanceEditor(x, y) {
-    // TODO: Implement RecurringTaskInstance editor
-}
-
-function initNonRecurringEventInstanceEditor(x, y) {
-    // TODO: Implement NonRecurringEventInstance editor
-}
-
-function initRecurringEventInstanceEditor(x, y) {
-    // TODO: Implement RecurringEventInstance editor
-}
-
-function initNonRecurringReminderInstanceEditor(x, y) {
-    // TODO: Implement NonRecurringReminderInstance editor
-}
-
-function initRecurringReminderInstanceEditor(x, y) {
-    // TODO: Implement RecurringReminderInstance editor
-}
-
-function closeNonRecurringTaskInstanceEditor() {
-    // TODO: Implement close function for NonRecurringTaskInstance editor
-}
-
-function closeRecurringTaskInstanceEditor() {
-    // TODO: Implement close function for RecurringTaskInstance editor
-}
-
-function closeNonRecurringEventInstanceEditor() {
-    // TODO: Implement close function for NonRecurringEventInstance editor
-}
-
-function closeRecurringEventInstanceEditor() {
-    // TODO: Implement close function for RecurringEventInstance editor
-}
-
-function closeNonRecurringReminderInstanceEditor() {
-    // TODO: Implement close function for NonRecurringReminderInstance editor
-}
-
-function closeRecurringReminderInstanceEditor() {
-    // TODO: Implement close function for RecurringReminderInstance editor
 }
 
 // Helper function to measure text width
