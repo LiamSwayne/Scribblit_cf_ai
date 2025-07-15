@@ -10077,8 +10077,8 @@ function initDateFieldInput(left, top) {
     }
 }
 
-function isValidDate(dateString) {
-
+function isValidDate(yearElement, monthElement, dayElement) {
+    // TODO
 }
 
 // date pattern editor functions
