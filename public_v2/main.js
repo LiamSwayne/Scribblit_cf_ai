@@ -521,121 +521,123 @@ document.addEventListener('paste', async (e) => {
 
         updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
     } else if (signInModalState === 'verification' && e.clipboardData.getData('text/plain')) {
-            const text = e.clipboardData.getData('text/plain');
-            e.preventDefault();
-            log('Pasted verification code: "' + text + '"');
-            
-            // Get all verification inputs
-            const verificationInputs = [];
+        const text = e.clipboardData.getData('text/plain');
+        e.preventDefault();
+        log('Pasted verification code: "' + text + '"');
+        
+        // Get all verification inputs
+        const verificationInputs = [];
+        for (let i = 0; i < 6; i++) {
+            const input = HTML.getElementUnsafely(`verificationInput${i}`);
+            if (input) {
+                verificationInputs.push(input);
+            }
+        }
+        
+        if (verificationInputs.length === 6) {
+            // Find currently focused input to determine position
+            let currentPosition = 0;
             for (let i = 0; i < 6; i++) {
-                const input = HTML.getElementUnsafely(`verificationInput${i}`);
-                if (input) {
-                    verificationInputs.push(input);
+                if (document.activeElement === verificationInputs[i]) {
+                    currentPosition = i;
+                    break;
                 }
             }
             
-            if (verificationInputs.length === 6) {
-                // Find currently focused input to determine position
-                let currentPosition = 0;
+            // Extract only numeric characters from pasted text
+            const numericText = text.replace(/\D/g, '');
+            
+            if (numericText.length === 6) {
+                // If exactly 6 characters, set all 6 inputs regardless of position
                 for (let i = 0; i < 6; i++) {
-                    if (document.activeElement === verificationInputs[i]) {
-                        currentPosition = i;
-                        break;
-                    }
+                    verificationInputs[i].value = numericText[i];
                 }
-                
-                // Extract only numeric characters from pasted text
-                const numericText = text.replace(/\D/g, '');
-                
-                if (numericText.length === 6) {
-                    // If exactly 6 characters, set all 6 inputs regardless of position
-                    for (let i = 0; i < 6; i++) {
-                        verificationInputs[i].value = numericText[i];
-                    }
-                    // Focus the last input
+                // Focus the last input
+                verificationInputs[5].focus();
+            } else if (numericText.length > 6) {
+                // If more than 6 characters, fill from current position onwards
+                for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
+                    verificationInputs[i].value = numericText[i - currentPosition];
+                }
+                // Focus the last input
+                verificationInputs[5].focus();
+            } else if (numericText.length > 0) {
+                // If less than 6 characters, fill from current position onwards
+                for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
+                    verificationInputs[i].value = numericText[i - currentPosition];
+                }
+                // Focus the input after the last filled one
+                const lastFilledPosition = currentPosition + numericText.length - 1;
+                if (lastFilledPosition < 5) {
+                    verificationInputs[lastFilledPosition + 1].focus();
+                } else {
                     verificationInputs[5].focus();
-                } else if (numericText.length > 6) {
-                    // If more than 6 characters, fill from current position onwards
-                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
-                        verificationInputs[i].value = numericText[i - currentPosition];
-                    }
-                    // Focus the last input
-                    verificationInputs[5].focus();
-                } else if (numericText.length > 0) {
-                    // If less than 6 characters, fill from current position onwards
-                    for (let i = currentPosition; i < 6 && i - currentPosition < numericText.length; i++) {
-                        verificationInputs[i].value = numericText[i - currentPosition];
-                    }
-                    // Focus the input after the last filled one
-                    const lastFilledPosition = currentPosition + numericText.length - 1;
-                    if (lastFilledPosition < 5) {
-                        verificationInputs[lastFilledPosition + 1].focus();
-                    } else {
-                        verificationInputs[5].focus();
-                    }
-                }
-                
-                // Check if all inputs are filled and verify if so
-                let code = '';
-                for (let j = 0; j < 6; j++) {
-                    code += verificationInputs[j].value;
-                }
-                
-                if (code.length === 6 && /^\d{6}$/.test(code)) {
-                    verifyEmail();
                 }
             }
             
-            return;
-        } else if (HTML.getElement('inputBox').focused || !signInModalOpen) {
-            const text = e.clipboardData.getData('text/plain');
-            if (text) {
-                log('Pasted text: "' + text + '"');
+            // Check if all inputs are filled and verify if so
+            let code = '';
+            for (let j = 0; j < 6; j++) {
+                code += verificationInputs[j].value;
             }
+            
+            if (code.length === 6 && /^\d{6}$/.test(code)) {
+                verifyEmail();
+            }
+        }
+        
+        return;
+    } else if (HTML.getElement('inputBox').focused && !signInModalOpen && !editorModalOpen) {
+        const text = e.clipboardData.getData('text/plain');
+        if (text) {
+            log('Pasted text: "' + text + '"');
+        }
 
-            if (text.length > 1000) {
-                log('Pasted text is too long, make it a file');
-                // add to file array
-                attachedFiles.push({
-                    name: 'pasted_text_' + String(Date.now()) + '.txt',
-                    mimeType: 'text/plain',
-                    data: text,
-                    size: text.length
-                });
-                updateAttachmentBadge();
-                updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
-                e.preventDefault();
-                inputBox.focus();
-            } else if (!HTML.getElement('inputBox').focused) {
-                e.preventDefault();
-                const inputBox = HTML.getElement('inputBox');
-                inputBox.value += text;
-                inputBox.focus();
-                // add it to the input box content
-                if (attachedFiles.length === 0) {
-                    updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
-                }
+        if (text.length > 1000) {
+            log('Pasted text is too long, make it a file');
+            // add to file array
+            attachedFiles.push({
+                name: 'pasted_text_' + String(Date.now()) + '.txt',
+                mimeType: 'text/plain',
+                data: text,
+                size: text.length
+            });
+            updateAttachmentBadge();
+            updateInputBoxPlaceholder(inputBoxPlaceHolderWithAttachedFiles);
+            e.preventDefault();
+            inputBox.focus();
+        } else if (!HTML.getElement('inputBox').focused) {
+            e.preventDefault();
+            const inputBox = HTML.getElement('inputBox');
+            inputBox.value += text;
+            inputBox.focus();
+            // add it to the input box content
+            if (attachedFiles.length === 0) {
+                updateInputBoxPlaceholder(inputBoxDefaultPlaceholder);
             }
+        }
 
-            renderInputBox();
-            renderTaskList();
-        } else if (signInModalOpen) {
-            // because we got to this branch we already know we're not on the verification page
-            const text = e.clipboardData.getData('text/plain');
-            if (!HTML.getElement('signInEmailInput').focused && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
-                e.preventDefault();
-                HTML.getElement('signInEmailInput').value = text;
-                HTML.getElement('signInPasswordInput').focus();
-            } else if (!HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length > 0 && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInPasswordInput').value.length === 0) {
-                e.preventDefault();
-                HTML.getElement('signInPasswordInput').value = text;
-            } else if (HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
-                e.preventDefault();
-                HTML.getElement('signInEmailInput').value = text;
-                HTML.getElement('signInEmailInput').focus();
-            } else {
-                log('Pasted text: "' + text + '"');
-            }
+        renderInputBox();
+        renderTaskList();
+    } else if (signInModalOpen) {
+        // because we got to this branch we already know we're not on the verification page
+        const text = e.clipboardData.getData('text/plain');
+        if (!HTML.getElement('signInEmailInput').focused && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
+            e.preventDefault();
+            HTML.getElement('signInEmailInput').value = text;
+            HTML.getElement('signInPasswordInput').focus();
+        } else if (!HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length > 0 && !HTML.getElement('signInPasswordInput').focused && HTML.getElement('signInPasswordInput').value.length === 0) {
+            e.preventDefault();
+            HTML.getElement('signInPasswordInput').value = text;
+        } else if (HTML.getElement('signInEmailInput').focused && HTML.getElement('signInEmailInput').value.length === 0) {
+            e.preventDefault();
+            HTML.getElement('signInEmailInput').value = text;
+            HTML.getElement('signInEmailInput').focus();
+        } else {
+            log('Pasted text: "' + text + '"');
+        }
+    } else if (editorModalOpen) {
+        // just paste like normal
     }
 });
 
@@ -9973,7 +9975,7 @@ function initEditorModal(id) {
         padding: '8px',
         boxSizing: 'border-box',
         resize: 'none',
-        overflow: 'auto',
+        overflow: 'auto'
     });
     descriptionTextarea.placeholder = 'Description...';
     descriptionTextarea.value = editorModalData.description;
@@ -10133,6 +10135,19 @@ function initDateFieldInput(left, top) {
 
 function isValidDate(yearElement, monthElement, dayElement) {
     // TODO
+}
+
+// this appears right below the selector
+// these buttons are squares
+// each one is like a tab, each instance is a tab
+// the user clicks these to select which instance they're currently editing
+// there's one button for each, and one additional plus button to add a new instance
+// when one of them is clicked, it becomes an x button for it's instance
+// when an instance is deleted, the boxes to the right slide to the left in a smooth animation
+function initInstanceButtons(top) {
+    ASSERT(type(top, Number));
+    // TODO: Implement instance buttons
+    // use editorModalData, get the instances
 }
 
 // date pattern editor functions
