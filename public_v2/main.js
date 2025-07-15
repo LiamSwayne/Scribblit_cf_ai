@@ -9837,7 +9837,8 @@ function initEditorModal(id) {
         borderRadius: '12px',
         zIndex: String(editorModalBaseZIndex),
         opacity: '0',
-        transition: 'opacity 0.3s ease'
+        transition: 'opacity 0.3s ease',
+        padding: '0px'
     });
     
     HTML.body.appendChild(editorModal);
@@ -9847,8 +9848,8 @@ function initEditorModal(id) {
     HTML.setId(closeButton, 'editorModalCloseButton');
     HTML.setStyle(closeButton, {
         position: 'absolute',
-        top: '0px',
-        right: '0px',
+        top: '-2px',
+        right: '-2px',
         paddingTop: '0px',
         paddingLeft: '1px',
         paddingRight: '3px',
@@ -9893,9 +9894,9 @@ function initEditorModal(id) {
     HTML.setId(titleInput, 'editorModalTitleInput');
     HTML.setStyle(titleInput, {
         position: 'absolute',
-        top: '0px',
-        left: '0px',
-        width: (editorModalWidth - 24) + 'px',
+        top: '-2px',
+        left: '-2px',
+        width: (editorModalWidth - 22) + 'px',
         height: '24px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
@@ -9956,9 +9957,9 @@ function initEditorModal(id) {
     HTML.setId(descriptionTextarea, 'editorModalDescriptionTextarea');
     HTML.setStyle(descriptionTextarea, {
         position: 'absolute',
-        bottom: '5px',
+        bottom: '8px',
         left: '8px',
-        width: (editorModalWidth - 18) + 'px',
+        width: (editorModalWidth - 16) + 'px',
         height: '120px',
         fontSize: '12px',
         fontFamily: 'PrimaryRegular',
