@@ -10009,6 +10009,12 @@ function initEditorModal(id) {
     }, 50);
 }
 
+function initDateField(left, top) {
+    ASSERT(type(left, Number));
+    ASSERT(type(top, Number));
+    // TODO: Implement date field editor
+}
+
 // date pattern editor functions
 function initEveryNDaysPatternEditor(top) {
     ASSERT(type(top, Number));
@@ -10030,9 +10036,14 @@ function initNthWeekdayOfMonthsPatternEditor(top) {
     // TODO: Implement NthWeekdayOfMonthsPattern editor
 }
 
-function initDateEditor(top) {
+// for non-recurring
+function initDateInstanceEditor(top) {
     ASSERT(type(top, Number));
     // TODO: Implement date editor
+}
+
+function closeDateField() {
+    // TODO: Implement close function for date field editor
 }
 
 function closeEveryNDaysPatternEditor() {
@@ -10051,7 +10062,8 @@ function closeNthWeekdayOfMonthsPatternEditor() {
     // TODO: Implement close function for NthWeekdayOfMonthsPattern editor
 }
 
-function closeDateEditor() {
+// for non-recurring
+function closeDateInstanceEditor() {
     // TODO: Implement close function for date editor
 }
 
