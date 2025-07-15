@@ -9967,23 +9967,28 @@ function initEditorModal(id) {
 }
 
 // date pattern editor functions
-function initEveryNDaysPatternEditor() {
+function initEveryNDaysPatternEditor(top) {
+    ASSERT(type(top, Number));
     // TODO: Implement EveryNDaysPattern editor
 }
 
-function initMonthlyPatternEditor() {
+function initMonthlyPatternEditor(top) {
+    ASSERT(type(top, Number));
     // TODO: Implement MonthlyPattern editor
 }
 
-function initAnnuallyPatternEditor() {
+function initAnnuallyPatternEditor(top) {
+    ASSERT(type(top, Number));
     // TODO: Implement AnnuallyPattern editor
 }
 
-function initNthWeekdayOfMonthsPatternEditor() {
+function initNthWeekdayOfMonthsPatternEditor(top) {
+    ASSERT(type(top, Number));
     // TODO: Implement NthWeekdayOfMonthsPattern editor
 }
 
-function initDateEditor() {
+function initDateEditor(top) {
+    ASSERT(type(top, Number));
     // TODO: Implement date editor
 }
 
