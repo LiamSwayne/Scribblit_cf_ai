@@ -10167,7 +10167,6 @@ function isValidDate(yearElement, monthElement, dayElement) {
 // each one is like a tab, each instance is a tab
 // the user clicks these to select which instance they're currently editing
 // there's one button for each, and one additional plus button to add a new instance
-// when one of them is clicked, it becomes an x button for it's instance
 // when an instance is deleted, the boxes to the right slide to the left in a smooth animation
 function initInstanceButtons(top) {
     ASSERT(type(top, Number));
@@ -10224,11 +10223,24 @@ function initInstanceButtons(top) {
     const accent0Rgb = colorStringToRgb(accent0);
     const accent1Rgb = colorStringToRgb(accent1);
 
-    function createBasicButton(id, textContent, backgroundColor) {
-        const btn = HTML.make('div');
-        HTML.setId(btn, id);
-        HTML.setStyle(btn, {
-            backgroundColor: backgroundColor,
+    // Track active instance (default to first one)
+    let activeInstanceIndex = 0;
+
+    function createInstanceButtonWrapper(index, buttonColor) {
+        // Create wrapper div for button and X button
+        const wrapper = HTML.make('div');
+        HTML.setId(wrapper, `instanceWrapper_${index}`);
+        HTML.setStyle(wrapper, {
+            position: 'relative',
+            display: 'inline-block',
+            opacity: '0'
+        });
+
+        // Create main button
+        const button = HTML.make('div');
+        HTML.setId(button, `instanceButton_${index}`);
+        HTML.setStyle(button, {
+            backgroundColor: buttonColor,
             borderRadius: '4px',
             cursor: 'pointer',
             display: 'flex',
@@ -10238,13 +10250,114 @@ function initInstanceButtons(top) {
             fontFamily: 'MonospacePrimary',
             color: '#ffffff',
             fontWeight: 'bold',
-            padding: '0 6px', // horizontal padding so width adapts to text
+            padding: '0 6px',
             height: `${buttonHeight}px`,
-            transition: 'background-color 0.2s ease',
-            opacity: '0' // will fade in to full opacity later
+            border: '1px solid transparent',
+            transition: 'background-color 0.2s ease, border-color 0.2s ease',
+            position: 'relative'
         });
-        btn.textContent = textContent;
-        return btn;
+        button.textContent = 'PlaceholderA2';
+
+        // Create X button background div
+        const xButtonBg = HTML.make('div');
+        HTML.setId(xButtonBg, `instanceXButtonBg_${index}`);
+        HTML.setStyle(xButtonBg, {
+            position: 'absolute',
+            left: '1px',
+            top: '1px',
+            width: '25px',
+            height: `${buttonHeight}px`,
+            background: `linear-gradient(to right, var(--shade-4) 0%, var(--shade-4) 25%, transparent 100%)`,
+            borderRadius: '3px',
+            opacity: '0',
+            transition: 'opacity 0.2s ease',
+            zIndex: '1'
+        });
+
+        // Create X button (icon container)
+        const xButton = HTML.make('div');
+        HTML.setId(xButton, `instanceXButton_${index}`);
+        HTML.setStyle(xButton, {
+            position: 'absolute',
+            left: '1px',
+            top: '1px',
+            width: '15px',
+            height: `${buttonHeight}px`,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: '0',
+            transition: 'opacity 0.2s ease',
+            zIndex: '2'
+        });
+        xButton.innerHTML = '<svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M1 7l6-6" stroke="var(--shade-0)" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+        // Store data
+        HTML.setData(wrapper, 'INSTANCE_INDEX', index);
+        HTML.setData(wrapper, 'ORIGINAL_COLOR', buttonColor);
+
+        // Click handler for main button - set as active instance
+        button.onclick = function() {
+            setActiveInstance(index);
+        };
+
+        // Click handler for X button - delete instance
+        xButton.onclick = function(e) {
+            e.stopPropagation(); // Prevent triggering main button click
+            deleteInstance(index);
+        };
+
+        // Hover effects for wrapper
+        wrapper.onmouseenter = function() {
+            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+            const originalRgb = colorStringToRgb(originalColor);
+            const blendedRgb = {
+                r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
+                g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
+                b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
+            };
+            const blendedColor = `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})`;
+            HTML.setStyle(button, { backgroundColor: blendedColor });
+            // X button background stays shade-4
+            
+            // Show X button if this is the active instance
+            if (index === activeInstanceIndex) {
+                HTML.setStyle(xButtonBg, { opacity: '1' });
+                HTML.setStyle(xButton, { opacity: '1' });
+            }
+        };
+
+        wrapper.onmouseleave = function() {
+            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+            HTML.setStyle(button, { backgroundColor: originalColor });
+            // X button background stays shade-4
+            
+            // Hide X button
+            HTML.setStyle(xButtonBg, { opacity: '0' });
+            HTML.setStyle(xButton, { opacity: '0' });
+        };
+
+        wrapper.appendChild(button);
+        wrapper.appendChild(xButtonBg);
+        wrapper.appendChild(xButton);
+        return wrapper;
+    }
+
+    function setActiveInstance(index) {
+        activeInstanceIndex = index;
+        
+        // Update all buttons to show/hide white border
+        for (let i = 0; i < instanceCount; i++) {
+            const button = HTML.getElementUnsafely(`instanceButton_${i}`);
+            if (button) {
+                if (i === index) {
+                    HTML.setStyle(button, { borderColor: '#ffffff' });
+                } else {
+                    HTML.setStyle(button, { borderColor: 'transparent' });
+                }
+            }
+        }
     }
 
     for (let i = 0; i < instanceCount; i++) {
@@ -10253,74 +10366,42 @@ function initInstanceButtons(top) {
         const interpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
         const buttonColor = `rgb(${interpolatedRgb.r}, ${interpolatedRgb.g}, ${interpolatedRgb.b})`;
 
-        const button = createBasicButton(`instanceButton_${i}`, 'PlaceholderA2', buttonColor);
-
-        // Store button state
-        HTML.setData(button, 'INSTANCE_INDEX', i);
-        HTML.setData(button, 'IS_DELETE_MODE', false);
-        HTML.setData(button, 'ORIGINAL_COLOR', buttonColor);
-
-        // Click handler
-        button.onclick = function() {
-            const isDeleteMode = HTML.getData(this, 'IS_DELETE_MODE');
-            const instanceIndex = HTML.getData(this, 'INSTANCE_INDEX');
-
-            if (isDeleteMode) {
-                // Delete this instance
-                deleteInstance(instanceIndex);
-            } else {
-                // Enter delete mode - show X
-                HTML.setData(this, 'IS_DELETE_MODE', true);
-                this.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 2l8 8M2 10l8-8" stroke="var(--shade-0)" stroke-width="2" stroke-linecap="round"/></svg>';
-
-                // Reset other buttons to normal mode
-                for (let j = 0; j < instanceCount; j++) {
-                    if (j !== instanceIndex) {
-                        const otherButton = HTML.getElementUnsafely(`instanceButton_${j}`);
-                        if (otherButton) {
-                            HTML.setData(otherButton, 'IS_DELETE_MODE', false);
-                            otherButton.textContent = 'PlaceholderA2';
-                        }
-                    }
-                }
-            }
-        };
-
-        // Hover effects - darken by one shade
-        button.onmouseenter = function() {
-            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
-            const originalRgb = colorStringToRgb(originalColor);
-            const blendedRgb = {
-                r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
-                g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
-                b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
-            };
-            HTML.setStyle(this, { backgroundColor: `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})` });
-        };
-
-        button.onmouseleave = function() {
-            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
-            HTML.setStyle(this, { backgroundColor: originalColor });
-        };
-
-        container.appendChild(button);
+        const wrapper = createInstanceButtonWrapper(i, buttonColor);
+        container.appendChild(wrapper);
     }
+
+    // Set first instance as active initially
+    setTimeout(() => {
+        setActiveInstance(0);
+    }, 100);
 
     const plusFactor = totalButtonCount > 1 ? 1 : 0;
     const plusInterpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, plusFactor);
     const plusButtonColor = `rgb(${plusInterpolatedRgb.r}, ${plusInterpolatedRgb.g}, ${plusInterpolatedRgb.b})`;
-    const plusButton = createBasicButton('instancePlusButton', '', plusButtonColor);
+    
+    // Create plus button
+    const plusButton = HTML.make('div');
+    HTML.setId(plusButton, 'instancePlusButton');
+    HTML.setStyle(plusButton, {
+        backgroundColor: plusButtonColor,
+        borderRadius: '4px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '11px',
+        fontFamily: 'MonospacePrimary',
+        color: '#ffffff',
+        fontWeight: 'bold',
+        padding: '0',
+        width: `${buttonHeight}px`,
+        height: `${buttonHeight}px`,
+        transition: 'background-color 0.2s ease',
+        opacity: '0'
+    });
 
     // Replace content with SVG plus icon
     plusButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 3v12M3 9h12" stroke="var(--shade-0)" stroke-width="2" stroke-linecap="round"/></svg>';
-    // Remove default padding for square shape around icon
-    HTML.setStyle(plusButton, { 
-        padding: '0',
-        width: `${buttonHeight}px`
-    });
-
-    // Ensure icon is centered
-    HTML.setStyle(plusButton, { display: 'flex', alignItems: 'center', justifyContent: 'center' });
 
     // Plus button click handler
     plusButton.onclick = function() {
@@ -10350,7 +10431,15 @@ function initInstanceButtons(top) {
     // Fade in container & its children
     setTimeout(() => {
         HTML.setStyle(container, { opacity: '1' });
-        [...container.children].forEach(child => HTML.setStyle(child, { opacity: '1' }));
+        // Fade in all wrappers
+        for (let i = 0; i < instanceCount; i++) {
+            const wrapper = HTML.getElementUnsafely(`instanceWrapper_${i}`);
+            if (wrapper) {
+                HTML.setStyle(wrapper, { opacity: '1' });
+            }
+        }
+        // Fade in plus button
+        HTML.setStyle(plusButton, { opacity: '1' });
     }, 100);
 }
 
@@ -10359,16 +10448,41 @@ function closeInstanceButtons() {
     if (container && container.parentNode) {
         container.parentNode.removeChild(container);
     }
-    // Fallback: remove individual buttons/plus if any remain (legacy cleanup)
+    // Fallback: remove individual components if any remain (legacy cleanup)
     const plusButton = HTML.getElementUnsafely('instancePlusButton');
     if (plusButton && plusButton.parentNode) {
         plusButton.parentNode.removeChild(plusButton);
     }
+    // Remove old instance wrappers if they exist outside container
+    const possibleWrappers = document.querySelectorAll('[id^="instanceWrapper_"]');
+    possibleWrappers.forEach(wrapper => {
+        if (wrapper && wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+    });
     // Remove old instance buttons if they exist outside container
     const possibleButtons = document.querySelectorAll('[id^="instanceButton_"]');
     possibleButtons.forEach(btn => {
         if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
     });
+    // Remove old X buttons if they exist outside container
+    const possibleXButtons = document.querySelectorAll('[id^="instanceXButton_"]');
+    possibleXButtons.forEach(xBtn => {
+        if (xBtn && xBtn.parentNode) xBtn.parentNode.removeChild(xBtn);
+    });
+    // Remove old X button backgrounds if they exist outside container
+    const possibleXButtonBgs = document.querySelectorAll('[id^="instanceXButtonBg_"]');
+    possibleXButtonBgs.forEach(xBtnBg => {
+        if (xBtnBg && xBtnBg.parentNode) xBtnBg.parentNode.removeChild(xBtnBg);
+    });
+}
+
+function deleteInstance(instanceIndex) {
+    // TODO: Implement instance deletion
+    console.log('Delete instance', instanceIndex);
+}
+
+function addNewInstance() {
+    // TODO: Implement new instance creation
+    console.log('Add new instance');
 }
 
 // date pattern editor functions
