@@ -1,4 +1,4 @@
-let TESTING = false;
+let TESTING = true;
 let TESTING_USER_IS_EMPTY = false;
 let TESTING_SHOW_LOGS = true;
 
@@ -3782,6 +3782,12 @@ function type(thing, sometype) {
     } else if (sometype === ThinkingRequestNode) {
         if (!(thing instanceof ThinkingRequestNode)) return false;
         try { new ThinkingRequestNode(thing.model, thing.typeOfPrompt, thing.response, thing.thoughts, thing.startTime, thing.endTime, thing.userPrompt, thing.systemPrompt); return true; } catch (e) { return false; }
+    } else if (sometype === HideUntilRelative) {
+        if (!(thing instanceof HideUntilRelative)) return false;
+        try { new HideUntilRelative(thing.value); return true; } catch (e) { return false; }
+    } else if (sometype === HideUntilDate) {
+        if (!(thing instanceof HideUntilDate)) return false;
+        try { new HideUntilDate(thing.date); return true; } catch (e) { return false; }
     }
     // Primitive type checks
     else if (sometype === Number) return typeof thing === 'number';
@@ -3832,6 +3838,8 @@ function type(thing, sometype) {
         return typeof thing === 'symbol' && thing === ReminderInstanceKind;
     } else if (sometype === LAST_WEEK_OF_MONTH) {
         return typeof thing === 'symbol' && thing === LAST_WEEK_OF_MONTH;
+    } else if (sometype === HideUntilDayOf) {
+        return (typeof thing !== 'symbol') && thing === HideUntilDayOf;
     } else {
         return thing instanceof sometype;
     }
