@@ -10272,7 +10272,8 @@ function initInstanceButtons(top) {
             borderRadius: '3px',
             opacity: '0',
             transition: 'opacity 0.2s ease',
-            zIndex: '1'
+            zIndex: '1',
+            pointerEvents: 'none'
         });
 
         // Create X button (icon container)
