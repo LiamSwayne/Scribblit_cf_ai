@@ -10668,13 +10668,9 @@ function editorModalKindChange(selectedOption) {
                 } else if (eventInstance.startTime && eventInstance.startTime !== symbolToString(NULL)) {
                     reminderInstance.time = eventInstance.startTime;
                 } else {
-                    // If neither start time nor end time is available, skip this instance
-                    // or set a default time - reminders require a time
-                    reminderInstance.time = {
-                        hour: 9,
-                        minute: 0,
-                        _type: 'TimeField'
-                    };
+                    // If neither start time nor end time is available, set to NULL
+                    // User will need to fill in the time
+                    reminderInstance.time = symbolToString(NULL);
                 }
                 if (eventInstance.startDatePattern) reminderInstance.datePattern = eventInstance.startDatePattern;
                 if (eventInstance.range) reminderInstance.range = eventInstance.range;
@@ -10743,23 +10739,59 @@ function editorModalKindChange(selectedOption) {
             
         } else if (currentKind === 'reminder' && newKind === 'event') {
             // reminder -> event transition
-            // Copy instances, convert reminder time to end time, reminder date to start date
+            // Preserve original event data and only update fields that should change
             const reminderInstances = editorModalData._reminder.instances;
-            editorModalData._event.instances = reminderInstances.map(reminderInstance => {
-                const eventInstance = {};
-                // Copy common fields
+            const originalEventInstances = editorModalData._event.instances;
+            
+            editorModalData._event.instances = reminderInstances.map((reminderInstance, index) => {
+                // Start with original event instance if it exists, otherwise create new
+                const originalEventInstance = originalEventInstances[index] || {};
+                const eventInstance = { ...originalEventInstance };
+                
+                // Update type
                 if (reminderInstance._type) eventInstance._type = reminderInstance._type.replace('Reminder', 'Event');
                 
                 // Convert reminder fields to event fields
                 if (reminderInstance.date) eventInstance.startDate = reminderInstance.date;
-                if (reminderInstance.time) eventInstance.endTime = reminderInstance.time;
                 if (reminderInstance.datePattern) eventInstance.startDatePattern = reminderInstance.datePattern;
                 if (reminderInstance.range) eventInstance.range = reminderInstance.range;
                 
-                // Set default values for event-specific fields
-                eventInstance.startTime = symbolToString(NULL);
-                eventInstance.differentEndDate = symbolToString(NULL);
-                if (eventInstance._type === 'RecurringEventInstance') {
+                // Smart time handling: only update if reminder time doesn't match existing start or end times
+                if (reminderInstance.time && reminderInstance.time !== symbolToString(NULL)) {
+                    const reminderTime = reminderInstance.time;
+                    const originalStartTime = originalEventInstance.startTime;
+                    const originalEndTime = originalEventInstance.endTime;
+                    
+                    // Check if reminder time matches either original start or end time
+                    const timeMatches = (timeField) => {
+                        return timeField && timeField !== symbolToString(NULL) && 
+                               timeField.hour === reminderTime.hour && 
+                               timeField.minute === reminderTime.minute;
+                    };
+                    
+                    const matchesStart = timeMatches(originalStartTime);
+                    const matchesEnd = timeMatches(originalEndTime);
+                    
+                    if (matchesStart || matchesEnd) {
+                        // Reminder time matches an existing event time, so preserve original event times
+                        if (originalStartTime && originalStartTime !== symbolToString(NULL)) {
+                            eventInstance.startTime = originalStartTime;
+                        }
+                        if (originalEndTime && originalEndTime !== symbolToString(NULL)) {
+                            eventInstance.endTime = originalEndTime;
+                        }
+                    } else {
+                        // Reminder time doesn't match existing times, so set it as start time
+                        eventInstance.startTime = reminderTime;
+                    }
+                }
+                
+                // Only set defaults for event-specific fields if they don't already exist
+                // DO NOT touch endTime - preserve it from original event
+                if (!eventInstance.hasOwnProperty('differentEndDate')) {
+                    eventInstance.differentEndDate = symbolToString(NULL);
+                }
+                if (eventInstance._type === 'RecurringEventInstance' && !eventInstance.hasOwnProperty('differentEndDatePattern')) {
                     eventInstance.differentEndDatePattern = symbolToString(NULL);
                 }
                 
@@ -11082,7 +11114,12 @@ function getInstanceAsSentence(kind, instance) {
     }
     
     if (instance._type === 'NonRecurringReminderInstance') {
-        return `${formatDateUserSettings(DateField.decode(instance.date))} at ${formatTimeNoLeadingZeros(TimeField.decode(instance.time))}`;
+        const dateStr = formatDateUserSettings(DateField.decode(instance.date));
+        if (instance.time === symbolToString(NULL)) {
+            return `${dateStr} at ?`;
+        } else {
+            return `${dateStr} at ${formatTimeNoLeadingZeros(TimeField.decode(instance.time))}`;
+        }
     }
     
     // Handle recurring instances
@@ -11100,7 +11137,8 @@ function getInstanceAsSentence(kind, instance) {
     }
     
     if (instance._type === 'RecurringReminderInstance') {
-        return getRecurringPatternDescription(instance.datePattern, TimeField.decode(instance.time), NULL, false);
+        const time = instance.time !== symbolToString(NULL) ? TimeField.decode(instance.time) : NULL;
+        return getRecurringPatternDescription(instance.datePattern, time, NULL, false);
     }
     
     // Fallback
@@ -11171,6 +11209,9 @@ function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasD
             // Only start time: show "at X"
             description += ` at ${formatTimeNoLeadingZeros(startTime)}`;
         }
+    } else if (endTime === NULL && !hasDifferentEndDate) {
+        // This is likely a reminder with no time - show "at ?"
+        description += ` at ?`;
     }
     
     return description;
