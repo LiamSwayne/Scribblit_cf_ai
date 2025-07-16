@@ -10310,11 +10310,11 @@ function editorModalInitReminder() {
     // TODO: Initialize reminder-specific elements
 }
 
-function initEditorModal(id, instanceClicked = null) {
+function initEditorModal(id, instanceClicked) {
     // entity id
     ASSERT(type(id, NonEmptyString));
     ASSERT(user.entityArray.some(e => e.id === id), "initEditorModal: entity id passed, but entity not found");
-    ASSERT(type(instanceClicked, Union(Int, NULL)));
+    ASSERT(type(instanceClicked, Union(Uint, NULL)));
 
     if (editorModalOpen || exists(HTML.getElementUnsafely('editorModal'))) return;
     editorModalOpen = true;
@@ -10780,7 +10780,7 @@ function editorModalKindChange(selectedOption) {
         
         // Re-initialize instance buttons for the new kind
         closeInstanceButtons(() => {
-            initInstanceButtons(editorModalInstanceButtonsSectionTop);
+            initInstanceButtons(editorModalInstanceButtonsSectionTop, NULL); // use null to indicate no change; keep it the same
             // Update description textarea gradients after kind change
             updateDescriptionTextareaGradients();
         });
@@ -10913,10 +10913,10 @@ function isValidDate(yearElement, monthElement, dayElement) {
 // the user clicks these to select which instance they're currently editing
 // there's one button for each, and one additional plus button to add a new instance
 // when an instance is deleted, the boxes to the right slide to the left in a smooth animation
-function initInstanceButtons(top, instanceClicked = null) {
+function initInstanceButtons(top, instanceClicked) {
     ASSERT(type(top, Number));
-    ASSERT(type(instanceClicked, Union(Int, NULL)));
-    ASSERT(type(editorModalActiveInstanceIndex, Union(Int, NULL)), "editorModalActiveInstanceIndex must be an integer or NULL at function start");
+    ASSERT(type(instanceClicked, Union(Uint, NULL)));
+    ASSERT(type(editorModalActiveInstanceIndex, Union(Uint, NULL)), "editorModalActiveInstanceIndex must be an integer or NULL at function start");
     
     // Get instances from editorModalData based on current kind
     let instances;
@@ -10971,9 +10971,15 @@ function initInstanceButtons(top, instanceClicked = null) {
     const accent1Rgb = colorStringToRgb(accent1);
 
     // Track active instance - use instanceClicked if provided and valid, otherwise use global or default to first one
-    if (instanceClicked !== null && instanceClicked >= 0 && instanceClicked < instanceCount) {
+    if (instanceClicked !== NULL && instanceClicked < instanceCount) {
         editorModalActiveInstanceIndex = instanceClicked;
-    } else if (editorModalActiveInstanceIndex === null || editorModalActiveInstanceIndex < 0 || editorModalActiveInstanceIndex >= instanceCount) {
+    } else if (instanceClicked === NULL) {
+        // NULL means keep the same instance - only reset if current is invalid
+        if (editorModalActiveInstanceIndex === NULL || editorModalActiveInstanceIndex < 0 || editorModalActiveInstanceIndex >= instanceCount) {
+            editorModalActiveInstanceIndex = 0;
+        }
+    } else {
+        // instanceClicked is invalid, reset to first
         editorModalActiveInstanceIndex = 0;
     }
     
