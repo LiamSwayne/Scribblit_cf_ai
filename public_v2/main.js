@@ -11075,6 +11075,26 @@ function getOrdinalSuffix(number) {
     }
 }
 
+// Check if an editor instance is valid (has all required fields)
+function isValidEditorEntity(kind, instance) {
+    ASSERT(type(kind, String), "isValidEditorEntity: kind must be a String");
+    ASSERT(exists(instance), "isValidEditorEntity: instance must exist");
+    
+    // Check reminder instances for missing time
+    if (kind === 'reminder') {
+        if (instance._type === 'NonRecurringReminderInstance') {
+            return instance.time !== symbolToString(NULL);
+        }
+        if (instance._type === 'RecurringReminderInstance') {
+            return instance.time !== symbolToString(NULL);
+        }
+    }
+    
+    // For now, other kinds are always valid
+    // TODO: Add validation for tasks and events
+    return true;
+}
+
 // Convert instance to natural sentence description
 function getInstanceAsSentence(kind, instance) {
     ASSERT(type(kind, String), "getInstanceAsSentence: kind must be a String");
@@ -11437,10 +11457,19 @@ function initInstanceButtons(top, instanceClicked) {
     }
 
     for (let i = 0; i < instanceCount; i++) {
-        // Calculate gradient color for this button
-        const factor = totalButtonCount > 1 ? i / (totalButtonCount - 1) : 0;
-        const interpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
-        const buttonColor = `rgb(${interpolatedRgb.r}, ${interpolatedRgb.g}, ${interpolatedRgb.b})`;
+        // Check if this instance is valid
+        const isValid = isValidEditorEntity(editorModalData.kind, instances[i]);
+        
+        let buttonColor;
+        if (!isValid) {
+            // Use red color for invalid instances
+            buttonColor = vibrantRedColor;
+        } else {
+            // Calculate gradient color for valid instances
+            const factor = totalButtonCount > 1 ? i / (totalButtonCount - 1) : 0;
+            const interpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
+            buttonColor = `rgb(${interpolatedRgb.r}, ${interpolatedRgb.g}, ${interpolatedRgb.b})`;
+        }
 
         const wrapper = createInstanceButtonWrapper(i, buttonColor);
         container.appendChild(wrapper);
