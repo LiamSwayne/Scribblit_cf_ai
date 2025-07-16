@@ -10165,6 +10165,7 @@ const editorModalVignetteZIndex = 12000;
 const editorModalKindSelectorId = 'editorModalKindSelector';
 const editorModalWidth = 300;
 const editorModalHeight = 700;
+const editorModalInstanceButtonsSectionTop = 58;
 let editorModalDataEmpty = {
     kind: '',
     name: '',
@@ -10465,7 +10466,7 @@ function initEditorModal(id, instanceClicked = null) {
     updateEditorModalPosition();
     
     // Initialize instance buttons
-    initInstanceButtons(58, instanceClicked);
+    initInstanceButtons(editorModalInstanceButtonsSectionTop, instanceClicked);
     
     // Force reflow
     editorModalVignette.offsetHeight;
@@ -10677,7 +10678,7 @@ function editorModalKindChange(selectedOption) {
         
         // Re-initialize instance buttons for the new kind
         closeInstanceButtons(() => {
-            initInstanceButtons(60);
+            initInstanceButtons(editorModalInstanceButtonsSectionTop);
         });
     });
 }
