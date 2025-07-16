@@ -2908,8 +2908,8 @@ class FilteredInstancesFactory {
                             entityName,
                             Math.max(startMs, dayStartUnix),
                             Math.min(endMs, dayEndUnix),
-                            originalStartDate, // This is the pattern's initial date
-                            originalStartTime, // This is the pattern's start time
+                            originalStartDate,
+                            originalStartTime,
                             startMs < dayStartUnix,
                             endMs > dayEndUnix,
                             TaskWorkSessionKind,
@@ -9671,17 +9671,25 @@ let editorModalDataEmpty = {
     name: '',
     description: '',
 
+    // even though some of these overlap, we want the ability to go back
+    // so if a user does a bunch of event stuff, then goes to reminder, then goes back to event,
+    // they should be able to see the event stuff they did, not the greatly reduced amount of info in the reminder
     _event: {
+        instances: [],
     },
 
     _task: {
+        instances: [],
     },
     
     _reminder: {
+        instances: [],
     },
 }
 // deep copy needed
 let editorModalData = NULL;
+// fade out current tab takes half of this, fade in the new tab takes half of this
+let instanceTabTransitionTime = 0.3;
 
 let editorModalActiveEntityId = NULL;
 
@@ -9711,66 +9719,6 @@ function editorModalInitReminder() {
     // TODO: Initialize reminder-specific elements
 }
 
-// only call when some kind is already selected (which should be always)
-function editorModalKindChange(selectedOption) {
-    ASSERT(exists(editorModalData), "editorModalKindChange: editorModalData is not initialized");
-    ASSERT(exists(editorModalData.kind), "editorModalKindChange: editorModalData.kind is not initialized");
-    ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange: editorModalData.kind is invalid");
-    
-    const newKind = selectedOption.toLowerCase();
-    
-    // Close current kind, then init new kind
-    const currentKind = editorModalData.kind;
-    let closeFunction;
-    
-    if (currentKind === 'event') {
-        closeFunction = editorModalCloseEvent;
-    } else if (currentKind === 'task') {
-        closeFunction = editorModalCloseTask;
-    } else if (currentKind === 'reminder') {
-        closeFunction = editorModalCloseReminder;
-    } else {
-        ASSERT(false, "editorModalKindChange: invalid kind");
-    }
-    
-    // Close current, then change kind and init new
-    closeFunction().then(() => {
-        // copy over latest data (which means data from the previous kind) to this new kind
-        // ex: if they were editing task at 9:40pm and go to reminder, you can infer that they likely want the reminder to be at 9:40pm
-        if (currentKind === 'event' && newKind === 'task') {
-            // event -> task transition
-            
-        } else if (currentKind === 'event' && newKind === 'reminder') {
-            // event -> reminder transition
-            
-        } else if (currentKind === 'task' && newKind === 'event') {
-            // task -> event transition
-            
-        } else if (currentKind === 'task' && newKind === 'reminder') {
-            // task -> reminder transition
-            
-        } else if (currentKind === 'reminder' && newKind === 'event') {
-            // reminder -> event transition
-            
-        } else if (currentKind === 'reminder' && newKind === 'task') {
-            // reminder -> task transition
-            
-        } else {
-            ASSERT(false, "editorModalKindChange: invalid kind transition");
-        }
-        
-        editorModalData.kind = newKind;
-        
-        if (newKind === 'event') {
-            editorModalInitEvent();
-        } else if (newKind === 'task') {
-            editorModalInitTask();
-        } else if (newKind === 'reminder') {
-            editorModalInitReminder();
-        }
-    });
-}
-
 function initEditorModal(id) {
     // entity id
     ASSERT(type(id, NonEmptyString));
@@ -9789,13 +9737,22 @@ function initEditorModal(id) {
     // Determine entity type and populate initial data
     if (type(entity.data, TaskData)) {
         editorModalData.kind = 'task';
+        editorModalData._task.instances = entity.data.instances.map(() => ({}));
     } else if (type(entity.data, EventData)) {
         editorModalData.kind = 'event';
+        editorModalData._event.instances = entity.data.instances.map(() => ({}));
     } else if (type(entity.data, ReminderData)) {
         editorModalData.kind = 'reminder';
+        editorModalData._reminder.instances = entity.data.instances.map(() => ({}));
     }
     editorModalData.name = entity.name;
     editorModalData.description = entity.description;
+    
+    // Assert that we have at least one instance
+    const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
+                            editorModalData.kind === 'task' ? editorModalData._task.instances : 
+                            editorModalData._reminder.instances;
+    ASSERT(currentInstances.length >= 1, "Entity must have at least one instance");
 
     
     // Calculate center position
@@ -9998,6 +9955,9 @@ function initEditorModal(id) {
     // Position selector
     updateEditorModalPosition();
     
+    // Initialize instance buttons
+    initInstanceButtons(60);
+    
     // Force reflow
     editorModalVignette.offsetHeight;
     editorModal.offsetHeight;
@@ -10017,6 +9977,71 @@ function initEditorModal(id) {
         HTML.setStyle(descriptionTextarea, { opacity: '1' });
     }, 50);
 }
+
+// only call when some kind is already selected (which should be always)
+function editorModalKindChange(selectedOption) {
+    ASSERT(exists(editorModalData), "editorModalKindChange: editorModalData is not initialized");
+    ASSERT(exists(editorModalData.kind), "editorModalKindChange: editorModalData.kind is not initialized");
+    ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange: editorModalData.kind is invalid");
+    
+    const newKind = selectedOption.toLowerCase();
+    
+    // Close current kind, then init new kind
+    const currentKind = editorModalData.kind;
+    let closeFunction;
+    
+    if (currentKind === 'event') {
+        closeFunction = editorModalCloseEvent;
+    } else if (currentKind === 'task') {
+        closeFunction = editorModalCloseTask;
+    } else if (currentKind === 'reminder') {
+        closeFunction = editorModalCloseReminder;
+    } else {
+        ASSERT(false, "editorModalKindChange: invalid kind");
+    }
+    
+    // Close current, then change kind and init new
+    closeFunction().then(() => {
+        // copy over latest data (which means data from the previous kind) to this new kind
+        // ex: if they were editing task at 9:40pm and go to reminder, you can infer that they likely want the reminder to be at 9:40pm
+        if (currentKind === 'event' && newKind === 'task') {
+            // event -> task transition
+            
+        } else if (currentKind === 'event' && newKind === 'reminder') {
+            // event -> reminder transition
+            
+        } else if (currentKind === 'task' && newKind === 'event') {
+            // task -> event transition
+            
+        } else if (currentKind === 'task' && newKind === 'reminder') {
+            // task -> reminder transition
+            
+        } else if (currentKind === 'reminder' && newKind === 'event') {
+            // reminder -> event transition
+            
+        } else if (currentKind === 'reminder' && newKind === 'task') {
+            // reminder -> task transition
+            
+        } else {
+            ASSERT(false, "editorModalKindChange: invalid kind transition");
+        }
+        
+        editorModalData.kind = newKind;
+        
+        if (newKind === 'event') {
+            editorModalInitEvent();
+        } else if (newKind === 'task') {
+            editorModalInitTask();
+        } else if (newKind === 'reminder') {
+            editorModalInitReminder();
+        }
+        
+        // Re-initialize instance buttons for the new kind
+        closeInstanceButtons();
+        initInstanceButtons(60);
+    });
+}
+
 
 // doesn't handle any input validation
 // left and top are relative to the editor modal top left corner
@@ -10146,8 +10171,187 @@ function isValidDate(yearElement, monthElement, dayElement) {
 // when an instance is deleted, the boxes to the right slide to the left in a smooth animation
 function initInstanceButtons(top) {
     ASSERT(type(top, Number));
-    // TODO: Implement instance buttons
-    // use editorModalData, get the instances
+    
+    // Get instances from editorModalData based on current kind
+    let instances;
+    if (editorModalData.kind === 'event') {
+        instances = editorModalData._event.instances;
+    } else if (editorModalData.kind === 'task') {
+        instances = editorModalData._task.instances;
+    } else if (editorModalData.kind === 'reminder') {
+        instances = editorModalData._reminder.instances;
+    } else {
+        return; // No valid kind selected
+    }
+    
+    const instanceCount = instances.length;
+    const totalButtonCount = instanceCount + 1; // +1 for the plus button
+    
+    // Visual configuration
+    const buttonHeight = 24;
+    const buttonSpacing = 4;
+
+    const container = HTML.make('div');
+    HTML.setId(container, 'instanceButtonsContainer');
+    HTML.setStyle(container, {
+        position: 'absolute',
+        left: '4px', // tighter left margin
+        top: `${top}px`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: `${buttonSpacing}px`,
+        flexWrap: 'wrap',
+        zIndex: String(editorModalBaseZIndex + 1),
+        opacity: '0',
+        transition: 'opacity 0.2s ease'
+    });
+    editorModal.appendChild(container);
+    
+    // Get accent colors for gradient
+    const accent0 = getComputedStyle(document.documentElement).getPropertyValue('--accent-0').trim();
+    const accent1 = getComputedStyle(document.documentElement).getPropertyValue('--accent-1').trim();
+
+    // Helper to convert color string (hex or rgb) to rgb object
+    function colorStringToRgb(str) {
+        if (str.startsWith('#')) {
+            return hexToRgb(str);
+        }
+        const m = str.match(/rgb\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)/);
+        ASSERT(exists(m), 'Invalid color string: ' + str);
+        return { r: parseInt(m[1]), g: parseInt(m[2]), b: parseInt(m[3]) };
+    }
+
+    const accent0Rgb = colorStringToRgb(accent0);
+    const accent1Rgb = colorStringToRgb(accent1);
+
+    function createBasicButton(id, textContent, backgroundColor) {
+        const btn = HTML.make('div');
+        HTML.setId(btn, id);
+        HTML.setStyle(btn, {
+            backgroundColor: backgroundColor,
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            fontFamily: 'MonospacePrimary',
+            color: '#ffffff',
+            fontWeight: 'bold',
+            padding: '0 8px', // horizontal padding so width adapts to text
+            height: `${buttonHeight}px`,
+            transition: 'background-color 0.2s ease',
+            opacity: '0' // will fade in to full opacity later
+        });
+        btn.textContent = textContent;
+        return btn;
+    }
+
+    for (let i = 0; i < instanceCount; i++) {
+        // Calculate gradient color for this button
+        const factor = totalButtonCount > 1 ? i / (totalButtonCount - 1) : 0;
+        const interpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
+        const buttonColor = `rgb(${interpolatedRgb.r}, ${interpolatedRgb.g}, ${interpolatedRgb.b})`;
+
+        const button = createBasicButton(`instanceButton_${i}`, 'PlaceholderA2', buttonColor);
+
+        // Store button state
+        HTML.setData(button, 'INSTANCE_INDEX', i);
+        HTML.setData(button, 'IS_DELETE_MODE', false);
+        HTML.setData(button, 'ORIGINAL_COLOR', buttonColor);
+
+        // Click handler
+        button.onclick = function() {
+            const isDeleteMode = HTML.getData(this, 'IS_DELETE_MODE');
+            const instanceIndex = HTML.getData(this, 'INSTANCE_INDEX');
+
+            if (isDeleteMode) {
+                // Delete this instance
+                deleteInstance(instanceIndex);
+            } else {
+                // Enter delete mode - show X
+                HTML.setData(this, 'IS_DELETE_MODE', true);
+                this.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 2l8 8M2 10l8-8" stroke="var(--shade-0)" stroke-width="2" stroke-linecap="round"/></svg>';
+
+                // Reset other buttons to normal mode
+                for (let j = 0; j < instanceCount; j++) {
+                    if (j !== instanceIndex) {
+                        const otherButton = HTML.getElementUnsafely(`instanceButton_${j}`);
+                        if (otherButton) {
+                            HTML.setData(otherButton, 'IS_DELETE_MODE', false);
+                            otherButton.textContent = 'PlaceholderA2';
+                        }
+                    }
+                }
+            }
+        };
+
+        // Hover effects - darken by one shade
+        button.onmouseenter = function() {
+            // No hover effect
+        };
+
+        button.onmouseleave = function() {
+            // No hover effect
+        };
+
+        container.appendChild(button);
+    }
+
+    const plusFactor = totalButtonCount > 1 ? 1 : 0;
+    const plusInterpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, plusFactor);
+    const plusButtonColor = `rgb(${plusInterpolatedRgb.r}, ${plusInterpolatedRgb.g}, ${plusInterpolatedRgb.b})`;
+    const plusButton = createBasicButton('instancePlusButton', '', plusButtonColor);
+
+    // Replace content with SVG plus icon
+    plusButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 3v12M3 9h12" stroke="var(--shade-0)" stroke-width="2" stroke-linecap="round"/></svg>';
+    // Remove default padding for square shape around icon
+    HTML.setStyle(plusButton, { 
+        padding: '0',
+        width: `${buttonHeight}px`
+    });
+
+    // Ensure icon is centered
+    HTML.setStyle(plusButton, { display: 'flex', alignItems: 'center', justifyContent: 'center' });
+
+    // Plus button click handler
+    plusButton.onclick = function() {
+        addNewInstance();
+    };
+
+    // Hover effects for plus button
+    HTML.setData(plusButton, 'ORIGINAL_COLOR', plusButtonColor);
+    plusButton.onmouseenter = function() {
+        // No hover effect
+    };
+    plusButton.onmouseleave = function() {
+        // No hover effect
+    };
+
+    container.appendChild(plusButton);
+
+    // Fade in container & its children
+    setTimeout(() => {
+        HTML.setStyle(container, { opacity: '1' });
+        [...container.children].forEach(child => HTML.setStyle(child, { opacity: '1' }));
+    }, 100);
+}
+
+function closeInstanceButtons() {
+    const container = HTML.getElementUnsafely('instanceButtonsContainer');
+    if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+    }
+    // Fallback: remove individual buttons/plus if any remain (legacy cleanup)
+    const plusButton = HTML.getElementUnsafely('instancePlusButton');
+    if (plusButton && plusButton.parentNode) {
+        plusButton.parentNode.removeChild(plusButton);
+    }
+    // Remove old instance buttons if they exist outside container
+    const possibleButtons = document.querySelectorAll('[id^="instanceButton_"]');
+    possibleButtons.forEach(btn => {
+        if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
+    });
 }
 
 // date pattern editor functions
@@ -10207,6 +10411,9 @@ function closeEditorModal() {
 
     // delete selector animates itself
     deleteSelector(editorModalKindSelectorId);
+
+    // close instance buttons
+    closeInstanceButtons();
 
     // clear data
     editorModalData = NULL;
