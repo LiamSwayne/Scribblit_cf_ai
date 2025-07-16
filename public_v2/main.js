@@ -10037,8 +10037,9 @@ function editorModalKindChange(selectedOption) {
         }
         
         // Re-initialize instance buttons for the new kind
-        closeInstanceButtons();
-        initInstanceButtons(60);
+        closeInstanceButtons(() => {
+            initInstanceButtons(60);
+        });
     });
 }
 
@@ -10443,7 +10444,27 @@ function initInstanceButtons(top) {
     }, 100);
 }
 
-function closeInstanceButtons() {
+function closeInstanceButtons(callback) {
+    const container = HTML.getElementUnsafely('instanceButtonsContainer');
+    if (container && container.parentNode) {
+        // Fade out the container first
+        HTML.setStyle(container, { opacity: '0' });
+        
+        // Remove after fade-out animation completes
+        setTimeout(() => {
+            if (container.parentNode) {
+                container.parentNode.removeChild(container);
+            }
+            if (callback) callback();
+        }, 200); // Match the transition duration
+    } else {
+        // No container found, just do cleanup and call callback immediately
+        closeInstanceButtonsImmediate();
+        if (callback) callback();
+    }
+}
+
+function closeInstanceButtonsImmediate() {
     const container = HTML.getElementUnsafely('instanceButtonsContainer');
     if (container && container.parentNode) {
         container.parentNode.removeChild(container);
@@ -10544,7 +10565,7 @@ function closeEditorModal() {
     deleteSelector(editorModalKindSelectorId);
 
     // close instance buttons
-    closeInstanceButtons();
+    closeInstanceButtonsImmediate();
 
     // clear data
     editorModalData = NULL;
