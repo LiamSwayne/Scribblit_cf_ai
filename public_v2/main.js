@@ -7221,6 +7221,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             transition: 'opacity 0.2s ease, font-size 0.3s ease, color 0.2s ease'
         });
 
+        // Add click handler to open editor modal
+        taskElement.addEventListener('click', function() {
+            initEditorModal(task.id, task.instanceIndex);
+        });
+
         // Make checkbox size responsive
         const checkboxSize = columnWidth > columnWidthThreshold ? 15 : 12;
         // Make checkbox font size responsive
