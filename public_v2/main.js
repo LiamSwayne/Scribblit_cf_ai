@@ -5274,7 +5274,27 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     // Create clone line
                     const cloneLine = HTML.make('div');
                     HTML.setId(cloneLine, 'drag-clone-line');
-                    const lineWidth = (dayElemLeft + colWidth) - quarterCircleLeft + 2;
+                    
+                    // Calculate line width using same logic as regular reminders
+                    let lineWidth;
+                    let isRightmostDay = false;
+                    if (LocalData.get('stacking')) {
+                        // In stacking mode, there are two rightmost days: one for top row, one for bottom row
+                        const topRowRightmost = Math.floor(LocalData.get('numberOfDays') / 2) - 1;
+                        const bottomRowRightmost = LocalData.get('numberOfDays') - 1;
+                        isRightmostDay = (dayIndex === topRowRightmost && topRowRightmost >= 0) || (dayIndex === bottomRowRightmost);
+                    } else {
+                        // In normal mode, only one rightmost day
+                        isRightmostDay = (dayIndex === LocalData.get('numberOfDays') - 1);
+                    }
+                    
+                    if (isRightmostDay) {
+                        // doesn't extend past event width
+                        lineWidth = dayElemLeft + colWidth - quarterCircleLeft;
+                    } else {
+                        // 1px adjustment to not overlap with the line between days
+                        lineWidth = dayElemLeft + colWidth + (gapBetweenColumns / 2) - quarterCircleLeft - 1;
+                    }
                     HTML.setStyle(cloneLine, {
                         position: 'fixed', width: String(lineWidth) + 'px', height: String(reminderLineHeight) + 'px',
                         top: String(reminderTopPosition) + 'px', left: String(quarterCircleLeft) + 'px',
