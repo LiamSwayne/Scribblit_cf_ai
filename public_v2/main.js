@@ -339,7 +339,7 @@ async function loadUserData() {
 
             ASSERT(type(token, String));
             
-            // Get local data as fallback
+            // Get local data
             let userJsonLocal = null;
             const userDataLocal = localStorage.getItem("userData");
             if (userDataLocal) {
@@ -419,24 +419,15 @@ async function loadUserData() {
                         return User.createDefault();
                     }
                     
-                    // Use local data as fallback
-                    if (userJsonLocal) {
-                        log("Using local user data as fallback");
-                        return User.decode(userJsonLocal);
-                    } else {
-                        return User.createDefault();
-                    }
+                    // Token expired, must create default user
+                    return User.createDefault();
                 }
             } catch (e) {
                 log("ERROR connecting to server: " + e.message);
                 
-                // Use local data as fallback
-                if (userJsonLocal) {
-                    log("Using local user data as fallback");
-                    return User.decode(userJsonLocal);
-                } else {
-                    return User.createDefault();
-                }
+                // Server connection failed, must assert local data exists
+                ASSERT(userJsonLocal !== null, "Server connection failed and no local data available");
+                return User.decode(userJsonLocal);
             }
         } catch (error) {
             log("ERROR loading user data: " + error.message);
@@ -727,6 +718,27 @@ function createFakeEntityArray() {
         nextSaturdayDateCalc = nextSaturdayDateCalc.plus({days: 1});
     }
     const nextSaturday = new DateField(nextSaturdayDateCalc.year, nextSaturdayDateCalc.month, nextSaturdayDateCalc.day);
+
+    // Calculate next Friday
+    let nextFridayDateCalc = baseDate;
+    while(nextFridayDateCalc.weekday !== 5) { // Luxon: Friday is 5
+        nextFridayDateCalc = nextFridayDateCalc.plus({days: 1});
+    }
+    const nextFriday = new DateField(nextFridayDateCalc.year, nextFridayDateCalc.month, nextFridayDateCalc.day);
+
+    // Calculate next Sunday
+    let nextSundayDateCalc = baseDate;
+    while(nextSundayDateCalc.weekday !== 7) { // Luxon: Sunday is 7
+        nextSundayDateCalc = nextSundayDateCalc.plus({days: 1});
+    }
+    const nextSunday = new DateField(nextSundayDateCalc.year, nextSundayDateCalc.month, nextSundayDateCalc.day);
+
+    // Additional date variables for complex entities
+    const in1MonthDate = baseDate.plus({months: 1});
+    const in1Month = new DateField(in1MonthDate.year, in1MonthDate.month, in1MonthDate.day);
+
+    const in6MonthsDate = baseDate.plus({months: 6});
+    const in6Months = new DateField(in6MonthsDate.year, in6MonthsDate.month, in6MonthsDate.day);
 
     // Create sample tasks and events
     return [
@@ -1581,6 +1593,318 @@ function createFakeEntityArray() {
                     new TimeField(10, 0)
                 )
             ])
+        ),
+
+        // COMPLEX TASK - Multiple instances, work sessions, hide until settings
+        new Entity(
+            'complex-task-001',
+            'Complex Multi-Instance Project with Work Sessions',
+            'A complex project with multiple due dates, recurring patterns, work sessions, and hide until settings. This showcases all task features.',
+            new TaskData(
+                [
+                    // Non-recurring instance due tomorrow at 2 PM
+                    new NonRecurringTaskInstance(
+                        tomorrow, // date
+                        new TimeField(14, 0), // dueTime
+                        false // completion
+                    ),
+                    // Recurring daily checkins for 1 week starting today
+                    new RecurringTaskInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            1 // n (daily)
+                        ), // datePattern
+                        new TimeField(9, 0), // dueTime
+                        new DateRange(
+                            today, // startDate
+                            in1Week // endDate
+                        ), // range
+                        [] // completion
+                    ),
+                    // Monthly milestone reviews on 15th of each month
+                    new RecurringTaskInstance(
+                        new MonthlyPattern(
+                            15, // day
+                            [true, true, true, true, true, true, true, true, true, true, true, true] // all months
+                        ), // datePattern
+                        new TimeField(16, 30), // dueTime
+                        new RecurrenceCount(
+                            new DateField(2025, 1, 15), // initialDate
+                            6 // count
+                        ), // range
+                        [] // completion
+                    ),
+                    // Annual review on March 1st
+                    new RecurringTaskInstance(
+                        new AnnuallyPattern(
+                            3, // month (March)
+                            1 // day
+                        ), // datePattern
+                        new TimeField(10, 0), // dueTime
+                        new DateRange(
+                            new DateField(2025, 3, 1), // startDate
+                            new DateField(2030, 3, 1) // endDate
+                        ), // range
+                        [] // completion
+                    ),
+                    // Quarterly team sync - first Monday of Jan, Apr, Jul, Oct
+                    new RecurringTaskInstance(
+                        new NthWeekdayOfMonthsPattern(
+                            'monday', // dayOfWeek
+                            [true, false, false, false], // first Monday of the month
+                            [true, false, false, true, false, false, true, false, false, true, false, false] // Jan, Apr, Jul, Oct
+                        ), // datePattern
+                        new TimeField(11, 0), // dueTime
+                        new DateRange(
+                            new DateField(2025, 1, 1), // startDate
+                            new DateField(2026, 12, 31) // endDate
+                        ), // range
+                        [] // completion
+                    )
+                ], // instances
+                new HideUntilRelative(3), // hideUntil (show 3 days before due)
+                true, // showOverdue
+                [
+                    // Daily work session for the project
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            1 // n (daily)
+                        ), // startDatePattern
+                        new TimeField(8, 0), // startTime
+                        new TimeField(10, 0), // endTime
+                        new DateRange(
+                            today, // startDate
+                            in2Weeks // endDate
+                        ), // range
+                        NULL // differentEndDatePattern
+                    ),
+                    // Weekend deep work sessions
+                    new RecurringEventInstance(
+                        new NthWeekdayOfMonthsPattern(
+                            'saturday', // dayOfWeek
+                            [true, true, true, true], // all Saturdays
+                            [true, true, true, true, true, true, true, true, true, true, true, true] // all months
+                        ), // startDatePattern
+                        new TimeField(14, 0), // startTime
+                        new TimeField(18, 0), // endTime
+                        new DateRange(
+                            today, // startDate
+                            in2Months // endDate
+                        ), // range
+                        NULL // differentEndDatePattern
+                    ),
+                    // Final presentation prep session
+                    new NonRecurringEventInstance(
+                        tomorrow, // startDate
+                        new TimeField(10, 0), // startTime
+                        new TimeField(13, 0), // endTime
+                        NULL // differentEndDate
+                    )
+                ] // workSessions
+            ) // data
+        ),
+
+        // COMPLEX EVENT - Multiple instances with different patterns, multi-day events
+        new Entity(
+            'complex-event-001',
+            'Complex Multi-Pattern Conference & Workshop Series',
+            'A complex event series with multiple patterns: daily sessions, weekly workshops, monthly planning, and annual conferences. Includes multi-day events and all-day events.',
+            new EventData(
+                [
+                    // One-time multi-day conference starting tomorrow
+                    new NonRecurringEventInstance(
+                        tomorrow, // startDate
+                        new TimeField(9, 0), // startTime
+                        new TimeField(17, 0), // endTime
+                        in3Days // differentEndDate (3-day conference)
+                    ),
+                    // All-day team building event
+                    new NonRecurringEventInstance(
+                        in1Week, // startDate
+                        NULL, // startTime (all-day)
+                        NULL, // endTime (all-day)
+                        NULL // differentEndDate
+                    ),
+                    // Daily standup meetings for 2 weeks
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            1 // n (daily)
+                        ), // startDatePattern
+                        new TimeField(9, 30), // startTime
+                        new TimeField(10, 0), // endTime
+                        new DateRange(
+                            today, // startDate
+                            in2Weeks // endDate
+                        ), // range
+                        NULL // differentEndDatePattern
+                    ),
+                    // Weekly team lunch every Friday
+                    new RecurringEventInstance(
+                        new EveryNDaysPattern(
+                            nextFriday, // initialDate
+                            7 // n (weekly)
+                        ), // startDatePattern
+                        new TimeField(12, 0), // startTime
+                        new TimeField(13, 30), // endTime
+                        new RecurrenceCount(
+                            nextFriday, // initialDate
+                            8 // count (8 weeks)
+                        ), // range
+                        NULL // differentEndDatePattern
+                    ),
+                    // Monthly all-hands meeting on first Tuesday
+                    new RecurringEventInstance(
+                        new NthWeekdayOfMonthsPattern(
+                            'tuesday', // dayOfWeek
+                            [true, false, false, false], // first Tuesday
+                            [true, true, true, true, true, true, true, true, true, true, true, true] // all months
+                        ), // startDatePattern
+                        new TimeField(14, 0), // startTime
+                        new TimeField(16, 0), // endTime
+                        new DateRange(
+                            new DateField(2025, 1, 1), // startDate
+                            new DateField(2025, 12, 31) // endDate
+                        ), // range
+                        NULL // differentEndDatePattern
+                    ),
+                    // Quarterly planning retreat (2-day events)
+                    new RecurringEventInstance(
+                        new MonthlyPattern(
+                            15, // day (15th)
+                            [true, false, false, true, false, false, true, false, false, true, false, false] // Jan, Apr, Jul, Oct
+                        ), // startDatePattern
+                        new TimeField(9, 0), // startTime
+                        new TimeField(17, 0), // endTime
+                        new DateRange(
+                            new DateField(2025, 1, 15), // startDate
+                            new DateField(2025, 12, 31) // endDate
+                        ), // range
+                        1 // differentEndDatePattern (2-day event)
+                    ),
+                    // Annual company retreat
+                    new RecurringEventInstance(
+                        new AnnuallyPattern(
+                            7, // month (July)
+                            20 // day
+                        ), // startDatePattern
+                        new TimeField(8, 0), // startTime
+                        new TimeField(20, 0), // endTime
+                        new DateRange(
+                            new DateField(2025, 7, 20), // startDate
+                            new DateField(2030, 7, 20) // endDate
+                        ), // range
+                        4 // differentEndDatePattern (5-day retreat)
+                    )
+                ] // instances
+            ) // data
+        ),
+
+        // COMPLEX REMINDER - Multiple instances with different patterns and times
+        new Entity(
+            'complex-reminder-001',
+            'Complex Multi-Pattern Reminder System',
+            'A comprehensive reminder system with multiple patterns: daily habits, weekly reviews, monthly reports, quarterly goals, and annual planning. Includes both recurring and one-time reminders.',
+            new ReminderData(
+                [
+                    // One-time important reminder for tomorrow
+                    new NonRecurringReminderInstance(
+                        tomorrow, // date
+                        new TimeField(8, 0) // time
+                    ),
+                    // Another one-time reminder for later
+                    new NonRecurringReminderInstance(
+                        in3Days, // date
+                        new TimeField(15, 30) // time
+                    ),
+                    // Daily morning routine reminder
+                    new RecurringReminderInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            1 // n (daily)
+                        ), // datePattern
+                        new TimeField(6, 30), // time
+                        new DateRange(
+                            today, // startDate
+                            in1Month // endDate
+                        ) // range
+                    ),
+                    // Daily evening reflection
+                    new RecurringReminderInstance(
+                        new EveryNDaysPattern(
+                            today, // initialDate
+                            1 // n (daily)
+                        ), // datePattern
+                        new TimeField(21, 0), // time
+                        new RecurrenceCount(
+                            today, // initialDate
+                            30 // count (30 days)
+                        ) // range
+                    ),
+                    // Weekly review every Sunday
+                    new RecurringReminderInstance(
+                        new EveryNDaysPattern(
+                            nextSunday, // initialDate
+                            7 // n (weekly)
+                        ), // datePattern
+                        new TimeField(19, 0), // time
+                        new DateRange(
+                            nextSunday, // startDate
+                            in6Months // endDate
+                        ) // range
+                    ),
+                    // Monthly report reminder on the 1st
+                    new RecurringReminderInstance(
+                        new MonthlyPattern(
+                            1, // day
+                            [true, true, true, true, true, true, true, true, true, true, true, true] // all months
+                        ), // datePattern
+                        new TimeField(9, 0), // time
+                        new DateRange(
+                            new DateField(2025, 1, 1), // startDate
+                            new DateField(2025, 12, 31) // endDate
+                        ) // range
+                    ),
+                    // Quarterly goal review on last Friday of Mar, Jun, Sep, Dec
+                    new RecurringReminderInstance(
+                        new NthWeekdayOfMonthsPattern(
+                            'friday', // dayOfWeek
+                            [false, false, false, true], // 4th Friday (often last Friday)
+                            [false, false, true, false, false, true, false, false, true, false, false, true] // Mar, Jun, Sep, Dec
+                        ), // datePattern
+                        new TimeField(16, 0), // time
+                        new DateRange(
+                            new DateField(2025, 3, 1), // startDate
+                            new DateField(2026, 12, 31) // endDate
+                        ) // range
+                    ),
+                    // Annual planning reminder every January 1st
+                    new RecurringReminderInstance(
+                        new AnnuallyPattern(
+                            1, // month (January)
+                            1 // day
+                        ), // datePattern
+                        new TimeField(10, 0), // time
+                        new DateRange(
+                            new DateField(2025, 1, 1), // startDate
+                            new DateField(2030, 1, 1) // endDate
+                        ) // range
+                    ),
+                    // Monthly bill payment reminder on 25th
+                    new RecurringReminderInstance(
+                        new MonthlyPattern(
+                            25, // day
+                            [true, true, true, true, true, true, true, true, true, true, true, true] // all months
+                        ), // datePattern
+                        new TimeField(11, 0), // time
+                        new RecurrenceCount(
+                            new DateField(2025, 1, 25), // initialDate
+                            24 // count (2 years)
+                        ) // range
+                    )
+                ] // instances
+            ) // data
         ),
     ];
 }
@@ -2616,8 +2940,11 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
     } else if (type(pattern, EveryNDaysPattern)) {
         startDateTime = DateTime.local(pattern.initialDate.year, pattern.initialDate.month, pattern.initialDate.day);
     } else if (type(pattern, MonthlyPattern)) {
-        // For MonthlyPattern, we need a reference date - use current date as fallback
-        // Find the first occurrence from today
+        // For MonthlyPattern, find the first occurrence from today
+        ASSERT(type(pattern.day, Int) && pattern.day >= 1 && pattern.day <= 31, "MonthlyPattern must have valid day");
+        ASSERT(type(pattern.months, List(Boolean)) && pattern.months.length === 12, "MonthlyPattern must have valid months array");
+        ASSERT(pattern.months.some(month => month), "MonthlyPattern must have at least one active month");
+        
         let currentDate = DateTime.local();
         startDateTime = currentDate.set({day: pattern.day});
         // Find the first valid month from current date
@@ -2810,7 +3137,51 @@ class FilteredInstancesFactory {
         const taskIsComplete = taskEntity.data.isComplete(NULL, NULL);
 
         // Common properties for the instances derived from this workSessionInstance
-        const originalStartDate = workSessionInstance.startDatePattern ? workSessionInstance.startDatePattern.initialDate : workSessionInstance.startDate;
+        let originalStartDate;
+        if (workSessionInstance.startDatePattern) {
+            // For recurring events, we need to handle different pattern types
+            if (type(workSessionInstance.startDatePattern, EveryNDaysPattern)) {
+                originalStartDate = workSessionInstance.startDatePattern.initialDate;
+            } else {
+                // For other pattern types, get the earliest date in the range
+                const pattern = workSessionInstance.startDatePattern;
+                const range = workSessionInstance.range;
+                
+                let rangeStartMs, rangeEndMs;
+                if (type(range, DateRange)) {
+                    rangeStartMs = range.startDate.toUnixTimestamp();
+                    rangeEndMs = range.endDate === NULL ? (Date.now() + 365 * 24 * 60 * 60 * 1000) : range.endDate.toUnixTimestamp();
+                } else { // RecurrenceCount
+                    rangeStartMs = range.initialDate.toUnixTimestamp();
+                    rangeEndMs = rangeStartMs + (365 * 24 * 60 * 60 * 1000); // Search up to 1 year ahead
+                }
+                
+                // Generate the first instance from the pattern within the range
+                const firstInstances = generateInstancesFromPattern(workSessionInstance, rangeStartMs, rangeEndMs);
+                if (firstInstances.length > 0) {
+                    const firstInstanceMs = firstInstances[0];
+                    const firstInstanceDateTime = DateTime.fromMillis(firstInstanceMs);
+                    originalStartDate = new DateField(firstInstanceDateTime.year, firstInstanceDateTime.month, firstInstanceDateTime.day);
+                } else {
+                    // If no instances found, range must provide valid date
+                    if (type(range, DateRange)) {
+                        ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                        originalStartDate = range.startDate;
+                    } else if (type(range, RecurrenceCount)) {
+                        ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                        originalStartDate = range.initialDate;
+                    } else {
+                        ASSERT(false, "Work session range must be DateRange or RecurrenceCount");
+                    }
+                }
+            }
+        } else {
+            originalStartDate = workSessionInstance.startDate;
+        }
+        
+        // Ensure originalStartDate is always a DateField
+        ASSERT(exists(originalStartDate) && type(originalStartDate, DateField), "originalStartDate must be a valid DateField");
+        
         const originalStartTime = workSessionInstance.startTime;
 
         if (workSessionInstance.startTime === NULL) { // All-day work session
@@ -2929,7 +3300,56 @@ class FilteredInstancesFactory {
         const entityId = eventEntity.id;
         const entityName = eventEntity.name;
 
-        const originalStartDate = eventInstance.startDatePattern ? eventInstance.startDatePattern.initialDate : eventInstance.startDate;
+        // Common properties for the instances derived from this eventInstance
+        let originalStartDate;
+        if (eventInstance.startDatePattern) {
+            // For recurring events, we need to handle different pattern types
+            if (type(eventInstance.startDatePattern, EveryNDaysPattern)) {
+                originalStartDate = eventInstance.startDatePattern.initialDate;
+            } else {
+                // For other pattern types, get the earliest date in the range
+                const pattern = eventInstance.startDatePattern;
+                const range = eventInstance.range;
+                
+                let rangeStartMs, rangeEndMs;
+                if (type(range, DateRange)) {
+                    rangeStartMs = range.startDate.toUnixTimestamp();
+                    rangeEndMs = range.endDate === NULL ? (Date.now() + 365 * 24 * 60 * 60 * 1000) : range.endDate.toUnixTimestamp();
+                } else if (type(range, RecurrenceCount)) {
+                    rangeStartMs = range.initialDate.toUnixTimestamp();
+                    rangeEndMs = rangeStartMs + (365 * 24 * 60 * 60 * 1000); // Search up to 1 year ahead
+                } else {
+                    ASSERT(false, "Event range must be DateRange or RecurrenceCount");
+                }
+                
+                if (!originalStartDate) {
+                    // Generate the first instance from the pattern within the range
+                    const firstInstances = generateInstancesFromPattern(eventInstance, rangeStartMs, rangeEndMs);
+                    if (firstInstances.length > 0) {
+                        const firstInstanceMs = firstInstances[0];
+                        const firstInstanceDateTime = DateTime.fromMillis(firstInstanceMs);
+                        originalStartDate = new DateField(firstInstanceDateTime.year, firstInstanceDateTime.month, firstInstanceDateTime.day);
+                    } else {
+                        // If no instances found, range must provide valid date
+                        if (type(range, DateRange)) {
+                            ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                            originalStartDate = range.startDate;
+                        } else if (type(range, RecurrenceCount)) {
+                            ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                            originalStartDate = range.initialDate;
+                        } else {
+                            ASSERT(false, "Event range must be DateRange or RecurrenceCount");
+                        }
+                    }
+                }
+            }
+        } else {
+            originalStartDate = eventInstance.startDate;
+        }
+        
+        // Ensure originalStartDate is always a DateField
+        ASSERT(exists(originalStartDate) && type(originalStartDate, DateField), "originalStartDate must be a valid DateField");
+        
         const originalStartTime = eventInstance.startTime;
 
         if (eventInstance.startTime === NULL) { // All-day event
@@ -3569,10 +3989,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     style.borderBottomLeftRadius = '0px';
                     style.borderBottomRightRadius = '0px';
                 } else {
-                    // Fallback for non-hex colors or parsing errors
-                    style.backgroundColor = `var(${colorVar})`;
-                    style.background = `var(${colorVar})`; // ensure background reset
-                    ASSERT(false, `Non-hex color or parse error for ${eventId} using solid background`);
+                    ASSERT(false, `Color must be valid hex format, got: ${eventColorHex}`);
                 }
             } else {
                 // Not ambiguous – ensure any previous gradient is cleared
@@ -8767,17 +9184,14 @@ function slideSignInButtonOffScreen() {
     // Attempt to locate the settings gear button so we can animate towards it
     const settingsButton = HTML.getElementUnsafely('settingsButton');
     
-    // Default translation values (in case settings button isn't found)
-    let translateX = 0;
-    let translateY = -50; // Fallback: move up a bit
+    // Settings button must exist for animation
+    ASSERT(exists(settingsButton), "Settings button must exist for sign-in animation");
     
-    if (settingsButton) {
-        const signInRect = signInButton.getBoundingClientRect();
-        const settingsRect = settingsButton.getBoundingClientRect();
-        // Compute delta from sign-in button centre to settings button centre
-        translateX = (settingsRect.left + settingsRect.width / 2) - (signInRect.left + signInRect.width / 2);
-        translateY = (settingsRect.top + settingsRect.height / 2) - (signInRect.top + signInRect.height / 2);
-    }
+    const signInRect = signInButton.getBoundingClientRect();
+    const settingsRect = settingsButton.getBoundingClientRect();
+    // Compute delta from sign-in button centre to settings button centre
+    let translateX = (settingsRect.left + settingsRect.width / 2) - (signInRect.left + signInRect.width / 2);
+    let translateY = (settingsRect.top + settingsRect.height / 2) - (signInRect.top + signInRect.height / 2);
 
     // Apply the warp animation via CSS transform & transition
     HTML.setStyle(signInButton, {
@@ -9680,6 +10094,9 @@ let editorModalDataEmpty = {
 
     _task: {
         instances: [],
+        hideUntil: NULL,
+        showOverdue: true,
+        workSessions: [],
     },
     
     _reminder: {
@@ -9734,16 +10151,22 @@ function initEditorModal(id) {
     const entity = user.entityArray.find(e => e.id === id);
     ASSERT(exists(entity), "initEditorModal: entity not found");
     
+    // Convert entity data to JSON form for editing
+    const entityDataJson = entity.data.encode();
+    
     // Determine entity type and populate initial data
     if (type(entity.data, TaskData)) {
         editorModalData.kind = 'task';
-        editorModalData._task.instances = entity.data.instances.map(() => ({}));
+        editorModalData._task.instances = entityDataJson.instances.map(instanceJson => instanceJson);
+        editorModalData._task.hideUntil = entityDataJson.hideUntil;
+        editorModalData._task.showOverdue = entityDataJson.showOverdue;
+        editorModalData._task.workSessions = entityDataJson.workSessions.map(sessionJson => sessionJson);
     } else if (type(entity.data, EventData)) {
         editorModalData.kind = 'event';
-        editorModalData._event.instances = entity.data.instances.map(() => ({}));
+        editorModalData._event.instances = entityDataJson.instances.map(instanceJson => instanceJson);
     } else if (type(entity.data, ReminderData)) {
         editorModalData.kind = 'reminder';
-        editorModalData._reminder.instances = entity.data.instances.map(() => ({}));
+        editorModalData._reminder.instances = entityDataJson.instances.map(instanceJson => instanceJson);
     }
     editorModalData.name = entity.name;
     editorModalData.description = entity.description;
@@ -10006,21 +10429,144 @@ function editorModalKindChange(selectedOption) {
         // ex: if they were editing task at 9:40pm and go to reminder, you can infer that they likely want the reminder to be at 9:40pm
         if (currentKind === 'event' && newKind === 'task') {
             // event -> task transition
+            // Copy instances, convert end time to due time, start date to due date, remove start time and different end date
+            const eventInstances = editorModalData._event.instances;
+            editorModalData._task.instances = eventInstances.map(eventInstance => {
+                const taskInstance = {};
+                // Copy common fields
+                if (eventInstance._type) taskInstance._type = eventInstance._type.replace('Event', 'Task');
+                
+                // Convert event fields to task fields
+                if (eventInstance.startDate) taskInstance.date = eventInstance.startDate;
+                if (eventInstance.endTime) taskInstance.dueTime = eventInstance.endTime;
+                if (eventInstance.startDatePattern) taskInstance.datePattern = eventInstance.startDatePattern;
+                if (eventInstance.range) taskInstance.range = eventInstance.range;
+                
+                // Set default completion
+                if (eventInstance._type === 'NonRecurringEventInstance') {
+                    taskInstance.completion = false;
+                } else if (eventInstance._type === 'RecurringEventInstance') {
+                    taskInstance.completion = [];
+                }
+                
+                return taskInstance;
+            });
             
         } else if (currentKind === 'event' && newKind === 'reminder') {
             // event -> reminder transition
+            // Copy instances, convert end time (or start time) to reminder time, start date to reminder date
+            const eventInstances = editorModalData._event.instances;
+            editorModalData._reminder.instances = eventInstances.map(eventInstance => {
+                const reminderInstance = {};
+                // Copy common fields
+                if (eventInstance._type) reminderInstance._type = eventInstance._type.replace('Event', 'Reminder');
+                
+                // Convert event fields to reminder fields
+                if (eventInstance.startDate) reminderInstance.date = eventInstance.startDate;
+                // Use end time if available, otherwise start time
+                if (eventInstance.endTime) {
+                    reminderInstance.time = eventInstance.endTime;
+                } else if (eventInstance.startTime) {
+                    reminderInstance.time = eventInstance.startTime;
+                }
+                if (eventInstance.startDatePattern) reminderInstance.datePattern = eventInstance.startDatePattern;
+                if (eventInstance.range) reminderInstance.range = eventInstance.range;
+                
+                return reminderInstance;
+            });
             
         } else if (currentKind === 'task' && newKind === 'event') {
             // task -> event transition
+            // Copy instances, convert due time to end time, due date to start date, start time left blank
+            const taskInstances = editorModalData._task.instances;
+            editorModalData._event.instances = taskInstances.map(taskInstance => {
+                const eventInstance = {};
+                // Copy common fields
+                if (taskInstance._type) eventInstance._type = taskInstance._type.replace('Task', 'Event');
+                
+                // Convert task fields to event fields
+                if (taskInstance.date) eventInstance.startDate = taskInstance.date;
+                if (taskInstance.dueTime) eventInstance.endTime = taskInstance.dueTime;
+                if (taskInstance.datePattern) eventInstance.startDatePattern = taskInstance.datePattern;
+                if (taskInstance.range) eventInstance.range = taskInstance.range;
+                
+                // Set default values for event-specific fields
+                eventInstance.startTime = symbolToString(NULL);
+                eventInstance.differentEndDate = symbolToString(NULL);
+                if (eventInstance._type === 'RecurringEventInstance') {
+                    eventInstance.differentEndDatePattern = symbolToString(NULL);
+                }
+                
+                return eventInstance;
+            });
             
         } else if (currentKind === 'task' && newKind === 'reminder') {
             // task -> reminder transition
+            // Copy instances, convert due time to reminder time, due date to reminder date
+            const taskInstances = editorModalData._task.instances;
+            editorModalData._reminder.instances = taskInstances.map(taskInstance => {
+                const reminderInstance = {};
+                // Copy common fields
+                if (taskInstance._type) reminderInstance._type = taskInstance._type.replace('Task', 'Reminder');
+                
+                // Convert task fields to reminder fields
+                if (taskInstance.date) reminderInstance.date = taskInstance.date;
+                if (taskInstance.dueTime) reminderInstance.time = taskInstance.dueTime;
+                if (taskInstance.datePattern) reminderInstance.datePattern = taskInstance.datePattern;
+                if (taskInstance.range) reminderInstance.range = taskInstance.range;
+                
+                return reminderInstance;
+            });
             
         } else if (currentKind === 'reminder' && newKind === 'event') {
             // reminder -> event transition
+            // Copy instances, convert reminder time to end time, reminder date to start date
+            const reminderInstances = editorModalData._reminder.instances;
+            editorModalData._event.instances = reminderInstances.map(reminderInstance => {
+                const eventInstance = {};
+                // Copy common fields
+                if (reminderInstance._type) eventInstance._type = reminderInstance._type.replace('Reminder', 'Event');
+                
+                // Convert reminder fields to event fields
+                if (reminderInstance.date) eventInstance.startDate = reminderInstance.date;
+                if (reminderInstance.time) eventInstance.endTime = reminderInstance.time;
+                if (reminderInstance.datePattern) eventInstance.startDatePattern = reminderInstance.datePattern;
+                if (reminderInstance.range) eventInstance.range = reminderInstance.range;
+                
+                // Set default values for event-specific fields
+                eventInstance.startTime = symbolToString(NULL);
+                eventInstance.differentEndDate = symbolToString(NULL);
+                if (eventInstance._type === 'RecurringEventInstance') {
+                    eventInstance.differentEndDatePattern = symbolToString(NULL);
+                }
+                
+                return eventInstance;
+            });
             
         } else if (currentKind === 'reminder' && newKind === 'task') {
             // reminder -> task transition
+            // Copy instances, convert reminder time to due time, reminder date to due date
+            const reminderInstances = editorModalData._reminder.instances;
+            editorModalData._task.instances = reminderInstances.map(reminderInstance => {
+                const taskInstance = {};
+                // Copy common fields
+                if (reminderInstance._type) taskInstance._type = reminderInstance._type.replace('Reminder', 'Task');
+                
+                // Convert reminder fields to task fields
+                if (reminderInstance.date) taskInstance.date = reminderInstance.date;
+                if (reminderInstance.time) taskInstance.dueTime = reminderInstance.time;
+                if (reminderInstance.datePattern) taskInstance.datePattern = reminderInstance.datePattern;
+                if (reminderInstance.range) taskInstance.range = reminderInstance.range;
+                
+                // Set default completion
+                if (reminderInstance._type === 'NonRecurringReminderInstance') {
+                    taskInstance.completion = false;
+                } else if (reminderInstance._type === 'RecurringReminderInstance') {
+                    taskInstance.completion = [];
+                }
+                
+                return taskInstance;
+            });
             
         } else {
             ASSERT(false, "editorModalKindChange: invalid kind transition");
@@ -10459,11 +11005,9 @@ function closeInstanceButtonsImmediate() {
     if (container && container.parentNode) {
         container.parentNode.removeChild(container);
     }
-    // Fallback: remove individual components if any remain (legacy cleanup)
+    // Container cleanup should be sufficient - no individual cleanup needed
     const plusButton = HTML.getElementUnsafely('instancePlusButton');
-    if (plusButton && plusButton.parentNode) {
-        plusButton.parentNode.removeChild(plusButton);
-    }
+    ASSERT(!exists(plusButton), "Plus button should not exist after container cleanup");
     // Remove old instance wrappers if they exist outside container
     const possibleWrappers = document.querySelectorAll('[id^="instanceWrapper_"]');
     possibleWrappers.forEach(wrapper => {
