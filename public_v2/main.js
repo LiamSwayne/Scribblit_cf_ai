@@ -10372,9 +10372,7 @@ function initInstanceButtons(top) {
     }
 
     // Set first instance as active initially
-    setTimeout(() => {
-        setActiveInstance(0);
-    }, 100);
+    setActiveInstance(0);
 
     const plusFactor = totalButtonCount > 1 ? 1 : 0;
     const plusInterpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, plusFactor);
@@ -10429,34 +10427,25 @@ function initInstanceButtons(top) {
 
     container.appendChild(plusButton);
 
-    // Fade in container & its children
-    setTimeout(() => {
-        HTML.setStyle(container, { opacity: '1' });
-        // Fade in all wrappers
-        for (let i = 0; i < instanceCount; i++) {
-            const wrapper = HTML.getElementUnsafely(`instanceWrapper_${i}`);
-            if (wrapper) {
-                HTML.setStyle(wrapper, { opacity: '1' });
-            }
+    // Show container & its children immediately
+    HTML.setStyle(container, { opacity: '1' });
+    // Show all wrappers
+    for (let i = 0; i < instanceCount; i++) {
+        const wrapper = HTML.getElementUnsafely(`instanceWrapper_${i}`);
+        if (wrapper) {
+            HTML.setStyle(wrapper, { opacity: '1' });
         }
-        // Fade in plus button
-        HTML.setStyle(plusButton, { opacity: '1' });
-    }, 100);
+    }
+    // Show plus button
+    HTML.setStyle(plusButton, { opacity: '1' });
 }
 
 function closeInstanceButtons(callback) {
     const container = HTML.getElementUnsafely('instanceButtonsContainer');
     if (container && container.parentNode) {
-        // Fade out the container first
-        HTML.setStyle(container, { opacity: '0' });
-        
-        // Remove after fade-out animation completes
-        setTimeout(() => {
-            if (container.parentNode) {
-                container.parentNode.removeChild(container);
-            }
-            if (callback) callback();
-        }, 200); // Match the transition duration
+        // Remove immediately without animation
+        container.parentNode.removeChild(container);
+        if (callback) callback();
     } else {
         // No container found, just do cleanup and call callback immediately
         closeInstanceButtonsImmediate();
