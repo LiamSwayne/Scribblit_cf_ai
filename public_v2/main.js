@@ -11371,8 +11371,8 @@ function initInstanceButtons(top, instanceClicked) {
             const blendedColor = `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})`;
             HTML.setStyle(button, { backgroundColor: blendedColor });
             
-            // Show X button if this is the active instance
-            if (index === editorModalActiveInstanceIndex) {
+            // Show X button if this is the active instance and there's more than one instance
+            if (index === editorModalActiveInstanceIndex && instances.length > 1) {
                 const xButtonBg = HTML.getElementUnsafely(`instanceXButtonBg_${index}`);
                 const xButton = HTML.getElementUnsafely(`instanceXButton_${index}`);
                 if (xButtonBg && xButton) {
@@ -11402,6 +11402,15 @@ function initInstanceButtons(top, instanceClicked) {
     function createXButtonsForInstance(index) {
         const wrapper = HTML.getElementUnsafely(`instanceWrapper_${index}`);
         if (!wrapper) return;
+        
+        // Don't create X buttons if there's only one instance
+        const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
+                                editorModalData.kind === 'task' ? editorModalData._task.instances : 
+                                editorModalData._reminder.instances;
+        
+        if (currentInstances.length <= 1) {
+            return;
+        }
         
         // Create X button background div
         const xButtonBg = HTML.make('div');
@@ -11635,8 +11644,46 @@ function closeInstanceButtonsImmediate() {
 }
 
 function deleteInstance(instanceIndex) {
-    // TODO: Implement instance deletion
-    console.log('Delete instance', instanceIndex);
+    ASSERT(type(instanceIndex, Int), "deleteInstance: instanceIndex must be an integer");
+    ASSERT(instanceIndex >= 0, "deleteInstance: instanceIndex must be non-negative");
+    
+    // Prevent deleting the last instance - entities must have at least one instance
+    const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
+                            editorModalData.kind === 'task' ? editorModalData._task.instances : 
+                            editorModalData._reminder.instances;
+    
+    if (currentInstances.length <= 1) {
+        console.log('Cannot delete the last instance - entities must have at least one instance');
+        return;
+    }
+    
+    ASSERT(instanceIndex < currentInstances.length, "deleteInstance: instanceIndex out of bounds");
+    
+    // Store the original length before deletion
+    const originalLength = currentInstances.length;
+    
+    // Delete the instance from all three arrays at the same index
+    if (editorModalData._event.instances.length > instanceIndex) {
+        editorModalData._event.instances.splice(instanceIndex, 1);
+    }
+    if (editorModalData._task.instances.length > instanceIndex) {
+        editorModalData._task.instances.splice(instanceIndex, 1);
+    }
+    if (editorModalData._reminder.instances.length > instanceIndex) {
+        editorModalData._reminder.instances.splice(instanceIndex, 1);
+    }
+    
+    // Update the active instance index if necessary
+    // Only decrement when the active index was the last one in the original array
+    if (editorModalActiveInstanceIndex === originalLength - 1) {
+        editorModalActiveInstanceIndex = Math.max(0, editorModalActiveInstanceIndex - 1);
+    }
+    // Otherwise, keep the active instance index the same
+    
+    // Re-render the instance buttons to reflect the changes
+    closeInstanceButtons(() => {
+        initInstanceButtons(editorModalInstanceButtonsSectionTop, NULL);
+    });
 }
 
 function addNewInstance() {
