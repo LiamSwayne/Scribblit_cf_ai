@@ -11350,6 +11350,59 @@ function initInstanceButtons(top, instanceClicked) {
         });
         button.textContent = getInstanceAsSentence(editorModalData.kind, instances[index]);
 
+        // Store data
+        HTML.setData(wrapper, 'INSTANCE_INDEX', index);
+        HTML.setData(wrapper, 'ORIGINAL_COLOR', buttonColor);
+
+        // Click handler for main button - set as active instance
+        button.onclick = function() {
+            setActiveInstance(index);
+        };
+
+        // Hover effects for wrapper
+        wrapper.onmouseenter = function() {
+            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+            const originalRgb = colorStringToRgb(originalColor);
+            const blendedRgb = {
+                r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
+                g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
+                b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
+            };
+            const blendedColor = `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})`;
+            HTML.setStyle(button, { backgroundColor: blendedColor });
+            
+            // Show X button if this is the active instance
+            if (index === editorModalActiveInstanceIndex) {
+                const xButtonBg = HTML.getElementUnsafely(`instanceXButtonBg_${index}`);
+                const xButton = HTML.getElementUnsafely(`instanceXButton_${index}`);
+                if (xButtonBg && xButton) {
+                    HTML.setStyle(xButtonBg, { opacity: '1' });
+                    HTML.setStyle(xButton, { opacity: '1' });
+                }
+            }
+        };
+
+        wrapper.onmouseleave = function() {
+            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+            HTML.setStyle(button, { backgroundColor: originalColor });
+            
+            // Hide X button if it exists
+            const xButtonBg = HTML.getElementUnsafely(`instanceXButtonBg_${index}`);
+            const xButton = HTML.getElementUnsafely(`instanceXButton_${index}`);
+            if (xButtonBg && xButton) {
+                HTML.setStyle(xButtonBg, { opacity: '0' });
+                HTML.setStyle(xButton, { opacity: '0' });
+            }
+        };
+
+        wrapper.appendChild(button);
+        return wrapper;
+    }
+
+    function createXButtonsForInstance(index) {
+        const wrapper = HTML.getElementUnsafely(`instanceWrapper_${index}`);
+        if (!wrapper) return;
+        
         // Create X button background div
         const xButtonBg = HTML.make('div');
         HTML.setId(xButtonBg, `instanceXButtonBg_${index}`);
@@ -11386,62 +11439,56 @@ function initInstanceButtons(top, instanceClicked) {
         });
         xButton.innerHTML = '<svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 1l6 6M1 7l6-6" stroke="var(--shade-0)" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
-        // Store data
-        HTML.setData(wrapper, 'INSTANCE_INDEX', index);
-        HTML.setData(wrapper, 'ORIGINAL_COLOR', buttonColor);
-
-        // Click handler for main button - set as active instance
-        button.onclick = function() {
-            setActiveInstance(index);
-        };
-
         // Click handler for X button - delete instance
         xButton.onclick = function(e) {
             e.stopPropagation(); // Prevent triggering main button click
             deleteInstance(index);
         };
 
-        // Hover effects for wrapper
-        wrapper.onmouseenter = function() {
-            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
-            const originalRgb = colorStringToRgb(originalColor);
-            const blendedRgb = {
-                r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
-                g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
-                b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
-            };
-            const blendedColor = `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})`;
-            HTML.setStyle(button, { backgroundColor: blendedColor });
-            // X button background stays shade-4
-            
-            // Show X button if this is the active instance
-            if (index === editorModalActiveInstanceIndex) {
-                HTML.setStyle(xButtonBg, { opacity: '1' });
-                HTML.setStyle(xButton, { opacity: '1' });
-            }
-        };
-
-        wrapper.onmouseleave = function() {
-            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
-            HTML.setStyle(button, { backgroundColor: originalColor });
-            // X button background stays shade-4
-            
-            // Hide X button
-            HTML.setStyle(xButtonBg, { opacity: '0' });
-            HTML.setStyle(xButton, { opacity: '0' });
-        };
-
-        wrapper.appendChild(button);
         wrapper.appendChild(xButtonBg);
         wrapper.appendChild(xButton);
-        return wrapper;
+        
+        // Check if the wrapper is currently being hovered and show X buttons with fade-in if so
+        if (wrapper.matches(':hover')) {
+            // Use setTimeout to allow DOM update, then trigger fade-in animation
+            setTimeout(() => {
+                HTML.setStyle(xButtonBg, { opacity: '1' });
+                HTML.setStyle(xButton, { opacity: '1' });
+            }, 0);
+        }
+    }
+
+    function deleteXButtonsForInstance(index) {
+        const xButtonBg = HTML.getElementUnsafely(`instanceXButtonBg_${index}`);
+        const xButton = HTML.getElementUnsafely(`instanceXButton_${index}`);
+        
+        if (xButtonBg && xButtonBg.parentNode) {
+            xButtonBg.parentNode.removeChild(xButtonBg);
+        }
+        if (xButton && xButton.parentNode) {
+            xButton.parentNode.removeChild(xButton);
+        }
     }
 
     function setActiveInstance(index) {
         ASSERT(type(index, Int), "setActiveInstance: index must be an integer");
         ASSERT(index >= 0 && index < instanceCount, "setActiveInstance: index must be within valid range");
         
+        // If this is already the active instance and X buttons already exist, do nothing
+        if (editorModalActiveInstanceIndex === index && HTML.getElementUnsafely(`instanceXButton_${index}`)) {
+            return;
+        }
+        
+        const previousActiveIndex = editorModalActiveInstanceIndex;
         editorModalActiveInstanceIndex = index;
+        
+        // Remove X buttons from previously active instance
+        if (previousActiveIndex !== NULL && previousActiveIndex !== index) {
+            deleteXButtonsForInstance(previousActiveIndex);
+        }
+        
+        // Create X buttons for new active instance
+        createXButtonsForInstance(index);
         
         // Update all buttons to show/hide white border
         for (let i = 0; i < instanceCount; i++) {
