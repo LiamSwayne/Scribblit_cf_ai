@@ -10998,10 +10998,10 @@ function formatTimeNoLeadingZeros(timeField) {
         
         // If minutes are 00, omit them
         if (minute === 0) {
-            return `${displayHour} ${period}`;
+            return `${displayHour}${period}`;
         } else {
             let minuteStr = minute.toString().padStart(2, '0');
-            return `${displayHour}:${minuteStr} ${period}`;
+            return `${displayHour}:${minuteStr}${period}`;
         }
     }
 }
