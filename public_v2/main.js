@@ -10442,7 +10442,10 @@ function initEditorModal(id, instanceClicked = null) {
         padding: '8px',
         boxSizing: 'border-box',
         resize: 'none',
-        overflow: 'auto'
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        whiteSpace: 'pre-wrap',
+        wordWrap: 'break-word'
     });
     descriptionTextarea.placeholder = 'Description...';
     descriptionTextarea.value = editorModalData.description;
