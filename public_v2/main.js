@@ -5030,6 +5030,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             cursor: 'pointer'
         });
 
+        // Add click handler to open editor modal
+        textElement.addEventListener('click', function() {
+            initEditorModal(primaryReminder.id, primaryReminder.patternIndex);
+        });
+
         // Create count indicator if grouped (now directly on body)
         if (isGrouped) {
             let countElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
@@ -5063,6 +5068,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 borderRadius: '50%',
                 zIndex: String(currentGroupZIndex),
                 cursor: 'pointer'
+            });
+
+            // Add click handler to open editor modal
+            countElement.addEventListener('click', function() {
+                initEditorModal(primaryReminder.id, primaryReminder.patternIndex);
             });
         } else {
             // Remove count indicator if it exists but shouldn't
@@ -5174,20 +5184,37 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 
                 // Add individual drag handler for this stacked reminder
                 stackedTextElement.onmousedown = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation(); // Prevent the main stack drag from triggering
                     if (e.button !== 0) return; // only left click
-
-                    G_reminderDragState.isDragging = true;
-                    const animationKey = `${dayIndex}-${currentGroupIndex}`;
-                    if (G_animationFrameMap.has(animationKey)) {
-                        cancelAnimationFrame(G_animationFrameMap.get(animationKey));
-                        G_animationFrameMap.delete(animationKey);
-                    }
                     
-                    // --- Start of new logic for dragging stacked item ---
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    const dragThreshold = 5; // pixels
+                    let hasDragged = false;
+                    
+                    const handleMouseMove = (moveEvent) => {
+                        const deltaX = Math.abs(moveEvent.clientX - startX);
+                        const deltaY = Math.abs(moveEvent.clientY - startY);
+                        
+                        if (deltaX > dragThreshold || deltaY > dragThreshold) {
+                            hasDragged = true;
+                            // Remove the temporary listeners
+                            document.removeEventListener('mousemove', handleMouseMove);
+                            document.removeEventListener('mouseup', handleMouseUp);
+                            
+                            // Start the actual drag operation
+                            e.preventDefault();
+                            e.stopPropagation(); // Prevent the main stack drag from triggering
+                            
+                            G_reminderDragState.isDragging = true;
+                            const animationKey = `${dayIndex}-${currentGroupIndex}`;
+                            if (G_animationFrameMap.has(animationKey)) {
+                                cancelAnimationFrame(G_animationFrameMap.get(animationKey));
+                                G_animationFrameMap.delete(animationKey);
+                            }
+                            
+                            // --- Start of new logic for dragging stacked item ---
 
-                    // 1. Hide the original stacked element and its count
+                            // 1. Hide the original stacked element and its count
                     const originalStackedText = HTML.getElement(`day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                     const originalStackedCount = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                     if(exists(originalStackedText)) originalStackedText.style.visibility = 'hidden';
@@ -5373,11 +5400,29 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     // Show after everything is set up
                     HTML.setStyle(timeBubble, { visibility: 'visible' });
 
-                    document.addEventListener('mousemove', handleReminderDragMove);
-                    document.addEventListener('mouseup', handleReminderDragEnd);
-                    document.addEventListener('keydown', handleReminderDragCancel);
+                            document.addEventListener('mousemove', handleReminderDragMove);
+                            document.addEventListener('mouseup', handleReminderDragEnd);
+                            document.addEventListener('keydown', handleReminderDragCancel);
 
-                    // No need to increase z-index here, it's set high on creation
+                            // No need to increase z-index here, it's set high on creation
+                        }
+                    };
+                    
+                    const handleMouseUp = () => {
+                        // Remove the temporary listeners
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUp);
+                        
+                        // If we haven't dragged, let the click event fire normally
+                        if (!hasDragged) {
+                            // Don't prevent default or stop propagation - let the click event fire
+                            // The click handler will open the modal
+                        }
+                    };
+                    
+                    // Add temporary listeners to detect if this is a drag or click
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
                 };
 
                 HTML.setStyle(stackedTextElement, {
@@ -5401,6 +5446,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     borderRadius: `${Math.round(reminderTextHeight * 0.5)}px`,
                     opacity: '0',
                     cursor: 'pointer'
+                });
+
+                // Add click handler to open editor modal
+                stackedTextElement.addEventListener('click', function() {
+                    initEditorModal(stackedReminder.id, stackedReminder.patternIndex);
                 });
 
                 // Create stack count indicator
@@ -5437,6 +5487,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     zIndex: String(currentGroupZIndex - stackIndex),
                     opacity: '0',
                     cursor: 'pointer'
+                });
+
+                // Add click handler to open editor modal
+                stackCountElement.addEventListener('click', function() {
+                    initEditorModal(stackedReminder.id, stackedReminder.patternIndex);
                 });
             }
         }
@@ -10525,6 +10580,13 @@ function editorModalKindChange(selectedOption) {
                 if (taskInstance.dueTime) reminderInstance.time = taskInstance.dueTime;
                 if (taskInstance.datePattern) reminderInstance.datePattern = taskInstance.datePattern;
                 if (taskInstance.range) reminderInstance.range = taskInstance.range;
+                
+                // Set default completion
+                if (taskInstance._type === 'NonRecurringTaskInstance') {
+                    reminderInstance.completion = false;
+                } else if (taskInstance._type === 'RecurringTaskInstance') {
+                    reminderInstance.completion = [];
+                }
                 
                 return reminderInstance;
             });
