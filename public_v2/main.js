@@ -7608,6 +7608,93 @@ function updateInputBoxGradients(instant) {
     });
 }
 
+// Shows / hides accent gradients at the top and bottom of the description textarea
+// whenever the textarea can scroll.
+function updateDescriptionTextareaGradients() {
+    const descriptionTextarea = HTML.getElementUnsafely('editorModalDescriptionTextarea');
+    if (!exists(descriptionTextarea)) return;
+
+    const topGradientId = 'descriptionTextarea-top-gradient';
+    const bottomGradientId = 'descriptionTextarea-bottom-gradient';
+    
+    let topGradientEl = HTML.getElementUnsafely(topGradientId);
+    let bottomGradientEl = HTML.getElementUnsafely(bottomGradientId);
+    
+    if (!exists(topGradientEl)) {
+        topGradientEl = HTML.make('div');
+        HTML.setId(topGradientEl, topGradientId);
+        HTML.body.appendChild(topGradientEl);
+        HTML.setStyle(topGradientEl, {
+            opacity: '0',
+            pointerEvents: 'none',
+            zIndex: String(editorModalBaseZIndex + 2)
+        });
+    }
+    
+    if (!exists(bottomGradientEl)) {
+        bottomGradientEl = HTML.make('div');
+        HTML.setId(bottomGradientEl, bottomGradientId);
+        HTML.body.appendChild(bottomGradientEl);
+        HTML.setStyle(bottomGradientEl, {
+            opacity: '0',
+            pointerEvents: 'none',
+            zIndex: String(editorModalBaseZIndex + 2)
+        });
+    }
+
+    const scrollDistanceThreshold = 10;
+    const textareaRect = descriptionTextarea.getBoundingClientRect();
+    const isScrollable = descriptionTextarea.scrollHeight > descriptionTextarea.clientHeight;
+    
+    // Only show if more than scrollDistanceThreshold px scroll distance
+    const canScrollUp = descriptionTextarea.scrollTop > scrollDistanceThreshold;
+    const canScrollDown = descriptionTextarea.scrollTop < (descriptionTextarea.scrollHeight - descriptionTextarea.clientHeight - scrollDistanceThreshold);
+    
+    const gradientHeight = 20; // px
+    
+    // Calculate positions based on textarea position
+    const topGradientTop = textareaRect.top;
+    const bottomGradientTop = textareaRect.bottom - gradientHeight;
+    
+    // Get the accent color and convert to RGB
+    const accentColorHex = user.palette.accent[1];
+    const accentRgb = hexToRgb(accentColorHex);
+    
+    // Show gradients based on scroll state
+    const showTopGradient = isScrollable && canScrollUp;
+    const showBottomGradient = isScrollable && canScrollDown;
+    
+    // Style the top gradient
+    HTML.setStyle(topGradientEl, {
+        position: 'fixed',
+        left: String(textareaRect.left) + 'px',
+        top: String(topGradientTop) + 'px',
+        width: String(descriptionTextarea.clientWidth) + 'px',
+        height: String(gradientHeight) + 'px',
+        background: `linear-gradient(to bottom, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.55) 0%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0) 100%)`,
+        mask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+        WebkitMask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+        opacity: showTopGradient ? '1' : '0',
+        transition: 'opacity 0.3s ease',
+        borderRadius: '4px 4px 0 0'
+    });
+    
+    // Style the bottom gradient
+    HTML.setStyle(bottomGradientEl, {
+        position: 'fixed',
+        left: String(textareaRect.left) + 'px',
+        top: String(bottomGradientTop) + 'px',
+        width: String(descriptionTextarea.clientWidth) + 'px',
+        height: String(gradientHeight) + 'px',
+        background: `linear-gradient(to top, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.55) 0%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0) 100%)`,
+        mask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+        WebkitMask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+        opacity: showBottomGradient ? '1' : '0',
+        transition: 'opacity 0.3s ease',
+        borderRadius: '0 0 4px 4px'
+    });
+}
+
 // Shows / hides an accent gradient at the bottom of the window (or on the horizontal divider
 // in stacking mode) whenever the task-list content overflows its viewport.
 // "instant" controls whether the opacity transition is animated.
@@ -10195,6 +10282,7 @@ let editorModalData = NULL;
 let instanceTabTransitionTime = 0.3;
 
 let editorModalActiveEntityId = NULL;
+let editorModalActiveInstanceIndex = NULL;
 
 // Editor modal close functions - delete their elements and do nothing else for now
 async function editorModalCloseEvent() {
@@ -10233,6 +10321,7 @@ function initEditorModal(id, instanceClicked = null) {
 
     editorModalData = JSON.parse(JSON.stringify(editorModalDataEmpty));
     editorModalActiveEntityId = id;
+    editorModalActiveInstanceIndex = NULL; // Will be set in initInstanceButtons
     
     // Get the entity and populate initial data
     const entity = user.entityArray.find(e => e.id === id);
@@ -10445,8 +10534,12 @@ function initEditorModal(id, instanceClicked = null) {
         overflowX: 'hidden',
         overflowY: 'auto',
         whiteSpace: 'pre-wrap',
-        wordWrap: 'break-word'
+        wordWrap: 'break-word',
+        scrollbarWidth: 'none' /* Firefox */
     });
+    
+    // Add webkit scrollbar hiding for Chrome/Safari
+    descriptionTextarea.classList.add('no-scrollbar');
     descriptionTextarea.placeholder = 'Description...';
     descriptionTextarea.value = editorModalData.description;
     
@@ -10462,6 +10555,9 @@ function initEditorModal(id, instanceClicked = null) {
     descriptionTextarea.addEventListener('blur', function() {
         HTML.setStyle(descriptionTextarea, { border: '1px solid var(--shade-2)' });
     });
+    
+    // Add scroll event listener to update gradients
+    descriptionTextarea.addEventListener('scroll', () => updateDescriptionTextareaGradients());
     
     editorModal.appendChild(descriptionTextarea);
     
@@ -10488,6 +10584,9 @@ function initEditorModal(id, instanceClicked = null) {
         HTML.setStyle(titleInput, { opacity: '1' });
         
         HTML.setStyle(descriptionTextarea, { opacity: '1' });
+        
+        // Update description textarea gradients after it becomes visible
+        updateDescriptionTextareaGradients();
     }, 50);
 }
 
@@ -10682,6 +10781,8 @@ function editorModalKindChange(selectedOption) {
         // Re-initialize instance buttons for the new kind
         closeInstanceButtons(() => {
             initInstanceButtons(editorModalInstanceButtonsSectionTop);
+            // Update description textarea gradients after kind change
+            updateDescriptionTextareaGradients();
         });
     });
 }
@@ -10815,6 +10916,7 @@ function isValidDate(yearElement, monthElement, dayElement) {
 function initInstanceButtons(top, instanceClicked = null) {
     ASSERT(type(top, Number));
     ASSERT(type(instanceClicked, Union(Int, NULL)));
+    ASSERT(type(editorModalActiveInstanceIndex, Union(Int, NULL)), "editorModalActiveInstanceIndex must be an integer or NULL at function start");
     
     // Get instances from editorModalData based on current kind
     let instances;
@@ -10868,11 +10970,16 @@ function initInstanceButtons(top, instanceClicked = null) {
     const accent0Rgb = colorStringToRgb(accent0);
     const accent1Rgb = colorStringToRgb(accent1);
 
-    // Track active instance - use instanceClicked if provided and valid, otherwise default to first one
-    let activeInstanceIndex = 0;
+    // Track active instance - use instanceClicked if provided and valid, otherwise use global or default to first one
     if (instanceClicked !== null && instanceClicked >= 0 && instanceClicked < instanceCount) {
-        activeInstanceIndex = instanceClicked;
+        editorModalActiveInstanceIndex = instanceClicked;
+    } else if (editorModalActiveInstanceIndex === null || editorModalActiveInstanceIndex < 0 || editorModalActiveInstanceIndex >= instanceCount) {
+        editorModalActiveInstanceIndex = 0;
     }
+    
+    // Assert that activeInstanceIndex is always an integer or NULL
+    ASSERT(type(editorModalActiveInstanceIndex, Union(Int, NULL)), "editorModalActiveInstanceIndex must be an integer or NULL");
+    ASSERT(editorModalActiveInstanceIndex >= 0 && editorModalActiveInstanceIndex < instanceCount, "editorModalActiveInstanceIndex must be within valid range");
 
     function createInstanceButtonWrapper(index, buttonColor) {
         // Create wrapper div for button and X button
@@ -10971,7 +11078,7 @@ function initInstanceButtons(top, instanceClicked = null) {
             // X button background stays shade-4
             
             // Show X button if this is the active instance
-            if (index === activeInstanceIndex) {
+            if (index === editorModalActiveInstanceIndex) {
                 HTML.setStyle(xButtonBg, { opacity: '1' });
                 HTML.setStyle(xButton, { opacity: '1' });
             }
@@ -10994,7 +11101,10 @@ function initInstanceButtons(top, instanceClicked = null) {
     }
 
     function setActiveInstance(index) {
-        activeInstanceIndex = index;
+        ASSERT(type(index, Int), "setActiveInstance: index must be an integer");
+        ASSERT(index >= 0 && index < instanceCount, "setActiveInstance: index must be within valid range");
+        
+        editorModalActiveInstanceIndex = index;
         
         // Update all buttons to show/hide white border
         for (let i = 0; i < instanceCount; i++) {
@@ -11020,7 +11130,7 @@ function initInstanceButtons(top, instanceClicked = null) {
     }
 
     // Set the calculated active instance
-    setActiveInstance(activeInstanceIndex);
+    setActiveInstance(editorModalActiveInstanceIndex);
 
     const plusFactor = totalButtonCount > 1 ? 1 : 0;
     const plusInterpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, plusFactor);
@@ -11202,9 +11312,20 @@ function closeEditorModal() {
     // close instance buttons
     closeInstanceButtonsImmediate();
 
+    // clean up description textarea gradients
+    const topGradient = HTML.getElementUnsafely('descriptionTextarea-top-gradient');
+    if (exists(topGradient)) {
+        topGradient.remove();
+    }
+    const bottomGradient = HTML.getElementUnsafely('descriptionTextarea-bottom-gradient');
+    if (exists(bottomGradient)) {
+        bottomGradient.remove();
+    }
+
     // clear data
     editorModalData = NULL;
     editorModalActiveEntityId = NULL;
+    editorModalActiveInstanceIndex = NULL;
     
     // Animate modal out
     if (editorModalVignette) {
@@ -11270,6 +11391,9 @@ function updateEditorModalPosition() {
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
+    
+    // Update description textarea gradients after position changes
+    updateDescriptionTextareaGradients();
 }
 
 // Helper function to measure text width
