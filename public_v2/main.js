@@ -8,7 +8,7 @@ const fontDefinitions = [
     { key: 'PrimaryBold', url: 'https://super-publisher.pages.dev/Bold.woff2' },
     // { key: 'PrimaryExtraBold', url: 'https://super-publisher.pages.dev/Extrabold.woff2' },
     // { key: 'PrimaryBlack', url: 'https://super-publisher.pages.dev/Black.woff2' },
-    { key: 'MonospacePrimary', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
+    { key: 'MonospaceRegular', url: 'https://super-publisher.pages.dev/JetBrainsMono-Regular.woff2' }
 ];
 
 let preservedFontCss = {};
@@ -2848,6 +2848,7 @@ function numberOfColumns() {
     return LocalData.get('numberOfDays') + 1;
 }
 
+// for time markers, which use a very specific format to save space
 function nthHourText(n) {
     ASSERT(type(n, Int));
     ASSERT(0 <= n && n < 24, "nthHourText n out of range 0-23");
@@ -3673,7 +3674,7 @@ function renderDay(day, index) {
                 top: String(timedEventAreaTop + (j * timedEventAreaHeight / visibleHours) + 1) + 'px',
                 left: String(dayElementLeft) + 'px',
                 color: 'var(--shade-2)',
-                fontFamily: 'MonospacePrimary',
+                fontFamily: 'MonospaceRegular',
                 fontSize: fontSize,
                 zIndex: '401'
             });
@@ -3806,7 +3807,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             width: '60px', // Reserve much more space for date/time display
             color: 'var(--shade-3)',
             fontSize: '11px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             lineHeight: String(allDayEventHeight - 2) + 'px',
             zIndex: '351',
             pointerEvents: 'none' // Don't interfere with event interactions
@@ -4897,7 +4898,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 backgroundColor: 'var(--shade-2)',
                 color: 'var(--shade-4)',
                 fontSize: '9.5px', // Bigger font
-                fontFamily: 'MonospacePrimary',
+                fontFamily: 'MonospaceRegular',
                 borderRadius: String(bubbleHeight / 2) + 'px',
                 paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                 boxSizing: 'border-box',
@@ -5372,7 +5373,7 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                         backgroundColor: 'var(--shade-2)',
                         color: 'var(--shade-4)',
                         fontSize: '9.5px', // Bigger font
-                        fontFamily: 'MonospacePrimary',
+                        fontFamily: 'MonospaceRegular',
                         borderRadius: String(bubbleHeight / 2) + 'px',
                         paddingTop: String(reminderLineHeight - 1) + 'px', // Align with reminder text
                         boxSizing: 'border-box',
@@ -6086,7 +6087,7 @@ function initNumberOfCalendarDaysButton() {
         left: '50%',
         transform: 'translate(-50%, -50%)',
         fontSize: '14px',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         color: 'var(--shade-3)',
         zIndex: '12',
         pointerEvents: 'none'
@@ -7093,7 +7094,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         HTML.setStyle(line1El, {
             position: 'absolute',
             color: textColor,
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             zIndex: '3',
             cursor: 'pointer',
             textAlign: 'center',
@@ -7123,7 +7124,7 @@ function renderTaskDueDateInfo(task, taskIndex, taskTopPosition, taskListLeft, t
         HTML.setStyle(line2El, {
             position: 'absolute',
             color: textColor,
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             zIndex: '3',
             cursor: 'pointer',
             textAlign: 'center',
@@ -8320,7 +8321,7 @@ function openProModal() {
             right: (window.innerWidth - modalRect.right + 10) + 'px',
             top: (modalRect.top + 24) + 'px',
             width: (modalRect.width - 20) + 'px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '10px',
             color: 'var(--shade-4)',
             lineHeight: '1.4',
@@ -8364,7 +8365,7 @@ function openProModal() {
                 top: (modalRect.top + modalRect.height - 35) + 'px',
                 width: (modalRect.width - 20) + 'px',
                 height: '25px',
-                fontFamily: 'MonospacePrimary',
+                fontFamily: 'MonospaceRegular',
                 fontSize: '11px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -8600,7 +8601,7 @@ function openSettingsModal() {
             position: 'fixed',
             left: (modalRect.left + 5) + 'px',
             top: (modalRect.top + 5) + 'px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '12px',
             color: 'var(--shade-4)',
             zIndex: '7002',
@@ -8617,9 +8618,9 @@ function openSettingsModal() {
         timeFormatLabel.textContent = 'Time format';
         HTML.setStyle(timeFormatLabel, {
             position: 'fixed',
-            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format", 'MonospacePrimary', 10) - 5) + 'px',
+            right: (window.innerWidth - modalRect.left - measureTextWidth("Time format", 'MonospaceRegular', 10) - 5) + 'px',
             top: (modalRect.top + 23) + 'px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
@@ -8634,12 +8635,12 @@ function openSettingsModal() {
         HTML.setId(removeEmptyTimesLabel, 'removeEmptyTimesLabel');
         const removeEmptyTimesText = 'Remove empty\ntime from days';
         removeEmptyTimesLabel.textContent = removeEmptyTimesText;
-        let xpos = (modalWidth - measureTextWidth("time from days", 'MonospacePrimary', 10) + 5);
+        let xpos = (modalWidth - measureTextWidth("time from days", 'MonospaceRegular', 10) + 5);
         HTML.setStyle(removeEmptyTimesLabel, {
             position: 'fixed',
             right: xpos + 'px',
             top: (modalRect.top + 42) + 'px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '10px',
             color: 'var(--shade-4)',
             zIndex: '7002',
@@ -8674,7 +8675,7 @@ function openSettingsModal() {
             width: 72,
             height: 20,
             zIndex: 7002,
-            font: 'MonospacePrimary',
+            font: 'MonospaceRegular',
             fontSize: 10,
             onSelectionChange: toggleAmPmOr24,
             initialSelection: user.settings.ampmOr24 === '24' ? '24hr' : 'AM/PM',
@@ -8698,7 +8699,7 @@ function openSettingsModal() {
                 top: (settingsModalHeight - 15) + 'px',
                 width: '60px',
                 height: '20px',
-                fontFamily: 'MonospacePrimary',
+                fontFamily: 'MonospaceRegular',
                 fontSize: '10px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -8728,7 +8729,7 @@ function openSettingsModal() {
                 top: (settingsModalHeight - 15) + 'px',
                 width: '120px',
                 height: '20px',
-                fontFamily: 'MonospacePrimary',
+                fontFamily: 'MonospaceRegular',
                 fontSize: '10px',
                 color: 'var(--shade-4)',
                 backgroundColor: 'var(--shade-1)',
@@ -8779,7 +8780,7 @@ function openSettingsModal() {
                         top: '11px',
                         width: '40px',
                         height: '20px',
-                        fontFamily: 'MonospacePrimary',
+                        fontFamily: 'MonospaceRegular',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         backgroundColor: 'var(--shade-1)',
@@ -8801,7 +8802,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: '36px',
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'MonospacePrimary',
+                        fontFamily: 'MonospaceRegular',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         zIndex: '7003',
@@ -8823,7 +8824,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: (36 + 14) + 'px', // one line below first message
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'MonospacePrimary',
+                        fontFamily: 'MonospaceRegular',
                         fontSize: '10px',
                         color: '#0066ff',
                         textDecoration: 'underline',
@@ -8906,7 +8907,7 @@ function openSettingsModal() {
                         right: '14px',
                         top: (36 + 28) + 'px', // two lines below first message
                         width: (modalWidth - 10) + 'px',
-                        fontFamily: 'MonospacePrimary',
+                        fontFamily: 'MonospaceRegular',
                         fontSize: '10px',
                         color: 'var(--shade-4)',
                         zIndex: '7003',
@@ -9581,7 +9582,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 37) + 'px',
             width: String(modalWidth - 38) + 'px',
             height: String(signInFieldInputHeight) + 'px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-0)',
@@ -9617,7 +9618,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 75) + 'px',
             width: String(modalWidth - 38) + 'px',
             height: String(signInFieldInputHeight) + 'px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-0)',
@@ -9654,7 +9655,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 114 - 32) + 'px',
             width: String(signInSignUpButtonWidth) + 'px',
             height: '32px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -9687,7 +9688,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 30 + 114 - 32) + 'px',
             width: String(signInSignUpButtonWidth) + 'px',
             height: '32px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '12px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -9719,7 +9720,7 @@ function showEmailInputForm() {
             top: (modalRect.top + 10) + 'px',
             width: '40px',
             height: '20px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             fontSize: '10px',
             color: 'var(--shade-4)',
             backgroundColor: 'var(--shade-1)',
@@ -9774,7 +9775,7 @@ function showInitialButtons() {
         top: (modalRect.top + 30) + 'px',
         width: ((modalWidth - 30) / 2) + 'px',
         height: '114px',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
         backgroundColor: 'var(--shade-1)',
@@ -9809,7 +9810,7 @@ function showInitialButtons() {
         top: (modalRect.top + 30) + 'px',
         width: ((modalWidth - 30) / 2) + 'px',
         height: '114px',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
         backgroundColor: 'var(--shade-1)',
@@ -10034,7 +10035,7 @@ async function signUp() {
                 position: 'fixed',
                 right: '22px',
                 top: String(modalRect.top + 50) + 'px', // Position above the inputs, adjust as needed
-                fontFamily: 'MonospacePrimary',
+                fontFamily: 'MonospaceRegular',
                 fontSize: '11px',
                 color: 'var(--shade-4)',
                 zIndex: String(signInTextZIndex + 101),
@@ -10061,7 +10062,7 @@ async function signUp() {
                 HTML.setStyle(inputDiv, {
                     width: '28px',
                     height: '36px',
-                    fontFamily: 'MonospacePrimary',
+                    fontFamily: 'MonospaceRegular',
                     fontSize: '14px',
                     color: 'var(--shade-4)',
                     backgroundColor: 'var(--shade-0)',
@@ -10414,7 +10415,7 @@ function initEditorModal(id, instanceClicked) {
         width: '20px',
         height: '20px',
         fontSize: '16px',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         color: 'var(--shade-3)',
         cursor: 'pointer',
         display: 'flex',
@@ -10618,7 +10619,7 @@ function editorModalKindChange(selectedOption) {
         // ex: if they were editing task at 9:40pm and go to reminder, you can infer that they likely want the reminder to be at 9:40pm
         if (currentKind === 'event' && newKind === 'task') {
             // event -> task transition
-            // Copy instances, convert end time to due time, start date to due date, remove start time and different end date
+            // Copy instances, convert start time (or end time if no start time) to due time, start date to due date
             const eventInstances = editorModalData._event.instances;
             editorModalData._task.instances = eventInstances.map(eventInstance => {
                 const taskInstance = {};
@@ -10627,7 +10628,16 @@ function editorModalKindChange(selectedOption) {
                 
                 // Convert event fields to task fields
                 if (eventInstance.startDate) taskInstance.date = eventInstance.startDate;
-                if (eventInstance.endTime) taskInstance.dueTime = eventInstance.endTime;
+                
+                // Use start time if available, otherwise use end time
+                if (eventInstance.startTime && eventInstance.startTime !== symbolToString(NULL)) {
+                    taskInstance.dueTime = eventInstance.startTime;
+                } else if (eventInstance.endTime && eventInstance.endTime !== symbolToString(NULL)) {
+                    taskInstance.dueTime = eventInstance.endTime;
+                } else {
+                    taskInstance.dueTime = symbolToString(NULL);
+                }
+                
                 if (eventInstance.startDatePattern) taskInstance.datePattern = eventInstance.startDatePattern;
                 if (eventInstance.range) taskInstance.range = eventInstance.range;
                 
@@ -10666,7 +10676,7 @@ function editorModalKindChange(selectedOption) {
             
         } else if (currentKind === 'task' && newKind === 'event') {
             // task -> event transition
-            // Copy instances, convert due time to end time, due date to start date, start time left blank
+            // Copy instances, convert due time to start time, due date to start date, end time left blank
             const taskInstances = editorModalData._task.instances;
             editorModalData._event.instances = taskInstances.map(taskInstance => {
                 const eventInstance = {};
@@ -10675,12 +10685,12 @@ function editorModalKindChange(selectedOption) {
                 
                 // Convert task fields to event fields
                 if (taskInstance.date) eventInstance.startDate = taskInstance.date;
-                if (taskInstance.dueTime) eventInstance.endTime = taskInstance.dueTime;
+                if (taskInstance.dueTime) eventInstance.startTime = taskInstance.dueTime;
                 if (taskInstance.datePattern) eventInstance.startDatePattern = taskInstance.datePattern;
                 if (taskInstance.range) eventInstance.range = taskInstance.range;
                 
                 // Set default values for event-specific fields
-                eventInstance.startTime = symbolToString(NULL);
+                eventInstance.endTime = symbolToString(NULL);
                 eventInstance.differentEndDate = symbolToString(NULL);
                 if (eventInstance._type === 'RecurringEventInstance') {
                     eventInstance.differentEndDatePattern = symbolToString(NULL);
@@ -10797,7 +10807,7 @@ function initDateFieldInput(left, top) {
     // three fields using monospace
     const baseStyle = {
         position: 'fixed',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
         backgroundColor: 'var(--shade-0)',
@@ -10831,7 +10841,7 @@ function initDateFieldInput(left, top) {
     const slash1 = HTML.make('div');
     HTML.setStyle(slash1, {
         position: 'fixed',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
         top: (top + 3) + 'px',
@@ -10845,7 +10855,7 @@ function initDateFieldInput(left, top) {
     const slash2 = HTML.make('div');
     HTML.setStyle(slash2, {
         position: 'fixed',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
         top: (top + 3) + 'px',
@@ -10905,6 +10915,248 @@ function initDateFieldInput(left, top) {
 
 function isValidDate(yearElement, monthElement, dayElement) {
     // TODO
+}
+
+// Helper function to format time without leading zeros
+function formatTimeNoLeadingZeros(timeField) {
+    ASSERT(type(timeField, TimeField), "formatTimeNoLeadingZeros: timeField must be a TimeField");
+    ASSERT(type(user.settings.ampmOr24, String), "formatTimeNoLeadingZeros: user.settings.ampmOr24 must be a String");
+    ASSERT(user.settings.ampmOr24 === 'ampm' || user.settings.ampmOr24 === '24', "formatTimeNoLeadingZeros: user.settings.ampmOr24 must be 'ampm' or '24'");
+    
+    let hour = timeField.hour;
+    let minute = timeField.minute;
+    
+    if (user.settings.ampmOr24 === '24') {
+        // 24-hour format
+        if (hour === 0 && minute === 0) {
+            return 'midnight';
+        }
+        
+        let hourStr = hour.toString();
+        let minuteStr = minute.toString().padStart(2, '0');
+        return `${hourStr}:${minuteStr}`;
+    } else {
+        // AM/PM format
+        const period = hour >= 12 ? 'PM' : 'AM';
+        
+        // Convert to 12-hour format
+        let displayHour = hour;
+        if (hour === 0) {
+            displayHour = 12;
+        } else if (hour > 12) {
+            displayHour = hour - 12;
+        }
+        
+        // If minutes are 00, omit them
+        if (minute === 0) {
+            return `${displayHour} ${period}`;
+        } else {
+            let minuteStr = minute.toString().padStart(2, '0');
+            return `${displayHour}:${minuteStr} ${period}`;
+        }
+    }
+}
+
+// Helper function to format date according to user settings
+function formatDateUserSettings(dateField) {
+    ASSERT(type(dateField, DateField), "formatDateUserSettings: dateField must be a DateField");
+    ASSERT(type(user.settings.dateFormat, List(String)), "formatDateUserSettings: user.settings.dateFormat must be a List of Strings");
+    
+    const dateFormat = user.settings.dateFormat;
+    const parts = [];
+    
+    for (const formatPart of dateFormat) {
+        if (formatPart === 'Y') {
+            parts.push(dateField.year.toString());
+        } else if (formatPart === 'M') {
+            parts.push(dateField.month.toString());
+        } else if (formatPart === 'D') {
+            parts.push(dateField.day.toString());
+        } else {
+            ASSERT(false, `formatDateUserSettings: unknown format part ${formatPart}`);
+        }
+    }
+    
+    return parts.join('/');
+}
+
+// Helper function to get day name from day of week string
+function getDayName(dayOfWeekString) {
+    ASSERT(type(dayOfWeekString, String), "getDayName: dayOfWeekString must be a String");
+    
+    const dayNames = {
+        'sunday': 'Sunday',
+        'monday': 'Monday',
+        'tuesday': 'Tuesday',
+        'wednesday': 'Wednesday',
+        'thursday': 'Thursday',
+        'friday': 'Friday',
+        'saturday': 'Saturday'
+    };
+    
+    return dayNames[dayOfWeekString.toLowerCase()] || dayOfWeekString;
+}
+
+// Helper function to get month name from month number
+function getMonthName(monthNumber) {
+    ASSERT(type(monthNumber, Int), "getMonthName: monthNumber must be an Int");
+    ASSERT(monthNumber >= 1 && monthNumber <= 12, "getMonthName: monthNumber must be between 1 and 12");
+    
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    return monthNames[monthNumber - 1];
+}
+
+// Helper function to get ordinal suffix for a number (1st, 2nd, 3rd, etc.)
+function getOrdinalSuffix(number) {
+    ASSERT(type(number, Int), "getOrdinalSuffix: number must be an Int");
+    
+    if (number >= 11 && number <= 13) {
+        return 'th';
+    }
+    
+    switch (number % 10) {
+        case 1: return 'st';
+        case 2: return 'nd';
+        case 3: return 'rd';
+        default: return 'th';
+    }
+}
+
+// Convert instance to natural sentence description
+function getInstanceAsSentence(kind, instance) {
+    ASSERT(type(kind, String), "getInstanceAsSentence: kind must be a String");
+    ASSERT(exists(instance), "getInstanceAsSentence: instance must exist");
+    
+    // Handle non-recurring instances
+    if (instance._type === 'NonRecurringEventInstance') {
+        let sentence = formatDateUserSettings(DateField.decode(instance.startDate));
+        
+        // Check if there's a different end date
+        const hasDifferentEndDate = instance.differentEndDate !== symbolToString(NULL);
+        
+        if (instance.startTime !== symbolToString(NULL)) {
+            const startTime = TimeField.decode(instance.startTime);
+            
+            if (hasDifferentEndDate) {
+                // If different end date, just show start time
+                sentence += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+            } else if (instance.endTime !== symbolToString(NULL)) {
+                // Same day with end time: show "from X to Y"
+                const endTime = TimeField.decode(instance.endTime);
+                sentence += ` from ${formatTimeNoLeadingZeros(startTime)} to ${formatTimeNoLeadingZeros(endTime)}`;
+            } else {
+                // Only start time: show "at X"
+                sentence += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+            }
+        }
+        return sentence;
+    }
+    
+    if (instance._type === 'NonRecurringTaskInstance') {
+        let sentence = formatDateUserSettings(DateField.decode(instance.date));
+        if (instance.dueTime !== symbolToString(NULL)) {
+            sentence += ` at ${formatTimeNoLeadingZeros(TimeField.decode(instance.dueTime))}`;
+        }
+        return sentence;
+    }
+    
+    if (instance._type === 'NonRecurringReminderInstance') {
+        return `${formatDateUserSettings(DateField.decode(instance.date))} at ${formatTimeNoLeadingZeros(TimeField.decode(instance.time))}`;
+    }
+    
+    // Handle recurring instances
+    if (instance._type === 'RecurringEventInstance') {
+        const startTime = instance.startTime !== symbolToString(NULL) ? TimeField.decode(instance.startTime) : NULL;
+        const endTime = instance.endTime !== symbolToString(NULL) ? TimeField.decode(instance.endTime) : NULL;
+        const hasDifferentEndDate = instance.differentEndDatePattern !== symbolToString(NULL) && instance.differentEndDatePattern !== NULL;
+        
+        return getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate);
+    }
+    
+    if (instance._type === 'RecurringTaskInstance') {
+        const dueTime = instance.dueTime !== symbolToString(NULL) ? TimeField.decode(instance.dueTime) : NULL;
+        return getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false);
+    }
+    
+    if (instance._type === 'RecurringReminderInstance') {
+        return getRecurringPatternDescription(instance.datePattern, TimeField.decode(instance.time), NULL, false);
+    }
+    
+    // Fallback
+    return 'Instance';
+}
+
+// Get description for recurring patterns
+function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasDifferentEndDate = false) {
+    ASSERT(exists(pattern), "getRecurringPatternDescription: pattern must exist");
+    ASSERT(type(startTime, Union(TimeField, NULL)), "getRecurringPatternDescription: startTime must be a TimeField or NULL");
+    ASSERT(type(endTime, Union(TimeField, NULL)), "getRecurringPatternDescription: endTime must be a TimeField or NULL");
+    ASSERT(type(hasDifferentEndDate, Boolean), "getRecurringPatternDescription: hasDifferentEndDate must be a Boolean");
+    
+    let description = '';
+    
+    if (pattern._type === 'EveryNDaysPattern') {
+        if (pattern.n === 1) {
+            description = 'Daily';
+        } else if (pattern.n === 7) {
+            // Find the day of the week from the initial date
+            const initialDateField = DateField.decode(pattern.initialDate);
+            const initialDate = new Date(initialDateField.year, initialDateField.month - 1, initialDateField.day);
+            const dayOfWeek = initialDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            description = `Every ${dayNames[dayOfWeek]}`;
+        } else {
+            description = `Every ${pattern.n} days`;
+        }
+    } else if (pattern._type === 'MonthlyPattern') {
+        if (pattern.day === -1) {
+            description = 'Last day of month';
+        } else {
+            description = `${pattern.day}${getOrdinalSuffix(pattern.day)} of month`;
+        }
+    } else if (pattern._type === 'AnnuallyPattern') {
+        description = `${getMonthName(pattern.month)} ${pattern.day}${getOrdinalSuffix(pattern.day)}`;
+    } else if (pattern._type === 'NthWeekdayOfMonthsPattern') {
+        const dayName = getDayName(pattern.dayOfWeek);
+        
+        if (pattern.nthWeekdays === symbolToString(LAST_WEEK_OF_MONTH)) {
+            description = `Last ${dayName} of month`;
+        } else if (Array.isArray(pattern.nthWeekdays)) {
+            const activeWeeks = [];
+            for (let i = 0; i < pattern.nthWeekdays.length; i++) {
+                if (pattern.nthWeekdays[i]) {
+                    activeWeeks.push(i + 1);
+                }
+            }
+            if (activeWeeks.length === 1) {
+                description = `${activeWeeks[0]}${getOrdinalSuffix(activeWeeks[0])} ${dayName} of month`;
+            } else {
+                description = `${activeWeeks.join(', ')} ${dayName} of month`;
+            }
+        }
+    } else {
+        description = 'Recurring';
+    }
+    
+    // Add time information based on event logic
+    if (startTime !== NULL) {
+        if (hasDifferentEndDate) {
+            // If different end date, just show start time
+            description += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+        } else if (endTime !== NULL) {
+            // Same day with end time: show "from X to Y"
+            description += ` from ${formatTimeNoLeadingZeros(startTime)} to ${formatTimeNoLeadingZeros(endTime)}`;
+        } else {
+            // Only start time: show "at X"
+            description += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+        }
+    }
+    
+    return description;
 }
 
 // this appears right below the selector
@@ -11008,7 +11260,7 @@ function initInstanceButtons(top, instanceClicked) {
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '10px',
-            fontFamily: 'MonospacePrimary',
+            fontFamily: 'MonospaceRegular',
             color: '#ffffff',
             fontWeight: 'bold',
             paddingLeft: '3px',
@@ -11018,7 +11270,7 @@ function initInstanceButtons(top, instanceClicked) {
             transition: 'background-color 0.2s ease, border-color 0.2s ease',
             position: 'relative'
         });
-        button.textContent = 'PlaceholderA2';
+        button.textContent = getInstanceAsSentence(editorModalData.kind, instances[index]);
 
         // Create X button background div
         const xButtonBg = HTML.make('div');
@@ -11154,7 +11406,7 @@ function initInstanceButtons(top, instanceClicked) {
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '11px',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         color: '#ffffff',
         fontWeight: 'bold',
         padding: '0',
@@ -13386,7 +13638,7 @@ function initSignInButton() {
     }
     
     // Sign-in button width is wider than standard buttons for the text
-    const signInButtonWidth = measureTextWidth('sign in/up', 'MonospacePrimary', 11) + 10;
+    const signInButtonWidth = measureTextWidth('sign in/up', 'MonospaceRegular', 11) + 10;
     
     // Sign-in button container
     let signInButton = HTML.make('div');
@@ -13413,7 +13665,7 @@ function initSignInButton() {
     HTML.setId(signInText, 'signInText');
     HTML.setStyle(signInText, {
         fontSize: '11px',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         color: 'var(--shade-3)',
         whiteSpace: 'nowrap',
         zIndex: String(signInTextZIndex)
@@ -13454,7 +13706,7 @@ function initProButton(animateFromTop = false) {
     }
 
     // Width based on the text "pro" with a little padding
-    const proButtonWidth = measureTextWidth('pro', 'MonospacePrimary', 11) + 10;
+    const proButtonWidth = measureTextWidth('pro', 'MonospaceRegular', 11) + 10;
 
     // Common right offset identical to where the sign-in button would have been
     const rightOffset = windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4;
@@ -13510,7 +13762,7 @@ function initProButton(animateFromTop = false) {
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '11px',
-        fontFamily: 'MonospacePrimary',
+        fontFamily: 'MonospaceRegular',
         color: 'var(--shade-3)',
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
