@@ -3787,7 +3787,7 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         
         // on click open the edit modal
         allDayEventElement.addEventListener('click', function() {
-            initEditorModal(allDayEventData.id);
+            initEditorModal(allDayEventData.id, allDayEventData.patternIndex);
         });
 
         // Create/Update asterisk indicator
@@ -4146,6 +4146,11 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             };
             eventElement.addEventListener('mouseenter', eventElement.mouseEnterHandler);
             eventElement.addEventListener('mouseleave', eventElement.mouseLeaveHandler);
+            
+            // Add click handler to open editor modal
+            eventElement.addEventListener('click', function() {
+                initEditorModal(instance.id, instance.patternIndex);
+            });
             
             renderedInstanceCount++;
         }
@@ -10136,10 +10141,11 @@ function editorModalInitReminder() {
     // TODO: Initialize reminder-specific elements
 }
 
-function initEditorModal(id) {
+function initEditorModal(id, instanceClicked = null) {
     // entity id
     ASSERT(type(id, NonEmptyString));
     ASSERT(user.entityArray.some(e => e.id === id), "initEditorModal: entity id passed, but entity not found");
+    ASSERT(type(instanceClicked, Union(Int, NULL)));
 
     if (editorModalOpen || exists(HTML.getElementUnsafely('editorModal'))) return;
     editorModalOpen = true;
