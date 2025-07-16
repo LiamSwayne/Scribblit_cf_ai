@@ -10934,7 +10934,7 @@ function initInstanceButtons(top, instanceClicked) {
     const totalButtonCount = instanceCount + 1; // +1 for the plus button
     
     // Visual configuration
-    const buttonHeight = 16;
+    const buttonHeight = 14;
     const buttonSpacing = 2;
 
     const container = HTML.make('div');
@@ -11007,11 +11007,12 @@ function initInstanceButtons(top, instanceClicked) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '11px',
+            fontSize: '10px',
             fontFamily: 'MonospacePrimary',
             color: '#ffffff',
             fontWeight: 'bold',
-            padding: '0 6px',
+            paddingLeft: '3px',
+            paddingRight: '3px',
             height: `${buttonHeight}px`,
             border: '1px solid transparent',
             transition: 'background-color 0.2s ease, border-color 0.2s ease',
