@@ -10465,7 +10465,7 @@ function initEditorModal(id, instanceClicked = null) {
     updateEditorModalPosition();
     
     // Initialize instance buttons
-    initInstanceButtons(58);
+    initInstanceButtons(58, instanceClicked);
     
     // Force reflow
     editorModalVignette.offsetHeight;
@@ -10808,8 +10808,9 @@ function isValidDate(yearElement, monthElement, dayElement) {
 // the user clicks these to select which instance they're currently editing
 // there's one button for each, and one additional plus button to add a new instance
 // when an instance is deleted, the boxes to the right slide to the left in a smooth animation
-function initInstanceButtons(top) {
+function initInstanceButtons(top, instanceClicked = null) {
     ASSERT(type(top, Number));
+    ASSERT(type(instanceClicked, Union(Int, NULL)));
     
     // Get instances from editorModalData based on current kind
     let instances;
@@ -10863,8 +10864,11 @@ function initInstanceButtons(top) {
     const accent0Rgb = colorStringToRgb(accent0);
     const accent1Rgb = colorStringToRgb(accent1);
 
-    // Track active instance (default to first one)
+    // Track active instance - use instanceClicked if provided and valid, otherwise default to first one
     let activeInstanceIndex = 0;
+    if (instanceClicked !== null && instanceClicked >= 0 && instanceClicked < instanceCount) {
+        activeInstanceIndex = instanceClicked;
+    }
 
     function createInstanceButtonWrapper(index, buttonColor) {
         // Create wrapper div for button and X button
@@ -11011,8 +11015,8 @@ function initInstanceButtons(top) {
         container.appendChild(wrapper);
     }
 
-    // Set first instance as active initially
-    setActiveInstance(0);
+    // Set the calculated active instance
+    setActiveInstance(activeInstanceIndex);
 
     const plusFactor = totalButtonCount > 1 ? 1 : 0;
     const plusInterpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, plusFactor);
