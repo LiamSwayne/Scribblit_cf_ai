@@ -19,6 +19,7 @@ function ASSERT(condition, message="") {
 
 const NULL = Symbol('NULL'); // custom null because js null and undefined are off-limits
 const Int = Symbol('Int'); // Symbol for integer type checking
+const Uint = Symbol('Uint'); // Symbol for unsigned integer type checking
 const Type = Symbol('Type'); // Meta type to represent valid types
 const NonEmptyString = Symbol('NonEmptyString'); // Symbol for non-empty string type checking
 
@@ -3681,6 +3682,8 @@ function type(thing, sometype) {
         return typeof thing === 'function' || typeof thing === 'symbol' || thing instanceof LIST || thing instanceof DICT || thing instanceof UNION;
     } else if (sometype === Int) {
         return typeof thing === 'number' && Number.isInteger(thing);
+    } else if (sometype === Uint) {
+        return typeof thing === 'number' && Number.isInteger(thing) && thing >= 0;
     } else if (sometype === NonEmptyString) {
         return typeof thing === 'string' && thing.length > 0;
     } else if (sometype === DateField) {
