@@ -9956,7 +9956,7 @@ function initEditorModal(id) {
     updateEditorModalPosition();
     
     // Initialize instance buttons
-    initInstanceButtons(60);
+    initInstanceButtons(58);
     
     // Force reflow
     editorModalVignette.offsetHeight;
@@ -10188,8 +10188,8 @@ function initInstanceButtons(top) {
     const totalButtonCount = instanceCount + 1; // +1 for the plus button
     
     // Visual configuration
-    const buttonHeight = 24;
-    const buttonSpacing = 4;
+    const buttonHeight = 16;
+    const buttonSpacing = 2;
 
     const container = HTML.make('div');
     HTML.setId(container, 'instanceButtonsContainer');
@@ -10234,11 +10234,11 @@ function initInstanceButtons(top) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '12px',
+            fontSize: '11px',
             fontFamily: 'MonospacePrimary',
             color: '#ffffff',
             fontWeight: 'bold',
-            padding: '0 8px', // horizontal padding so width adapts to text
+            padding: '0 6px', // horizontal padding so width adapts to text
             height: `${buttonHeight}px`,
             transition: 'background-color 0.2s ease',
             opacity: '0' // will fade in to full opacity later
@@ -10288,11 +10288,19 @@ function initInstanceButtons(top) {
 
         // Hover effects - darken by one shade
         button.onmouseenter = function() {
-            // No hover effect
+            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+            const originalRgb = colorStringToRgb(originalColor);
+            const blendedRgb = {
+                r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
+                g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
+                b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
+            };
+            HTML.setStyle(this, { backgroundColor: `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})` });
         };
 
         button.onmouseleave = function() {
-            // No hover effect
+            const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+            HTML.setStyle(this, { backgroundColor: originalColor });
         };
 
         container.appendChild(button);
@@ -10322,10 +10330,19 @@ function initInstanceButtons(top) {
     // Hover effects for plus button
     HTML.setData(plusButton, 'ORIGINAL_COLOR', plusButtonColor);
     plusButton.onmouseenter = function() {
-        // No hover effect
+        const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+        const originalRgb = colorStringToRgb(originalColor);
+        const blendedRgb = {
+            r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
+            g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
+            b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
+        };
+        HTML.setStyle(this, { backgroundColor: `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})` });
     };
+
     plusButton.onmouseleave = function() {
-        // No hover effect
+        const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
+        HTML.setStyle(this, { backgroundColor: originalColor });
     };
 
     container.appendChild(plusButton);
