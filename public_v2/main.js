@@ -10663,10 +10663,18 @@ function editorModalKindChange(selectedOption) {
                 // Convert event fields to reminder fields
                 if (eventInstance.startDate) reminderInstance.date = eventInstance.startDate;
                 // Use end time if available, otherwise start time
-                if (eventInstance.endTime) {
+                if (eventInstance.endTime && eventInstance.endTime !== symbolToString(NULL)) {
                     reminderInstance.time = eventInstance.endTime;
-                } else if (eventInstance.startTime) {
+                } else if (eventInstance.startTime && eventInstance.startTime !== symbolToString(NULL)) {
                     reminderInstance.time = eventInstance.startTime;
+                } else {
+                    // If neither start time nor end time is available, skip this instance
+                    // or set a default time - reminders require a time
+                    reminderInstance.time = {
+                        hour: 9,
+                        minute: 0,
+                        _type: 'TimeField'
+                    };
                 }
                 if (eventInstance.startDatePattern) reminderInstance.datePattern = eventInstance.startDatePattern;
                 if (eventInstance.range) reminderInstance.range = eventInstance.range;
@@ -10676,11 +10684,16 @@ function editorModalKindChange(selectedOption) {
             
         } else if (currentKind === 'task' && newKind === 'event') {
             // task -> event transition
-            // Copy instances, convert due time to start time, due date to start date, end time left blank
+            // Preserve original event data and only update fields that should change
             const taskInstances = editorModalData._task.instances;
-            editorModalData._event.instances = taskInstances.map(taskInstance => {
-                const eventInstance = {};
-                // Copy common fields
+            const originalEventInstances = editorModalData._event.instances;
+            
+            editorModalData._event.instances = taskInstances.map((taskInstance, index) => {
+                // Start with original event instance if it exists, otherwise create new
+                const originalEventInstance = originalEventInstances[index] || {};
+                const eventInstance = { ...originalEventInstance };
+                
+                // Update type
                 if (taskInstance._type) eventInstance._type = taskInstance._type.replace('Task', 'Event');
                 
                 // Convert task fields to event fields
@@ -10689,10 +10702,14 @@ function editorModalKindChange(selectedOption) {
                 if (taskInstance.datePattern) eventInstance.startDatePattern = taskInstance.datePattern;
                 if (taskInstance.range) eventInstance.range = taskInstance.range;
                 
-                // Set default values for event-specific fields
-                eventInstance.endTime = symbolToString(NULL);
-                eventInstance.differentEndDate = symbolToString(NULL);
-                if (eventInstance._type === 'RecurringEventInstance') {
+                // Only set defaults for event-specific fields if they don't already exist
+                if (!eventInstance.hasOwnProperty('endTime')) {
+                    eventInstance.endTime = symbolToString(NULL);
+                }
+                if (!eventInstance.hasOwnProperty('differentEndDate')) {
+                    eventInstance.differentEndDate = symbolToString(NULL);
+                }
+                if (eventInstance._type === 'RecurringEventInstance' && !eventInstance.hasOwnProperty('differentEndDatePattern')) {
                     eventInstance.differentEndDatePattern = symbolToString(NULL);
                 }
                 
