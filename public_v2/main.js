@@ -11572,7 +11572,10 @@ function initInstanceButtons(top, instanceClicked) {
         { name: 'Daily', action: () => addNewInstance('daily') },
         { name: 'Weekly', action: () => addNewInstance('weekly') },
         { name: 'Monthly', action: () => addNewInstance('monthly') },
-        { name: 'Yearly', action: () => addNewInstance('yearly') }
+        { name: 'Yearly', action: () => addNewInstance('yearly') },
+        { name: 'Every [N] days', action: () => addNewInstance('every-n-days') },
+        { name: '[N]th [weekday] of month', action: () => addNewInstance('nth-weekday') },
+        { name: 'Last [weekday] of month', action: () => addNewInstance('last-weekday') }
     ];
 
     let dropdownVisible = false;
