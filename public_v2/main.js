@@ -10284,6 +10284,7 @@ let instanceTabTransitionTime = 0.3;
 
 let editorModalActiveEntityId = NULL;
 let editorModalActiveInstanceIndex = NULL;
+let instanceEditorContainer = NULL;
 
 // TODO: not sure if these functions are even needed since their logic is better handled by each component doing it's own stuff on kind change
 // Editor modal close functions - delete their elements and do nothing else for now
@@ -10849,14 +10850,15 @@ function editorModalKindChange(selectedOption) {
 
 
 // doesn't handle any input validation
-// left and top are relative to the editor modal top left corner
-function initDateFieldInput(left, top) {
+// left and top are relative to the parent container
+function initDateFieldInput(parentContainer, left, top) {
+    ASSERT(exists(parentContainer), "initDateFieldInput: parentContainer must exist");
     ASSERT(type(left, Number));
     ASSERT(type(top, Number));
     
     // three fields using monospace
     const baseStyle = {
-        position: 'fixed',
+        position: 'absolute',
         fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
@@ -10864,9 +10866,6 @@ function initDateFieldInput(left, top) {
         border: '1px solid var(--shade-2)',
         borderRadius: '4px',
         outline: 'none',
-        zIndex: String(editorModalBaseZIndex + 1),
-        opacity: '0',
-        transition: 'opacity 0.3s ease',
         height: '20px',
         textAlign: 'center',
         top: top + 'px',
@@ -10875,46 +10874,40 @@ function initDateFieldInput(left, top) {
     const yearInput = HTML.make('input');
     yearInput.setAttribute('maxlength', '2'); // 2 digit year
     HTML.setStyle(yearInput, {...baseStyle, width: '20px'});
-    HTML.body.appendChild(yearInput);
+    parentContainer.appendChild(yearInput);
 
     const monthInput = HTML.make('input');
     monthInput.setAttribute('maxlength', '2');
     HTML.setStyle(monthInput, {...baseStyle, width: '20px'});
-    HTML.body.appendChild(monthInput);
+    parentContainer.appendChild(monthInput);
 
     const dayInput = HTML.make('input');
     dayInput.setAttribute('maxlength', '2');
     HTML.setStyle(dayInput, {...baseStyle, width: '20px'});
-    HTML.body.appendChild(dayInput);
+    parentContainer.appendChild(dayInput);
 
     // slash between first and second, and second and third
     const slash1 = HTML.make('div');
     HTML.setStyle(slash1, {
-        position: 'fixed',
+        position: 'absolute',
         fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
         top: (top + 3) + 'px',
-        zIndex: String(editorModalBaseZIndex + 1),
-        opacity: '0',
-        transition: 'opacity 0.3s ease',
     });
     slash1.textContent = '/';
-    HTML.body.appendChild(slash1);
+    parentContainer.appendChild(slash1);
 
     const slash2 = HTML.make('div');
     HTML.setStyle(slash2, {
-        position: 'fixed',
+        position: 'absolute',
         fontFamily: 'MonospaceRegular',
         fontSize: '12px',
         color: 'var(--shade-4)',
         top: (top + 3) + 'px',
-        zIndex: String(editorModalBaseZIndex + 1),
-        opacity: '0',
-        transition: 'opacity 0.3s ease',
     });
     slash2.textContent = '/';
-    HTML.body.appendChild(slash2);
+    parentContainer.appendChild(slash2);
 
     // Map field types to input elements
     const fieldMap = {
@@ -11894,8 +11887,55 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     } else {
         ASSERT(newOrIndex === 'new', "newOrIndex must be 'new' when creating new instance, or an integer when editing an existing one");
     }
-    // TODO: Implement EveryNDaysPattern editor
-    // preloadedN can be 1 for daily, 7 for weekly, or NULL for user input
+    
+    // Close any existing editor first
+    if (instanceEditorContainer && instanceEditorContainer.parentNode) {
+        closeEveryNDaysPatternEditor();
+    }
+    
+    // Create container
+    instanceEditorContainer = HTML.make('div');
+    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+    HTML.setStyle(instanceEditorContainer, {
+        position: 'absolute',
+        left: '8px',
+        top: top + 'px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '100px',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '6px',
+        padding: '8px',
+        boxSizing: 'border-box',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    
+    editorModal.appendChild(instanceEditorContainer);
+    
+    // Add title
+    const title = HTML.make('div');
+    HTML.setStyle(title, {
+        position: 'absolute',
+        top: '8px',
+        left: '8px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        fontWeight: 'bold'
+    });
+    title.textContent = newOrIndex === 'new' ? 'Add Every N Days Pattern' : 'Edit Every N Days Pattern';
+    instanceEditorContainer.appendChild(title);
+    
+    // Add date field input
+    const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
+    
+    // Force reflow then animate in
+    instanceEditorContainer.offsetHeight;
+    setTimeout(() => {
+        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+    }, 10);
 }
 
 function initMonthlyPatternEditor(top, newOrIndex) {
@@ -11929,8 +11969,56 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
 function initDateInstanceEditor(top, newOrIndex) {
     ASSERT(type(top, Number));
     ASSERT(type(newOrIndex, Union(String, Uint)));
-    // TODO: Implement date editor
-    // newOrIndex: 'new' for creating new instance, or index for editing existing
+    
+    // Close any existing editor first
+    ASSERT(exists(instanceEditorContainer));
+    if (instanceEditorContainer !== NULL) {
+        closeDateInstanceEditor();
+    }
+    
+    // Create container
+    instanceEditorContainer = HTML.make('div');
+    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+    HTML.setStyle(instanceEditorContainer, {
+        position: 'absolute',
+        left: '8px',
+        top: top + 'px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '100px',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '6px',
+        padding: '8px',
+        boxSizing: 'border-box',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    
+    editorModal.appendChild(instanceEditorContainer);
+    
+    // Add title
+    const title = HTML.make('div');
+    HTML.setStyle(title, {
+        position: 'absolute',
+        top: '8px',
+        left: '8px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        fontWeight: 'bold'
+    });
+    title.textContent = newOrIndex === 'new' ? 'Add One-time Instance' : 'Edit One-time Instance';
+    instanceEditorContainer.appendChild(title);
+    
+    // Add date field input
+    const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
+    
+    // Force reflow then animate in
+    instanceEditorContainer.offsetHeight;
+    setTimeout(() => {
+        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+    }, 10);
 }
 
 function closeDateFieldInput() {
@@ -11938,7 +12026,18 @@ function closeDateFieldInput() {
 }
 
 function closeEveryNDaysPatternEditor() {
-    // TODO: Implement close function for EveryNDaysPattern editor
+    ASSERT(exists(instanceEditorContainer));
+    
+    // Fade out
+    HTML.setStyle(instanceEditorContainer, { opacity: '0' });
+    
+    // Remove after animation
+    setTimeout(() => {
+        if (instanceEditorContainer && instanceEditorContainer.parentNode) {
+            instanceEditorContainer.parentNode.removeChild(instanceEditorContainer);
+        }
+        instanceEditorContainer = NULL;
+    }, 200);
 }
 
 function closeMonthlyPatternEditor() {
@@ -11955,7 +12054,21 @@ function closeNthWeekdayOfMonthsPatternEditor() {
 
 // for non-recurring
 function closeDateInstanceEditor() {
-    // TODO: Implement close function for date editor
+    if (!instanceEditorContainer || !instanceEditorContainer.parentNode) {
+        instanceEditorContainer = NULL;
+        return;
+    }
+    
+    // Fade out
+    HTML.setStyle(instanceEditorContainer, { opacity: '0' });
+    
+    // Remove after animation
+    setTimeout(() => {
+        if (instanceEditorContainer && instanceEditorContainer.parentNode) {
+            instanceEditorContainer.parentNode.removeChild(instanceEditorContainer);
+        }
+        instanceEditorContainer = NULL;
+    }, 200);
 }
 
 function closeEditorModal() {
