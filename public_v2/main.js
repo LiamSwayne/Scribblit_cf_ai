@@ -10285,6 +10285,7 @@ let instanceTabTransitionTime = 0.3;
 let editorModalActiveEntityId = NULL;
 let editorModalActiveInstanceIndex = NULL;
 
+// TODO: not sure if these functions are even needed since their logic is better handled by each component doing it's own stuff on kind change
 // Editor modal close functions - delete their elements and do nothing else for now
 async function editorModalCloseEvent() {
     // TODO: Delete event-specific elements
@@ -11613,8 +11614,8 @@ function initInstanceButtons(top, instanceClicked) {
                 fontFamily: 'MonospaceRegular',
                 color: '#ffffff',
                 fontWeight: 'bold',
-                paddingLeft: '6px',
-                paddingRight: '6px',
+                paddingLeft: '3px',
+                paddingRight: '3px',
                 height: `${buttonHeight}px`,
                 border: '1px solid transparent',
                 transition: 'all 0.2s ease',
@@ -11656,7 +11657,12 @@ function initInstanceButtons(top, instanceClicked) {
             setTimeout(() => {
                 const buttonWidth = button.offsetWidth;
                 const finalTop = plusButtonRelativeTop + (index + 1) * (buttonHeight + buttonSpacing);
-                const finalLeft = plusButtonRelativeLeft + buttonHeight - buttonWidth; // right-align with plus button
+                
+                // Check if plus button is in left half of modal to determine alignment
+                const isInLeftHalf = plusButtonRelativeLeft < (editorModalWidth / 2);
+                const finalLeft = isInLeftHalf ? 
+                    plusButtonRelativeLeft : // left-align with plus button's left edge
+                    plusButtonRelativeLeft + buttonHeight - buttonWidth; // right-align with plus button's right edge
                 
                 HTML.setStyle(button, {
                     top: `${finalTop}px`,
