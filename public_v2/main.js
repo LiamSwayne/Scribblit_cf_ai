@@ -10875,18 +10875,21 @@ function initDateFieldInput(parentContainer, left, top, idPrefix = '') {
     const yearInput = HTML.make('input');
     if (idPrefix) HTML.setId(yearInput, idPrefix + 'Year');
     yearInput.setAttribute('maxlength', '2'); // 2 digit year
+    yearInput.setAttribute('placeholder', 'YY');
     HTML.setStyle(yearInput, {...baseStyle, width: '20px'});
     parentContainer.appendChild(yearInput);
 
     const monthInput = HTML.make('input');
     if (idPrefix) HTML.setId(monthInput, idPrefix + 'Month');
     monthInput.setAttribute('maxlength', '2');
+    monthInput.setAttribute('placeholder', 'MM');
     HTML.setStyle(monthInput, {...baseStyle, width: '20px'});
     parentContainer.appendChild(monthInput);
 
     const dayInput = HTML.make('input');
     if (idPrefix) HTML.setId(dayInput, idPrefix + 'Day');
     dayInput.setAttribute('maxlength', '2');
+    dayInput.setAttribute('placeholder', 'DD');
     HTML.setStyle(dayInput, {...baseStyle, width: '20px'});
     parentContainer.appendChild(dayInput);
 
