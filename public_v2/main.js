@@ -10851,10 +10851,11 @@ function editorModalKindChange(selectedOption) {
 
 // doesn't handle any input validation
 // left and top are relative to the parent container
-function initDateFieldInput(parentContainer, left, top) {
+function initDateFieldInput(parentContainer, left, top, idPrefix = '') {
     ASSERT(exists(parentContainer), "initDateFieldInput: parentContainer must exist");
     ASSERT(type(left, Number));
     ASSERT(type(top, Number));
+    ASSERT(type(idPrefix, String));
     
     // three fields using monospace
     const baseStyle = {
@@ -10872,16 +10873,19 @@ function initDateFieldInput(parentContainer, left, top) {
     }
 
     const yearInput = HTML.make('input');
+    if (idPrefix) HTML.setId(yearInput, idPrefix + 'Year');
     yearInput.setAttribute('maxlength', '2'); // 2 digit year
     HTML.setStyle(yearInput, {...baseStyle, width: '20px'});
     parentContainer.appendChild(yearInput);
 
     const monthInput = HTML.make('input');
+    if (idPrefix) HTML.setId(monthInput, idPrefix + 'Month');
     monthInput.setAttribute('maxlength', '2');
     HTML.setStyle(monthInput, {...baseStyle, width: '20px'});
     parentContainer.appendChild(monthInput);
 
     const dayInput = HTML.make('input');
+    if (idPrefix) HTML.setId(dayInput, idPrefix + 'Day');
     dayInput.setAttribute('maxlength', '2');
     HTML.setStyle(dayInput, {...baseStyle, width: '20px'});
     parentContainer.appendChild(dayInput);
@@ -10930,7 +10934,7 @@ function initDateFieldInput(parentContainer, left, top) {
     currentLeft += fieldWidth + 2; // 2px spacing
     
     // Position first slash
-    HTML.setStyle(slash1, {left: currentLeft + 'px'});
+    HTML.setStyle(slash1, {left: (currentLeft + 0.5) + 'px'});
     currentLeft += slashWidth;
     
     // Position second field
@@ -10939,7 +10943,7 @@ function initDateFieldInput(parentContainer, left, top) {
     currentLeft += fieldWidth + 2; // 2px spacing
     
     // Position second slash
-    HTML.setStyle(slash2, {left: currentLeft + 'px'});
+    HTML.setStyle(slash2, {left: (currentLeft + 0.5) + 'px'});
     currentLeft += slashWidth;
     
     // Position third field
@@ -11901,12 +11905,8 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '100px',
+        height: '120px',
         backgroundColor: 'var(--shade-0)',
-        border: '1px solid var(--shade-2)',
-        borderRadius: '6px',
-        padding: '8px',
-        boxSizing: 'border-box',
         opacity: '0',
         transition: 'opacity 0.2s ease',
         zIndex: String(editorModalBaseZIndex + 1)
@@ -11914,22 +11914,292 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     
     editorModal.appendChild(instanceEditorContainer);
     
-    // Add title
-    const title = HTML.make('div');
-    HTML.setStyle(title, {
+    // Add title with inline number input
+    const titleContainer = HTML.make('div');
+    HTML.setStyle(titleContainer, {
         position: 'absolute',
-        top: '8px',
-        left: '8px',
+        top: '0px',
+        left: '0px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
         color: 'var(--shade-4)',
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px'
     });
-    title.textContent = newOrIndex === 'new' ? 'Add Every N Days Pattern' : 'Edit Every N Days Pattern';
-    instanceEditorContainer.appendChild(title);
     
-    // Add date field input
-    const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
+    const titleStart = HTML.make('span');
+    titleStart.textContent = 'Repeat every';
+    HTML.setStyle(titleStart, {
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    titleContainer.appendChild(titleStart);
+    
+    const daysInput = HTML.make('input');
+    HTML.setId(daysInput, 'everyNDaysInput');
+    daysInput.setAttribute('type', 'number');
+    daysInput.setAttribute('min', '1');
+    daysInput.value = preloadedN || '1';
+    HTML.setStyle(daysInput, {
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px'
+    });
+    
+    // Hide number input arrows
+    const hideArrowsStyle = HTML.make('style');
+    hideArrowsStyle.textContent = `
+        #everyNDaysInput::-webkit-outer-spin-button,
+        #everyNDaysInput::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        #everyNDaysInput[type=number] {
+            -moz-appearance: textfield;
+        }
+        #timesInput::-webkit-outer-spin-button,
+        #timesInput::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        #timesInput[type=number] {
+            -moz-appearance: textfield;
+        }
+    `;
+    HTML.head.appendChild(hideArrowsStyle);
+    
+    titleContainer.appendChild(daysInput);
+    
+    const titleEnd = HTML.make('span');
+    titleEnd.textContent = 'days';
+    HTML.setStyle(titleEnd, {
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    titleContainer.appendChild(titleEnd);
+    
+    instanceEditorContainer.appendChild(titleContainer);
+    
+    // Add selector for repeat type
+    const selectorTop = 26;
+    const selectorLeft = 0;
+    const selectorWidth = editorModalWidth - 72;
+    const selectorHeight = 20;
+    
+    // Calculate modal position for selector coordinates
+    const modalLeft = (window.innerWidth - editorModalWidth) / 2;
+    const modalTop = (window.innerHeight - editorModalHeight) / 2;
+    const absoluteSelectorX = modalLeft + 8 + selectorLeft; // modal left + container left + relative left
+    const absoluteSelectorY = modalTop + top + selectorTop; // modal top + container top + relative top
+    
+    createSelector({
+        options: ['Occurs [x] times', 'Repeat until [date]'],
+        orientation: 'horizontal',
+        id: 'everyNDaysRepeatTypeSelector',
+        x: absoluteSelectorX,
+        y: absoluteSelectorY,
+        width: selectorWidth,
+        height: selectorHeight,
+        zIndex: editorModalBaseZIndex + 2,
+        font: 'MonospaceRegular',
+        fontSize: 10,
+        onSelectionChange: (selectedOption) => {
+            updateEveryNDaysRepeatType(selectedOption);
+        },
+        initialSelection: 'Repeat until [date]',
+        minWaitTime: 0.1,
+        alignmentSide: 'left',
+        equalSpacing: false,
+        accentMode: 'transition'
+    });
+    
+    // Create content containers for different repeat types
+    const repeatTimesContainer = HTML.make('div');
+    HTML.setId(repeatTimesContainer, 'repeatTimesContainer');
+    HTML.setStyle(repeatTimesContainer, {
+        position: 'absolute',
+        top: '50px',
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: '0',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const occursText = HTML.make('div');
+    occursText.textContent = 'Occurs';
+    HTML.setStyle(occursText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    repeatTimesContainer.appendChild(occursText);
+    
+    const timesInput = HTML.make('input');
+    HTML.setId(timesInput, 'timesInput');
+    timesInput.setAttribute('type', 'number');
+    timesInput.setAttribute('min', '1');
+    HTML.setStyle(timesInput, {
+        position: 'absolute',
+        top: '-2px',
+        left: '48px',
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px'
+    });
+    repeatTimesContainer.appendChild(timesInput);
+    
+    const timesStartingText = HTML.make('div');
+    timesStartingText.textContent = 'times starting on';
+    HTML.setStyle(timesStartingText, {
+        position: 'absolute',
+        top: '0px',
+        left: '95px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    repeatTimesContainer.appendChild(timesStartingText);
+    
+    const startingDateContainer = HTML.make('div');
+    HTML.setStyle(startingDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '205px'
+    });
+    repeatTimesContainer.appendChild(startingDateContainer);
+    
+    const startingDateFields = initDateFieldInput(startingDateContainer, 0, -2, 'startingDate');
+    
+    instanceEditorContainer.appendChild(repeatTimesContainer);
+    
+    const repeatUntilContainer = HTML.make('div');
+    HTML.setId(repeatUntilContainer, 'repeatUntilContainer');
+    HTML.setStyle(repeatUntilContainer, {
+        position: 'absolute',
+        top: '50px',
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: '1',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const fromText = HTML.make('div');
+    fromText.textContent = 'From';
+    HTML.setStyle(fromText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    repeatUntilContainer.appendChild(fromText);
+    
+    const fromDateContainer = HTML.make('div');
+    HTML.setStyle(fromDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '37px'
+    });
+    repeatUntilContainer.appendChild(fromDateContainer);
+    
+    const fromDateFields = initDateFieldInput(fromDateContainer, 0, -2, 'fromDate');
+    
+    const toText = HTML.make('div');
+    toText.textContent = 'to';
+    HTML.setStyle(toText, {
+        position: 'absolute',
+        top: '0px',
+        left: '122px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    repeatUntilContainer.appendChild(toText);
+    
+    const toDateContainer = HTML.make('div');
+    HTML.setStyle(toDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '139px'
+    });
+    repeatUntilContainer.appendChild(toDateContainer);
+    
+    const toDateFields = initDateFieldInput(toDateContainer, 0, -2, 'toDate');
+    
+    const optionalText = HTML.make('div');
+    optionalText.textContent = '(optional)';
+    HTML.setStyle(optionalText, {
+        position: 'absolute',
+        top: '21px',
+        left: '159px',
+        color: 'var(--shade-3)',
+        fontSize: '10px',
+        fontFamily: 'PrimaryRegular'
+    });
+    repeatUntilContainer.appendChild(optionalText);
+    
+    instanceEditorContainer.appendChild(repeatUntilContainer);
+    
+    // If creating new pattern, set start date to today
+    if (newOrIndex === 'new') {
+        const today = new Date();
+        const year = today.getFullYear().toString().slice(-2);
+        const month = (today.getMonth() + 1).toString();
+        const day = today.getDate().toString();
+        
+        fromDateFields.year.value = year;
+        fromDateFields.month.value = month;
+        fromDateFields.day.value = day;
+        
+        startingDateFields.year.value = year;
+        startingDateFields.month.value = month;
+        startingDateFields.day.value = day;
+    }
+    
+    // Function to update repeat type
+    function updateEveryNDaysRepeatType(selectedOption) {
+        if (selectedOption === 'Occurs [x] times') {
+            // First fade out repeat until container
+            HTML.setStyle(repeatUntilContainer, { opacity: '0' });
+            // Wait for fade out to complete, then fade in repeat times container
+            setTimeout(() => {
+                HTML.setStyle(repeatTimesContainer, { opacity: '1' });
+            }, 200);
+        } else {
+            // First fade out repeat times container
+            HTML.setStyle(repeatTimesContainer, { opacity: '0' });
+            // Wait for fade out to complete, then fade in repeat until container
+            setTimeout(() => {
+                HTML.setStyle(repeatUntilContainer, { opacity: '1' });
+            }, 200);
+        }
+    }
     
     // Force reflow then animate in
     instanceEditorContainer.offsetHeight;
@@ -12159,6 +12429,15 @@ function updateEditorModalPosition() {
     const selectorLeft = modalLeft + 5;
     
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
+    
+    // Update Every N Days repeat type selector if it exists
+    const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
+    if (exists(everyNDaysSelector) && instanceEditorContainer) {
+        const containerTop = parseInt(instanceEditorContainer.style.top);
+        const everyNDaysSelectorTop = modalTop + containerTop + 26;
+        const everyNDaysSelectorLeft = modalLeft + 8;
+        moveSelector('everyNDaysRepeatTypeSelector', everyNDaysSelectorLeft, everyNDaysSelectorTop);
+    }
     
     // Update description textarea gradients after position changes
     updateDescriptionTextareaGradients();

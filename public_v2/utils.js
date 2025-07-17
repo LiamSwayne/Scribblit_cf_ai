@@ -651,6 +651,7 @@ class NthWeekdayOfMonthsPattern {
         // weeks_of_month: "last" or array of 4 booleans
         let weeksSpec = json.weeks_of_month;
         if (type(weeksSpec, String)) {
+            // the ai is told to use 'last' string instead of the symbol LAST_WEEK_OF_MONTH
             if(weeksSpec === 'last') {
                 weeksSpec = LAST_WEEK_OF_MONTH;
             } else {
