@@ -11553,8 +11553,8 @@ function initInstanceButtons(top, instanceClicked) {
         color: '#ffffff',
         fontWeight: 'bold',
         padding: '0',
-        width: `${buttonHeight}px`,
-        height: `${buttonHeight}px`,
+        width: `${buttonHeight + 2}px`, // for some reason buttons are 2px taller than they should be
+        height: `${buttonHeight + 2}px`,
         transition: 'background-color 0.2s ease',
         opacity: '0',
         position: 'relative'
@@ -11585,8 +11585,8 @@ function initInstanceButtons(top, instanceClicked) {
         // Get plus button position within the container
         const containerRect = container.getBoundingClientRect();
         const plusButtonRect = plusButton.getBoundingClientRect();
-        const plusButtonRelativeLeft = plusButtonRect.left - containerRect.left;
-        const plusButtonRelativeTop = plusButtonRect.top - containerRect.top;
+        const plusButtonRelativeLeft = plusButtonRect.left - containerRect.left + 2; // +2 to account for border
+        const plusButtonRelativeTop = plusButtonRect.top - containerRect.top - 1;
 
         // Create dropdown buttons
         dropdownOptions.forEach((option, index) => {
@@ -11618,7 +11618,7 @@ function initInstanceButtons(top, instanceClicked) {
                 zIndex: String(editorModalBaseZIndex + 2),
                 opacity: '0',
                 whiteSpace: 'nowrap',
-                // Start at plus button position within container
+                // Start from left edge of plus button to slide in from left
                 top: `${plusButtonRelativeTop}px`,
                 left: `${plusButtonRelativeLeft}px`
             });
