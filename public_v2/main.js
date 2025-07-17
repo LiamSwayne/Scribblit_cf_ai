@@ -11556,34 +11556,183 @@ function initInstanceButtons(top, instanceClicked) {
         width: `${buttonHeight}px`,
         height: `${buttonHeight}px`,
         transition: 'background-color 0.2s ease',
-        opacity: '0'
+        opacity: '0',
+        position: 'relative'
     });
 
     // Replace content with SVG plus icon
     plusButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 3v12M3 9h12" stroke="var(--shade-0)" stroke-width="2" stroke-linecap="round"/></svg>';
 
-    // Plus button click handler
-    plusButton.onclick = function() {
-        addNewInstance();
-    };
-
     // Hover effects for plus button
     HTML.setData(plusButton, 'ORIGINAL_COLOR', plusButtonColor);
-    plusButton.onmouseenter = function() {
-        const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
-        const originalRgb = colorStringToRgb(originalColor);
+    
+    // Dropdown options for plus button
+    const dropdownOptions = [
+        { name: 'One-time', action: () => addNewInstance('one-time') },
+        { name: 'Daily', action: () => addNewInstance('daily') },
+        { name: 'Weekly', action: () => addNewInstance('weekly') },
+        { name: 'Monthly', action: () => addNewInstance('monthly') },
+        { name: 'Yearly', action: () => addNewInstance('yearly') }
+    ];
+
+    let dropdownVisible = false;
+    let dropdownButtons = [];
+
+    function showDropdown() {
+        if (dropdownVisible) return;
+        dropdownVisible = true;
+
+        // Get plus button position within the container
+        const containerRect = container.getBoundingClientRect();
+        const plusButtonRect = plusButton.getBoundingClientRect();
+        const plusButtonRelativeLeft = plusButtonRect.left - containerRect.left;
+        const plusButtonRelativeTop = plusButtonRect.top - containerRect.top;
+
+        // Create dropdown buttons
+        dropdownOptions.forEach((option, index) => {
+            const button = HTML.make('div');
+            HTML.setId(button, `dropdownOption_${index}`);
+            
+            // Use same color scheme as instance buttons
+            const factor = dropdownOptions.length > 1 ? index / (dropdownOptions.length - 1) : 0;
+            const interpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
+            const buttonColor = `rgb(${interpolatedRgb.r}, ${interpolatedRgb.g}, ${interpolatedRgb.b})`;
+            
+            HTML.setStyle(button, {
+                position: 'absolute',
+                backgroundColor: buttonColor,
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '10px',
+                fontFamily: 'MonospaceRegular',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                paddingLeft: '6px',
+                paddingRight: '6px',
+                height: `${buttonHeight}px`,
+                border: '1px solid transparent',
+                transition: 'all 0.2s ease',
+                zIndex: String(editorModalBaseZIndex + 2),
+                opacity: '0',
+                whiteSpace: 'nowrap',
+                // Start at plus button position within container
+                top: `${plusButtonRelativeTop}px`,
+                left: `${plusButtonRelativeLeft}px`
+            });
+            
+            button.textContent = option.name;
+            
+            // Hover effects
+            button.onmouseenter = function() {
+                const originalRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
+                const blendedRgb = {
+                    r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
+                    g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
+                    b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
+                };
+                HTML.setStyle(this, { backgroundColor: `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})` });
+            };
+            
+            button.onmouseleave = function() {
+                HTML.setStyle(this, { backgroundColor: buttonColor });
+            };
+            
+            button.onclick = function(e) {
+                e.stopPropagation();
+                option.action();
+                hideDropdown();
+            };
+            
+            container.appendChild(button);
+            dropdownButtons.push(button);
+            
+            // Force layout to get actual width, then animate to final position
+            setTimeout(() => {
+                const buttonWidth = button.offsetWidth;
+                const finalTop = plusButtonRelativeTop + (index + 1) * (buttonHeight + buttonSpacing);
+                const finalLeft = plusButtonRelativeLeft + buttonHeight - buttonWidth; // right-align with plus button
+                
+                HTML.setStyle(button, {
+                    top: `${finalTop}px`,
+                    left: `${finalLeft}px`,
+                    opacity: '1'
+                });
+            }, index * 50);
+        });
+
+        // Change plus button color
+        const originalRgb = colorStringToRgb(plusButtonColor);
         const blendedRgb = {
             r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
             g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
             b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
         };
-        HTML.setStyle(this, { backgroundColor: `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})` });
+        HTML.setStyle(plusButton, { backgroundColor: `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})` });
+    }
+
+    function hideDropdown() {
+        if (!dropdownVisible) return;
+        dropdownVisible = false;
+
+        // Get plus button position within the container
+        const containerRect = container.getBoundingClientRect();
+        const plusButtonRect = plusButton.getBoundingClientRect();
+        const plusButtonRelativeLeft = plusButtonRect.left - containerRect.left;
+        const plusButtonRelativeTop = plusButtonRect.top - containerRect.top;
+
+        // Animate back to plus button position
+        dropdownButtons.forEach((button, index) => {
+            const delay = (dropdownButtons.length - 1 - index) * 30;
+            setTimeout(() => {
+                HTML.setStyle(button, {
+                    top: `${plusButtonRelativeTop}px`,
+                    left: `${plusButtonRelativeLeft}px`,
+                    opacity: '0'
+                });
+            }, delay);
+        });
+
+        // Remove buttons after animation
+        setTimeout(() => {
+            dropdownButtons.forEach(button => {
+                if (button && button.parentNode) {
+                    button.parentNode.removeChild(button);
+                }
+            });
+            dropdownButtons = [];
+        }, dropdownButtons.length * 30 + 200);
+
+        // Restore plus button color
+        HTML.setStyle(plusButton, { backgroundColor: plusButtonColor });
+    }
+
+    let dropdownTimeout;
+
+    // Plus button hover handlers
+    plusButton.onmouseenter = function() {
+        clearTimeout(dropdownTimeout);
+        showDropdown();
     };
 
     plusButton.onmouseleave = function() {
-        const originalColor = HTML.getData(this, 'ORIGINAL_COLOR');
-        HTML.setStyle(this, { backgroundColor: originalColor });
+        dropdownTimeout = setTimeout(hideDropdown, 150);
     };
+
+    // Handle dropdown hover
+    container.addEventListener('mouseover', function(e) {
+        if (e.target.id && e.target.id.startsWith('dropdownOption_')) {
+            clearTimeout(dropdownTimeout);
+        }
+    });
+
+    container.addEventListener('mouseout', function(e) {
+        if (e.target.id && e.target.id.startsWith('dropdownOption_')) {
+            dropdownTimeout = setTimeout(hideDropdown, 150);
+        }
+    });
 
     container.appendChild(plusButton);
 
@@ -11686,9 +11835,29 @@ function deleteInstance(instanceIndex) {
     });
 }
 
-function addNewInstance() {
-    // TODO: Implement new instance creation
-    console.log('Add new instance');
+function addNewInstance(patternType = 'one-time') {
+    console.log('Add new instance with pattern:', patternType);
+    
+    // TODO: Implement actual instance creation logic based on pattern type
+    // For now, just log the pattern type
+    switch (patternType) {
+        case 'daily':
+            console.log('Creating daily recurring instance');
+            break;
+        case 'weekly':
+            console.log('Creating weekly recurring instance');
+            break;
+        case 'monthly':
+            console.log('Creating monthly recurring instance');
+            break;
+        case 'yearly':
+            console.log('Creating yearly recurring instance');
+            break;
+        case 'one-time':
+        default:
+            console.log('Creating one-time instance');
+            break;
+    }
 }
 
 // date pattern editor functions
