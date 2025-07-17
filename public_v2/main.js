@@ -11575,6 +11575,7 @@ function initInstanceButtons(top, instanceClicked) {
         { name: 'Monthly', action: () => addNewInstance('monthly') },
         { name: 'Yearly', action: () => addNewInstance('yearly') },
         { name: 'Every [N] days', action: () => addNewInstance('every-n-days') },
+        { name: 'First [weekday] of month', action: () => addNewInstance('first-weekday') },
         { name: '[N]th [weekday] of month', action: () => addNewInstance('nth-weekday') },
         { name: 'Last [weekday] of month', action: () => addNewInstance('last-weekday') }
     ];
@@ -11845,55 +11846,91 @@ function deleteInstance(instanceIndex) {
 }
 
 function addNewInstance(patternType = 'one-time') {
-    console.log('Add new instance with pattern:', patternType);
+    const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
+    const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
+    const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
     
-    // TODO: Implement actual instance creation logic based on pattern type
-    // For now, just log the pattern type
     switch (patternType) {
+        case 'one-time':
+            initDateInstanceEditor(top, 'new');
+            break;
         case 'daily':
-            console.log('Creating daily recurring instance');
+            initEveryNDaysPatternEditor(top, 'new', 1);
             break;
         case 'weekly':
-            console.log('Creating weekly recurring instance');
+            initEveryNDaysPatternEditor(top, 'new', 7);
+            break;
+        case 'every-n-days':
+            initEveryNDaysPatternEditor(top, 'new', NULL);
             break;
         case 'monthly':
-            console.log('Creating monthly recurring instance');
+            initMonthlyPatternEditor(top, 'new');
             break;
         case 'yearly':
-            console.log('Creating yearly recurring instance');
+            initAnnuallyPatternEditor(top, 'new');
             break;
-        case 'one-time':
+        case 'first-weekday':
+            initNthWeekdayOfMonthsPatternEditor(top, 'new', [true, false, false, false]);
+            break;
+        case 'nth-weekday':
+            initNthWeekdayOfMonthsPatternEditor(top, 'new', NULL);
+            break;
+        case 'last-weekday':
+            initNthWeekdayOfMonthsPatternEditor(top, 'new', symbolToString(LAST_WEEK_OF_MONTH));
+            break;
         default:
-            console.log('Creating one-time instance');
+            ASSERT(false, "Unknown pattern type: " + String(patternType));
             break;
     }
 }
 
 // date pattern editor functions
-function initEveryNDaysPatternEditor(top) {
+function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     ASSERT(type(top, Number));
+    ASSERT(type(newOrIndex, Union(String, Uint)));
+    ASSERT(type(preloadedN, Union(Uint, NULL)));
+    if (type(newOrIndex, Uint)) {
+        ASSERT(preloadedN === NULL, "preloadedN must be NULL when editing existing instance");
+    } else {
+        ASSERT(newOrIndex === 'new', "newOrIndex must be 'new' when creating new instance, or an integer when editing an existing one");
+    }
     // TODO: Implement EveryNDaysPattern editor
+    // preloadedN can be 1 for daily, 7 for weekly, or NULL for user input
 }
 
-function initMonthlyPatternEditor(top) {
+function initMonthlyPatternEditor(top, newOrIndex) {
     ASSERT(type(top, Number));
+    ASSERT(type(newOrIndex, Union(String, Uint)));
     // TODO: Implement MonthlyPattern editor
+    // newOrIndex: 'new' for creating new instance, or index for editing existing
 }
 
-function initAnnuallyPatternEditor(top) {
+function initAnnuallyPatternEditor(top, newOrIndex) {
     ASSERT(type(top, Number));
+    ASSERT(type(newOrIndex, Union(String, Uint)));
     // TODO: Implement AnnuallyPattern editor
+    // newOrIndex: 'new' for creating new instance, or index for editing existing
 }
 
-function initNthWeekdayOfMonthsPatternEditor(top) {
+function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekdays = NULL) {
     ASSERT(type(top, Number));
+    ASSERT(type(newOrIndex, Union(String, Uint)));
+    ASSERT(type(preloadedNthWeekdays, Union(List(Boolean), String, NULL)));
+    if (type(newOrIndex, Uint)) {
+        ASSERT(preloadedNthWeekdays === NULL, "preloadedNthWeekdays must be NULL when editing existing instance");
+    }
     // TODO: Implement NthWeekdayOfMonthsPattern editor
+    // newOrIndex: 'new' for creating new instance, or index for editing existing
+    // preloadedNthWeekdays can be [true,false,false,false] for first weekday, 
+    // symbolToString(LAST_WEEK_OF_MONTH) for last weekday, or NULL for user input
 }
 
 // for non-recurring
-function initDateInstanceEditor(top) {
+function initDateInstanceEditor(top, newOrIndex) {
     ASSERT(type(top, Number));
+    ASSERT(type(newOrIndex, Union(String, Uint)));
     // TODO: Implement date editor
+    // newOrIndex: 'new' for creating new instance, or index for editing existing
 }
 
 function closeDateFieldInput() {
