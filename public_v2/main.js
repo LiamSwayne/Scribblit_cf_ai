@@ -10696,9 +10696,38 @@ function editorModalKindChange(selectedOption) {
                 
                 // Convert task fields to event fields
                 if (taskInstance.date) eventInstance.startDate = taskInstance.date;
-                if (taskInstance.dueTime) eventInstance.startTime = taskInstance.dueTime;
                 if (taskInstance.datePattern) eventInstance.startDatePattern = taskInstance.datePattern;
                 if (taskInstance.range) eventInstance.range = taskInstance.range;
+                
+                // Smart time handling: only update if task time doesn't match existing start or end times
+                if (taskInstance.dueTime && taskInstance.dueTime !== symbolToString(NULL)) {
+                    const taskTime = taskInstance.dueTime;
+                    const originalStartTime = originalEventInstance.startTime;
+                    const originalEndTime = originalEventInstance.endTime;
+                    
+                    // Check if task time matches either original start or end time
+                    const timeMatches = (timeField) => {
+                        return timeField && timeField !== symbolToString(NULL) && 
+                               timeField.hour === taskTime.hour && 
+                               timeField.minute === taskTime.minute;
+                    };
+                    
+                    const matchesStart = timeMatches(originalStartTime);
+                    const matchesEnd = timeMatches(originalEndTime);
+                    
+                    if (matchesStart || matchesEnd) {
+                        // Task time matches an existing event time, so preserve original event times
+                        if (originalStartTime && originalStartTime !== symbolToString(NULL)) {
+                            eventInstance.startTime = originalStartTime;
+                        }
+                        if (originalEndTime && originalEndTime !== symbolToString(NULL)) {
+                            eventInstance.endTime = originalEndTime;
+                        }
+                    } else {
+                        // Task time doesn't match existing times, so set it as start time
+                        eventInstance.startTime = taskTime;
+                    }
+                }
                 
                 // Only set defaults for event-specific fields if they don't already exist
                 if (!eventInstance.hasOwnProperty('endTime')) {
