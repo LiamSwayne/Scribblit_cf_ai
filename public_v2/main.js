@@ -4031,7 +4031,7 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                         width: `${width}px`,
                         height: `${height}px`,
                         pointerEvents: 'none',
-                        zIndex: String(timedEventBaseZIndex + 1440 * 2 + 1), // Above all timed events (max possible event z-index + 1)
+                        zIndex: String(reminderBaseZIndex + 1440 + reminderIndexIncreaseOnHover + 1), // Above all timed events and reminders
                         borderRadius: '8px',
                         border: '2px solid var(--shade-4)',
                         boxSizing: 'border-box',
