@@ -1807,7 +1807,7 @@ class RecurringEventInstance {
 
 // TaskData and EventData
 class TaskData {
-    constructor(instances, hideUntil, showOverdue, workSessions) {
+    constructor(instances, hideUntil, showOverdue, workSessions, alarm) {
         // Check instances is a list of either NonRecurringTaskInstance or RecurringTaskInstance
         ASSERT(type(instances, List(Union(NonRecurringTaskInstance, RecurringTaskInstance))));
         ASSERT(type(hideUntil, Union(NULL, HideUntilRelative, HideUntilDate, HideUntilDayOf)));
@@ -1816,12 +1816,18 @@ class TaskData {
         
         ASSERT(type(workSessions, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
 
+        ASSERT(type(alarm, Union(NULL, Int)), "TaskData: alarm must be NULL or integer");
+        if (alarm !== NULL) {
+            ASSERT(alarm >= 0, "TaskData: alarm must be non-negative if not NULL");
+        }
+
         // TODO make sure that every work session ends before the due date of the task
         
         this.instances = instances;
         this.hideUntil = hideUntil;
         this.showOverdue = showOverdue;
         this.workSessions = workSessions;
+        this.alarm = alarm;
     }
 
     getDueDates(startUnix, endUnix) {
@@ -1887,11 +1893,18 @@ class TaskData {
         for (const session of this.workSessions) {
             workSessionsJson.push(session.encode());
         }
+        let alarmJson;
+        if (this.alarm === NULL) {
+            alarmJson = symbolToString(NULL);
+        } else {
+            alarmJson = this.alarm;
+        }
         return {
             instances: instancesJson,
             hideUntil: hideUntilJson,
             showOverdue: this.showOverdue,
             workSessions: workSessionsJson,
+            alarm: alarmJson,
             _type: 'TaskData'
         };
     }
@@ -1932,7 +1945,13 @@ class TaskData {
                 ASSERT(false, 'Unknown workSession type in TaskData.decode');
             }
         }
-        return new TaskData(instances, hideUntil, json.showOverdue, workSessions);
+        let alarm;
+        if (json.alarm === symbolToString(NULL) || json.alarm === undefined || json.alarm === null) {
+            alarm = NULL;
+        } else {
+            alarm = json.alarm;
+        }
+        return new TaskData(instances, hideUntil, json.showOverdue, workSessions, alarm);
     }
 
     // Parse AI-supplied JSON for a task structure (uppermost level for a task).
@@ -2037,8 +2056,25 @@ class TaskData {
             }
         }
 
+        // --- ALARM ---
+        let alarm = NULL;
+        if (!AiReturnedNullField(json.alarm)) {
+            if (json.alarm === 'default') {
+                // Will be set by caller with user defaults
+                alarm = 'default';
+            } else {
+                const alarmValue = Number(json.alarm);
+                if (type(alarmValue, Int) && alarmValue >= 0) {
+                    alarm = alarmValue;
+                } else {
+                    log('TaskData.fromAiJson: alarm must be non-negative integer or "default"');
+                    return NULL;
+                }
+            }
+        }
+
         try {
-            const taskData = new TaskData(instances, NULL, true, workSessions);
+            const taskData = new TaskData(instances, NULL, true, workSessions, alarm === 'default' ? NULL : alarm);
             // Optionally mark past-due items complete
             if (markPastDueComplete) {
                 taskData.setPastDueDatesToComplete(excludeWithinDays);
@@ -2052,10 +2088,35 @@ class TaskData {
 }
 
 class EventData {
-    constructor(instances) {
+    constructor(instances, startAlarm, endAlarm) {
         ASSERT(type(instances, List(Union(NonRecurringEventInstance, RecurringEventInstance))));
         
+        ASSERT(type(startAlarm, Union(NULL, Int)), "EventData: startAlarm must be NULL or integer");
+        if (startAlarm !== NULL) {
+            ASSERT(startAlarm >= 0, "EventData: startAlarm must be non-negative if not NULL");
+        }
+        
+        ASSERT(type(endAlarm, Union(NULL, Int)), "EventData: endAlarm must be NULL or integer");
+        if (endAlarm !== NULL) {
+            ASSERT(endAlarm >= 0, "EventData: endAlarm must be non-negative if not NULL");
+        }
+
+        // If any instance has NULL endTime, then endAlarm must be NULL
+        for (const instance of instances) {
+            if (type(instance, NonRecurringEventInstance)) {
+                if (instance.endTime === NULL && endAlarm !== NULL) {
+                    ASSERT(false, "EventData: endAlarm must be NULL if any instance has NULL endTime");
+                }
+            } else if (type(instance, RecurringEventInstance)) {
+                if (instance.endTime === NULL && endAlarm !== NULL) {
+                    ASSERT(false, "EventData: endAlarm must be NULL if any instance has NULL endTime");
+                }
+            }
+        }
+        
         this.instances = instances;
+        this.startAlarm = startAlarm;
+        this.endAlarm = endAlarm;
     }
 
     encode() {
@@ -2064,8 +2125,22 @@ class EventData {
         for (const instance of this.instances) {
             instancesJson.push(instance.encode());
         }
+        let startAlarmJson;
+        if (this.startAlarm === NULL) {
+            startAlarmJson = symbolToString(NULL);
+        } else {
+            startAlarmJson = this.startAlarm;
+        }
+        let endAlarmJson;
+        if (this.endAlarm === NULL) {
+            endAlarmJson = symbolToString(NULL);
+        } else {
+            endAlarmJson = this.endAlarm;
+        }
         return {
             instances: instancesJson,
+            startAlarm: startAlarmJson,
+            endAlarm: endAlarmJson,
             _type: 'EventData'
         };
     }
@@ -2082,7 +2157,19 @@ class EventData {
                 ASSERT(false, 'Unknown instance type in EventData.decode');
             }
         }
-        return new EventData(instances);
+        let startAlarm;
+        if (json.startAlarm === symbolToString(NULL) || json.startAlarm === undefined || json.startAlarm === null) {
+            startAlarm = NULL;
+        } else {
+            startAlarm = json.startAlarm;
+        }
+        let endAlarm;
+        if (json.endAlarm === symbolToString(NULL) || json.endAlarm === undefined || json.endAlarm === null) {
+            endAlarm = NULL;
+        } else {
+            endAlarm = json.endAlarm;
+        }
+        return new EventData(instances, startAlarm, endAlarm);
     }
 
     // Parse AI-supplied JSON for an event structure.
@@ -2127,8 +2214,55 @@ class EventData {
             instances.push(conv);
         }
 
+        // --- START ALARM ---
+        let startAlarm = NULL;
+        if (!AiReturnedNullField(json.start_alarm)) {
+            if (json.start_alarm === 'default') {
+                // Will be set by caller with user defaults
+                startAlarm = 'default';
+            } else {
+                const startAlarmValue = Number(json.start_alarm);
+                if (type(startAlarmValue, Int) && startAlarmValue >= 0) {
+                    startAlarm = startAlarmValue;
+                } else {
+                    log('EventData.fromAiJson: start_alarm must be non-negative integer or "default"');
+                    return NULL;
+                }
+            }
+        }
+
+        // --- END ALARM ---
+        let endAlarm = NULL;
+        if (!AiReturnedNullField(json.end_alarm)) {
+            if (json.end_alarm === 'default') {
+                // Will be set by caller with user defaults
+                endAlarm = 'default';
+            } else {
+                const endAlarmValue = Number(json.end_alarm);
+                if (type(endAlarmValue, Int) && endAlarmValue >= 0) {
+                    endAlarm = endAlarmValue;
+                } else {
+                    log('EventData.fromAiJson: end_alarm must be non-negative integer or "default"');
+                    return NULL;
+                }
+            }
+        }
+
+        // Check if any instance has NULL endTime, endAlarm must be NULL
+        for (const inst of instances) {
+            if ((type(inst, NonRecurringEventInstance) && inst.endTime === NULL) ||
+                (type(inst, RecurringEventInstance) && inst.endTime === NULL)) {
+                if (endAlarm !== NULL && endAlarm !== 'default') {
+                    log('EventData.fromAiJson: end_alarm must be NULL if any instance has NULL endTime');
+                    return NULL;
+                }
+                endAlarm = NULL;
+                break;
+            }
+        }
+
         try {
-            return new EventData(instances);
+            return new EventData(instances, startAlarm === 'default' ? NULL : startAlarm, endAlarm === 'default' ? NULL : endAlarm);
         } catch (e) {
             log('EventData.fromAiJson: error creating EventData');
             return NULL;
@@ -2394,9 +2528,11 @@ class RecurringReminderInstance {
 }
 
 class ReminderData {
-    constructor(instances) {
+    constructor(instances, alarm) {
         ASSERT(type(instances, List(Union(NonRecurringReminderInstance, RecurringReminderInstance))));
+        ASSERT(type(alarm, Boolean), "ReminderData: alarm must be boolean");
         this.instances = instances;
+        this.alarm = alarm;
     }
 
     encode() {
@@ -2407,6 +2543,7 @@ class ReminderData {
         }
         return {
             instances: instancesJson,
+            alarm: this.alarm,
             _type: 'ReminderData'
         };
     }
@@ -2423,7 +2560,8 @@ class ReminderData {
                 ASSERT(false, 'Unknown instance type in ReminderData.decode');
             }
         }
-        return new ReminderData(instances);
+        let alarm = json.alarm !== undefined ? json.alarm : false;
+        return new ReminderData(instances, alarm);
     }
 
     // AI JSON schema: { "type":"reminder", "instances": [ ... ] }
@@ -2463,8 +2601,19 @@ class ReminderData {
             instances.push(conv);
         }
 
+        // --- ALARM ---
+        let alarm = false; // default value
+        if (!AiReturnedNullField(json.alarm)) {
+            if (json.alarm === 'default') {
+                // Will be set by caller with user defaults
+                alarm = 'default';
+            } else {
+                alarm = Boolean(json.alarm);
+            }
+        }
+
         try {
-            return new ReminderData(instances);
+            return new ReminderData(instances, alarm === 'default' ? false : alarm);
         } catch (e) {
             log('ReminderData.fromAiJson: error creating ReminderData');
             return NULL;
@@ -2527,7 +2676,7 @@ class Entity {
 
     // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
     // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
-    static fromAiJson(aiObject, markPastDueComplete = true, excludeWithinDays = 0) {
+    static fromAiJson(aiObject, markPastDueComplete = true, excludeWithinDays = 0, userAlarmDefaults = NULL) {
         if(!exists(aiObject) || !type(aiObject, Object)) {
             return NULL;
         }
@@ -2546,10 +2695,43 @@ class Entity {
         let data = NULL;
         if (aiObject.type === 'task') {
             data = TaskData.fromAiJson(aiObject, markPastDueComplete, excludeWithinDays);
+            // Apply user default for task alarm if needed
+            if (data !== NULL && userAlarmDefaults !== NULL) {
+                if (aiObject.alarm === 'default') {
+                    if (userAlarmDefaults.task === NULL) {
+                        data.alarm = NULL;
+                    } else {
+                        data.alarm = userAlarmDefaults.task;
+                    }
+                }
+            }
         } else if (aiObject.type === 'event') {
             data = EventData.fromAiJson(aiObject);
+            // Apply user defaults for event alarms if needed
+            if (data !== NULL && userAlarmDefaults !== NULL) {
+                if (aiObject.start_alarm === 'default') {
+                    if (userAlarmDefaults.event === NULL) {
+                        data.startAlarm = NULL;
+                    } else {
+                        data.startAlarm = userAlarmDefaults.event;
+                    }
+                }
+                if (aiObject.end_alarm === 'default') {
+                    if (userAlarmDefaults.event === NULL) {
+                        data.endAlarm = NULL;
+                    } else {
+                        data.endAlarm = userAlarmDefaults.event;
+                    }
+                }
+            }
         } else if (aiObject.type === 'reminder') {
             data = ReminderData.fromAiJson(aiObject);
+            // Apply user default for reminder alarm if needed
+            if (data !== NULL && userAlarmDefaults !== NULL) {
+                if (aiObject.alarm === 'default') {
+                    data.alarm = userAlarmDefaults.reminders;
+                }
+            }
         } else {
             log('Entity.fromAiJson: unknown item type ' + String(aiObject.type));
             return NULL;
@@ -3219,6 +3401,18 @@ class User {
         // how many hours to offset
         ASSERT(type(settings.hideEmptyTimespanInCalendar, Boolean));
         
+        // Validate alarm settings
+        ASSERT(type(settings.alarms, Object), "User: settings.alarms must be an object");
+        ASSERT(type(settings.alarms.task, Union(NULL, Int)), "User: settings.alarms.task must be NULL or integer");
+        if (settings.alarms.task !== NULL) {
+            ASSERT(settings.alarms.task >= 0, "User: settings.alarms.task integer must be non-negative");
+        }
+        ASSERT(type(settings.alarms.event, Union(NULL, Int)), "User: settings.alarms.event must be NULL or integer");
+        if (settings.alarms.event !== NULL) {
+            ASSERT(settings.alarms.event >= 0, "User: settings.alarms.event integer must be non-negative");
+        }
+        ASSERT(type(settings.alarms.reminders, Boolean), "User: settings.alarms.reminders must be boolean");
+        
         // Validate dateFormat
         ASSERT(type(settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings: " + String(settings.dateFormat));
         ASSERT(settings.dateFormat.length === 3, "dateFormat must have exactly 3 elements");
@@ -3332,6 +3526,16 @@ class User {
             ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
             ASSERT(type(data.settings.ampmOr24, String));
             ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
+            ASSERT(type(data.settings.alarms, Object), "User.decode: settings.alarms must be an object");
+            ASSERT(type(data.settings.alarms.task, Union(NULL, Int)), "User.decode: settings.alarms.task must be NULL or integer");
+            if (data.settings.alarms.task !== NULL) {
+                ASSERT(data.settings.alarms.task >= 0, "User.decode: settings.alarms.task integer must be non-negative");
+            }
+            ASSERT(type(data.settings.alarms.event, Union(NULL, Int)), "User.decode: settings.alarms.event must be NULL or integer");
+            if (data.settings.alarms.event !== NULL) {
+                ASSERT(data.settings.alarms.event >= 0, "User.decode: settings.alarms.event integer must be non-negative");
+            }
+            ASSERT(type(data.settings.alarms.reminders, Boolean), "User.decode: settings.alarms.reminders must be boolean");
             ASSERT(type(data.settings.dateFormat, List(NonEmptyString)), "dateFormat must be an array of non-empty strings: " + String(data.settings.dateFormat));
             ASSERT(data.settings.dateFormat.length === 3, "dateFormat must have exactly 3 elements");
             const dateFormatCounts = { Y: 0, M: 0, D: 0 };
@@ -3380,6 +3584,11 @@ class User {
                 ampmOr24: 'ampm',
                 hideEmptyTimespanInCalendar: true,
                 dateFormat: ['M', 'D', 'Y'],
+                alarms: {
+                    task: NULL,
+                    event: NULL,
+                    reminders: false
+                }
             },
             palettes.dark,
             NULL, // userId
@@ -3731,13 +3940,13 @@ function type(thing, sometype) {
         try { new RecurringReminderInstance(thing.datePattern, thing.time, thing.range); return true; } catch (e) { return false; }
     } else if (sometype === TaskData) {
         if (!(thing instanceof TaskData)) return false;
-        try { new TaskData(thing.instances, thing.hideUntil, thing.showOverdue, thing.workSessions); return true; } catch (e) { return false; }
+        try { new TaskData(thing.instances, thing.hideUntil, thing.showOverdue, thing.workSessions, thing.alarm); return true; } catch (e) { return false; }
     } else if (sometype === EventData) {
         if (!(thing instanceof EventData)) return false;
-        try { new EventData(thing.instances); return true; } catch (e) { return false; }
+        try { new EventData(thing.instances, thing.startAlarm, thing.endAlarm); return true; } catch (e) { return false; }
     } else if (sometype === ReminderData) {
         if (!(thing instanceof ReminderData)) return false;
-        try { new ReminderData(thing.instances); return true; } catch (e) { return false; }
+        try { new ReminderData(thing.instances, thing.alarm); return true; } catch (e) { return false; }
     } else if (sometype === FilteredSegmentOfDayInstance) {
         if (!(thing instanceof FilteredSegmentOfDayInstance)) return false;
         try { new FilteredSegmentOfDayInstance(thing.id, thing.name, thing.startDateTime, thing.endDateTime, thing.originalStartDate, thing.originalStartTime, thing.wrapToPreviousDay, thing.wrapToNextDay, thing.instanceKind, thing.taskIsComplete, thing.patternIndex, thing.ambiguousEndTime, thing.ui); return true; } catch (e) { return false; }
