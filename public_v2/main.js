@@ -12535,8 +12535,27 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
             const pattern = instanceData.datePattern || instanceData.startDatePattern;
             const range = instanceData.range;
             
-            // First, try to populate from the pattern's initial date
-            if (pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
+            // Check if this is a newly created instance (empty initial date) and set to today
+            let isNewInstance = false;
+            if (pattern && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
+                isNewInstance = true;
+                // Set start date to today for new instances
+                const today = new Date();
+                const year = today.getFullYear().toString().slice(-2);
+                const month = (today.getMonth() + 1).toString();
+                const day = today.getDate().toString();
+                
+                fromDateFields.year.value = year;
+                fromDateFields.month.value = month;
+                fromDateFields.day.value = day;
+                
+                startingDateFields.year.value = year;
+                startingDateFields.month.value = month;
+                startingDateFields.day.value = day;
+            }
+            
+            // If not a new instance, populate from the pattern's initial date
+            if (!isNewInstance && pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
                 const patternStartDate = DateField.decode(pattern.initialDate);
                 const patternYear = patternStartDate.year.toString().slice(-2);
                 const patternMonth = patternStartDate.month.toString();
@@ -12602,6 +12621,21 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
                 }
                 
                 // Note: The selector will be created with the correct initial selection
+            } else if (isNewInstance) {
+                // For new instances with no range set, make sure the "From" field shows today
+                // (This ensures newly created instances always show today's date as the starting point)
+                const today = new Date();
+                const year = today.getFullYear().toString().slice(-2);
+                const month = (today.getMonth() + 1).toString();
+                const day = today.getDate().toString();
+                
+                fromDateFields.year.value = year;
+                fromDateFields.month.value = month;
+                fromDateFields.day.value = day;
+                
+                startingDateFields.year.value = year;
+                startingDateFields.month.value = month;
+                startingDateFields.day.value = day;
             }
         }
     }
