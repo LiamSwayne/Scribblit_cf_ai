@@ -26,12 +26,12 @@ const NonEmptyString = Symbol('NonEmptyString'); // Symbol for non-empty string 
 let palettes = {
     dark: { // default
         accent: ['#4a83ff', '#c64aff'],
-        events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#6b5b4f'],
+        events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#395c55'],
         shades: ['#191919', '#383838', '#464646', '#9e9e9e', '#ffffff']
     },
     midnight: {
         accent: ['#a82190', '#003fd2'],
-        events: ['#47b6ff', '#b547ff'],
+        events: ['#3a506b', '#5b7553', '#7e4b4b', '#4f4f6b', '#395c55'],
         shades: ['#000000', '#6e6e6e', '#d1d1d1', '#9e9e9e', '#ffffff']
     },
     notebook: {

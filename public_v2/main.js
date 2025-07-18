@@ -10785,9 +10785,11 @@ function editorModalKindChange(selectedOption) {
                     
                     // Check if task time matches either original start or end time
                     const timeMatches = (timeField) => {
-                        return timeField && timeField !== symbolToString(NULL) && 
-                               timeField.hour === taskTime.hour && 
-                               timeField.minute === taskTime.minute;
+                        if (!timeField || timeField === symbolToString(NULL)) return false;
+                        // Ensure we have valid time objects to compare
+                        if (!taskTime || typeof taskTime !== 'object' || !taskTime.hasOwnProperty('hour')) return false;
+                        if (typeof timeField !== 'object' || !timeField.hasOwnProperty('hour')) return false;
+                        return timeField.hour === taskTime.hour && timeField.minute === taskTime.minute;
                     };
                     
                     const matchesStart = timeMatches(originalStartTime);
@@ -10807,7 +10809,10 @@ function editorModalKindChange(selectedOption) {
                     }
                 }
                 
-                // Only set defaults for event-specific fields if they don't already exist
+                // Set defaults for event-specific fields and ensure startTime is properly set
+                if (!eventInstance.hasOwnProperty('startTime')) {
+                    eventInstance.startTime = symbolToString(NULL);
+                }
                 if (!eventInstance.hasOwnProperty('endTime')) {
                     eventInstance.endTime = symbolToString(NULL);
                 }
@@ -11262,19 +11267,29 @@ function getInstanceAsSentence(kind, instance) {
         // Check if there's a different end date
         const hasDifferentEndDate = instance.differentEndDate !== symbolToString(NULL);
         
-        if (instance.startTime !== symbolToString(NULL)) {
-            const startTime = TimeField.decode(instance.startTime);
-            
-            if (hasDifferentEndDate) {
-                // If different end date, just show start time
-                sentence += ` at ${formatTimeNoLeadingZeros(startTime)}`;
-            } else if (instance.endTime !== symbolToString(NULL)) {
-                // Same day with end time: show "from X to Y"
-                const endTime = TimeField.decode(instance.endTime);
-                sentence += ` from ${formatTimeNoLeadingZeros(startTime)} to ${formatTimeNoLeadingZeros(endTime)}`;
-            } else {
-                // Only start time: show "at X"
-                sentence += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+        if (instance.startTime !== symbolToString(NULL) && instance.startTime) {
+            try {
+                const startTime = TimeField.decode(instance.startTime);
+                
+                if (hasDifferentEndDate) {
+                    // If different end date, just show start time
+                    sentence += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+                } else if (instance.endTime !== symbolToString(NULL) && instance.endTime) {
+                    // Same day with end time: show "from X to Y"
+                    try {
+                        const endTime = TimeField.decode(instance.endTime);
+                        sentence += ` from ${formatTimeNoLeadingZeros(startTime)} to ${formatTimeNoLeadingZeros(endTime)}`;
+                    } catch (e) {
+                        // If end time decode fails, just show start time
+                        sentence += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+                    }
+                } else {
+                    // Only start time: show "at X"
+                    sentence += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+                }
+            } catch (e) {
+                // If start time decode fails, don't show time
+                console.warn('Failed to decode start time:', instance.startTime, e);
             }
         }
         return sentence;
@@ -11282,37 +11297,77 @@ function getInstanceAsSentence(kind, instance) {
     
     if (instance._type === 'NonRecurringTaskInstance') {
         let sentence = formatDateUserSettings(DateField.decode(instance.date));
-        if (instance.dueTime !== symbolToString(NULL)) {
-            sentence += ` at ${formatTimeNoLeadingZeros(TimeField.decode(instance.dueTime))}`;
+        if (instance.dueTime !== symbolToString(NULL) && instance.dueTime) {
+            try {
+                sentence += ` at ${formatTimeNoLeadingZeros(TimeField.decode(instance.dueTime))}`;
+            } catch (e) {
+                console.warn('Failed to decode task due time:', instance.dueTime, e);
+            }
         }
         return sentence;
     }
     
     if (instance._type === 'NonRecurringReminderInstance') {
         const dateStr = formatDateUserSettings(DateField.decode(instance.date));
-        if (instance.time === symbolToString(NULL)) {
+        if (instance.time === symbolToString(NULL) || !instance.time) {
             return `${dateStr} at ?`;
         } else {
-            return `${dateStr} at ${formatTimeNoLeadingZeros(TimeField.decode(instance.time))}`;
+            try {
+                return `${dateStr} at ${formatTimeNoLeadingZeros(TimeField.decode(instance.time))}`;
+            } catch (e) {
+                console.warn('Failed to decode reminder time:', instance.time, e);
+                return `${dateStr} at ?`;
+            }
         }
     }
     
     // Handle recurring instances
     if (instance._type === 'RecurringEventInstance') {
-        const startTime = instance.startTime !== symbolToString(NULL) ? TimeField.decode(instance.startTime) : NULL;
-        const endTime = instance.endTime !== symbolToString(NULL) ? TimeField.decode(instance.endTime) : NULL;
+        let startTime = NULL;
+        let endTime = NULL;
+        
+        if (instance.startTime !== symbolToString(NULL) && instance.startTime) {
+            try {
+                startTime = TimeField.decode(instance.startTime);
+            } catch (e) {
+                console.warn('Failed to decode recurring event start time:', instance.startTime, e);
+            }
+        }
+        
+        if (instance.endTime !== symbolToString(NULL) && instance.endTime) {
+            try {
+                endTime = TimeField.decode(instance.endTime);
+            } catch (e) {
+                console.warn('Failed to decode recurring event end time:', instance.endTime, e);
+            }
+        }
+        
         const hasDifferentEndDate = instance.differentEndDatePattern !== symbolToString(NULL) && instance.differentEndDatePattern !== NULL;
         
         return getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate);
     }
     
     if (instance._type === 'RecurringTaskInstance') {
-        const dueTime = instance.dueTime !== symbolToString(NULL) ? TimeField.decode(instance.dueTime) : NULL;
+        let dueTime = NULL;
+        if (instance.dueTime !== symbolToString(NULL) && instance.dueTime) {
+            try {
+                dueTime = TimeField.decode(instance.dueTime);
+            } catch (e) {
+                console.warn('Failed to decode recurring task due time:', instance.dueTime, e);
+            }
+        }
         return getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false);
     }
     
     if (instance._type === 'RecurringReminderInstance') {
-        const time = instance.time !== symbolToString(NULL) ? TimeField.decode(instance.time) : NULL;
+        let time = NULL;
+        if (instance.time !== symbolToString(NULL) && instance.time) {
+            try {
+                time = TimeField.decode(instance.time);
+            } catch (e) {
+                console.warn('Failed to decode recurring reminder time:', instance.time, e);
+            }
+        }
         return getRecurringPatternDescription(instance.datePattern, time, NULL, false);
     }
     
@@ -12516,7 +12571,7 @@ function initReminderAlarmSettings() {
     label.textContent = 'Send notification';
     HTML.setStyle(label, {
         position: 'absolute',
-        top: '8px',
+        top: '6px',
         left: '0px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
@@ -12534,8 +12589,8 @@ function initReminderAlarmSettings() {
      
      createBooleanToggle(
          'reminderAlarmToggle',
-         modalLeft + 150, // absolute x position
-         modalTop + editorModalHeight - 125 + 6, // absolute y position
+         modalLeft + 122, // absolute x position (moved left 28px)
+         modalTop + editorModalHeight - 149, // absolute y position (moved up 30px)
          36, // width
          20, // height
          editorModalBaseZIndex + 1,
@@ -12884,7 +12939,7 @@ function updateAlarmSettingsPosition() {
     if (reminderToggle) {
         const modalLeft = (window.innerWidth - editorModalWidth) / 2;
         const modalTop = (window.innerHeight - editorModalHeight) / 2;
-        moveBooleanToggle('reminderAlarmToggle', modalLeft + 150, modalTop + editorModalHeight - 125 + 6);
+        moveBooleanToggle('reminderAlarmToggle', modalLeft + 122, modalTop + editorModalHeight - 149);
     }
 }
 
