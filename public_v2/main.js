@@ -11809,25 +11809,16 @@ function initInstanceButtons(top, instanceClicked) {
         { name: 'Last [weekday] of month', action: () => addNewInstance('last-weekday') }
     ];
 
-    let dropdownVisible = false;
     let dropdownButtons = [];
+    let dropdownVisible = false;
+    let hideTimeout;
 
-    function showDropdown() {
-        if (dropdownVisible) return;
-        dropdownVisible = true;
-
-        // Get plus button position within the container
-        const containerRect = container.getBoundingClientRect();
-        const plusButtonRect = plusButton.getBoundingClientRect();
-        const plusButtonRelativeLeft = plusButtonRect.left - containerRect.left + 2; // +2 to account for border
-        const plusButtonRelativeTop = plusButtonRect.top - containerRect.top - 1;
-
-        // Create dropdown buttons
+    // Create dropdown buttons once, but position them later
+    function createDropdownButtons() {
         dropdownOptions.forEach((option, index) => {
             const button = HTML.make('div');
-            HTML.setId(button, `dropdownOption_${index}`);
+            HTML.setId(button, `dropdownOption_${index}_${Date.now()}`);
             
-            // Use same color scheme as instance buttons
             const factor = dropdownOptions.length > 1 ? index / (dropdownOptions.length - 1) : 0;
             const interpolatedRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
             const buttonColor = `rgb(${interpolatedRgb.r}, ${interpolatedRgb.g}, ${interpolatedRgb.b})`;
@@ -11848,30 +11839,40 @@ function initInstanceButtons(top, instanceClicked) {
                 paddingRight: '3px',
                 height: `${buttonHeight}px`,
                 border: '1px solid transparent',
-                transition: 'all 0.2s ease',
-                zIndex: String(editorModalBaseZIndex + 2),
+                transition: 'opacity 0.2s ease, background-color 0.2s ease',
+                zIndex: String(editorModalBaseZIndex + 10),
                 opacity: '0',
+                pointerEvents: 'none',
                 whiteSpace: 'nowrap',
-                // Start from left edge of plus button to slide in from left
-                top: `${plusButtonRelativeTop}px`,
-                left: `${plusButtonRelativeLeft}px`
+                top: '0px', // Will be positioned when shown
+                left: '0px'
             });
             
             button.textContent = option.name;
+            HTML.body.appendChild(button);
             
-            // Hover effects
+            // Store data for later use
+            HTML.setData(button, 'BUTTON_COLOR', buttonColor);
+            HTML.setData(button, 'BUTTON_INDEX', index);
+            HTML.setData(button, 'BUTTON_FACTOR', factor);
+            
+            // Simple hover effects
             button.onmouseenter = function() {
-                const originalRgb = interpolateColor(accent1Rgb, accent0Rgb, factor);
+                const storedFactor = HTML.getData(this, 'BUTTON_FACTOR');
+                const originalRgb = interpolateColor(accent1Rgb, accent0Rgb, storedFactor);
                 const blendedRgb = {
                     r: Math.round(originalRgb.r * 0.75 + 255 * 0.25),
                     g: Math.round(originalRgb.g * 0.75 + 255 * 0.25),
                     b: Math.round(originalRgb.b * 0.75 + 255 * 0.25)
                 };
                 HTML.setStyle(this, { backgroundColor: `rgb(${blendedRgb.r}, ${blendedRgb.g}, ${blendedRgb.b})` });
+                clearTimeout(hideTimeout);
             };
             
             button.onmouseleave = function() {
-                HTML.setStyle(this, { backgroundColor: buttonColor });
+                const originalColor = HTML.getData(this, 'BUTTON_COLOR');
+                HTML.setStyle(this, { backgroundColor: originalColor });
+                hideTimeout = setTimeout(hideDropdown, 150);
             };
             
             button.onclick = function(e) {
@@ -11880,26 +11881,46 @@ function initInstanceButtons(top, instanceClicked) {
                 hideDropdown();
             };
             
-            container.appendChild(button);
             dropdownButtons.push(button);
+        });
+    }
+
+    function positionDropdownButtons() {
+        const plusButtonRect = plusButton.getBoundingClientRect();
+        const plusButtonAbsoluteLeft = plusButtonRect.left + 2;
+        const plusButtonAbsoluteTop = plusButtonRect.top - 1;
+
+        dropdownButtons.forEach((button, index) => {
+            const finalTop = plusButtonAbsoluteTop + (index + 1) * (buttonHeight + buttonSpacing);
+            const buttonWidth = button.offsetWidth;
+            const isInLeftHalf = plusButtonAbsoluteLeft < (window.innerWidth / 2);
+            const finalLeft = isInLeftHalf ? 
+                plusButtonAbsoluteLeft : 
+                plusButtonAbsoluteLeft + buttonHeight - buttonWidth;
             
-            // Force layout to get actual width, then animate to final position
-            setTimeout(() => {
-                const buttonWidth = button.offsetWidth;
-                const finalTop = plusButtonRelativeTop + (index + 1) * (buttonHeight + buttonSpacing);
-                
-                // Check if plus button is in left half of modal to determine alignment
-                const isInLeftHalf = plusButtonRelativeLeft < (editorModalWidth / 2);
-                const finalLeft = isInLeftHalf ? 
-                    plusButtonRelativeLeft : // left-align with plus button's left edge
-                    plusButtonRelativeLeft + buttonHeight - buttonWidth; // right-align with plus button's right edge
-                
-                HTML.setStyle(button, {
-                    top: `${finalTop}px`,
-                    left: `${finalLeft}px`,
-                    opacity: '1'
-                });
-            }, index * 50);
+            HTML.setStyle(button, {
+                top: `${finalTop}px`,
+                left: `${finalLeft}px`
+            });
+        });
+    }
+
+    function showDropdown() {
+        if (dropdownVisible) return;
+        dropdownVisible = true;
+        clearTimeout(hideTimeout);
+        
+        HTML.setStyle(container, { zIndex: String(editorModalBaseZIndex + 10000) });
+        
+        // Position buttons correctly first
+        positionDropdownButtons();
+        
+        // Simple fade in
+        dropdownButtons.forEach(button => {
+            HTML.setStyle(button, { 
+                opacity: '1',
+                pointerEvents: 'auto'
+            });
         });
 
         // Change plus button color
@@ -11915,63 +11936,31 @@ function initInstanceButtons(top, instanceClicked) {
     function hideDropdown() {
         if (!dropdownVisible) return;
         dropdownVisible = false;
+        clearTimeout(hideTimeout);
 
-        // Get plus button position within the container
-        const containerRect = container.getBoundingClientRect();
-        const plusButtonRect = plusButton.getBoundingClientRect();
-        const plusButtonRelativeLeft = plusButtonRect.left - containerRect.left;
-        const plusButtonRelativeTop = plusButtonRect.top - containerRect.top;
-
-        // Animate back to plus button position
-        dropdownButtons.forEach((button, index) => {
-            const delay = (dropdownButtons.length - 1 - index) * 30;
-            setTimeout(() => {
-                HTML.setStyle(button, {
-                    top: `${plusButtonRelativeTop}px`,
-                    left: `${plusButtonRelativeLeft}px`,
-                    opacity: '0'
-                });
-            }, delay);
+        // Simple fade out
+        dropdownButtons.forEach(button => {
+            HTML.setStyle(button, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
         });
 
-        // Remove buttons after animation
-        setTimeout(() => {
-            dropdownButtons.forEach(button => {
-                if (button && button.parentNode) {
-                    button.parentNode.removeChild(button);
-                }
-            });
-            dropdownButtons = [];
-        }, dropdownButtons.length * 30 + 200);
-
-        // Restore plus button color
         HTML.setStyle(plusButton, { backgroundColor: plusButtonColor });
+        HTML.setStyle(container, { zIndex: String(editorModalBaseZIndex + 1) });
     }
 
-    let dropdownTimeout;
+    createDropdownButtons();
 
-    // Plus button hover handlers
+    // Simple hover handlers
     plusButton.onmouseenter = function() {
-        clearTimeout(dropdownTimeout);
+        clearTimeout(hideTimeout);
         showDropdown();
     };
 
     plusButton.onmouseleave = function() {
-        dropdownTimeout = setTimeout(hideDropdown, 150);
+        hideTimeout = setTimeout(hideDropdown, 150);
     };
-
-    // Handle dropdown hover
-    container.addEventListener('mouseover', function(e) {
-        if (e.target.id && e.target.id.startsWith('dropdownOption_')) {
-            clearTimeout(dropdownTimeout);
-        }
-    });
-
-    container.addEventListener('mouseout', function(e) {
-        if (e.target.id && e.target.id.startsWith('dropdownOption_')) {
-            dropdownTimeout = setTimeout(hideDropdown, 150);
-        }
-    });
 
     container.appendChild(plusButton);
 
@@ -11989,6 +11978,9 @@ function initInstanceButtons(top, instanceClicked) {
 }
 
 function closeInstanceButtons(callback) {
+    // Clean up dropdown buttons first
+    cleanupDropdownButtons();
+    
     const container = HTML.getElementUnsafely('instanceButtonsContainer');
     if (container && container.parentNode) {
         // Remove immediately without animation
@@ -12001,7 +11993,20 @@ function closeInstanceButtons(callback) {
     }
 }
 
+function cleanupDropdownButtons() {
+    // Remove all dropdown buttons from body
+    const existingDropdownButtons = document.querySelectorAll('[id^="dropdownOption_"]');
+    existingDropdownButtons.forEach(button => {
+        if (button && HTML.body.contains(button)) {
+            HTML.body.removeChild(button);
+        }
+    });
+}
+
 function closeInstanceButtonsImmediate() {
+    // Clean up dropdown buttons
+    cleanupDropdownButtons();
+    
     const container = HTML.getElementUnsafely('instanceButtonsContainer');
     if (container && container.parentNode) {
         container.parentNode.removeChild(container);
@@ -12969,8 +12974,9 @@ function closeEditorModal() {
     // delete selector animates itself
     deleteSelector(editorModalKindSelectorId);
 
-    // close instance buttons
+    // close instance buttons and clean up dropdown buttons
     closeInstanceButtonsImmediate();
+    cleanupDropdownButtons();
 
     // close alarm settings
     closeAlarmSettings();
