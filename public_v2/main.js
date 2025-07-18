@@ -12823,7 +12823,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         color: 'var(--shade-4)',
         fontWeight: 'bold'
     });
-    title.textContent = newOrIndex === 'new' ? 'Add [N]th weekday of month pattern' : 'Edit [N]th weekday of month pattern';
+    title.textContent = '[N]th weekday of month pattern';
     instanceEditorContainer.appendChild(title);
     
     let currentTop = 25;
