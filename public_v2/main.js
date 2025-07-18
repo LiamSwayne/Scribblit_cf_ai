@@ -756,7 +756,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                15 // alarm (15 minutes before)
             ) // data
         ),
 
@@ -774,7 +775,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm
             ) // data
         ),
 
@@ -793,7 +795,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm
             ) // data
         ),
 
@@ -831,7 +834,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm
             ) // data
         ),
 
@@ -869,7 +873,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm
             ) // data
         ),
 
@@ -907,7 +912,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm
             ) // data
         ),
 
@@ -933,7 +939,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm
             ) // data
         ),
 
@@ -974,7 +981,8 @@ function createFakeEntityArray() {
                         new TimeField(15, 30), // endTime
                         NULL // differentEndDate
                     )
-                ] // workSessions
+                ], // workSessions
+                30 // alarm (30 minutes before due)
             ) // data
         ),
     
@@ -1014,7 +1022,8 @@ function createFakeEntityArray() {
                         ), // range
                         NULL // differentEndDatePattern
                     )
-                ] // workSessions
+                ], // workSessions
+                NULL // alarm (no alarm)
             ) // data
         ),
     
@@ -1034,7 +1043,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm (no alarm)
             ) // data
         ),
 
@@ -1053,7 +1063,8 @@ function createFakeEntityArray() {
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
-                [] // workSessions
+                [], // workSessions
+                NULL // alarm (no alarm)
             ) // data
         ),
     
@@ -1070,7 +1081,9 @@ function createFakeEntityArray() {
                         NULL, // endTime
                         NULL // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm
             ) // data
         ),
 
@@ -1086,7 +1099,9 @@ function createFakeEntityArray() {
                         NULL, // endTime
                         NULL // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm
             ) // data
         ),
     
@@ -1110,7 +1125,9 @@ function createFakeEntityArray() {
                         ), // range
                         NULL // differentEndDatePattern
                     )
-                ] // instances
+                ], // instances
+                10, // startAlarm (10 minutes before start)
+                5 // endAlarm (5 minutes before end)
             ) // data
         ),
 
@@ -1127,7 +1144,9 @@ function createFakeEntityArray() {
                         new TimeField(9, 45), // endTime
                         NULL // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm
             )
         ),
 
@@ -1143,7 +1162,9 @@ function createFakeEntityArray() {
                         new TimeField(17, 0), // endTime
                         NULL // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                15, // startAlarm (15 minutes before)
+                10 // endAlarm (10 minutes before end)
             )
         ),
         new Entity(
@@ -1158,7 +1179,9 @@ function createFakeEntityArray() {
                         NULL, // endTime
                         NULL // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm (must be NULL since endTime is NULL)
             )
         ),
 
@@ -1174,7 +1197,9 @@ function createFakeEntityArray() {
                         new TimeField(17, 30), // endTime
                         NULL // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm
             )
         ),
         
@@ -1190,7 +1215,9 @@ function createFakeEntityArray() {
                         new TimeField(19, 0), // endTime
                         NULL // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm
             )
         ),
 
@@ -1206,7 +1233,9 @@ function createFakeEntityArray() {
                         new TimeField(19, 0), // endTime
                         in3Days // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                30, // startAlarm (30 minutes before start)
+                15 // endAlarm (15 minutes before end)
             )
         ),
     
@@ -1223,7 +1252,9 @@ function createFakeEntityArray() {
                         new TimeField(17, 0), // endTime
                         in1WeekPlus2Days // differentEndDate
                     )
-                ] // instances
+                ], // instances
+                60, // startAlarm (1 hour before start)
+                30 // endAlarm (30 minutes before end)
             ) // data
         ),
     
@@ -1244,7 +1275,9 @@ function createFakeEntityArray() {
                         new RecurrenceCount(nextSaturday, 4), // range
                         1 // differentEndDatePattern (e.g. workshop lasts 2 days, so end is start + 1 day)
                     )
-                ] // instances
+                ], // instances
+                20, // startAlarm (20 minutes before start)
+                NULL // endAlarm (no alarm for end)
             ) // data
         ),
 
@@ -1265,7 +1298,9 @@ function createFakeEntityArray() {
                         new RecurrenceCount(today, 4), // range
                         1 // differentEndDatePattern (e.g. workshop lasts 2 days, so end is start + 1 day)
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm
             ) // data
         ),
 
@@ -1279,7 +1314,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(14, 30)
                 )
-            ])
+            ], true) // alarm enabled
         ),
 
         // ambiguous end time event
@@ -1294,7 +1329,7 @@ function createFakeEntityArray() {
                     NULL, // endTime
                     NULL // differentEndDate
                 )
-            ])
+            ], NULL, NULL) // startAlarm, endAlarm (must be NULL since endTime is NULL)
         ),
 
         // this reminder overlaps with the previous one
@@ -1307,7 +1342,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(14, 30)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         // this reminder overlaps with the previous one
@@ -1320,7 +1355,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(14, 30)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         new Entity(
@@ -1332,7 +1367,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(10, 30)
                 )
-            ])
+            ], true) // alarm enabled
         ),
 
         new Entity(
@@ -1344,7 +1379,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(10, 30)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         new Entity(
@@ -1356,7 +1391,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(19, 30)
                 )
-            ])
+            ], true) // alarm enabled
         ),
 
         new Entity(
@@ -1368,7 +1403,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(19, 30)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         new Entity(
@@ -1380,7 +1415,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(19, 30)
                 )
-            ])
+            ], true) // alarm enabled
         ),
 
         new Entity(
@@ -1392,7 +1427,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(19, 30)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         new Entity(
@@ -1404,7 +1439,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(20, 15)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         new Entity(
@@ -1416,7 +1451,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(20, 15)
                 )
-            ])
+            ], true) // alarm enabled
         ),
 
         new Entity(
@@ -1428,7 +1463,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(20, 15)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         new Entity(
@@ -1440,7 +1475,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(20, 15)
                 )
-            ])
+            ], true) // alarm enabled
         ),
 
         new Entity(
@@ -1452,7 +1487,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(21, 15)
                 )
-            ])
+            ], false) // alarm disabled
         ),
 
         new Entity(
@@ -1464,7 +1499,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(21, 15)
                 )
-            ])
+            ], true) // alarm enabled
         ),
 
         new Entity(
@@ -1476,7 +1511,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(21, 15)
                 )
-            ])
+            ], true) // alarm
         ),
 
         new Entity(
@@ -1488,7 +1523,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(21, 15)
                 )
-            ])
+            ], true) // alarm
         ),
 
         new Entity(
@@ -1500,7 +1535,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(21, 15)
                 )
-            ])
+            ], true) // alarm
         ),
 
         new Entity(
@@ -1512,7 +1547,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(21, 15)
                 )
-            ])
+            ], true) // alarm
         ),
 
         // Recurring daily reminder for 3 occurrences
@@ -1531,7 +1566,7 @@ function createFakeEntityArray() {
                     new TimeField(21, 0),
                     new RecurrenceCount(today, 3) // For 3 days
                 )
-            ])
+            ], true) // alarm
         ),
 
         new Entity(
@@ -1547,7 +1582,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(5, 0)
                 )
-            ])
+            ], true) // alarm
         ),
 
         new Entity(
@@ -1559,7 +1594,7 @@ function createFakeEntityArray() {
                     tomorrow, // date
                     new TimeField(21, 25)
                 )
-            ])
+            ], true) // alarm
         ),
 
         // all day recurring event
@@ -1579,7 +1614,9 @@ function createFakeEntityArray() {
                         new RecurrenceCount(today, 2),
                         NULL // differentEndDatePattern
                     )
-                ] // instances
+                ], // instances
+                NULL, // startAlarm
+                NULL // endAlarm
             ) // data
         ),
 
@@ -1592,7 +1629,7 @@ function createFakeEntityArray() {
                     in3Days, // date
                     new TimeField(10, 0)
                 )
-            ])
+            ], true) // alarm
         ),
 
         // COMPLEX TASK - Multiple instances, work sessions, hide until settings
@@ -1652,7 +1689,7 @@ function createFakeEntityArray() {
                         new NthWeekdayOfMonthsPattern(
                             'monday', // dayOfWeek
                             [true, false, false, false], // first Monday of the month
-                            [true, false, false, true, false, false, true, false, false, true, false, false] // Jan, Apr, Jul, Oct
+                            [true, false, false, false, true, false, false, true, false, false, true, false] // Jan, Apr, Jul, Oct
                         ), // datePattern
                         new TimeField(11, 0), // dueTime
                         new DateRange(
@@ -1701,7 +1738,8 @@ function createFakeEntityArray() {
                         new TimeField(13, 0), // endTime
                         NULL // differentEndDate
                     )
-                ] // workSessions
+                ], // workSessions
+                30 // alarm (30 minutes before)
             ) // data
         ),
 
@@ -1797,7 +1835,9 @@ function createFakeEntityArray() {
                         ), // range
                         4 // differentEndDatePattern (5-day retreat)
                     )
-                ] // instances
+                ], // instances
+                15, // startAlarm (15 minutes before)
+                NULL // endAlarm (must be NULL because all-day event has NULL endTime)
             ) // data
         ),
 
@@ -1903,7 +1943,8 @@ function createFakeEntityArray() {
                             24 // count (2 years)
                         ) // range
                     )
-                ] // instances
+                ], // instances
+                true // alarm
             ) // data
         ),
     ];
@@ -1955,7 +1996,7 @@ const timedEventBaseZIndex = 500;
 const reminderBaseZIndex = 3400;
 const reminderIndexIncreaseOnHover = 1441; // 1440 minutes in a day, so this way it must be on top of all other reminders
 const currentTimeIndicatorZIndex = 5000; // > than 3400+1441
-const timeBubbleZIndex = 5001; // above currentTimeIndicatorZIndex
+const timeBubbleZIndex = 5001; // above currentTimeIndicator
 const settingsModalZIndex = 6999;
 const settingsButtonZIndex = 7000; // stays above modal
 const settingsGearZIndex = 7001; // above settings modal but below settings modal content
