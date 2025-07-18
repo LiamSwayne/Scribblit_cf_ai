@@ -12375,6 +12375,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         width: '100%',
         height: '40px',
         opacity: initialSelection === 'Occurs [x] times' ? '1' : '0',
+        pointerEvents: initialSelection === 'Occurs [x] times' ? 'auto' : 'none',
         transition: 'opacity 0.2s ease'
     });
     
@@ -12445,6 +12446,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         width: '100%',
         height: '40px',
         opacity: initialSelection === 'Repeat until [date]' ? '1' : '0',
+        pointerEvents: initialSelection === 'Repeat until [date]' ? 'auto' : 'none',
         transition: 'opacity 0.2s ease'
     });
     
@@ -12607,18 +12609,30 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     // Function to update repeat type
     function updateEveryNDaysRepeatType(selectedOption) {
         if (selectedOption === 'Occurs [x] times') {
-            // First fade out repeat until container
-            HTML.setStyle(repeatUntilContainer, { opacity: '0' });
+            // First fade out repeat until container and disable pointer events
+            HTML.setStyle(repeatUntilContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
             // Wait for fade out to complete, then fade in repeat times container
             setTimeout(() => {
-                HTML.setStyle(repeatTimesContainer, { opacity: '1' });
+                HTML.setStyle(repeatTimesContainer, { 
+                    opacity: '1',
+                    pointerEvents: 'auto'
+                });
             }, 200);
         } else {
-            // First fade out repeat times container
-            HTML.setStyle(repeatTimesContainer, { opacity: '0' });
+            // First fade out repeat times container and disable pointer events
+            HTML.setStyle(repeatTimesContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
             // Wait for fade out to complete, then fade in repeat until container
             setTimeout(() => {
-                HTML.setStyle(repeatUntilContainer, { opacity: '1' });
+                HTML.setStyle(repeatUntilContainer, { 
+                    opacity: '1',
+                    pointerEvents: 'auto'
+                });
             }, 200);
         }
     }
@@ -12729,53 +12743,53 @@ function initDateInstanceEditor(top, newOrIndex) {
     // For now, delegate to the existing specific editors based on pattern type
     if (patternType === 'one-time') {
         // Create container for one-time instance
-        instanceEditorContainer = HTML.make('div');
-        HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
-        HTML.setStyle(instanceEditorContainer, {
-            position: 'absolute',
-            left: '8px',
-            top: top + 'px',
-            width: (editorModalWidth - 16) + 'px',
-            height: '100px',
-            backgroundColor: 'var(--shade-0)',
-            border: '1px solid var(--shade-2)',
-            borderRadius: '6px',
-            padding: '8px',
-            boxSizing: 'border-box',
-            opacity: '0',
-            transition: 'opacity 0.2s ease',
-            zIndex: String(editorModalBaseZIndex + 1)
-        });
-        
-        editorModal.appendChild(instanceEditorContainer);
-        
-        // Add title
-        const title = HTML.make('div');
-        HTML.setStyle(title, {
-            position: 'absolute',
-            top: '8px',
-            left: '8px',
-            fontSize: '14px',
-            fontFamily: 'PrimaryRegular',
-            color: 'var(--shade-4)',
-            fontWeight: 'bold'
-        });
-        title.textContent = newOrIndex === 'new' ? 'Add One-time Instance' : 'Edit One-time Instance';
-        instanceEditorContainer.appendChild(title);
-        
-        // Add date field input
-        const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
+    instanceEditorContainer = HTML.make('div');
+    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+    HTML.setStyle(instanceEditorContainer, {
+        position: 'absolute',
+        left: '8px',
+        top: top + 'px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '100px',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '6px',
+        padding: '8px',
+        boxSizing: 'border-box',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    
+    editorModal.appendChild(instanceEditorContainer);
+    
+    // Add title
+    const title = HTML.make('div');
+    HTML.setStyle(title, {
+        position: 'absolute',
+        top: '8px',
+        left: '8px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        fontWeight: 'bold'
+    });
+    title.textContent = newOrIndex === 'new' ? 'Add One-time Instance' : 'Edit One-time Instance';
+    instanceEditorContainer.appendChild(title);
+    
+    // Add date field input
+    const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
         
         // If editing existing instance, populate fields
         if (instanceData && type(newOrIndex, Uint)) {
             // TODO: Populate date fields from instanceData
         }
-        
-        // Force reflow then animate in
-        instanceEditorContainer.offsetHeight;
-        setTimeout(() => {
-            HTML.setStyle(instanceEditorContainer, { opacity: '1' });
-        }, 10);
+    
+    // Force reflow then animate in
+    instanceEditorContainer.offsetHeight;
+    setTimeout(() => {
+        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+    }, 10);
         
     } else if (patternType === 'daily' || patternType === 'weekly' || patternType === 'every-n-days') {
         // Use the existing every N days editor
