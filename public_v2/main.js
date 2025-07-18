@@ -12832,6 +12832,25 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     
     let selectedDay = 'monday';
     
+    // Determine initial day selection based on existing pattern data (if editing)
+    let initialDaySelection = 'Mon';
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+        editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+        editorModalData._reminder.instances;
+        
+        const instanceData = instances[newOrIndex];
+        if (instanceData && instanceData.startDatePattern && instanceData.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
+            const pattern = instanceData.startDatePattern;
+            selectedDay = pattern.dayOfWeek;
+            const dayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(selectedDay);
+            if (dayIndex !== -1) {
+                const dayOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                initialDaySelection = dayOptions[dayIndex];
+            }
+        }
+    }
+    
     // Get modal position for proper selector positioning
     const modalRect = editorModal.getBoundingClientRect();
     
@@ -12851,7 +12870,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
             const dayIndex = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(selectedOption);
             selectedDay = dayValues[dayIndex];
         },
-        initialSelection: 'Mon',
+        initialSelection: initialDaySelection,
         minWaitTime: 0.1,
         alignmentSide: 'left',
         equalSpacing: true,
@@ -12867,7 +12886,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     const monthContainer = HTML.make('div');
     HTML.setStyle(monthContainer, {
         position: 'absolute',
-        top: currentTop + 'px',
+        top: (currentTop - 3) + 'px',
         left: '0px',
         display: 'flex',
         gap: '2px',
@@ -12912,12 +12931,29 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     // Nth weekday vs Last weekday selector
     let isLastWeekday = false;
     
+    // Determine initial nth weekday type selection based on existing pattern data (if editing)
+    let initialNthWeekdaySelection = '[N]th weekday of month';
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+        editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+        editorModalData._reminder.instances;
+        
+        const instanceData = instances[newOrIndex];
+        if (instanceData && instanceData.startDatePattern && instanceData.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
+            const pattern = instanceData.startDatePattern;
+            if (pattern.nthWeekdays && pattern.nthWeekdays.includes && pattern.nthWeekdays.includes('LAST_WEEK_OF_MONTH')) {
+                isLastWeekday = true;
+                initialNthWeekdaySelection = 'Last weekday of month';
+            }
+        }
+    }
+    
     createSelector({
         options: ['[N]th weekday of month', 'Last weekday of month'],
         orientation: 'horizontal',
         id: 'nthWeekdayTypeSelector',
         x: modalRect.left + 8, // Modal left + padding
-        y: modalRect.top + top + currentTop,
+        y: modalRect.top + top + currentTop - 3,
         width: 280,
         height: 20,
         zIndex: editorModalBaseZIndex + 2,
@@ -12931,7 +12967,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
                 pointerEvents: isLastWeekday ? 'none' : 'auto'
             });
         },
-        initialSelection: '[N]th weekday of month',
+        initialSelection: initialNthWeekdaySelection,
         minWaitTime: 0.2,
         alignmentSide: 'left',
         equalSpacing: false,
@@ -12945,10 +12981,10 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     const nthContainer = HTML.make('div');
     HTML.setStyle(nthContainer, {
         position: 'absolute',
-        top: currentTop + 'px',
+        top: (currentTop - 13) + 'px',
         left: '0px',
         display: 'flex',
-        gap: '8px',
+        gap: '4px',
         transition: 'opacity 0.3s ease'
     });
     instanceEditorContainer.appendChild(nthContainer);
@@ -12970,8 +13006,8 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
             fontSize: '10px',
             fontFamily: 'MonospaceRegular',
             fontWeight: 'bold',
-            width: '35px',
-            height: '20px',
+            width: '28px',
+            height: '16px',
             transition: 'background-color 0.2s ease, color 0.2s ease'
         });
         button.textContent = nth;
@@ -12996,64 +13032,46 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         
         const instanceData = instances[newOrIndex];
         if (instanceData && instanceData.startDatePattern && instanceData.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
-        const pattern = instanceData.startDatePattern;
-        
-        // Set day of week
-        selectedDay = pattern.dayOfWeek;
-        const dayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(selectedDay);
-        if (dayIndex !== -1) {
-            // Update day selector - we need to do this after a brief delay to ensure the selector is fully created
-            setTimeout(() => {
-                const daySelector = HTML.getElementUnsafely('dayOfWeekSelector');
-                if (daySelector) {
-                    // Trigger the selector to update to the correct day
-                    const dayOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                    // We'll need to manually trigger the selector change here
-                    // For now, we can update the visual state
-                }
-            }, 50);
-        }
-        
-        // Set month states
-        if (pattern.months && Array.isArray(pattern.months)) {
-            pattern.months.forEach((active, index) => {
-                if (index < monthStates.length) {
-                    monthStates[index] = active;
-                    if (index < monthButtons.length) {
-                        HTML.setStyle(monthButtons[index], {
-                            backgroundColor: active ? 'var(--accent-0)' : 'var(--shade-1)',
-                            color: active ? 'var(--shade-4)' : 'var(--shade-3)'
-                        });
+            const pattern = instanceData.startDatePattern;
+            
+            // Set month states
+            if (pattern.months && Array.isArray(pattern.months)) {
+                pattern.months.forEach((active, index) => {
+                    if (index < monthStates.length) {
+                        monthStates[index] = active;
+                        if (index < monthButtons.length) {
+                            HTML.setStyle(monthButtons[index], {
+                                backgroundColor: active ? 'var(--accent-0)' : 'var(--shade-1)',
+                                color: active ? 'var(--shade-4)' : 'var(--shade-3)'
+                            });
+                        }
                     }
-                }
-            });
-        }
-        
-        // Check if it's last weekday pattern
-        if (pattern.nthWeekdays && pattern.nthWeekdays.includes && pattern.nthWeekdays.includes('LAST_WEEK_OF_MONTH')) {
-            isLastWeekday = true;
-            // Update selector and hide nth toggles
-            setTimeout(() => {
-                HTML.setStyle(nthContainer, { 
-                    opacity: '0',
-                    pointerEvents: 'none'
                 });
-            }, 50);
-        } else if (pattern.nthWeekdays && Array.isArray(pattern.nthWeekdays)) {
-            // Set nth weekday states
-            pattern.nthWeekdays.forEach((active, index) => {
-                if (index < nthStates.length) {
-                    nthStates[index] = active;
-                    if (index < nthButtons.length) {
-                        HTML.setStyle(nthButtons[index], {
-                            backgroundColor: active ? 'var(--accent-1)' : 'var(--shade-1)',
-                            color: active ? 'var(--shade-4)' : 'var(--shade-3)'
-                        });
+            }
+            
+            // Set nth weekday states (only for non-last weekday patterns)
+            if (pattern.nthWeekdays && Array.isArray(pattern.nthWeekdays)) {
+                pattern.nthWeekdays.forEach((active, index) => {
+                    if (index < nthStates.length) {
+                        nthStates[index] = active;
+                        if (index < nthButtons.length) {
+                            HTML.setStyle(nthButtons[index], {
+                                backgroundColor: active ? 'var(--accent-1)' : 'var(--shade-1)',
+                                color: active ? 'var(--shade-4)' : 'var(--shade-3)'
+                            });
+                        }
                     }
-                }
-            });
+                });
+            }
         }
-        }
+    }
+    
+    // Hide nth toggles if this is a last weekday pattern
+    if (isLastWeekday) {
+        HTML.setStyle(nthContainer, { 
+            opacity: '0',
+            pointerEvents: 'none'
+        });
     }
     
     // Force reflow then animate in
