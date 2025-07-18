@@ -12152,26 +12152,26 @@ function deleteInstance(instanceIndex) {
         }
     } else {
         // For events and reminders, use the original logic
-        const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
-                                editorModalData._reminder.instances;
-        
-        if (currentInstances.length <= 1) {
-            console.log('Cannot delete the last instance - entities must have at least one instance');
-            return;
-        }
-        
-        ASSERT(instanceIndex < currentInstances.length, "deleteInstance: instanceIndex out of bounds");
-        
-        // Store the original length before deletion
-        const originalLength = currentInstances.length;
-        
+    const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
+                            editorModalData._reminder.instances;
+    
+    if (currentInstances.length <= 1) {
+        console.log('Cannot delete the last instance - entities must have at least one instance');
+        return;
+    }
+    
+    ASSERT(instanceIndex < currentInstances.length, "deleteInstance: instanceIndex out of bounds");
+    
+    // Store the original length before deletion
+    const originalLength = currentInstances.length;
+    
         // Delete the instance from the appropriate array
         currentInstances.splice(instanceIndex, 1);
-        
-        // Update the active instance index if necessary
-        if (editorModalActiveInstanceIndex === originalLength - 1) {
-            editorModalActiveInstanceIndex = Math.max(0, editorModalActiveInstanceIndex - 1);
-        }
+    
+    // Update the active instance index if necessary
+    if (editorModalActiveInstanceIndex === originalLength - 1) {
+        editorModalActiveInstanceIndex = Math.max(0, editorModalActiveInstanceIndex - 1);
+    }
     }
     
     // Re-render the instance buttons to reflect the changes
@@ -13270,6 +13270,9 @@ function initDateInstanceEditor(top, newOrIndex) {
 function showInstanceEditor() {
     if (editorModalActiveInstanceIndex === NULL) return;
     
+    // Close any existing editor first to clean up selectors and containers
+    closeDateInstanceEditor();
+    
     const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
     const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
     const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
@@ -13330,9 +13333,7 @@ function closeAnnuallyPatternEditor() {
     // TODO: Implement close function for AnnuallyPattern editor
 }
 
-function closeNthWeekdayOfMonthsPatternEditor() {
-    // TODO: Implement close function for NthWeekdayOfMonthsPattern editor
-}
+
 
 // Unified close function for all instance editors
 function closeDateInstanceEditor() {
@@ -13807,6 +13808,8 @@ function closeEditorModal() {
     // Additional cleanup: directly delete any lingering pattern editor selectors
     // This ensures cleanup even if instanceEditorContainer is in an unexpected state
     deleteSelector('everyNDaysRepeatTypeSelector');
+    deleteSelector('nthWeekdayTypeSelector');
+    deleteSelector('dayOfWeekSelector');
 
     // close alarm settings
     closeAlarmSettings();
