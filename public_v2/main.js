@@ -10654,6 +10654,11 @@ function initEditorModal(id, instanceClicked) {
     // Initialize alarm settings
     initAlarmSettings();
     
+    // Show instance editor for the active instance
+    setTimeout(() => {
+        showInstanceEditor();
+    }, 100); // Small delay to ensure instance buttons are fully rendered
+    
     // Force reflow
     editorModalVignette.offsetHeight;
     editorModal.offsetHeight;
@@ -11508,8 +11513,7 @@ function initInstanceButtons(top, instanceClicked) {
         gap: `${buttonSpacing}px`,
         flexWrap: 'wrap',
         zIndex: String(editorModalBaseZIndex + 1),
-        opacity: '0',
-        transition: 'opacity 0.2s ease'
+        opacity: '1'
     });
     editorModal.appendChild(container);
     
@@ -11740,6 +11744,9 @@ function initInstanceButtons(top, instanceClicked) {
                 }
             }
         }
+        
+        // Update the instance editor to show the new active instance
+        showInstanceEditor();
     }
 
     for (let i = 0; i < instanceCount; i++) {
@@ -11964,9 +11971,7 @@ function initInstanceButtons(top, instanceClicked) {
 
     container.appendChild(plusButton);
 
-    // Show container & its children immediately
-    HTML.setStyle(container, { opacity: '1' });
-    // Show all wrappers
+    // Show all wrappers immediately
     for (let i = 0; i < instanceCount; i++) {
         const wrapper = HTML.getElementUnsafely(`instanceWrapper_${i}`);
         if (wrapper) {
@@ -12076,46 +12081,116 @@ function deleteInstance(instanceIndex) {
     // Re-render the instance buttons to reflect the changes
     closeInstanceButtons(() => {
         initInstanceButtons(editorModalInstanceButtonsSectionTop, NULL);
+        // Show editor for the new active instance after deletion
+        showInstanceEditor();
     });
 }
 
 function addNewInstance(patternType = 'one-time') {
-    const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
-    const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
-    const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
-    
-    switch (patternType) {
-        case 'one-time':
-            initDateInstanceEditor(top, 'new');
-            break;
-        case 'daily':
-            initEveryNDaysPatternEditor(top, 'new', 1);
-            break;
-        case 'weekly':
-            initEveryNDaysPatternEditor(top, 'new', 7);
-            break;
-        case 'every-n-days':
-            initEveryNDaysPatternEditor(top, 'new', NULL);
-            break;
-        case 'monthly':
-            initMonthlyPatternEditor(top, 'new');
-            break;
-        case 'yearly':
-            initAnnuallyPatternEditor(top, 'new');
-            break;
-        case 'first-weekday':
-            initNthWeekdayOfMonthsPatternEditor(top, 'new', [true, false, false, false]);
-            break;
-        case 'nth-weekday':
-            initNthWeekdayOfMonthsPatternEditor(top, 'new', NULL);
-            break;
-        case 'last-weekday':
-            initNthWeekdayOfMonthsPatternEditor(top, 'new', symbolToString(LAST_WEEK_OF_MONTH));
-            break;
-        default:
-            ASSERT(false, "Unknown pattern type: " + String(patternType));
-            break;
+    // Get current instances based on kind
+    let instances;
+    if (editorModalData.kind === 'event') {
+        instances = editorModalData._event.instances;
+    } else if (editorModalData.kind === 'task') {
+        instances = editorModalData._task.instances;
+    } else if (editorModalData.kind === 'reminder') {
+        instances = editorModalData._reminder.instances;
+    } else {
+        return;
     }
+    
+    // Create a basic instance object based on pattern type
+    let newInstance;
+    if (patternType === 'one-time') {
+        if (editorModalData.kind === 'task') {
+            newInstance = {
+                _type: 'NonRecurringTaskInstance',
+                date: symbolToString(NULL),
+                dueTime: symbolToString(NULL),
+                completion: false
+            };
+        } else if (editorModalData.kind === 'event') {
+            newInstance = {
+                _type: 'NonRecurringEventInstance',
+                startDate: symbolToString(NULL),
+                startTime: symbolToString(NULL),
+                endTime: symbolToString(NULL),
+                differentEndDate: symbolToString(NULL)
+            };
+        } else if (editorModalData.kind === 'reminder') {
+            newInstance = {
+                _type: 'NonRecurringReminderInstance',
+                date: symbolToString(NULL),
+                time: symbolToString(NULL)
+            };
+        }
+    } else {
+        // For recurring patterns, create basic recurring instance structure
+        const nDays = patternType === 'daily' ? 1 : patternType === 'weekly' ? 7 : 1;
+        
+        if (editorModalData.kind === 'task') {
+            newInstance = {
+                _type: 'RecurringTaskInstance',
+                datePattern: {
+                    _type: 'EveryNDaysPattern',
+                    n: nDays,
+                    startDate: symbolToString(NULL)
+                },
+                dueTime: symbolToString(NULL),
+                range: {
+                    _type: 'DateRange',
+                    startDate: symbolToString(NULL),
+                    endDate: symbolToString(NULL)
+                },
+                completion: []
+            };
+        } else if (editorModalData.kind === 'event') {
+            newInstance = {
+                _type: 'RecurringEventInstance',
+                startDatePattern: {
+                    _type: 'EveryNDaysPattern',
+                    n: nDays,
+                    startDate: symbolToString(NULL)
+                },
+                startTime: symbolToString(NULL),
+                endTime: symbolToString(NULL),
+                range: {
+                    _type: 'DateRange',
+                    startDate: symbolToString(NULL),
+                    endDate: symbolToString(NULL)
+                },
+                differentEndDatePattern: symbolToString(NULL)
+            };
+        } else if (editorModalData.kind === 'reminder') {
+            newInstance = {
+                _type: 'RecurringReminderInstance',
+                datePattern: {
+                    _type: 'EveryNDaysPattern',
+                    n: nDays,
+                    startDate: symbolToString(NULL)
+                },
+                time: symbolToString(NULL),
+                range: {
+                    _type: 'DateRange',
+                    startDate: symbolToString(NULL),
+                    endDate: symbolToString(NULL)
+                }
+            };
+        }
+    }
+    
+    // Add the new instance to the appropriate array
+    instances.push(newInstance);
+    
+    // Set this new instance as active
+    const newInstanceIndex = instances.length - 1;
+    editorModalActiveInstanceIndex = newInstanceIndex;
+    
+    // Re-render instance buttons to include new tab
+    closeInstanceButtons(() => {
+        initInstanceButtons(editorModalInstanceButtonsSectionTop, newInstanceIndex);
+        // The editor will be shown automatically by setActiveInstance
+    });
 }
 
 // date pattern editor functions
@@ -12179,7 +12254,25 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     HTML.setId(daysInput, 'everyNDaysInput');
     daysInput.setAttribute('type', 'number');
     daysInput.setAttribute('min', '1');
-    daysInput.value = preloadedN || '1';
+    
+    // Set the input value - use preloadedN for new instances, or load from existing instance data
+    let inputValue = '1';
+    if (preloadedN !== NULL) {
+        inputValue = String(preloadedN);
+    } else if (type(newOrIndex, Uint)) {
+        // Load existing value from instance data
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? editorModalData._task.instances :
+                         editorModalData._reminder.instances;
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const pattern = instanceData.datePattern || instanceData.startDatePattern;
+            if (pattern && pattern.n) {
+                inputValue = String(pattern.n);
+            }
+        }
+    }
+    daysInput.value = inputValue;
     HTML.setStyle(daysInput, {
         width: '30px',
         height: '14px',
@@ -12383,8 +12476,9 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     
     instanceEditorContainer.appendChild(repeatUntilContainer);
     
-    // If creating new pattern, set start date to today
+    // Populate date fields based on whether we're creating new or editing existing
     if (newOrIndex === 'new') {
+        // If creating new pattern, set start date to today
         const today = new Date();
         const year = today.getFullYear().toString().slice(-2);
         const month = (today.getMonth() + 1).toString();
@@ -12397,6 +12491,31 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         startingDateFields.year.value = year;
         startingDateFields.month.value = month;
         startingDateFields.day.value = day;
+    } else if (type(newOrIndex, Uint)) {
+        // If editing existing instance, load existing date values
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? editorModalData._task.instances :
+                         editorModalData._reminder.instances;
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const pattern = instanceData.datePattern || instanceData.startDatePattern;
+            if (pattern && pattern.startDate) {
+                // TODO: Parse existing date and populate fields
+                // For now, just use today's date as fallback
+                const today = new Date();
+                const year = today.getFullYear().toString().slice(-2);
+                const month = (today.getMonth() + 1).toString();
+                const day = today.getDate().toString();
+                
+                fromDateFields.year.value = year;
+                fromDateFields.month.value = month;
+                fromDateFields.day.value = day;
+                
+                startingDateFields.year.value = year;
+                startingDateFields.month.value = month;
+                startingDateFields.day.value = day;
+            }
+        }
     }
     
     // Function to update repeat type
@@ -12452,60 +12571,195 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     // symbolToString(LAST_WEEK_OF_MONTH) for last weekday, or NULL for user input
 }
 
-// for non-recurring
+// Unified instance editor that handles all pattern types
 function initDateInstanceEditor(top, newOrIndex) {
     ASSERT(type(top, Number));
     ASSERT(type(newOrIndex, Union(String, Uint)));
     
-    // Close any existing editor first
-    ASSERT(exists(instanceEditorContainer));
+    // Close any existing editor first and wait for cleanup
     if (instanceEditorContainer !== NULL) {
         closeDateInstanceEditor();
+        // Wait a short time for cleanup to complete before proceeding
+        setTimeout(() => {
+            initDateInstanceEditor(top, newOrIndex);
+        }, 50);
+        return;
     }
     
-    // Create container
-    instanceEditorContainer = HTML.make('div');
-    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
-    HTML.setStyle(instanceEditorContainer, {
-        position: 'absolute',
-        left: '8px',
-        top: top + 'px',
-        width: (editorModalWidth - 16) + 'px',
-        height: '100px',
-        backgroundColor: 'var(--shade-0)',
-        border: '1px solid var(--shade-2)',
-        borderRadius: '6px',
-        padding: '8px',
-        boxSizing: 'border-box',
-        opacity: '0',
-        transition: 'opacity 0.2s ease',
-        zIndex: String(editorModalBaseZIndex + 1)
+    // Make sure no stale editor container exists in DOM
+    const existingContainer = HTML.getElementUnsafely('instanceEditorContainer');
+    if (exists(existingContainer)) {
+        existingContainer.remove();
+    }
+    
+    // Clean up any stale selector elements that might cause ID collisions
+    const selectorIds = [
+        'everyNDaysRepeatTypeSelector',
+        'everyNDaysRepeatTypeSelector_highlight', 
+        'everyNDaysRepeatTypeSelector_text_0',
+        'everyNDaysRepeatTypeSelector_text_1'
+    ];
+    selectorIds.forEach(id => {
+        const element = HTML.getElementUnsafely(id);
+        if (exists(element)) {
+            element.remove();
+        }
     });
     
-    editorModal.appendChild(instanceEditorContainer);
+    // Get current instance data if editing existing
+    let instanceData = NULL;
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? editorModalData._task.instances :
+                         editorModalData._reminder.instances;
+        if (newOrIndex < instances.length) {
+            instanceData = instances[newOrIndex];
+        }
+    }
     
-    // Add title
-    const title = HTML.make('div');
-    HTML.setStyle(title, {
-        position: 'absolute',
-        top: '8px',
-        left: '8px',
-        fontSize: '14px',
-        fontFamily: 'PrimaryRegular',
-        color: 'var(--shade-4)',
-        fontWeight: 'bold'
-    });
-    title.textContent = newOrIndex === 'new' ? 'Add One-time Instance' : 'Edit One-time Instance';
-    instanceEditorContainer.appendChild(title);
+    // Determine pattern type from instance data
+    let patternType = 'one-time';
+    if (instanceData) {
+        if (instanceData._type && instanceData._type.includes('Recurring')) {
+            // Check the pattern type within the instance
+            const pattern = instanceData.datePattern || instanceData.startDatePattern;
+            if (pattern && pattern._type === 'EveryNDaysPattern') {
+                if (pattern.n === 1) {
+                    patternType = 'daily';
+                } else if (pattern.n === 7) {
+                    patternType = 'weekly';
+                } else {
+                    patternType = 'every-n-days';
+                }
+            } else if (pattern && pattern._type === 'MonthlyPattern') {
+                patternType = 'monthly';
+            } else if (pattern && pattern._type === 'AnnuallyPattern') {
+                patternType = 'yearly';
+            }
+            // TODO: Add other pattern types as they're implemented
+        }
+    }
     
-    // Add date field input
-    const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
+    // For now, delegate to the existing specific editors based on pattern type
+    if (patternType === 'one-time') {
+        // Create container for one-time instance
+        instanceEditorContainer = HTML.make('div');
+        HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+        HTML.setStyle(instanceEditorContainer, {
+            position: 'absolute',
+            left: '8px',
+            top: top + 'px',
+            width: (editorModalWidth - 16) + 'px',
+            height: '100px',
+            backgroundColor: 'var(--shade-0)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '6px',
+            padding: '8px',
+            boxSizing: 'border-box',
+            opacity: '0',
+            transition: 'opacity 0.2s ease',
+            zIndex: String(editorModalBaseZIndex + 1)
+        });
+        
+        editorModal.appendChild(instanceEditorContainer);
+        
+        // Add title
+        const title = HTML.make('div');
+        HTML.setStyle(title, {
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)',
+            fontWeight: 'bold'
+        });
+        title.textContent = newOrIndex === 'new' ? 'Add One-time Instance' : 'Edit One-time Instance';
+        instanceEditorContainer.appendChild(title);
+        
+        // Add date field input
+        const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
+        
+        // If editing existing instance, populate fields
+        if (instanceData && type(newOrIndex, Uint)) {
+            // TODO: Populate date fields from instanceData
+        }
+        
+        // Force reflow then animate in
+        instanceEditorContainer.offsetHeight;
+        setTimeout(() => {
+            HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        }, 10);
+        
+    } else if (patternType === 'daily' || patternType === 'weekly' || patternType === 'every-n-days') {
+        // Use the existing every N days editor
+        let preloadedN = NULL;
+        
+        // Only pass preloadedN for new instances, not when editing existing ones
+        if (newOrIndex === 'new') {
+            if (patternType === 'daily') {
+                preloadedN = 1;
+            } else if (patternType === 'weekly') {
+                preloadedN = 7;
+            }
+            // For 'every-n-days', leave preloadedN as NULL so user can input
+        }
+        
+        initEveryNDaysPatternEditor(top, newOrIndex, preloadedN);
+    } else {
+        // For other pattern types, show a placeholder for now
+        instanceEditorContainer = HTML.make('div');
+        HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+        HTML.setStyle(instanceEditorContainer, {
+            position: 'absolute',
+            left: '8px',
+            top: top + 'px',
+            width: (editorModalWidth - 16) + 'px',
+            height: '60px',
+            backgroundColor: 'var(--shade-0)',
+            border: '1px solid var(--shade-2)',
+            borderRadius: '6px',
+            padding: '8px',
+            boxSizing: 'border-box',
+            opacity: '0',
+            transition: 'opacity 0.2s ease',
+            zIndex: String(editorModalBaseZIndex + 1)
+        });
+        
+        editorModal.appendChild(instanceEditorContainer);
+        
+        // Add title
+        const title = HTML.make('div');
+        HTML.setStyle(title, {
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-3)',
+            fontWeight: 'bold'
+        });
+        title.textContent = `${patternType} pattern editor (coming soon)`;
+        instanceEditorContainer.appendChild(title);
+        
+        // Force reflow then animate in
+        instanceEditorContainer.offsetHeight;
+        setTimeout(() => {
+            HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        }, 10);
+    }
+}
+
+// Function to show the instance editor for the currently active instance
+function showInstanceEditor() {
+    if (editorModalActiveInstanceIndex === NULL) return;
     
-    // Force reflow then animate in
-    instanceEditorContainer.offsetHeight;
-    setTimeout(() => {
-        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
-    }, 10);
+    const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
+    const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
+    const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
+    
+    // Show editor for the active instance
+    initDateInstanceEditor(top, editorModalActiveInstanceIndex);
 }
 
 function closeDateFieldInput() {
@@ -12513,17 +12767,42 @@ function closeDateFieldInput() {
 }
 
 function closeEveryNDaysPatternEditor() {
-    ASSERT(exists(instanceEditorContainer));
+    if (!instanceEditorContainer) {
+        instanceEditorContainer = NULL;
+        return;
+    }
+    
+    // Delete the selector first (it handles its own animation)
+    deleteSelector('everyNDaysRepeatTypeSelector');
+    
+    // Also manually clean up any selector elements that might remain
+    const selectorIds = [
+        'everyNDaysRepeatTypeSelector',
+        'everyNDaysRepeatTypeSelector_highlight', 
+        'everyNDaysRepeatTypeSelector_text_0',
+        'everyNDaysRepeatTypeSelector_text_1'
+    ];
+    selectorIds.forEach(id => {
+        const element = HTML.getElementUnsafely(id);
+        if (exists(element)) {
+            element.remove();
+        }
+    });
+    
+    // Store reference to container for cleanup
+    const containerToRemove = instanceEditorContainer;
+    
+    // Immediately clear the global reference to prevent race conditions
+    instanceEditorContainer = NULL;
     
     // Fade out
-    HTML.setStyle(instanceEditorContainer, { opacity: '0' });
+    HTML.setStyle(containerToRemove, { opacity: '0' });
     
     // Remove after animation
     setTimeout(() => {
-        if (instanceEditorContainer && instanceEditorContainer.parentNode) {
-            instanceEditorContainer.parentNode.removeChild(instanceEditorContainer);
+        if (containerToRemove && containerToRemove.parentNode) {
+            containerToRemove.parentNode.removeChild(containerToRemove);
         }
-        instanceEditorContainer = NULL;
     }, 200);
 }
 
@@ -12539,22 +12818,34 @@ function closeNthWeekdayOfMonthsPatternEditor() {
     // TODO: Implement close function for NthWeekdayOfMonthsPattern editor
 }
 
-// for non-recurring
+// Unified close function for all instance editors
 function closeDateInstanceEditor() {
     if (!instanceEditorContainer || !instanceEditorContainer.parentNode) {
         instanceEditorContainer = NULL;
         return;
     }
     
+    // Check if it's an every N days pattern editor by looking for the selector
+    const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
+    if (exists(everyNDaysSelector)) {
+        closeEveryNDaysPatternEditor();
+        return;
+    }
+    
+    // Store reference to container for cleanup
+    const containerToRemove = instanceEditorContainer;
+    
+    // Immediately clear the global reference to prevent race conditions
+    instanceEditorContainer = NULL;
+    
     // Fade out
-    HTML.setStyle(instanceEditorContainer, { opacity: '0' });
+    HTML.setStyle(containerToRemove, { opacity: '0' });
     
     // Remove after animation
     setTimeout(() => {
-        if (instanceEditorContainer && instanceEditorContainer.parentNode) {
-            instanceEditorContainer.parentNode.removeChild(instanceEditorContainer);
+        if (containerToRemove && containerToRemove.parentNode) {
+            containerToRemove.parentNode.removeChild(containerToRemove);
         }
-        instanceEditorContainer = NULL;
     }, 200);
 }
 
@@ -12977,6 +13268,22 @@ function closeEditorModal() {
     // close instance buttons and clean up dropdown buttons
     closeInstanceButtonsImmediate();
     cleanupDropdownButtons();
+
+    // close any open pattern editors and their selectors
+    if (instanceEditorContainer) {
+        // Check if it's an every N days pattern editor by looking for the selector
+        const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
+        if (exists(everyNDaysSelector)) {
+            closeEveryNDaysPatternEditor();
+        } else {
+            // For other pattern editors, just close the date instance editor
+            closeDateInstanceEditor();
+        }
+    }
+    
+    // Additional cleanup: directly delete any lingering pattern editor selectors
+    // This ensures cleanup even if instanceEditorContainer is in an unexpected state
+    deleteSelector('everyNDaysRepeatTypeSelector');
 
     // close alarm settings
     closeAlarmSettings();
