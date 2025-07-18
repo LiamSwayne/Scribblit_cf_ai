@@ -6043,7 +6043,7 @@ function renderDividers() {
                 left: `${vDividerLeft}px`,
                 width: `${vDividerWidth}px`,
                 height: `${vDividerHeight}px`,
-                backgroundColor: 'var(--shade-2)',
+                backgroundColor: 'var(--shade-3)',
                 borderRadius: `${vDividerBorderRadius}px`,
                 zIndex: '6300'
             });
@@ -6069,7 +6069,7 @@ function renderDividers() {
                 left: `${vDividerLeft}px`,
                 width: `${vDividerWidth}px`,
                 height: `${vDividerHeight}px`,
-                backgroundColor: 'var(--shade-2)',
+                backgroundColor: 'var(--shade-3)',
                 borderRadius: `${vDividerBorderRadius}px`,
                 zIndex: '6300'
             });
@@ -12789,10 +12789,289 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     if (type(newOrIndex, Uint)) {
         ASSERT(preloadedNthWeekdays === NULL, "preloadedNthWeekdays must be NULL when editing existing instance");
     }
-    // TODO: Implement NthWeekdayOfMonthsPattern editor
-    // newOrIndex: 'new' for creating new instance, or index for editing existing
-    // preloadedNthWeekdays can be [true,false,false,false] for first weekday, 
-    // symbolToString(LAST_WEEK_OF_MONTH) for last weekday, or NULL for user input
+    
+    // Close any existing editor first
+    if (instanceEditorContainer && instanceEditorContainer.parentNode) {
+        closeNthWeekdayOfMonthsPatternEditor();
+    }
+    
+    // Create container
+    instanceEditorContainer = HTML.make('div');
+    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+    HTML.setStyle(instanceEditorContainer, {
+        position: 'absolute',
+        left: '8px',
+        top: top + 'px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '200px',
+        backgroundColor: 'var(--shade-0)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    
+    editorModal.appendChild(instanceEditorContainer);
+    
+    // Title
+    const title = HTML.make('div');
+    HTML.setStyle(title, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        fontWeight: 'bold'
+    });
+    title.textContent = newOrIndex === 'new' ? 'Add [N]th weekday of month pattern' : 'Edit [N]th weekday of month pattern';
+    instanceEditorContainer.appendChild(title);
+    
+    let currentTop = 25;
+    
+    // Day selector (using proper selector)
+    
+    let selectedDay = 'monday';
+    
+    // Get modal position for proper selector positioning
+    const modalRect = editorModal.getBoundingClientRect();
+    
+    createSelector({
+        options: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        orientation: 'horizontal',
+        id: 'dayOfWeekSelector',
+        x: modalRect.left + 8, // Modal left + padding
+        y: modalRect.top + top + currentTop,
+        width: 250,
+        height: 20,
+        zIndex: editorModalBaseZIndex + 2,
+        font: 'MonospaceRegular',
+        fontSize: 10,
+        onSelectionChange: (selectedOption) => {
+            const dayValues = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            const dayIndex = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(selectedOption);
+            selectedDay = dayValues[dayIndex];
+        },
+        initialSelection: 'Mon',
+        minWaitTime: 0.1,
+        alignmentSide: 'left',
+        equalSpacing: true,
+        accentMode: 'transition'
+    });
+    
+    currentTop += 29;
+    
+    // Month toggles (12 months side by side)
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthStates = new Array(12).fill(true); // All months selected by default
+    
+    const monthContainer = HTML.make('div');
+    HTML.setStyle(monthContainer, {
+        position: 'absolute',
+        top: currentTop + 'px',
+        left: '0px',
+        display: 'flex',
+        gap: '2px',
+        flexWrap: 'wrap'
+    });
+    instanceEditorContainer.appendChild(monthContainer);
+    
+    const monthButtons = [];
+    months.forEach((month, index) => {
+        const button = HTML.make('div');
+        HTML.setStyle(button, {
+            backgroundColor: 'var(--accent-0)',
+            color: 'var(--shade-4)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '9px',
+            fontFamily: 'MonospaceRegular',
+            fontWeight: 'bold',
+            width: '20px',
+            height: '17px',
+            transition: 'background-color 0.2s ease, color 0.2s ease'
+        });
+        button.textContent = month;
+        
+        button.onclick = () => {
+            monthStates[index] = !monthStates[index];
+            HTML.setStyle(button, {
+                backgroundColor: monthStates[index] ? 'var(--accent-0)' : 'var(--shade-1)',
+                color: monthStates[index] ? 'var(--shade-4)' : 'var(--shade-3)'
+            });
+        };
+        
+        monthButtons.push(button);
+        monthContainer.appendChild(button);
+    });
+    
+    currentTop += 25;
+    
+    // Nth weekday vs Last weekday selector
+    let isLastWeekday = false;
+    
+    createSelector({
+        options: ['[N]th weekday of month', 'Last weekday of month'],
+        orientation: 'horizontal',
+        id: 'nthWeekdayTypeSelector',
+        x: modalRect.left + 8, // Modal left + padding
+        y: modalRect.top + top + currentTop,
+        width: 280,
+        height: 20,
+        zIndex: editorModalBaseZIndex + 2,
+        font: 'MonospaceRegular',
+        fontSize: 10,
+        onSelectionChange: (selectedOption) => {
+            isLastWeekday = selectedOption === 'Last weekday of month';
+            // Show/hide nth toggles based on selection
+            HTML.setStyle(nthContainer, { 
+                opacity: isLastWeekday ? '0' : '1',
+                pointerEvents: isLastWeekday ? 'none' : 'auto'
+            });
+        },
+        initialSelection: '[N]th weekday of month',
+        minWaitTime: 0.2,
+        alignmentSide: 'left',
+        equalSpacing: false,
+        accentMode: 'transition'
+    });
+    
+    currentTop += 35;
+    
+    // Nth toggles (1st, 2nd, 3rd, 4th) - only shown when "Nth weekday" is selected
+    
+    const nthContainer = HTML.make('div');
+    HTML.setStyle(nthContainer, {
+        position: 'absolute',
+        top: currentTop + 'px',
+        left: '0px',
+        display: 'flex',
+        gap: '8px',
+        transition: 'opacity 0.3s ease'
+    });
+    instanceEditorContainer.appendChild(nthContainer);
+    
+    const nthOptions = ['1st', '2nd', '3rd', '4th'];
+    const nthStates = [true, false, false, false]; // First occurrence selected by default
+    
+    const nthButtons = [];
+    nthOptions.forEach((nth, index) => {
+        const button = HTML.make('div');
+        HTML.setStyle(button, {
+            backgroundColor: index === 0 ? 'var(--accent-1)' : 'var(--shade-1)',
+            color: index === 0 ? 'var(--shade-4)' : 'var(--shade-3)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '10px',
+            fontFamily: 'MonospaceRegular',
+            fontWeight: 'bold',
+            width: '35px',
+            height: '20px',
+            transition: 'background-color 0.2s ease, color 0.2s ease'
+        });
+        button.textContent = nth;
+        
+        button.onclick = () => {
+            nthStates[index] = !nthStates[index];
+            HTML.setStyle(button, {
+                backgroundColor: nthStates[index] ? 'var(--accent-1)' : 'var(--shade-1)',
+                color: nthStates[index] ? 'var(--shade-4)' : 'var(--shade-3)'
+            });
+        };
+        
+        nthButtons.push(button);
+        nthContainer.appendChild(button);
+    });
+    
+    // Load existing data if editing an instance
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+        editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+        editorModalData._reminder.instances;
+        
+        const instanceData = instances[newOrIndex];
+        if (instanceData && instanceData.startDatePattern && instanceData.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
+        const pattern = instanceData.startDatePattern;
+        
+        // Set day of week
+        selectedDay = pattern.dayOfWeek;
+        const dayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(selectedDay);
+        if (dayIndex !== -1) {
+            // Update day selector - we need to do this after a brief delay to ensure the selector is fully created
+            setTimeout(() => {
+                const daySelector = HTML.getElementUnsafely('dayOfWeekSelector');
+                if (daySelector) {
+                    // Trigger the selector to update to the correct day
+                    const dayOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    // We'll need to manually trigger the selector change here
+                    // For now, we can update the visual state
+                }
+            }, 50);
+        }
+        
+        // Set month states
+        if (pattern.months && Array.isArray(pattern.months)) {
+            pattern.months.forEach((active, index) => {
+                if (index < monthStates.length) {
+                    monthStates[index] = active;
+                    if (index < monthButtons.length) {
+                        HTML.setStyle(monthButtons[index], {
+                            backgroundColor: active ? 'var(--accent-0)' : 'var(--shade-1)',
+                            color: active ? 'var(--shade-4)' : 'var(--shade-3)'
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Check if it's last weekday pattern
+        if (pattern.nthWeekdays && pattern.nthWeekdays.includes && pattern.nthWeekdays.includes('LAST_WEEK_OF_MONTH')) {
+            isLastWeekday = true;
+            // Update selector and hide nth toggles
+            setTimeout(() => {
+                HTML.setStyle(nthContainer, { 
+                    opacity: '0',
+                    pointerEvents: 'none'
+                });
+            }, 50);
+        } else if (pattern.nthWeekdays && Array.isArray(pattern.nthWeekdays)) {
+            // Set nth weekday states
+            pattern.nthWeekdays.forEach((active, index) => {
+                if (index < nthStates.length) {
+                    nthStates[index] = active;
+                    if (index < nthButtons.length) {
+                        HTML.setStyle(nthButtons[index], {
+                            backgroundColor: active ? 'var(--accent-1)' : 'var(--shade-1)',
+                            color: active ? 'var(--shade-4)' : 'var(--shade-3)'
+                        });
+                    }
+                }
+            });
+        }
+        }
+    }
+    
+    // Force reflow then animate in
+    instanceEditorContainer.offsetHeight;
+    setTimeout(() => {
+        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+    }, 10);
+}
+
+function closeNthWeekdayOfMonthsPatternEditor() {
+    if (instanceEditorContainer && instanceEditorContainer.parentNode) {
+        instanceEditorContainer.parentNode.removeChild(instanceEditorContainer);
+        instanceEditorContainer = NULL;
+    }
+    
+    // Clean up selectors
+    deleteSelector('nthWeekdayTypeSelector');
+    deleteSelector('dayOfWeekSelector');
 }
 
 // Unified instance editor that handles all pattern types
@@ -12821,7 +13100,9 @@ function initDateInstanceEditor(top, newOrIndex) {
         'everyNDaysRepeatTypeSelector',
         'everyNDaysRepeatTypeSelector_highlight', 
         'everyNDaysRepeatTypeSelector_text_0',
-        'everyNDaysRepeatTypeSelector_text_1'
+        'everyNDaysRepeatTypeSelector_text_1',
+        'nthWeekdayTypeSelector',
+        'dayOfWeekSelector'
     ];
     selectorIds.forEach(id => {
         const element = HTML.getElementUnsafely(id);
@@ -12866,6 +13147,8 @@ function initDateInstanceEditor(top, newOrIndex) {
                 patternType = 'monthly';
             } else if (pattern && pattern._type === 'AnnuallyPattern') {
                 patternType = 'yearly';
+            } else if (pattern && pattern._type === 'NthWeekdayOfMonthsPattern') {
+                patternType = 'nth-weekday';
             }
             // TODO: Add other pattern types as they're implemented
         }
@@ -12937,6 +13220,8 @@ function initDateInstanceEditor(top, newOrIndex) {
         }
         
         initEveryNDaysPatternEditor(top, newOrIndex, preloadedN);
+    } else if (patternType === 'nth-weekday') {
+        initNthWeekdayOfMonthsPatternEditor(top, newOrIndex);
     } else {
         // For other pattern types, show a placeholder for now
         instanceEditorContainer = HTML.make('div');
@@ -13060,6 +13345,13 @@ function closeDateInstanceEditor() {
     const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
     if (exists(everyNDaysSelector)) {
         closeEveryNDaysPatternEditor();
+        return;
+    }
+    
+    // Check if it's an nth weekday pattern editor by looking for the selector
+    const nthWeekdaySelector = HTML.getElementUnsafely('nthWeekdayTypeSelector');
+    if (exists(nthWeekdaySelector)) {
+        closeNthWeekdayOfMonthsPatternEditor();
         return;
     }
     
