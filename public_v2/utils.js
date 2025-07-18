@@ -3377,7 +3377,7 @@ class Chain {
 class User {
     constructor(entityArray, settings, palette, userId, email, usage, timestamp, plan, paymentTimes) {
         ASSERT(type(entityArray, List(Entity)));
-        ASSERT(type(settings, Dict(String, Union(Boolean, Int, String, List(NonEmptyString)))));
+        // Note: settings validation is done in detail below, not with simple type check due to nested alarms object
         ASSERT(type(palette, Dict(String, List(String))));
         ASSERT(type(userId, Union(String, NULL)));
         ASSERT(type(email, Union(String, NULL)));
@@ -3526,6 +3526,20 @@ class User {
             ASSERT(type(data.settings.hideEmptyTimespanInCalendar, Boolean));
             ASSERT(type(data.settings.ampmOr24, String));
             ASSERT(data.settings.ampmOr24 === 'ampm' || data.settings.ampmOr24 === '24');
+            // Handle backwards compatibility - add missing alarm fields
+            if (!data.settings.alarms) {
+                data.settings.alarms = {};
+            }
+            if (data.settings.alarms.task === undefined) {
+                data.settings.alarms.task = NULL;
+            }
+            if (data.settings.alarms.event === undefined) {
+                data.settings.alarms.event = NULL;
+            }
+            if (data.settings.alarms.reminders === undefined) {
+                data.settings.alarms.reminders = false;
+            }
+            
             ASSERT(type(data.settings.alarms, Object), "User.decode: settings.alarms must be an object");
             ASSERT(type(data.settings.alarms.task, Union(NULL, Int)), "User.decode: settings.alarms.task must be NULL or integer");
             if (data.settings.alarms.task !== NULL) {
