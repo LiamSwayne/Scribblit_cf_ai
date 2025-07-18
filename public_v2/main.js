@@ -10748,8 +10748,14 @@ function editorModalKindChange(selectedOption) {
             });
             
             // Copy event alarm to reminder: turn on if either start or end alarm exists
-            const hasEventAlarm = (editorModalData._event.startAlarm !== NULL && editorModalData._event.startAlarm !== symbolToString(NULL)) ||
-                                 (editorModalData._event.endAlarm !== NULL && editorModalData._event.endAlarm !== symbolToString(NULL));
+            const isAlarmSet = (alarm) => {
+                return alarm !== NULL && alarm !== symbolToString(NULL) && alarm !== undefined && alarm !== '';
+            };
+            
+            const startAlarmIsSet = isAlarmSet(editorModalData._event.startAlarm);
+            const endAlarmIsSet = isAlarmSet(editorModalData._event.endAlarm);
+            const hasEventAlarm = startAlarmIsSet || endAlarmIsSet;
+            
             editorModalData._reminder.alarm = hasEventAlarm;
             
         } else if (currentKind === 'task' && newKind === 'event') {
@@ -10844,7 +10850,11 @@ function editorModalKindChange(selectedOption) {
             });
             
             // Copy task alarm to reminder: turn on if task has alarm
-            const hasTaskAlarm = editorModalData._task.alarm !== NULL && editorModalData._task.alarm !== symbolToString(NULL);
+            const isAlarmSet = (alarm) => {
+                return alarm !== NULL && alarm !== symbolToString(NULL) && alarm !== undefined && alarm !== '';
+            };
+            
+            const hasTaskAlarm = isAlarmSet(editorModalData._task.alarm);
             editorModalData._reminder.alarm = hasTaskAlarm;
             
         } else if (currentKind === 'reminder' && newKind === 'event') {
@@ -10909,9 +10919,13 @@ function editorModalKindChange(selectedOption) {
             });
             
             // Copy default event start alarm from settings if no alarm is set
+            const isAlarmSet = (alarm) => {
+                return alarm !== NULL && alarm !== symbolToString(NULL) && alarm !== undefined && alarm !== '';
+            };
+            
             const currentStartAlarm = editorModalData._event.startAlarm;
-            const isStartAlarmNull = currentStartAlarm === NULL || currentStartAlarm === symbolToString(NULL);
-            if (isStartAlarmNull) {
+            const isStartAlarmSet = isAlarmSet(currentStartAlarm);
+            if (!isStartAlarmSet) {
                 if (editorModalData._reminder.alarm === true) {
                     // If reminder alarm is on, set to 5 minutes
                     editorModalData._event.startAlarm = 5;
@@ -10947,9 +10961,13 @@ function editorModalKindChange(selectedOption) {
             });
             
             // Copy default task alarm from settings if no alarm is set
+            const isAlarmSet = (alarm) => {
+                return alarm !== NULL && alarm !== symbolToString(NULL) && alarm !== undefined && alarm !== '';
+            };
+            
             const currentTaskAlarm = editorModalData._task.alarm;
-            const isTaskAlarmNull = currentTaskAlarm === NULL || currentTaskAlarm === symbolToString(NULL);
-            if (isTaskAlarmNull) {
+            const isTaskAlarmSet = isAlarmSet(currentTaskAlarm);
+            if (!isTaskAlarmSet) {
                 if (editorModalData._reminder.alarm === true) {
                     // If reminder alarm is on, set to 5 minutes
                     editorModalData._task.alarm = 5;
@@ -12664,19 +12682,23 @@ function initEventAlarmSettings() {
     alarmContainer.appendChild(minutesBeforeEnd);
     
     // Load current values and set up event handlers
+    const isAlarmSet = (alarm) => {
+        return alarm !== NULL && alarm !== symbolToString(NULL) && alarm !== undefined && alarm !== '';
+    };
+    
     const currentStartAlarm = editorModalData._event.startAlarm;
     const currentEndAlarm = editorModalData._event.endAlarm;
-    const isStartAlarmNull = currentStartAlarm === NULL || currentStartAlarm === symbolToString(NULL);
-    const isEndAlarmNull = currentEndAlarm === NULL || currentEndAlarm === symbolToString(NULL);
+    const startAlarmIsSet = isAlarmSet(currentStartAlarm);
+    const endAlarmIsSet = isAlarmSet(currentEndAlarm);
     
-    if (!isStartAlarmNull) {
+    if (startAlarmIsSet) {
         startInput.value = String(currentStartAlarm);
     } else {
         HTML.setStyle(startLabel, { color: disabledTextShade });
         HTML.setStyle(minutesBeforeStart, { color: disabledTextShade });
     }
     
-    if (!isEndAlarmNull) {
+    if (endAlarmIsSet) {
         endInput.value = String(currentEndAlarm);
     } else {
         HTML.setStyle(endLabel, { color: disabledTextShade });
@@ -12789,10 +12811,14 @@ function initTaskAlarmSettings() {
     editorModal.appendChild(minutesText);
     
     // Load current value and set up event handler
-    const currentAlarm = editorModalData._task.alarm;
-    const isAlarmNull = currentAlarm === NULL || currentAlarm === symbolToString(NULL);
+    const isAlarmSet = (alarm) => {
+        return alarm !== NULL && alarm !== symbolToString(NULL) && alarm !== undefined && alarm !== '';
+    };
     
-    if (!isAlarmNull) {
+    const currentAlarm = editorModalData._task.alarm;
+    const alarmIsSet = isAlarmSet(currentAlarm);
+    
+    if (alarmIsSet) {
         input.value = String(currentAlarm);
     } else {
         HTML.setStyle(label, { color: disabledTextShade });
