@@ -11281,15 +11281,30 @@ function isValidEditorEntity(kind, instance) {
 }
 
 // Convert instance to natural sentence description
-function getInstanceAsSentence(kind, instance) {
+function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
     ASSERT(type(kind, String), "getInstanceAsSentence: kind must be a String");
     ASSERT(exists(instance), "getInstanceAsSentence: instance must exist");
+    ASSERT(type(instanceType, String), "getInstanceAsSentence: instanceType must be a String");
+    ASSERT(['regular', 'workSession'].includes(instanceType), "getInstanceAsSentence: instanceType must be 'regular' or 'workSession'");
+    
+    // Helper function to add "Session" prefix for work sessions
+    function formatSentenceWithSessionPrefix(sentence) {
+        if (instanceType === 'workSession') {
+            const words = sentence.split(' ');
+            if (words.length > 0 && words[0] !== 'Session') {
+                // Make the first word lowercase since it's no longer the first word
+                words[0] = words[0].charAt(0).toLowerCase() + words[0].slice(1);
+                return 'Session ' + words.join(' ');
+            }
+        }
+        return sentence;
+    }
     
     // Handle non-recurring instances
     if (instance._type === 'NonRecurringEventInstance') {
         // Check if date is NULL/unset
         if (instance.startDate === symbolToString(NULL) || !instance.startDate) {
-            return 'No date set';
+            return formatSentenceWithSessionPrefix('No date set');
         }
         
         let sentence = formatDateUserSettings(DateField.decode(instance.startDate));
@@ -11322,13 +11337,13 @@ function getInstanceAsSentence(kind, instance) {
                 console.warn('Failed to decode start time:', instance.startTime, e);
             }
         }
-        return sentence;
+        return formatSentenceWithSessionPrefix(sentence);
     }
     
     if (instance._type === 'NonRecurringTaskInstance') {
         // Check if date is NULL/unset
         if (instance.date === symbolToString(NULL) || !instance.date) {
-            return 'No date set';
+            return formatSentenceWithSessionPrefix('No date set');
         }
         
         let sentence = formatDateUserSettings(DateField.decode(instance.date));
@@ -11339,24 +11354,24 @@ function getInstanceAsSentence(kind, instance) {
                 console.warn('Failed to decode task due time:', instance.dueTime, e);
             }
         }
-        return sentence;
+        return formatSentenceWithSessionPrefix(sentence);
     }
     
     if (instance._type === 'NonRecurringReminderInstance') {
         // Check if date is NULL/unset
         if (instance.date === symbolToString(NULL) || !instance.date) {
-            return 'No date set';
+            return formatSentenceWithSessionPrefix('No date set');
         }
         
         const dateStr = formatDateUserSettings(DateField.decode(instance.date));
         if (instance.time === symbolToString(NULL) || !instance.time) {
-            return `${dateStr} at ?`;
+            return formatSentenceWithSessionPrefix(`${dateStr} at ?`);
         } else {
             try {
-                return `${dateStr} at ${formatTimeNoLeadingZeros(TimeField.decode(instance.time))}`;
+                return formatSentenceWithSessionPrefix(`${dateStr} at ${formatTimeNoLeadingZeros(TimeField.decode(instance.time))}`);
             } catch (e) {
                 console.warn('Failed to decode reminder time:', instance.time, e);
-                return `${dateStr} at ?`;
+                return formatSentenceWithSessionPrefix(`${dateStr} at ?`);
             }
         }
     }
@@ -11384,7 +11399,7 @@ function getInstanceAsSentence(kind, instance) {
         
         const hasDifferentEndDate = instance.differentEndDatePattern !== symbolToString(NULL) && instance.differentEndDatePattern !== NULL;
         
-        return getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate);
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate));
     }
     
     if (instance._type === 'RecurringTaskInstance') {
@@ -11396,7 +11411,7 @@ function getInstanceAsSentence(kind, instance) {
                 console.warn('Failed to decode recurring task due time:', instance.dueTime, e);
             }
         }
-        return getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false);
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false));
     }
     
     if (instance._type === 'RecurringReminderInstance') {
@@ -11408,11 +11423,11 @@ function getInstanceAsSentence(kind, instance) {
                 console.warn('Failed to decode recurring reminder time:', instance.time, e);
             }
         }
-        return getRecurringPatternDescription(instance.datePattern, time, NULL, false);
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, time, NULL, false));
     }
     
     // Fallback
-    return 'Instance';
+    return formatSentenceWithSessionPrefix('Instance');
 }
 
 // Get description for recurring patterns
@@ -11500,12 +11515,20 @@ function initInstanceButtons(top, instanceClicked) {
     
     // Get instances from editorModalData based on current kind
     let instances;
+    let instanceTypes = []; // Track whether each instance is regular or work session
     if (editorModalData.kind === 'event') {
         instances = editorModalData._event.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
     } else if (editorModalData.kind === 'task') {
-        instances = editorModalData._task.instances;
+        // For tasks, combine regular instances and work sessions
+        instances = [...editorModalData._task.instances, ...editorModalData._task.workSessions];
+        instanceTypes = [
+            ...new Array(editorModalData._task.instances.length).fill('regular'),
+            ...new Array(editorModalData._task.workSessions.length).fill('workSession')
+        ];
     } else if (editorModalData.kind === 'reminder') {
         instances = editorModalData._reminder.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
     } else {
         return; // No valid kind selected
     }
@@ -11597,7 +11620,7 @@ function initInstanceButtons(top, instanceClicked) {
             transition: 'background-color 0.2s ease, border-color 0.2s ease',
             position: 'relative'
         });
-        button.textContent = getInstanceAsSentence(editorModalData.kind, instances[index]);
+        button.textContent = getInstanceAsSentence(editorModalData.kind, instances[index], instanceTypes[index]);
 
         // Store data
         HTML.setData(wrapper, 'INSTANCE_INDEX', index);
@@ -12060,38 +12083,57 @@ function deleteInstance(instanceIndex) {
     ASSERT(type(instanceIndex, Int), "deleteInstance: instanceIndex must be an integer");
     ASSERT(instanceIndex >= 0, "deleteInstance: instanceIndex must be non-negative");
     
-    // Prevent deleting the last instance - entities must have at least one instance
-    const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
-                            editorModalData.kind === 'task' ? editorModalData._task.instances : 
-                            editorModalData._reminder.instances;
-    
-    if (currentInstances.length <= 1) {
-        console.log('Cannot delete the last instance - entities must have at least one instance');
-        return;
+    // For tasks, we need to handle both regular instances and work sessions
+    if (editorModalData.kind === 'task') {
+        const regularInstancesLength = editorModalData._task.instances.length;
+        const workSessionsLength = editorModalData._task.workSessions.length;
+        const totalInstances = regularInstancesLength + workSessionsLength;
+        
+        // Prevent deleting if only one total instance remains
+        if (totalInstances <= 1) {
+            console.log('Cannot delete the last instance - entities must have at least one instance');
+            return;
+        }
+        
+        ASSERT(instanceIndex < totalInstances, "deleteInstance: instanceIndex out of bounds");
+        
+        // Determine which array to delete from
+        if (instanceIndex < regularInstancesLength) {
+            // Delete from regular instances
+            editorModalData._task.instances.splice(instanceIndex, 1);
+        } else {
+            // Delete from work sessions
+            const workSessionIndex = instanceIndex - regularInstancesLength;
+            editorModalData._task.workSessions.splice(workSessionIndex, 1);
+        }
+        
+        // Update the active instance index if necessary
+        if (editorModalActiveInstanceIndex === totalInstances - 1) {
+            editorModalActiveInstanceIndex = Math.max(0, editorModalActiveInstanceIndex - 1);
+        }
+    } else {
+        // For events and reminders, use the original logic
+        const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
+                                editorModalData._reminder.instances;
+        
+        if (currentInstances.length <= 1) {
+            console.log('Cannot delete the last instance - entities must have at least one instance');
+            return;
+        }
+        
+        ASSERT(instanceIndex < currentInstances.length, "deleteInstance: instanceIndex out of bounds");
+        
+        // Store the original length before deletion
+        const originalLength = currentInstances.length;
+        
+        // Delete the instance from the appropriate array
+        currentInstances.splice(instanceIndex, 1);
+        
+        // Update the active instance index if necessary
+        if (editorModalActiveInstanceIndex === originalLength - 1) {
+            editorModalActiveInstanceIndex = Math.max(0, editorModalActiveInstanceIndex - 1);
+        }
     }
-    
-    ASSERT(instanceIndex < currentInstances.length, "deleteInstance: instanceIndex out of bounds");
-    
-    // Store the original length before deletion
-    const originalLength = currentInstances.length;
-    
-    // Delete the instance from all three arrays at the same index
-    if (editorModalData._event.instances.length > instanceIndex) {
-        editorModalData._event.instances.splice(instanceIndex, 1);
-    }
-    if (editorModalData._task.instances.length > instanceIndex) {
-        editorModalData._task.instances.splice(instanceIndex, 1);
-    }
-    if (editorModalData._reminder.instances.length > instanceIndex) {
-        editorModalData._reminder.instances.splice(instanceIndex, 1);
-    }
-    
-    // Update the active instance index if necessary
-    // Only decrement when the active index was the last one in the original array
-    if (editorModalActiveInstanceIndex === originalLength - 1) {
-        editorModalActiveInstanceIndex = Math.max(0, editorModalActiveInstanceIndex - 1);
-    }
-    // Otherwise, keep the active instance index the same
     
     // Re-render the instance buttons to reflect the changes
     closeInstanceButtons(() => {
@@ -12107,7 +12149,8 @@ function addNewInstance(patternType = 'one-time') {
     if (editorModalData.kind === 'event') {
         instances = editorModalData._event.instances;
     } else if (editorModalData.kind === 'task') {
-        instances = editorModalData._task.instances;
+        // For tasks, combine regular instances and work sessions
+        instances = [...editorModalData._task.instances, ...editorModalData._task.workSessions];
     } else if (editorModalData.kind === 'reminder') {
         instances = editorModalData._reminder.instances;
     } else {
@@ -12198,7 +12241,15 @@ function addNewInstance(patternType = 'one-time') {
     instances.push(newInstance);
     
     // Set this new instance as active
-    const newInstanceIndex = instances.length - 1;
+    let newInstanceIndex;
+    if (editorModalData.kind === 'task') {
+        // For tasks, the new instance index is the position in the combined array
+        // Since we added to regular instances, the index is (instances.length - 1)
+        newInstanceIndex = instances.length - 1;
+    } else {
+        // For events and reminders, use the simple calculation
+        newInstanceIndex = instances.length - 1;
+    }
     editorModalActiveInstanceIndex = newInstanceIndex;
     
     // Re-render instance buttons to include new tab
@@ -12277,7 +12328,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     } else if (type(newOrIndex, Uint)) {
         // Load existing value from instance data
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
-                         editorModalData.kind === 'task' ? editorModalData._task.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
                          editorModalData._reminder.instances;
         if (newOrIndex < instances.length) {
             const instanceData = instances[newOrIndex];
@@ -12333,7 +12384,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     let initialSelection = 'Repeat until [date]';
     if (type(newOrIndex, Uint)) {
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
-                         editorModalData.kind === 'task' ? editorModalData._task.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
                          editorModalData._reminder.instances;
         if (newOrIndex < instances.length) {
             const instanceData = instances[newOrIndex];
@@ -12526,7 +12577,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     } else if (type(newOrIndex, Uint)) {
         // If editing existing instance, load existing range values
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
-                         editorModalData.kind === 'task' ? editorModalData._task.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
                          editorModalData._reminder.instances;
         if (newOrIndex < instances.length) {
             const instanceData = instances[newOrIndex];
@@ -12743,10 +12794,17 @@ function initDateInstanceEditor(top, newOrIndex) {
     // Get current instance data if editing existing
     let instanceData = NULL;
     if (type(newOrIndex, Uint)) {
-        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
-                         editorModalData.kind === 'task' ? editorModalData._task.instances :
-                         editorModalData._reminder.instances;
-        if (newOrIndex < instances.length) {
+        let instances;
+        if (editorModalData.kind === 'event') {
+            instances = editorModalData._event.instances;
+        } else if (editorModalData.kind === 'task') {
+            // For tasks, combine regular instances and work sessions
+            instances = [...editorModalData._task.instances, ...editorModalData._task.workSessions];
+        } else if (editorModalData.kind === 'reminder') {
+            instances = editorModalData._reminder.instances;
+        }
+        
+        if (instances && newOrIndex < instances.length) {
             instanceData = instances[newOrIndex];
         }
     }
