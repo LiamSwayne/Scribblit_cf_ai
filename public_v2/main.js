@@ -2515,6 +2515,16 @@ const globalCss = `
     ::selection {
         background-color: var(--accent-0);
     }
+
+    /* Hide number input arrows globally */
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
 `;
 styleElement.textContent = globalCss;
 HTML.head.appendChild(styleElement);
@@ -10295,6 +10305,8 @@ const editorModalKindSelectorId = 'editorModalKindSelector';
 const editorModalWidth = 300;
 const editorModalHeight = 700;
 const editorModalInstanceButtonsSectionTop = 58;
+// Global variable for disabled text shade
+const disabledTextShade = 'var(--shade-3)';
 let editorModalDataEmpty = {
     kind: '',
     name: '',
@@ -10305,6 +10317,8 @@ let editorModalDataEmpty = {
     // they should be able to see the event stuff they did, not the greatly reduced amount of info in the reminder
     _event: {
         instances: [],
+        startAlarm: NULL,
+        endAlarm: NULL,
     },
 
     _task: {
@@ -10312,10 +10326,12 @@ let editorModalDataEmpty = {
         hideUntil: NULL,
         showOverdue: true,
         workSessions: [],
+        alarm: NULL,
     },
     
     _reminder: {
         instances: [],
+        alarm: false,
     },
 }
 // deep copy needed
@@ -10381,12 +10397,16 @@ function initEditorModal(id, instanceClicked) {
         editorModalData._task.hideUntil = entityDataJson.hideUntil;
         editorModalData._task.showOverdue = entityDataJson.showOverdue;
         editorModalData._task.workSessions = entityDataJson.workSessions.map(sessionJson => sessionJson);
+        editorModalData._task.alarm = entityDataJson.alarm;
     } else if (type(entity.data, EventData)) {
         editorModalData.kind = 'event';
         editorModalData._event.instances = entityDataJson.instances.map(instanceJson => instanceJson);
+        editorModalData._event.startAlarm = entityDataJson.startAlarm;
+        editorModalData._event.endAlarm = entityDataJson.endAlarm;
     } else if (type(entity.data, ReminderData)) {
         editorModalData.kind = 'reminder';
         editorModalData._reminder.instances = entityDataJson.instances.map(instanceJson => instanceJson);
+        editorModalData._reminder.alarm = entityDataJson.alarm;
     }
     editorModalData.name = entity.name;
     editorModalData.description = entity.description;
@@ -10611,6 +10631,9 @@ function initEditorModal(id, instanceClicked) {
     // Initialize instance buttons
     initInstanceButtons(editorModalInstanceButtonsSectionTop, instanceClicked);
     
+    // Initialize alarm settings
+    initAlarmSettings();
+    
     // Force reflow
     editorModalVignette.offsetHeight;
     editorModal.offsetHeight;
@@ -10694,6 +10717,9 @@ function editorModalKindChange(selectedOption) {
                 return taskInstance;
             });
             
+            // Copy event startAlarm to task alarm
+            editorModalData._task.alarm = editorModalData._event.startAlarm;
+            
         } else if (currentKind === 'event' && newKind === 'reminder') {
             // event -> reminder transition
             // Copy instances, convert end time (or start time) to reminder time, start date to reminder date
@@ -10720,6 +10746,11 @@ function editorModalKindChange(selectedOption) {
                 
                 return reminderInstance;
             });
+            
+            // Copy event alarm to reminder: turn on if either start or end alarm exists
+            const hasEventAlarm = (editorModalData._event.startAlarm !== NULL && editorModalData._event.startAlarm !== symbolToString(NULL)) ||
+                                 (editorModalData._event.endAlarm !== NULL && editorModalData._event.endAlarm !== symbolToString(NULL));
+            editorModalData._reminder.alarm = hasEventAlarm;
             
         } else if (currentKind === 'task' && newKind === 'event') {
             // task -> event transition
@@ -10784,6 +10815,9 @@ function editorModalKindChange(selectedOption) {
                 return eventInstance;
             });
             
+            // Copy task alarm to event startAlarm
+            editorModalData._event.startAlarm = editorModalData._task.alarm;
+            
         } else if (currentKind === 'task' && newKind === 'reminder') {
             // task -> reminder transition
             // Copy instances, convert due time to reminder time, due date to reminder date
@@ -10808,6 +10842,10 @@ function editorModalKindChange(selectedOption) {
                 
                 return reminderInstance;
             });
+            
+            // Copy task alarm to reminder: turn on if task has alarm
+            const hasTaskAlarm = editorModalData._task.alarm !== NULL && editorModalData._task.alarm !== symbolToString(NULL);
+            editorModalData._reminder.alarm = hasTaskAlarm;
             
         } else if (currentKind === 'reminder' && newKind === 'event') {
             // reminder -> event transition
@@ -10870,6 +10908,19 @@ function editorModalKindChange(selectedOption) {
                 return eventInstance;
             });
             
+            // Copy default event start alarm from settings if no alarm is set
+            const currentStartAlarm = editorModalData._event.startAlarm;
+            const isStartAlarmNull = currentStartAlarm === NULL || currentStartAlarm === symbolToString(NULL);
+            if (isStartAlarmNull) {
+                if (editorModalData._reminder.alarm === true) {
+                    // If reminder alarm is on, set to 5 minutes
+                    editorModalData._event.startAlarm = 5;
+                } else {
+                    // If reminder alarm is off, clear the alarm
+                    editorModalData._event.startAlarm = NULL;
+                }
+            }
+            
         } else if (currentKind === 'reminder' && newKind === 'task') {
             // reminder -> task transition
             // Copy instances, convert reminder time to due time, reminder date to due date
@@ -10895,6 +10946,19 @@ function editorModalKindChange(selectedOption) {
                 return taskInstance;
             });
             
+            // Copy default task alarm from settings if no alarm is set
+            const currentTaskAlarm = editorModalData._task.alarm;
+            const isTaskAlarmNull = currentTaskAlarm === NULL || currentTaskAlarm === symbolToString(NULL);
+            if (isTaskAlarmNull) {
+                if (editorModalData._reminder.alarm === true) {
+                    // If reminder alarm is on, set to 5 minutes
+                    editorModalData._task.alarm = 5;
+                } else {
+                    // If reminder alarm is off, clear the alarm
+                    editorModalData._task.alarm = NULL;
+                }
+            }
+            
         } else {
             ASSERT(false, "editorModalKindChange: invalid kind transition");
         }
@@ -10912,6 +10976,8 @@ function editorModalKindChange(selectedOption) {
         // Re-initialize instance buttons for the new kind
         closeInstanceButtons(() => {
             initInstanceButtons(editorModalInstanceButtonsSectionTop, NULL); // use null to indicate no change; keep it the same
+            // Re-initialize alarm settings for the new kind
+            initAlarmSettings();
             // Update description textarea gradients after kind change
             updateDescriptionTextareaGradients();
         });
@@ -12030,27 +12096,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         padding: '2px 4px'
     });
     
-    // Hide number input arrows
-    const hideArrowsStyle = HTML.make('style');
-    hideArrowsStyle.textContent = `
-        #everyNDaysInput::-webkit-outer-spin-button,
-        #everyNDaysInput::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        #everyNDaysInput[type=number] {
-            -moz-appearance: textfield;
-        }
-        #timesInput::-webkit-outer-spin-button,
-        #timesInput::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        #timesInput[type=number] {
-            -moz-appearance: textfield;
-        }
-    `;
-    HTML.head.appendChild(hideArrowsStyle);
+
     
     titleContainer.appendChild(daysInput);
     
@@ -12414,6 +12460,408 @@ function closeDateInstanceEditor() {
     }, 200);
 }
 
+// Initialize alarm settings based on the current kind
+function initAlarmSettings() {
+    ASSERT(exists(editorModalData), "initAlarmSettings: editorModalData must exist");
+    ASSERT(exists(editorModalData.kind), "initAlarmSettings: editorModalData.kind must exist");
+    
+    // Close any existing alarm settings first
+    closeAlarmSettings();
+    
+    const kind = editorModalData.kind;
+    
+    if (kind === 'reminder') {
+        initReminderAlarmSettings();
+    } else if (kind === 'event') {
+        initEventAlarmSettings();
+    } else if (kind === 'task') {
+        initTaskAlarmSettings();
+    }
+}
+
+// Initialize reminder alarm settings (just a toggle)
+function initReminderAlarmSettings() {
+    const alarmContainer = HTML.make('div');
+    HTML.setId(alarmContainer, 'alarmSettingsContainer');
+    HTML.setStyle(alarmContainer, {
+        position: 'absolute',
+        bottom: '125px', // Above description textarea
+        left: '8px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '30px',
+        opacity: '0',
+        transition: 'opacity 0.3s ease'
+    });
+    
+    const label = HTML.make('div');
+    HTML.setId(label, 'alarmLabel');
+    label.textContent = 'Send notification';
+    HTML.setStyle(label, {
+        position: 'absolute',
+        top: '8px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'color 0.3s ease'
+    });
+    alarmContainer.appendChild(label);
+    
+    // Get current alarm state from editorModalData
+    const currentAlarm = editorModalData._reminder.alarm;
+    const initialState = currentAlarm === true;
+    
+         const modalLeft = (window.innerWidth - editorModalWidth) / 2;
+     const modalTop = (window.innerHeight - editorModalHeight) / 2;
+     
+     createBooleanToggle(
+         'reminderAlarmToggle',
+         modalLeft + 150, // absolute x position
+         modalTop + editorModalHeight - 125 + 6, // absolute y position
+         36, // width
+         20, // height
+         editorModalBaseZIndex + 1,
+         initialState,
+         (state) => {
+             if (state) {
+                 editorModalData._reminder.alarm = true;
+                 HTML.setStyle(label, { color: 'var(--shade-4)' });
+             } else {
+                 editorModalData._reminder.alarm = false;
+                 HTML.setStyle(label, { color: disabledTextShade });
+             }
+         },
+         'left'
+     );
+    
+    // Set initial label color based on state
+    if (!initialState) {
+        HTML.setStyle(label, { color: disabledTextShade });
+    }
+    
+    editorModal.appendChild(alarmContainer);
+    
+    // Fade in
+    setTimeout(() => {
+        HTML.setStyle(alarmContainer, { opacity: '1' });
+    }, 50);
+}
+
+// Initialize event alarm settings (start and end notifications)
+function initEventAlarmSettings() {
+    const alarmContainer = HTML.make('div');
+    HTML.setId(alarmContainer, 'alarmSettingsContainer');
+    HTML.setStyle(alarmContainer, {
+        position: 'absolute',
+        bottom: '125px', // Above description textarea
+        left: '8px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '60px',
+        opacity: '0',
+        transition: 'opacity 0.3s ease'
+    });
+    
+    // Start alarm section
+    const startLabel = HTML.make('div');
+    HTML.setId(startLabel, 'startAlarmLabel');
+    startLabel.textContent = 'Send notification';
+    HTML.setStyle(startLabel, {
+        position: 'absolute',
+        top: '8px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'color 0.3s ease'
+    });
+    alarmContainer.appendChild(startLabel);
+    
+    const startInput = HTML.make('input');
+    HTML.setId(startInput, 'startAlarmInput');
+    startInput.setAttribute('type', 'number');
+    startInput.setAttribute('min', '0');
+    HTML.setStyle(startInput, {
+        position: 'absolute',
+        top: '6px',
+        left: '112px',
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px',
+        transition: 'color 0.3s ease, border-color 0.3s ease'
+    });
+    alarmContainer.appendChild(startInput);
+    
+    const minutesBeforeStart = HTML.make('div');
+    minutesBeforeStart.textContent = 'minutes before start';
+    HTML.setStyle(minutesBeforeStart, {
+        position: 'absolute',
+        top: '8px',
+        left: '157px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'color 0.3s ease'
+    });
+    alarmContainer.appendChild(minutesBeforeStart);
+    
+    // End alarm section
+    const endLabel = HTML.make('div');
+    HTML.setId(endLabel, 'endAlarmLabel');
+    endLabel.textContent = 'Send notification';
+    HTML.setStyle(endLabel, {
+        position: 'absolute',
+        top: '35px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'color 0.3s ease'
+    });
+    alarmContainer.appendChild(endLabel);
+    
+    const endInput = HTML.make('input');
+    HTML.setId(endInput, 'endAlarmInput');
+    endInput.setAttribute('type', 'number');
+    endInput.setAttribute('min', '0');
+    HTML.setStyle(endInput, {
+        position: 'absolute',
+        top: '33px',
+        left: '112px',
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px',
+        transition: 'color 0.3s ease, border-color 0.3s ease'
+    });
+    alarmContainer.appendChild(endInput);
+    
+    const minutesBeforeEnd = HTML.make('div');
+    minutesBeforeEnd.textContent = 'minutes before end';
+    HTML.setStyle(minutesBeforeEnd, {
+        position: 'absolute',
+        top: '35px',
+        left: '157px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'color 0.3s ease'
+    });
+    alarmContainer.appendChild(minutesBeforeEnd);
+    
+    // Load current values and set up event handlers
+    const currentStartAlarm = editorModalData._event.startAlarm;
+    const currentEndAlarm = editorModalData._event.endAlarm;
+    const isStartAlarmNull = currentStartAlarm === NULL || currentStartAlarm === symbolToString(NULL);
+    const isEndAlarmNull = currentEndAlarm === NULL || currentEndAlarm === symbolToString(NULL);
+    
+    if (!isStartAlarmNull) {
+        startInput.value = String(currentStartAlarm);
+    } else {
+        HTML.setStyle(startLabel, { color: disabledTextShade });
+        HTML.setStyle(minutesBeforeStart, { color: disabledTextShade });
+    }
+    
+    if (!isEndAlarmNull) {
+        endInput.value = String(currentEndAlarm);
+    } else {
+        HTML.setStyle(endLabel, { color: disabledTextShade });
+        HTML.setStyle(minutesBeforeEnd, { color: disabledTextShade });
+    }
+    
+    // Input event handlers
+    startInput.addEventListener('input', function() {
+        const value = this.value.trim();
+        if (value === '' || parseInt(value) < 0) {
+            editorModalData._event.startAlarm = NULL;
+            HTML.setStyle(startLabel, { color: disabledTextShade });
+            HTML.setStyle(minutesBeforeStart, { color: disabledTextShade });
+        } else {
+            editorModalData._event.startAlarm = parseInt(value);
+            HTML.setStyle(startLabel, { color: 'var(--shade-4)' });
+            HTML.setStyle(minutesBeforeStart, { color: 'var(--shade-4)' });
+        }
+    });
+    
+    endInput.addEventListener('input', function() {
+        const value = this.value.trim();
+        if (value === '' || parseInt(value) < 0) {
+            editorModalData._event.endAlarm = NULL;
+            HTML.setStyle(endLabel, { color: disabledTextShade });
+            HTML.setStyle(minutesBeforeEnd, { color: disabledTextShade });
+        } else {
+            editorModalData._event.endAlarm = parseInt(value);
+            HTML.setStyle(endLabel, { color: 'var(--shade-4)' });
+            HTML.setStyle(minutesBeforeEnd, { color: 'var(--shade-4)' });
+        }
+    });
+    
+    editorModal.appendChild(alarmContainer);
+    
+    // Fade in
+    setTimeout(() => {
+        HTML.setStyle(alarmContainer, { opacity: '1' });
+    }, 50);
+}
+
+// Initialize task alarm settings (positioned directly on modal like event start alarm)
+function initTaskAlarmSettings() {
+    // Defensive cleanup - remove any existing task alarm elements first
+    const existingLabel = HTML.getElementUnsafely('taskAlarmLabel');
+    if (existingLabel && existingLabel.parentNode) {
+        existingLabel.parentNode.removeChild(existingLabel);
+    }
+    const existingInput = HTML.getElementUnsafely('taskAlarmInput');
+    if (existingInput && existingInput.parentNode) {
+        existingInput.parentNode.removeChild(existingInput);
+    }
+    const existingText = HTML.getElementUnsafely('taskAlarmMinutesText');
+    if (existingText && existingText.parentNode) {
+        existingText.parentNode.removeChild(existingText);
+    }
+    
+    const label = HTML.make('div');
+    HTML.setId(label, 'taskAlarmLabel');
+    label.textContent = 'Send notification';
+    HTML.setStyle(label, {
+        position: 'absolute',
+        bottom: '133px', // Moved up 3px from 130px
+        left: '8px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'color 0.3s ease, opacity 0.3s ease',
+        opacity: '0'
+    });
+    editorModal.appendChild(label);
+    
+    const input = HTML.make('input');
+    HTML.setId(input, 'taskAlarmInput');
+    input.setAttribute('type', 'number');
+    input.setAttribute('min', '0');
+    HTML.setStyle(input, {
+        position: 'absolute',
+        bottom: '132px', // Keep in same spot
+        left: '120px',
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px',
+        transition: 'color 0.3s ease, border-color 0.3s ease, opacity 0.3s ease',
+        opacity: '0'
+    });
+    editorModal.appendChild(input);
+    
+    const minutesText = HTML.make('div');
+    HTML.setId(minutesText, 'taskAlarmMinutesText');
+    minutesText.textContent = 'minutes before';
+    HTML.setStyle(minutesText, {
+        position: 'absolute',
+        bottom: '133px', // Moved up 3px from 130px
+        left: '165px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'color 0.3s ease, opacity 0.3s ease',
+        opacity: '0'
+    });
+    editorModal.appendChild(minutesText);
+    
+    // Load current value and set up event handler
+    const currentAlarm = editorModalData._task.alarm;
+    const isAlarmNull = currentAlarm === NULL || currentAlarm === symbolToString(NULL);
+    
+    if (!isAlarmNull) {
+        input.value = String(currentAlarm);
+    } else {
+        HTML.setStyle(label, { color: disabledTextShade });
+        HTML.setStyle(minutesText, { color: disabledTextShade });
+    }
+    
+    // Input event handler
+    input.addEventListener('input', function() {
+        const value = this.value.trim();
+        if (value === '' || parseInt(value) < 0) {
+            editorModalData._task.alarm = NULL;
+            HTML.setStyle(label, { color: disabledTextShade });
+            HTML.setStyle(minutesText, { color: disabledTextShade });
+        } else {
+            editorModalData._task.alarm = parseInt(value);
+            HTML.setStyle(label, { color: 'var(--shade-4)' });
+            HTML.setStyle(minutesText, { color: 'var(--shade-4)' });
+        }
+    });
+    
+    // Fade in
+    setTimeout(() => {
+        HTML.setStyle(label, { opacity: '1' });
+        HTML.setStyle(input, { opacity: '1' });
+        HTML.setStyle(minutesText, { opacity: '1' });
+    }, 50);
+}
+
+// Close alarm settings
+function closeAlarmSettings() {
+    const alarmContainer = HTML.getElementUnsafely('alarmSettingsContainer');
+    if (alarmContainer && alarmContainer.parentNode) {
+        alarmContainer.parentNode.removeChild(alarmContainer);
+    }
+    
+    // Clean up task alarm elements if they exist (immediate removal)
+    const taskLabel = HTML.getElementUnsafely('taskAlarmLabel');
+    if (taskLabel && taskLabel.parentNode) {
+        taskLabel.parentNode.removeChild(taskLabel);
+    }
+    const taskInput = HTML.getElementUnsafely('taskAlarmInput');
+    if (taskInput && taskInput.parentNode) {
+        taskInput.parentNode.removeChild(taskInput);
+    }
+    const taskText = HTML.getElementUnsafely('taskAlarmMinutesText');
+    if (taskText && taskText.parentNode) {
+        taskText.parentNode.removeChild(taskText);
+    }
+    
+    // Clean up reminder toggle if it exists
+    const reminderToggle = HTML.getElementUnsafely('reminderAlarmToggle');
+    if (reminderToggle) {
+        deleteBooleanToggle('reminderAlarmToggle');
+    }
+}
+
+// Update alarm settings position when modal moves
+function updateAlarmSettingsPosition() {
+    // Task alarm elements are positioned relative to modal and move automatically
+    
+    // Update reminder toggle position if it exists
+    const reminderToggle = HTML.getElementUnsafely('reminderAlarmToggle');
+    if (reminderToggle) {
+        const modalLeft = (window.innerWidth - editorModalWidth) / 2;
+        const modalTop = (window.innerHeight - editorModalHeight) / 2;
+        moveBooleanToggle('reminderAlarmToggle', modalLeft + 150, modalTop + editorModalHeight - 125 + 6);
+    }
+}
+
 function closeEditorModal() {
     if (!editorModalOpen) return;
 
@@ -12422,6 +12870,9 @@ function closeEditorModal() {
 
     // close instance buttons
     closeInstanceButtonsImmediate();
+
+    // close alarm settings
+    closeAlarmSettings();
 
     // clean up description textarea gradients
     const topGradient = HTML.getElementUnsafely('descriptionTextarea-top-gradient');
@@ -12511,6 +12962,9 @@ function updateEditorModalPosition() {
         const everyNDaysSelectorLeft = modalLeft + 8;
         moveSelector('everyNDaysRepeatTypeSelector', everyNDaysSelectorLeft, everyNDaysSelectorTop);
     }
+    
+    // Update alarm settings position
+    updateAlarmSettingsPosition();
     
     // Update description textarea gradients after position changes
     updateDescriptionTextareaGradients();
@@ -14378,6 +14832,34 @@ function deleteBooleanToggle(id) {
             }
         }
     }, 250);
+}
+
+// Moves a boolean toggle to new x,y coordinates instantly (no animation)
+function moveBooleanToggle(id, newX, newY) {
+    ASSERT(type(id, NonEmptyString), "moveBooleanToggle: id must be a non-empty string");
+    ASSERT(type(newX, Number), "moveBooleanToggle: newX must be a number");
+    ASSERT(type(newY, Number), "moveBooleanToggle: newY must be a number");
+    
+    const track = HTML.getElementUnsafely(id);
+    if (!exists(track)) {
+        return; // Toggle doesn't exist
+    }
+    
+    // Get current styles to determine alignment side
+    const trackStyles = window.getComputedStyle(track);
+    const alignmentSide = trackStyles.left !== 'auto' ? 'left' : 'right';
+    
+    // Move track element
+    const trackUpdateStyles = {
+        top: newY + 'px',
+        transition: 'none' // Remove any existing transitions
+    };
+    if (alignmentSide === 'left') {
+        trackUpdateStyles.left = newX + 'px';
+    } else {
+        trackUpdateStyles.right = newX + 'px';
+    }
+    HTML.setStyle(track, trackUpdateStyles);
 }
 
 function initSettingsButton() {
