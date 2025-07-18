@@ -10326,7 +10326,7 @@ const editorModalWidth = 300;
 const editorModalHeight = 700;
 const editorModalInstanceButtonsSectionTop = 58;
 // Global variable for disabled text shade
-const disabledTextShade = 'var(--shade-3)';
+const disabledTextShade = 'var(--shade-4)';
 let editorModalDataEmpty = {
     kind: '',
     name: '',
@@ -11502,6 +11502,42 @@ function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasD
     return description;
 }
 
+// Helper function to adjust letter spacing of instance buttons to fit within modal width
+function adjustButtonLetterSpacing(button) {
+    // Available width calculation: modal width minus container padding and margins
+    const availableWidth = editorModalWidth - 12; // 6px padding on each side
+    const maxButtonWidth = availableWidth; // Use full available width
+    
+    // Create a temporary clone to measure width without affecting the actual button
+    const tempButton = button.cloneNode(true);
+    HTML.setStyle(tempButton, {
+        position: 'absolute',
+        top: '-9999px',
+        left: '-9999px',
+        visibility: 'hidden',
+        whiteSpace: 'nowrap'
+    });
+    HTML.body.appendChild(tempButton);
+    
+    // Start with normal letter spacing and reduce incrementally if needed
+    let letterSpacing = 0; // Start at 0 (normal spacing)
+    const minLetterSpacing = -2; // Minimum letter spacing in pixels
+    const step = 0.02; // Reduce in small increments
+    
+    while (tempButton.offsetWidth > maxButtonWidth && letterSpacing > minLetterSpacing) {
+        letterSpacing -= step;
+        HTML.setStyle(tempButton, { letterSpacing: letterSpacing + 'px' });
+    }
+    
+    // Apply the calculated letter spacing to the actual button
+    if (letterSpacing < 0) {
+        HTML.setStyle(button, { letterSpacing: letterSpacing + 'px' });
+    }
+    
+    // Clean up the temporary button
+    HTML.body.removeChild(tempButton);
+}
+
 // this appears right below the selector
 // these buttons are squares
 // each one is like a tab, each instance is a tab
@@ -11621,6 +11657,9 @@ function initInstanceButtons(top, instanceClicked) {
             position: 'relative'
         });
         button.textContent = getInstanceAsSentence(editorModalData.kind, instances[index], instanceTypes[index]);
+
+        // Adjust letter spacing if button is too wide for modal
+        adjustButtonLetterSpacing(button);
 
         // Store data
         HTML.setData(wrapper, 'INSTANCE_INDEX', index);
