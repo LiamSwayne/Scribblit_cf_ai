@@ -11287,6 +11287,11 @@ function getInstanceAsSentence(kind, instance) {
     
     // Handle non-recurring instances
     if (instance._type === 'NonRecurringEventInstance') {
+        // Check if date is NULL/unset
+        if (instance.startDate === symbolToString(NULL) || !instance.startDate) {
+            return 'No date set';
+        }
+        
         let sentence = formatDateUserSettings(DateField.decode(instance.startDate));
         
         // Check if there's a different end date
@@ -11321,6 +11326,11 @@ function getInstanceAsSentence(kind, instance) {
     }
     
     if (instance._type === 'NonRecurringTaskInstance') {
+        // Check if date is NULL/unset
+        if (instance.date === symbolToString(NULL) || !instance.date) {
+            return 'No date set';
+        }
+        
         let sentence = formatDateUserSettings(DateField.decode(instance.date));
         if (instance.dueTime !== symbolToString(NULL) && instance.dueTime) {
             try {
@@ -11333,6 +11343,11 @@ function getInstanceAsSentence(kind, instance) {
     }
     
     if (instance._type === 'NonRecurringReminderInstance') {
+        // Check if date is NULL/unset
+        if (instance.date === symbolToString(NULL) || !instance.date) {
+            return 'No date set';
+        }
+        
         const dateStr = formatDateUserSettings(DateField.decode(instance.date));
         if (instance.time === symbolToString(NULL) || !instance.time) {
             return `${dateStr} at ?`;
