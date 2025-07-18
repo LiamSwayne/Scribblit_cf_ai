@@ -12329,6 +12329,21 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     const absoluteSelectorX = modalLeft + 8 + selectorLeft; // modal left + container left + relative left
     const absoluteSelectorY = modalTop + top + selectorTop; // modal top + container top + relative top
     
+    // Determine initial selection based on existing range type (if editing)
+    let initialSelection = 'Repeat until [date]';
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? editorModalData._task.instances :
+                         editorModalData._reminder.instances;
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const range = instanceData.range;
+            if (range && range._type === 'RecurrenceCount') {
+                initialSelection = 'Occurs [x] times';
+            }
+        }
+    }
+    
     createSelector({
         options: ['Occurs [x] times', 'Repeat until [date]'],
         orientation: 'horizontal',
@@ -12343,7 +12358,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         onSelectionChange: (selectedOption) => {
             updateEveryNDaysRepeatType(selectedOption);
         },
-        initialSelection: 'Repeat until [date]',
+        initialSelection: initialSelection,
         minWaitTime: 0.1,
         alignmentSide: 'left',
         equalSpacing: false,
@@ -12359,7 +12374,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         left: '0px',
         width: '100%',
         height: '40px',
-        opacity: '0',
+        opacity: initialSelection === 'Occurs [x] times' ? '1' : '0',
         transition: 'opacity 0.2s ease'
     });
     
@@ -12429,7 +12444,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         left: '0px',
         width: '100%',
         height: '40px',
-        opacity: '1',
+        opacity: initialSelection === 'Repeat until [date]' ? '1' : '0',
         transition: 'opacity 0.2s ease'
     });
     
@@ -12507,28 +12522,84 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         startingDateFields.month.value = month;
         startingDateFields.day.value = day;
     } else if (type(newOrIndex, Uint)) {
-        // If editing existing instance, load existing date values
+        // If editing existing instance, load existing range values
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
                          editorModalData.kind === 'task' ? editorModalData._task.instances :
                          editorModalData._reminder.instances;
         if (newOrIndex < instances.length) {
             const instanceData = instances[newOrIndex];
+            
+            // Get the pattern and range from the instance
             const pattern = instanceData.datePattern || instanceData.startDatePattern;
-            if (pattern && pattern.startDate) {
-                // TODO: Parse existing date and populate fields
-                // For now, just use today's date as fallback
-                const today = new Date();
-                const year = today.getFullYear().toString().slice(-2);
-                const month = (today.getMonth() + 1).toString();
-                const day = today.getDate().toString();
+            const range = instanceData.range;
+            
+            // First, try to populate from the pattern's initial date
+            if (pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
+                const patternStartDate = DateField.decode(pattern.initialDate);
+                const patternYear = patternStartDate.year.toString().slice(-2);
+                const patternMonth = patternStartDate.month.toString();
+                const patternDay = patternStartDate.day.toString();
                 
-                fromDateFields.year.value = year;
-                fromDateFields.month.value = month;
-                fromDateFields.day.value = day;
+                fromDateFields.year.value = patternYear;
+                fromDateFields.month.value = patternMonth;
+                fromDateFields.day.value = patternDay;
                 
-                startingDateFields.year.value = year;
-                startingDateFields.month.value = month;
-                startingDateFields.day.value = day;
+                startingDateFields.year.value = patternYear;
+                startingDateFields.month.value = patternMonth;
+                startingDateFields.day.value = patternDay;
+            }
+            
+            if (range && range._type === 'DateRange') {
+                // DateRange: populate "From" and "To" fields, override pattern date if range has startDate
+                if (range.startDate && range.startDate !== symbolToString(NULL)) {
+                    const startDate = DateField.decode(range.startDate);
+                    const startYear = startDate.year.toString().slice(-2);
+                    const startMonth = startDate.month.toString();
+                    const startDay = startDate.day.toString();
+                    
+                    fromDateFields.year.value = startYear;
+                    fromDateFields.month.value = startMonth;
+                    fromDateFields.day.value = startDay;
+                    
+                    startingDateFields.year.value = startYear;
+                    startingDateFields.month.value = startMonth;
+                    startingDateFields.day.value = startDay;
+                }
+                
+                if (range.endDate && range.endDate !== symbolToString(NULL)) {
+                    const endDate = DateField.decode(range.endDate);
+                    const endYear = endDate.year.toString().slice(-2);
+                    const endMonth = endDate.month.toString();
+                    const endDay = endDate.day.toString();
+                    
+                    toDateFields.year.value = endYear;
+                    toDateFields.month.value = endMonth;
+                    toDateFields.day.value = endDay;
+                }
+            } else if (range && range._type === 'RecurrenceCount') {
+                // RecurrenceCount: populate both "starting date" fields and count
+                if (range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                    const initialDate = DateField.decode(range.initialDate);
+                    const initialYear = initialDate.year.toString().slice(-2);
+                    const initialMonth = initialDate.month.toString();
+                    const initialDay = initialDate.day.toString();
+                    
+                    // Populate both the "Repeat until [date]" container's "From" field
+                    fromDateFields.year.value = initialYear;
+                    fromDateFields.month.value = initialMonth;
+                    fromDateFields.day.value = initialDay;
+                    
+                    // AND the "Occurs [x] times" container's "starting on" field
+                    startingDateFields.year.value = initialYear;
+                    startingDateFields.month.value = initialMonth;
+                    startingDateFields.day.value = initialDay;
+                }
+                
+                if (range.count) {
+                    timesInput.value = range.count.toString();
+                }
+                
+                // Note: The selector will be created with the correct initial selection
             }
         }
     }
