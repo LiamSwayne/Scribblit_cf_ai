@@ -5084,7 +5084,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
         // Add click handler to open editor modal
         textElement.addEventListener('click', function() {
-            initEditorModal(primaryReminder.id, primaryReminder.patternIndex);
+            const sourceId = HTML.getData(textElement, 'sourceId');
+            const patternNumber = HTML.getData(textElement, 'patternNumber');
+            initEditorModal(sourceId, patternNumber);
         });
 
         // Create count indicator if grouped (now directly on body)
@@ -5095,6 +5097,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 HTML.setId(countElement, `day${dayIndex}reminderCount${groupIndex}`);
                 HTML.body.appendChild(countElement);
             }
+            
+            // Set data attributes for robust matching during operations
+            HTML.setData(countElement, 'sourceId', primaryReminder.id);
+            HTML.setData(countElement, 'patternNumber', primaryReminder.patternIndex);
             // Remove old listeners
             countElement.removeEventListener('mouseenter', countElement.mouseEnterHandler);
             countElement.removeEventListener('mouseleave', countElement.mouseLeaveHandler);
@@ -5124,7 +5130,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
             // Add click handler to open editor modal
             countElement.addEventListener('click', function() {
-                initEditorModal(primaryReminder.id, primaryReminder.patternIndex);
+                const sourceId = HTML.getData(countElement, 'sourceId');
+                const patternNumber = HTML.getData(countElement, 'patternNumber');
+                initEditorModal(sourceId, patternNumber);
             });
         } else {
             // Remove count indicator if it exists but shouldn't
@@ -5223,6 +5231,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     HTML.setId(stackedTextElement, `day${dayIndex}reminderStackText${currentGroupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackedTextElement);
                 }
+                
+                // Set data attributes for robust matching during operations
+                HTML.setData(stackedTextElement, 'sourceId', stackedReminder.id);
+                HTML.setData(stackedTextElement, 'patternNumber', stackedReminder.patternIndex);
                 
                 // Remove old listeners
                 stackedTextElement.removeEventListener('mouseenter', stackedTextElement.mouseEnterHandler);
@@ -5522,7 +5534,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                 // Add click handler to open editor modal
                 stackedTextElement.addEventListener('click', function() {
-                    initEditorModal(stackedReminder.id, stackedReminder.patternIndex);
+                    const sourceId = HTML.getData(stackedTextElement, 'sourceId');
+                    const patternNumber = HTML.getData(stackedTextElement, 'patternNumber');
+                    initEditorModal(sourceId, patternNumber);
                 });
 
                 // Create stack count indicator
@@ -5532,6 +5546,10 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     HTML.setId(stackCountElement, `day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
                     HTML.body.appendChild(stackCountElement);
                 }
+                
+                // Set data attributes for robust matching during operations
+                HTML.setData(stackCountElement, 'sourceId', stackedReminder.id);
+                HTML.setData(stackCountElement, 'patternNumber', stackedReminder.patternIndex);
                 
                 // Remove old listeners
                 stackCountElement.removeEventListener('mouseenter', stackCountElement.mouseEnterHandler);
@@ -5563,7 +5581,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
 
                 // Add click handler to open editor modal
                 stackCountElement.addEventListener('click', function() {
-                    initEditorModal(stackedReminder.id, stackedReminder.patternIndex);
+                    const sourceId = HTML.getData(stackCountElement, 'sourceId');
+                    const patternNumber = HTML.getData(stackCountElement, 'patternNumber');
+                    initEditorModal(sourceId, patternNumber);
                 });
             }
         }
