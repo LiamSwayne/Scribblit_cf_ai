@@ -11161,6 +11161,69 @@ function isValidDate(yearElement, monthElement, dayElement) {
     // TODO
 }
 
+// Initialize time field input (HH:MM)
+function initTimeFieldInput(parentContainer, left, top, idPrefix = '') {
+    ASSERT(exists(parentContainer), "initTimeFieldInput: parentContainer must exist");
+    ASSERT(type(left, Number));
+    ASSERT(type(top, Number));
+    ASSERT(type(idPrefix, String));
+    
+    // Two fields using monospace for HH:MM
+    const baseStyle = {
+        position: 'absolute',
+        fontFamily: 'MonospaceRegular',
+        fontSize: '12px',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '4px',
+        outline: 'none',
+        height: '20px',
+        textAlign: 'center',
+        top: top + 'px',
+    };
+
+    const hourInput = HTML.make('input');
+    if (idPrefix) HTML.setId(hourInput, idPrefix + 'Hour');
+    hourInput.setAttribute('maxlength', '2');
+    hourInput.setAttribute('placeholder', 'HH');
+    hourInput.setAttribute('type', 'number');
+    hourInput.setAttribute('min', '0');
+    hourInput.setAttribute('max', '23');
+    HTML.setStyle(hourInput, {...baseStyle, width: '20px', left: left + 'px'});
+    parentContainer.appendChild(hourInput);
+
+    const minuteInput = HTML.make('input');
+    if (idPrefix) HTML.setId(minuteInput, idPrefix + 'Minute');
+    minuteInput.setAttribute('maxlength', '2');
+    minuteInput.setAttribute('placeholder', 'MM');
+    minuteInput.setAttribute('type', 'number');
+    minuteInput.setAttribute('min', '0');
+    minuteInput.setAttribute('max', '59');
+    HTML.setStyle(minuteInput, {...baseStyle, width: '20px', left: (left + 28) + 'px'});
+    parentContainer.appendChild(minuteInput);
+
+    // colon between hour and minute
+    const colon = HTML.make('div');
+    HTML.setStyle(colon, {
+        position: 'absolute',
+        fontFamily: 'MonospaceRegular',
+        fontSize: '12px',
+        color: 'var(--shade-4)',
+        top: (top + 3) + 'px',
+        left: (left + 22.5) + 'px'
+    });
+    colon.textContent = ':';
+    parentContainer.appendChild(colon);
+
+    return {
+        hour: hourInput,
+        minute: minuteInput,
+        colon: colon,
+        elements: [hourInput, colon, minuteInput]
+    };
+}
+
 // Helper function to format time without leading zeros
 function formatTimeNoLeadingZeros(timeField) {
     ASSERT(type(timeField, TimeField), "formatTimeNoLeadingZeros: timeField must be a TimeField");
@@ -12343,7 +12406,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '120px',
+        height: '145px',
         backgroundColor: 'var(--shade-0)',
         opacity: '0',
         transition: 'opacity 0.2s ease',
@@ -12619,6 +12682,157 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     
     instanceEditorContainer.appendChild(repeatUntilContainer);
     
+    // Add time fields below range containers
+    let timeLabel, timeFields1, timeFields2;
+    
+    if (editorModalData.kind === 'task') {
+        // Tasks: "due by" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'Due by';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '79px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '77px',
+            left: '50px'
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'everyNDaysDueTime');
+        
+        // Add optional text for tasks
+        const optionalText = HTML.make('div');
+        optionalText.textContent = '(optional)';
+        HTML.setStyle(optionalText, {
+            position: 'absolute',
+            top: '98px', // moved up 10px (108px - 10px)
+            left: '54px', // moved 16px to the left (70px - 16px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(optionalText);
+        
+    } else if (editorModalData.kind === 'reminder') {
+        // Reminders: "At" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'At';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '79px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '79px', // moved 2px down (77px + 2px)
+            left: '17px' // moved 8px left (25px - 8px)
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'everyNDaysReminderTime');
+        
+    } else if (editorModalData.kind === 'event') {
+        // Events: "From ____ to ____"
+        const fromLabel = HTML.make('div');
+        fromLabel.textContent = 'From';
+        HTML.setStyle(fromLabel, {
+            position: 'absolute',
+            top: '89px', // moved down 10px (79px + 10px)
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(fromLabel);
+        
+        const fromTimeContainer = HTML.make('div');
+        HTML.setStyle(fromTimeContainer, {
+            position: 'absolute',
+            top: '87px', // moved down 10px (77px + 10px)
+            left: '37px'
+        });
+        instanceEditorContainer.appendChild(fromTimeContainer);
+        
+        timeFields1 = initTimeFieldInput(fromTimeContainer, 0, -2, 'everyNDaysStartTime');
+        
+        const toLabel = HTML.make('div');
+        toLabel.textContent = 'to';
+        HTML.setStyle(toLabel, {
+            position: 'absolute',
+            top: '89px', // moved down 10px (79px + 10px)
+            left: '90px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(toLabel);
+        
+        const toTimeContainer = HTML.make('div');
+        HTML.setStyle(toTimeContainer, {
+            position: 'absolute',
+            top: '87px', // moved down 10px (77px + 10px)
+            left: '107px'
+        });
+        instanceEditorContainer.appendChild(toTimeContainer);
+        
+        timeFields2 = initTimeFieldInput(toTimeContainer, 0, -2, 'everyNDaysEndTime');
+        
+        // Add optional text for both start and end time
+        const startOptionalText = HTML.make('div');
+        startOptionalText.textContent = '(optional)';
+        HTML.setStyle(startOptionalText, {
+            position: 'absolute',
+            top: '108px', // moved down 10px (98px + 10px)
+            left: '41px', // moved 9px left (50px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular',
+            transition: 'opacity 0.3s ease'
+        });
+        instanceEditorContainer.appendChild(startOptionalText);
+        
+        const endOptionalText = HTML.make('div');
+        endOptionalText.textContent = '(optional)';
+        HTML.setStyle(endOptionalText, {
+            position: 'absolute',
+            top: '108px', // moved down 10px (98px + 10px)
+            left: '111px', // moved 9px left (120px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(endOptionalText);
+        
+        // Add event listeners to manage optional text visibility
+        const updateOptionalVisibility = () => {
+            const endHour = timeFields2.hour.value.trim();
+            const endMinute = timeFields2.minute.value.trim();
+            const hasEndTime = endHour !== '' || endMinute !== '';
+            
+            HTML.setStyle(startOptionalText, {
+                opacity: hasEndTime ? '0' : '1'
+            });
+        };
+        
+        timeFields2.hour.addEventListener('input', updateOptionalVisibility);
+        timeFields2.minute.addEventListener('input', updateOptionalVisibility);
+    }
+    
     // Populate date fields based on whether we're creating new or editing existing
     if (newOrIndex === 'new') {
         // If creating new pattern, set start date to today
@@ -12634,6 +12848,24 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         startingDateFields.year.value = year;
         startingDateFields.month.value = month;
         startingDateFields.day.value = day;
+        
+        // Set default times based on entity type
+        if (editorModalData.kind === 'task') {
+            // Default task due time to end of day (23:59)
+            timeFields1.hour.value = '23';
+            timeFields1.minute.value = '59';
+        } else if (editorModalData.kind === 'reminder') {
+            // Default reminder time to current hour
+            const currentHour = today.getHours();
+            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.minute.value = '00';
+        } else if (editorModalData.kind === 'event') {
+            // Default event time to 9:00-10:00
+            timeFields1.hour.value = '09';
+            timeFields1.minute.value = '00';
+            timeFields2.hour.value = '10';
+            timeFields2.minute.value = '00';
+        }
     } else if (type(newOrIndex, Uint)) {
         // If editing existing instance, load existing range values
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
@@ -12748,6 +12980,32 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
                 startingDateFields.month.value = month;
                 startingDateFields.day.value = day;
             }
+            
+            // Populate time fields based on entity type
+            if (editorModalData.kind === 'task') {
+                const dueTime = instanceData.dueTime;
+                if (dueTime && dueTime !== symbolToString(NULL)) {
+                    timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                    timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
+                }
+            } else if (editorModalData.kind === 'reminder') {
+                const reminderTime = instanceData.time;
+                if (reminderTime && reminderTime !== symbolToString(NULL)) {
+                    timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                    timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
+                }
+            } else if (editorModalData.kind === 'event') {
+                const startTime = instanceData.startTime;
+                const endTime = instanceData.endTime;
+                if (startTime && startTime !== symbolToString(NULL)) {
+                    timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                    timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
+                }
+                if (endTime && endTime !== symbolToString(NULL)) {
+                    timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                    timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
+                }
+            }
         }
     }
     
@@ -12814,7 +13072,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '120px',
+        height: '145px',
         backgroundColor: 'var(--shade-0)',
         opacity: '0',
         transition: 'opacity 0.2s ease',
@@ -13110,6 +13368,157 @@ function initMonthlyPatternEditor(top, newOrIndex) {
     
     instanceEditorContainer.appendChild(rangeUntilContainer);
     
+    // Add time fields below range containers
+    let timeLabel, timeFields1, timeFields2;
+    
+    if (editorModalData.kind === 'task') {
+        // Tasks: "Due by" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'Due by';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '108px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '106px',
+            left: '50px'
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'monthlyDueTime');
+        
+        // Add optional text for tasks
+        const optionalText = HTML.make('div');
+        optionalText.textContent = '(optional)';
+        HTML.setStyle(optionalText, {
+            position: 'absolute',
+            top: '127px',
+            left: '54px', // moved 16px to the left (70px - 16px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(optionalText);
+        
+    } else if (editorModalData.kind === 'reminder') {
+        // Reminders: "At" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'At';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '108px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '108px', // moved 2px down (106px + 2px)
+            left: '17px'  // moved 8px left (25px - 8px)
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'monthlyReminderTime');
+        
+    } else if (editorModalData.kind === 'event') {
+        // Events: "From ____ to ____"
+        const fromLabel = HTML.make('div');
+        fromLabel.textContent = 'From';
+        HTML.setStyle(fromLabel, {
+            position: 'absolute',
+            top: '108px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(fromLabel);
+        
+        const fromTimeContainer = HTML.make('div');
+        HTML.setStyle(fromTimeContainer, {
+            position: 'absolute',
+            top: '106px',
+            left: '37px'
+        });
+        instanceEditorContainer.appendChild(fromTimeContainer);
+        
+        timeFields1 = initTimeFieldInput(fromTimeContainer, 0, -2, 'monthlyStartTime');
+        
+        const toLabel = HTML.make('div');
+        toLabel.textContent = 'to';
+        HTML.setStyle(toLabel, {
+            position: 'absolute',
+            top: '108px',
+            left: '90px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(toLabel);
+        
+        const toTimeContainer = HTML.make('div');
+        HTML.setStyle(toTimeContainer, {
+            position: 'absolute',
+            top: '106px',
+            left: '107px'
+        });
+        instanceEditorContainer.appendChild(toTimeContainer);
+        
+        timeFields2 = initTimeFieldInput(toTimeContainer, 0, -2, 'monthlyEndTime');
+        
+        // Add optional text for both start and end time
+        const startOptionalText = HTML.make('div');
+        startOptionalText.textContent = '(optional)';
+        HTML.setStyle(startOptionalText, {
+            position: 'absolute',
+            top: '127px',
+            left: '41px', // moved 9px left (50px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular',
+            transition: 'opacity 0.3s ease'
+        });
+        instanceEditorContainer.appendChild(startOptionalText);
+        
+        const endOptionalText = HTML.make('div');
+        endOptionalText.textContent = '(optional)';
+        HTML.setStyle(endOptionalText, {
+            position: 'absolute',
+            top: '127px',
+            left: '111px', // moved 9px left (120px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(endOptionalText);
+        
+        // Add event listeners to manage optional text visibility
+        const updateOptionalVisibility = () => {
+            const endHour = timeFields2.hour.value.trim();
+            const endMinute = timeFields2.minute.value.trim();
+            const hasEndTime = endHour !== '' || endMinute !== '';
+            
+            HTML.setStyle(startOptionalText, {
+                opacity: hasEndTime ? '0' : '1'
+            });
+        };
+        
+        timeFields2.hour.addEventListener('input', updateOptionalVisibility);
+        timeFields2.minute.addEventListener('input', updateOptionalVisibility);
+    }
+    
     // Function to update range type
     function updateMonthlyRangeType(selectedOption) {
         if (selectedOption === 'Occurs [x] times') {
@@ -13260,7 +13669,51 @@ function initMonthlyPatternEditor(top, newOrIndex) {
                         }
                     }
                 }
+                
+                // Populate time fields based on entity type
+                if (editorModalData.kind === 'task') {
+                    const dueTime = instanceData.dueTime;
+                    if (dueTime && dueTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
+                    }
+                } else if (editorModalData.kind === 'reminder') {
+                    const reminderTime = instanceData.time;
+                    if (reminderTime && reminderTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
+                    }
+                } else if (editorModalData.kind === 'event') {
+                    const startTime = instanceData.startTime;
+                    const endTime = instanceData.endTime;
+                    if (startTime && startTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
+                    }
+                    if (endTime && endTime !== symbolToString(NULL)) {
+                        timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                        timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
+                    }
+                }
             }
+        }
+    } else if (newOrIndex === 'new') {
+        // Set default times for new monthly patterns
+        if (editorModalData.kind === 'task') {
+            // Default task due time to end of day (23:59)
+            timeFields1.hour.value = '23';
+            timeFields1.minute.value = '59';
+        } else if (editorModalData.kind === 'reminder') {
+            // Default reminder time to current hour
+            const currentHour = new Date().getHours();
+            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.minute.value = '00';
+        } else if (editorModalData.kind === 'event') {
+            // Default event time to 9:00-10:00
+            timeFields1.hour.value = '09';
+            timeFields1.minute.value = '00';
+            timeFields2.hour.value = '10';
+            timeFields2.minute.value = '00';
         }
     }
     
@@ -13286,7 +13739,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '120px',
+        height: '145px',
         backgroundColor: 'var(--shade-0)',
         opacity: '0',
         transition: 'opacity 0.2s ease',
@@ -13520,6 +13973,157 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
     
     instanceEditorContainer.appendChild(rangeUntilContainer);
     
+    // Add time fields below range containers
+    let timeLabel, timeFields1, timeFields2;
+    
+    if (editorModalData.kind === 'task') {
+        // Tasks: "Due by" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'Due by';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '99px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '97px',
+            left: '50px'
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'yearlyDueTime');
+        
+        // Add optional text for tasks
+        const optionalText = HTML.make('div');
+        optionalText.textContent = '(optional)';
+        HTML.setStyle(optionalText, {
+            position: 'absolute',
+            top: '120px',
+            left: '54px', // moved 16px to the left (70px - 16px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(optionalText);
+        
+    } else if (editorModalData.kind === 'reminder') {
+        // Reminders: "At" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'At';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '99px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '99px', // moved 2px down (97px + 2px)
+            left: '17px' // moved 8px left (25px - 8px)
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'yearlyReminderTime');
+        
+    } else if (editorModalData.kind === 'event') {
+        // Events: "From ____ to ____"
+        const fromLabel = HTML.make('div');
+        fromLabel.textContent = 'From';
+        HTML.setStyle(fromLabel, {
+            position: 'absolute',
+            top: '99px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(fromLabel);
+        
+        const fromTimeContainer = HTML.make('div');
+        HTML.setStyle(fromTimeContainer, {
+            position: 'absolute',
+            top: '97px',
+            left: '37px'
+        });
+        instanceEditorContainer.appendChild(fromTimeContainer);
+        
+        timeFields1 = initTimeFieldInput(fromTimeContainer, 0, -2, 'yearlyStartTime');
+        
+        const toLabel = HTML.make('div');
+        toLabel.textContent = 'to';
+        HTML.setStyle(toLabel, {
+            position: 'absolute',
+            top: '99px',
+            left: '90px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(toLabel);
+        
+        const toTimeContainer = HTML.make('div');
+        HTML.setStyle(toTimeContainer, {
+            position: 'absolute',
+            top: '97px',
+            left: '107px'
+        });
+        instanceEditorContainer.appendChild(toTimeContainer);
+        
+        timeFields2 = initTimeFieldInput(toTimeContainer, 0, -2, 'yearlyEndTime');
+        
+        // Add optional text for both start and end time
+        const startOptionalText = HTML.make('div');
+        startOptionalText.textContent = '(optional)';
+        HTML.setStyle(startOptionalText, {
+            position: 'absolute',
+            top: '120px',
+            left: '41px', // moved 9px left (50px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular',
+            transition: 'opacity 0.3s ease'
+        });
+        instanceEditorContainer.appendChild(startOptionalText);
+        
+        const endOptionalText = HTML.make('div');
+        endOptionalText.textContent = '(optional)';
+        HTML.setStyle(endOptionalText, {
+            position: 'absolute',
+            top: '120px',
+            left: '111px', // moved 9px left (120px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(endOptionalText);
+        
+        // Add event listeners to manage optional text visibility
+        const updateOptionalVisibility = () => {
+            const endHour = timeFields2.hour.value.trim();
+            const endMinute = timeFields2.minute.value.trim();
+            const hasEndTime = endHour !== '' || endMinute !== '';
+            
+            HTML.setStyle(startOptionalText, {
+                opacity: hasEndTime ? '0' : '1'
+            });
+        };
+        
+        timeFields2.hour.addEventListener('input', updateOptionalVisibility);
+        timeFields2.minute.addEventListener('input', updateOptionalVisibility);
+    }
+    
     // Function to update range type
     function updateYearlyRangeType(selectedOption) {
         if (selectedOption === 'Occurs [x] times') {
@@ -13666,6 +14270,32 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
                         }
                     }
                 }
+                
+                // Populate time fields based on entity type
+                if (editorModalData.kind === 'task') {
+                    const dueTime = instanceData.dueTime;
+                    if (dueTime && dueTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
+                    }
+                } else if (editorModalData.kind === 'reminder') {
+                    const reminderTime = instanceData.time;
+                    if (reminderTime && reminderTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
+                    }
+                } else if (editorModalData.kind === 'event') {
+                    const startTime = instanceData.startTime;
+                    const endTime = instanceData.endTime;
+                    if (startTime && startTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
+                    }
+                    if (endTime && endTime !== symbolToString(NULL)) {
+                        timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                        timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
+                    }
+                }
             }
         }
     } else if (newOrIndex === 'new') {
@@ -13678,6 +14308,24 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         dateFields.year.value = year;
         dateFields.month.value = month;
         dateFields.day.value = day;
+        
+        // Set default times based on entity type
+        if (editorModalData.kind === 'task') {
+            // Default task due time to end of day (23:59)
+            timeFields1.hour.value = '23';
+            timeFields1.minute.value = '59';
+        } else if (editorModalData.kind === 'reminder') {
+            // Default reminder time to current hour
+            const currentHour = today.getHours();
+            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.minute.value = '00';
+        } else if (editorModalData.kind === 'event') {
+            // Default event time to 9:00-10:00
+            timeFields1.hour.value = '09';
+            timeFields1.minute.value = '00';
+            timeFields2.hour.value = '10';
+            timeFields2.minute.value = '00';
+        }
     }
     
     // Force reflow then animate in
@@ -13722,7 +14370,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '260px',
+        height: '285px',
         backgroundColor: 'var(--shade-0)',
         opacity: '0',
         transition: 'opacity 0.2s ease',
@@ -14182,6 +14830,157 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     
     instanceEditorContainer.appendChild(rangeUntilContainer);
     
+    // Add time fields below range containers
+    let timeLabel, timeFields1, timeFields2;
+    
+    if (editorModalData.kind === 'task') {
+        // Tasks: "Due by" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'Due by';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '182px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '180px',
+            left: '50px'
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'nthWeekdayDueTime');
+        
+        // Add optional text for tasks
+        const optionalText = HTML.make('div');
+        optionalText.textContent = '(optional)';
+        HTML.setStyle(optionalText, {
+            position: 'absolute',
+            top: '201px',
+            left: '54px', // moved 16px to the left (70px - 16px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(optionalText);
+        
+    } else if (editorModalData.kind === 'reminder') {
+        // Reminders: "At" + time field
+        timeLabel = HTML.make('div');
+        timeLabel.textContent = 'At';
+        HTML.setStyle(timeLabel, {
+            position: 'absolute',
+            top: '182px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(timeLabel);
+        
+        const timeContainer = HTML.make('div');
+        HTML.setStyle(timeContainer, {
+            position: 'absolute',
+            top: '182px', // moved 2px down (180px + 2px)
+            left: '17px'  // moved 8px left (25px - 8px)
+        });
+        instanceEditorContainer.appendChild(timeContainer);
+        
+        timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'nthWeekdayReminderTime');
+        
+    } else if (editorModalData.kind === 'event') {
+        // Events: "From ____ to ____"
+        const fromLabel = HTML.make('div');
+        fromLabel.textContent = 'From';
+        HTML.setStyle(fromLabel, {
+            position: 'absolute',
+            top: '182px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(fromLabel);
+        
+        const fromTimeContainer = HTML.make('div');
+        HTML.setStyle(fromTimeContainer, {
+            position: 'absolute',
+            top: '180px',
+            left: '37px'
+        });
+        instanceEditorContainer.appendChild(fromTimeContainer);
+        
+        timeFields1 = initTimeFieldInput(fromTimeContainer, 0, -2, 'nthWeekdayStartTime');
+        
+        const toLabel = HTML.make('div');
+        toLabel.textContent = 'to';
+        HTML.setStyle(toLabel, {
+            position: 'absolute',
+            top: '182px',
+            left: '90px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(toLabel);
+        
+        const toTimeContainer = HTML.make('div');
+        HTML.setStyle(toTimeContainer, {
+            position: 'absolute',
+            top: '180px',
+            left: '107px'
+        });
+        instanceEditorContainer.appendChild(toTimeContainer);
+        
+        timeFields2 = initTimeFieldInput(toTimeContainer, 0, -2, 'nthWeekdayEndTime');
+        
+        // Add optional text for both start and end time
+        const startOptionalText = HTML.make('div');
+        startOptionalText.textContent = '(optional)';
+        HTML.setStyle(startOptionalText, {
+            position: 'absolute',
+            top: '201px',
+            left: '41px', // moved 9px left (50px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular',
+            transition: 'opacity 0.3s ease'
+        });
+        instanceEditorContainer.appendChild(startOptionalText);
+        
+        const endOptionalText = HTML.make('div');
+        endOptionalText.textContent = '(optional)';
+        HTML.setStyle(endOptionalText, {
+            position: 'absolute',
+            top: '201px',
+            left: '111px', // moved 9px left (120px - 9px)
+            color: 'var(--shade-3)',
+            fontSize: '10px',
+            fontFamily: 'PrimaryRegular'
+        });
+        instanceEditorContainer.appendChild(endOptionalText);
+        
+        // Add event listeners to manage optional text visibility
+        const updateOptionalVisibility = () => {
+            const endHour = timeFields2.hour.value.trim();
+            const endMinute = timeFields2.minute.value.trim();
+            const hasEndTime = endHour !== '' || endMinute !== '';
+            
+            HTML.setStyle(startOptionalText, {
+                opacity: hasEndTime ? '0' : '1'
+            });
+        };
+        
+        timeFields2.hour.addEventListener('input', updateOptionalVisibility);
+        timeFields2.minute.addEventListener('input', updateOptionalVisibility);
+    }
+    
     // Populate date fields and range data based on whether we're creating new or editing existing
     if (newOrIndex === 'new') {
         // If creating new pattern, set start date to today
@@ -14292,6 +15091,50 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
                     timesInput.value = range.count.toString();
                 }
             }
+            
+            // Populate time fields based on entity type
+            if (editorModalData.kind === 'task') {
+                const dueTime = instanceData.dueTime;
+                if (dueTime && dueTime !== symbolToString(NULL)) {
+                    timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                    timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
+                }
+            } else if (editorModalData.kind === 'reminder') {
+                const reminderTime = instanceData.time;
+                if (reminderTime && reminderTime !== symbolToString(NULL)) {
+                    timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                    timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
+                }
+            } else if (editorModalData.kind === 'event') {
+                const startTime = instanceData.startTime;
+                const endTime = instanceData.endTime;
+                if (startTime && startTime !== symbolToString(NULL)) {
+                    timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                    timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
+                }
+                if (endTime && endTime !== symbolToString(NULL)) {
+                    timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                    timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
+                }
+            }
+        }
+    } else if (newOrIndex === 'new') {
+        // Set default times for new nth weekday patterns
+        if (editorModalData.kind === 'task') {
+            // Default task due time to end of day (23:59)
+            timeFields1.hour.value = '23';
+            timeFields1.minute.value = '59';
+        } else if (editorModalData.kind === 'reminder') {
+            // Default reminder time to current hour
+            const currentHour = new Date().getHours();
+            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.minute.value = '00';
+        } else if (editorModalData.kind === 'event') {
+            // Default event time to 9:00-10:00
+            timeFields1.hour.value = '09';
+            timeFields1.minute.value = '00';
+            timeFields2.hour.value = '10';
+            timeFields2.minute.value = '00';
         }
     }
     
@@ -14508,31 +15351,31 @@ function initDateInstanceEditor(top, newOrIndex) {
     // For now, delegate to the existing specific editors based on pattern type
     if (patternType === 'one-time') {
         // Create container for one-time instance
-        instanceEditorContainer = HTML.make('div');
-        HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
-        HTML.setStyle(instanceEditorContainer, {
-            position: 'absolute',
-            left: '8px',
-            top: top + 'px',
-            width: (editorModalWidth - 16) + 'px',
-            height: '60px',
-            backgroundColor: 'var(--shade-0)',
-            opacity: '0',
-            transition: 'opacity 0.2s ease',
-            zIndex: String(editorModalBaseZIndex + 1)
-        });
-        
-        editorModal.appendChild(instanceEditorContainer);
-        
+    instanceEditorContainer = HTML.make('div');
+    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+    HTML.setStyle(instanceEditorContainer, {
+        position: 'absolute',
+        left: '8px',
+        top: top + 'px',
+        width: (editorModalWidth - 16) + 'px',
+            height: '85px',
+        backgroundColor: 'var(--shade-0)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    
+    editorModal.appendChild(instanceEditorContainer);
+    
         // Add "Occurs once on" text
         const onceText = HTML.make('div');
         onceText.textContent = 'Occurs once on';
         HTML.setStyle(onceText, {
-            position: 'absolute',
+        position: 'absolute',
             top: '2px',
             left: '0px',
-            fontSize: '14px',
-            fontFamily: 'PrimaryRegular',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
             color: 'var(--shade-4)'
         });
         instanceEditorContainer.appendChild(onceText);
@@ -14548,6 +15391,157 @@ function initDateInstanceEditor(top, newOrIndex) {
         
         // Initialize date field input
         const dateFields = initDateFieldInput(dateContainer, 0, -2, 'oneTimeDate');
+        
+        // Add time fields below date
+        let timeLabel, timeFields1, timeFields2;
+        
+        if (editorModalData.kind === 'task') {
+            // Tasks: "due by" + time field
+            timeLabel = HTML.make('div');
+            timeLabel.textContent = 'Due by';
+            HTML.setStyle(timeLabel, {
+                position: 'absolute',
+                top: '30px',
+                left: '0px',
+                fontSize: '14px',
+                fontFamily: 'PrimaryRegular',
+                color: 'var(--shade-4)'
+            });
+            instanceEditorContainer.appendChild(timeLabel);
+            
+            const timeContainer = HTML.make('div');
+            HTML.setStyle(timeContainer, {
+                position: 'absolute',
+                top: '28px',
+                left: '50px'
+            });
+            instanceEditorContainer.appendChild(timeContainer);
+            
+            timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'oneTimeDueTime');
+            
+            // Add optional text for tasks
+            const optionalText = HTML.make('div');
+            optionalText.textContent = '(optional)';
+            HTML.setStyle(optionalText, {
+                position: 'absolute',
+                top: '51px',
+                left: '54px', // moved 16px to the left (70px - 16px)
+                color: 'var(--shade-3)',
+                fontSize: '10px',
+                fontFamily: 'PrimaryRegular'
+            });
+            instanceEditorContainer.appendChild(optionalText);
+            
+        } else if (editorModalData.kind === 'reminder') {
+            // Reminders: "At" + time field
+            timeLabel = HTML.make('div');
+            timeLabel.textContent = 'At';
+            HTML.setStyle(timeLabel, {
+                position: 'absolute',
+                top: '30px',
+                left: '0px',
+                fontSize: '14px',
+                fontFamily: 'PrimaryRegular',
+                color: 'var(--shade-4)'
+            });
+            instanceEditorContainer.appendChild(timeLabel);
+            
+            const timeContainer = HTML.make('div');
+            HTML.setStyle(timeContainer, {
+                position: 'absolute',
+                top: '30px', // moved 2px down (28px + 2px)
+                left: '17px' // moved 8px left (25px - 8px)
+            });
+            instanceEditorContainer.appendChild(timeContainer);
+            
+            timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'oneTimeReminderTime');
+            
+        } else if (editorModalData.kind === 'event') {
+            // Events: "From ____ to ____"
+            const fromLabel = HTML.make('div');
+            fromLabel.textContent = 'From';
+            HTML.setStyle(fromLabel, {
+                position: 'absolute',
+                top: '30px',
+                left: '0px',
+                fontSize: '14px',
+                fontFamily: 'PrimaryRegular',
+                color: 'var(--shade-4)'
+            });
+            instanceEditorContainer.appendChild(fromLabel);
+            
+            const fromTimeContainer = HTML.make('div');
+            HTML.setStyle(fromTimeContainer, {
+                position: 'absolute',
+                top: '28px',
+                left: '37px'
+            });
+            instanceEditorContainer.appendChild(fromTimeContainer);
+            
+            timeFields1 = initTimeFieldInput(fromTimeContainer, 0, -2, 'oneTimeStartTime');
+            
+            const toLabel = HTML.make('div');
+            toLabel.textContent = 'to';
+            HTML.setStyle(toLabel, {
+                position: 'absolute',
+                top: '30px',
+                left: '90px',
+                fontSize: '14px',
+                fontFamily: 'PrimaryRegular',
+                color: 'var(--shade-4)'
+            });
+            instanceEditorContainer.appendChild(toLabel);
+            
+            const toTimeContainer = HTML.make('div');
+            HTML.setStyle(toTimeContainer, {
+                position: 'absolute',
+                top: '28px',
+                left: '107px'
+            });
+            instanceEditorContainer.appendChild(toTimeContainer);
+            
+            timeFields2 = initTimeFieldInput(toTimeContainer, 0, -2, 'oneTimeEndTime');
+            
+            // Add optional text for both start and end time
+            const startOptionalText = HTML.make('div');
+            startOptionalText.textContent = '(optional)';
+            HTML.setStyle(startOptionalText, {
+                position: 'absolute',
+                top: '51px',
+                left: '41px', // moved 9px left (50px - 9px)
+                color: 'var(--shade-3)',
+                fontSize: '10px',
+                fontFamily: 'PrimaryRegular',
+                transition: 'opacity 0.3s ease'
+            });
+            instanceEditorContainer.appendChild(startOptionalText);
+            
+            const endOptionalText = HTML.make('div');
+            endOptionalText.textContent = '(optional)';
+            HTML.setStyle(endOptionalText, {
+                position: 'absolute',
+                top: '51px',
+                left: '111px', // moved 9px left (120px - 9px)
+                color: 'var(--shade-3)',
+                fontSize: '10px',
+                fontFamily: 'PrimaryRegular'
+            });
+            instanceEditorContainer.appendChild(endOptionalText);
+            
+            // Add event listeners to manage optional text visibility
+            const updateOptionalVisibility = () => {
+                const endHour = timeFields2.hour.value.trim();
+                const endMinute = timeFields2.minute.value.trim();
+                const hasEndTime = endHour !== '' || endMinute !== '';
+                
+                HTML.setStyle(startOptionalText, {
+                    opacity: hasEndTime ? '0' : '1'
+                });
+            };
+            
+            timeFields2.hour.addEventListener('input', updateOptionalVisibility);
+            timeFields2.minute.addEventListener('input', updateOptionalVisibility);
+        }
         
         // If editing existing instance, populate fields
         if (type(newOrIndex, Uint)) {
@@ -14569,6 +15563,32 @@ function initDateInstanceEditor(top, newOrIndex) {
                     dateFields.month.value = month;
                     dateFields.day.value = day;
                 }
+                
+                // Populate time fields based on entity type
+                if (editorModalData.kind === 'task') {
+                    const dueTime = instanceData.dueTime;
+                    if (dueTime && dueTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
+                    }
+                } else if (editorModalData.kind === 'reminder') {
+                    const reminderTime = instanceData.time;
+                    if (reminderTime && reminderTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
+                    }
+                } else if (editorModalData.kind === 'event') {
+                    const startTime = instanceData.startTime;
+                    const endTime = instanceData.endTime;
+                    if (startTime && startTime !== symbolToString(NULL)) {
+                        timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                        timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
+                    }
+                    if (endTime && endTime !== symbolToString(NULL)) {
+                        timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                        timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
+                    }
+                }
             }
         } else if (newOrIndex === 'new') {
             // For new one-time instances, default to today's date
@@ -14580,13 +15600,31 @@ function initDateInstanceEditor(top, newOrIndex) {
             dateFields.year.value = year;
             dateFields.month.value = month;
             dateFields.day.value = day;
+            
+            // Set default times based on entity type
+            if (editorModalData.kind === 'task') {
+                // Default task due time to end of day (23:59)
+                timeFields1.hour.value = '23';
+                timeFields1.minute.value = '59';
+            } else if (editorModalData.kind === 'reminder') {
+                // Default reminder time to current hour
+                const currentHour = today.getHours();
+                timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+                timeFields1.minute.value = '00';
+            } else if (editorModalData.kind === 'event') {
+                // Default event time to 9:00-10:00
+                timeFields1.hour.value = '09';
+                timeFields1.minute.value = '00';
+                timeFields2.hour.value = '10';
+                timeFields2.minute.value = '00';
+            }
         }
-        
-        // Force reflow then animate in
-        instanceEditorContainer.offsetHeight;
-        setTimeout(() => {
-            HTML.setStyle(instanceEditorContainer, { opacity: '1' });
-        }, 10);
+    
+    // Force reflow then animate in
+    instanceEditorContainer.offsetHeight;
+    setTimeout(() => {
+        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+    }, 10);
         
     } else if (patternType === 'daily' || patternType === 'weekly' || patternType === 'every-n-days') {
         // Use the existing every N days editor
