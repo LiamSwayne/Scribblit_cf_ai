@@ -16295,6 +16295,49 @@ function initTaskAlarmSettings() {
     if (existingText && existingText.parentNode) {
         existingText.parentNode.removeChild(existingText);
     }
+    const existingShowOverdueLabel = HTML.getElementUnsafely('taskShowOverdueLabel');
+    if (existingShowOverdueLabel && existingShowOverdueLabel.parentNode) {
+        existingShowOverdueLabel.parentNode.removeChild(existingShowOverdueLabel);
+    }
+    const existingShowOverdueToggle = HTML.getElementUnsafely('taskShowOverdueToggle');
+    if (existingShowOverdueToggle) {
+        deleteBooleanToggle('taskShowOverdueToggle');
+    }
+    
+    // Create "Show overdue occurrences" control
+    const showOverdueLabel = HTML.make('div');
+    HTML.setId(showOverdueLabel, 'taskShowOverdueLabel');
+    showOverdueLabel.textContent = 'Show overdue occurrences';
+    HTML.setStyle(showOverdueLabel, {
+        position: 'absolute',
+        bottom: '158px', // Above alarm settings
+        left: '8px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        transition: 'opacity 0.3s ease',
+        opacity: '0'
+    });
+    editorModal.appendChild(showOverdueLabel);
+    
+    // Get current show overdue state
+    const currentShowOverdue = editorModalData._task.showOverdue;
+    const modalLeft = (window.innerWidth - editorModalWidth) / 2;
+    const modalTop = (window.innerHeight - editorModalHeight) / 2;
+    
+    createBooleanToggle(
+        'taskShowOverdueToggle',
+        modalLeft + 182, // Positioned to the right (moved left 20px)
+        modalTop + editorModalHeight - 174, // Above alarm settings 
+        36, // width
+        20, // height
+        editorModalBaseZIndex + 1,
+        currentShowOverdue,
+        (state) => {
+            editorModalData._task.showOverdue = state;
+        },
+        'left'
+    );
     
     const label = HTML.make('div');
     HTML.setId(label, 'taskAlarmLabel');
@@ -16381,6 +16424,7 @@ function initTaskAlarmSettings() {
     
     // Fade in
     setTimeout(() => {
+        HTML.setStyle(showOverdueLabel, { opacity: '1' });
         HTML.setStyle(label, { opacity: '1' });
         HTML.setStyle(input, { opacity: '1' });
         HTML.setStyle(minutesText, { opacity: '1' });
@@ -16407,6 +16451,14 @@ function closeAlarmSettings() {
     if (taskText && taskText.parentNode) {
         taskText.parentNode.removeChild(taskText);
     }
+    const taskShowOverdueLabel = HTML.getElementUnsafely('taskShowOverdueLabel');
+    if (taskShowOverdueLabel && taskShowOverdueLabel.parentNode) {
+        taskShowOverdueLabel.parentNode.removeChild(taskShowOverdueLabel);
+    }
+    const taskShowOverdueToggle = HTML.getElementUnsafely('taskShowOverdueToggle');
+    if (taskShowOverdueToggle) {
+        deleteBooleanToggle('taskShowOverdueToggle');
+    }
     
     // Clean up reminder toggle if it exists
     const reminderToggle = HTML.getElementUnsafely('reminderAlarmToggle');
@@ -16425,6 +16477,14 @@ function updateAlarmSettingsPosition() {
         const modalLeft = (window.innerWidth - editorModalWidth) / 2;
         const modalTop = (window.innerHeight - editorModalHeight) / 2;
         moveBooleanToggle('reminderAlarmToggle', modalLeft + 122, modalTop + editorModalHeight - 149);
+    }
+    
+    // Update task show overdue toggle position if it exists
+    const taskShowOverdueToggle = HTML.getElementUnsafely('taskShowOverdueToggle');
+    if (taskShowOverdueToggle) {
+        const modalLeft = (window.innerWidth - editorModalWidth) / 2;
+        const modalTop = (window.innerHeight - editorModalHeight) / 2;
+        moveBooleanToggle('taskShowOverdueToggle', modalLeft + 182, modalTop + editorModalHeight - 174);
     }
 }
 
