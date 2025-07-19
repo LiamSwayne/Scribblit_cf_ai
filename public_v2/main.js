@@ -3633,7 +3633,9 @@ function renderDay(day, index) {
             if (entity.data.workSessions.length > 0) {
                 for (let patternIndex = 0; patternIndex < entity.data.workSessions.length; patternIndex++) {
                     const workSession = entity.data.workSessions[patternIndex];
-                    const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, patternIndex, day, startOfDay, endOfDay);
+                    // Calculate combined index: regular instances count + work session index
+                    const combinedPatternIndex = entity.data.instances.length + patternIndex;
+                    const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, combinedPatternIndex, day, startOfDay, endOfDay);
                     factoryResults.forEach(res => {
                         if (type(res, FilteredAllDayInstance)) {
                             G_filteredAllDayInstances.push(res);
@@ -5708,7 +5710,9 @@ function renderCalendar(days) {
             for (const entity of user.entityArray) {
                 if (type(entity.data, TaskData)) {
                     for (let p = 0; p < entity.data.workSessions.length; p++) {
-                        const segs = FilteredInstancesFactory.fromTaskWorkSession(entity, entity.data.workSessions[p], p, day, dayStartUnix, dayEndUnix);
+                        // Calculate combined index: regular instances count + work session index
+                        const combinedPatternIndex = entity.data.instances.length + p;
+                        const segs = FilteredInstancesFactory.fromTaskWorkSession(entity, entity.data.workSessions[p], combinedPatternIndex, day, dayStartUnix, dayEndUnix);
                         for (const inst of segs) {
                             if (!type(inst, FilteredSegmentOfDayInstance)) continue;
                             const candEarliest = inst.wrapToPreviousDay ? inst.endDateTime : inst.startDateTime;
@@ -6693,7 +6697,9 @@ function renderTimeIndicator(onSchedule) {
                if (entity.data.workSessions.length > 0) { // check length not just > 0
                   for (let patternIndex = 0; patternIndex < entity.data.workSessions.length; patternIndex++) {
                       const workSession = entity.data.workSessions[patternIndex];
-                     const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, patternIndex, day, startOfTodayUnix, endOfTodayUnix);
+                      // Calculate combined index: regular instances count + work session index
+                      const combinedPatternIndex = entity.data.instances.length + patternIndex;
+                     const factoryResults = FilteredInstancesFactory.fromTaskWorkSession(entity, workSession, combinedPatternIndex, day, startOfTodayUnix, endOfTodayUnix);
                       factoryResults.forEach(res => {
                           if (type(res, FilteredAllDayInstance)) G_filteredAllDayInstances.push(res);
                       });
