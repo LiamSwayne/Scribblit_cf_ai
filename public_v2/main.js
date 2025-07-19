@@ -11417,6 +11417,16 @@ function isValidEditorEntity(kind, instance) {
     return true;
 }
 
+// Helper function to determine if we're currently editing a work session
+function isEditingWorkSession() {
+    if (editorModalData.kind !== 'task' || editorModalActiveInstanceIndex === NULL) {
+        return false;
+    }
+    
+    const regularInstancesLength = editorModalData._task.instances.length;
+    return editorModalActiveInstanceIndex >= regularInstancesLength;
+}
+
 // Convert instance to natural sentence description
 function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
     ASSERT(type(kind, String), "getInstanceAsSentence: kind must be a String");
@@ -12749,7 +12759,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     // Add time fields below range containers
     let timeLabel, timeFields1, timeFields2;
     
-    if (editorModalData.kind === 'task') {
+    if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
         // Tasks: "due by" + time field
         timeLabel = HTML.make('div');
         timeLabel.textContent = 'Due by';
@@ -12810,8 +12820,8 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         
         timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'everyNDaysReminderTime');
         
-    } else if (editorModalData.kind === 'event') {
-        // Events: "From ____ to ____"
+    } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+        // Events or work sessions: "From ____ to ____"
         const fromLabel = HTML.make('div');
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
@@ -12914,7 +12924,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         startingDateFields.day.value = day;
         
         // Set default times based on entity type
-        if (editorModalData.kind === 'task') {
+        if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
             // Default task due time to end of day (23:59)
             timeFields1.hour.value = '23';
             timeFields1.minute.value = '59';
@@ -12923,8 +12933,8 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
             const currentHour = today.getHours();
             timeFields1.hour.value = currentHour.toString().padStart(2, '0');
             timeFields1.minute.value = '00';
-        } else if (editorModalData.kind === 'event') {
-            // Default event time to 9:00-10:00
+        } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+            // Default event/work session time to 9:00-10:00
             timeFields1.hour.value = '09';
             timeFields1.minute.value = '00';
             timeFields2.hour.value = '10';
@@ -13046,7 +13056,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
             }
             
             // Populate time fields based on entity type
-            if (editorModalData.kind === 'task') {
+            if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                 const dueTime = instanceData.dueTime;
                 if (dueTime && dueTime !== symbolToString(NULL)) {
                     timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
@@ -13058,7 +13068,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
                     timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
                     timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                 }
-            } else if (editorModalData.kind === 'event') {
+            } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                 const startTime = instanceData.startTime;
                 const endTime = instanceData.endTime;
                 if (startTime && startTime !== symbolToString(NULL)) {
@@ -13435,7 +13445,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
     // Add time fields below range containers
     let timeLabel, timeFields1, timeFields2;
     
-    if (editorModalData.kind === 'task') {
+    if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
         // Tasks: "Due by" + time field
         timeLabel = HTML.make('div');
         timeLabel.textContent = 'Due by';
@@ -13496,8 +13506,8 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         
         timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'monthlyReminderTime');
         
-    } else if (editorModalData.kind === 'event') {
-        // Events: "From ____ to ____"
+    } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+        // Events or work sessions: "From ____ to ____"
         const fromLabel = HTML.make('div');
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
@@ -13735,7 +13745,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
                 }
                 
                 // Populate time fields based on entity type
-                if (editorModalData.kind === 'task') {
+                if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                     const dueTime = instanceData.dueTime;
                     if (dueTime && dueTime !== symbolToString(NULL)) {
                         timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
@@ -13747,7 +13757,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
                         timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
                         timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                     }
-                } else if (editorModalData.kind === 'event') {
+                } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                     const startTime = instanceData.startTime;
                     const endTime = instanceData.endTime;
                     if (startTime && startTime !== symbolToString(NULL)) {
@@ -14040,7 +14050,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
     // Add time fields below range containers
     let timeLabel, timeFields1, timeFields2;
     
-    if (editorModalData.kind === 'task') {
+    if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
         // Tasks: "Due by" + time field
         timeLabel = HTML.make('div');
         timeLabel.textContent = 'Due by';
@@ -14101,8 +14111,8 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         
         timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'yearlyReminderTime');
         
-    } else if (editorModalData.kind === 'event') {
-        // Events: "From ____ to ____"
+    } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+        // Events or work sessions: "From ____ to ____"
         const fromLabel = HTML.make('div');
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
@@ -14336,7 +14346,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
                 }
                 
                 // Populate time fields based on entity type
-                if (editorModalData.kind === 'task') {
+                if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                     const dueTime = instanceData.dueTime;
                     if (dueTime && dueTime !== symbolToString(NULL)) {
                         timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
@@ -14348,7 +14358,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
                         timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
                         timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                     }
-                } else if (editorModalData.kind === 'event') {
+                } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                     const startTime = instanceData.startTime;
                     const endTime = instanceData.endTime;
                     if (startTime && startTime !== symbolToString(NULL)) {
@@ -14374,7 +14384,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         dateFields.day.value = day;
         
         // Set default times based on entity type
-        if (editorModalData.kind === 'task') {
+        if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
             // Default task due time to end of day (23:59)
             timeFields1.hour.value = '23';
             timeFields1.minute.value = '59';
@@ -14383,8 +14393,8 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
             const currentHour = today.getHours();
             timeFields1.hour.value = currentHour.toString().padStart(2, '0');
             timeFields1.minute.value = '00';
-        } else if (editorModalData.kind === 'event') {
-            // Default event time to 9:00-10:00
+        } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+            // Default event/work session time to 9:00-10:00
             timeFields1.hour.value = '09';
             timeFields1.minute.value = '00';
             timeFields2.hour.value = '10';
@@ -14897,7 +14907,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     // Add time fields below range containers
     let timeLabel, timeFields1, timeFields2;
     
-    if (editorModalData.kind === 'task') {
+    if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
         // Tasks: "Due by" + time field
         timeLabel = HTML.make('div');
         timeLabel.textContent = 'Due by';
@@ -14958,8 +14968,8 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         
         timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'nthWeekdayReminderTime');
         
-    } else if (editorModalData.kind === 'event') {
-        // Events: "From ____ to ____"
+    } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+        // Events or work sessions: "From ____ to ____"
         const fromLabel = HTML.make('div');
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
@@ -15157,7 +15167,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
             }
             
             // Populate time fields based on entity type
-            if (editorModalData.kind === 'task') {
+            if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                 const dueTime = instanceData.dueTime;
                 if (dueTime && dueTime !== symbolToString(NULL)) {
                     timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
@@ -15169,7 +15179,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
                     timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
                     timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                 }
-            } else if (editorModalData.kind === 'event') {
+            } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                 const startTime = instanceData.startTime;
                 const endTime = instanceData.endTime;
                 if (startTime && startTime !== symbolToString(NULL)) {
@@ -15459,7 +15469,7 @@ function initDateInstanceEditor(top, newOrIndex) {
         // Add time fields below date
         let timeLabel, timeFields1, timeFields2;
         
-        if (editorModalData.kind === 'task') {
+        if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
             // Tasks: "due by" + time field
             timeLabel = HTML.make('div');
             timeLabel.textContent = 'Due by';
@@ -15520,8 +15530,8 @@ function initDateInstanceEditor(top, newOrIndex) {
             
             timeFields1 = initTimeFieldInput(timeContainer, 0, -2, 'oneTimeReminderTime');
             
-        } else if (editorModalData.kind === 'event') {
-            // Events: "From ____ to ____"
+        } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+            // Events or work sessions: "From ____ to ____"
             const fromLabel = HTML.make('div');
             fromLabel.textContent = 'From';
             HTML.setStyle(fromLabel, {
@@ -15629,7 +15639,7 @@ function initDateInstanceEditor(top, newOrIndex) {
                 }
                 
                 // Populate time fields based on entity type
-                if (editorModalData.kind === 'task') {
+                if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                     const dueTime = instanceData.dueTime;
                     if (dueTime && dueTime !== symbolToString(NULL)) {
                         timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
@@ -15641,7 +15651,7 @@ function initDateInstanceEditor(top, newOrIndex) {
                         timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
                         timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                     }
-                } else if (editorModalData.kind === 'event') {
+                } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                     const startTime = instanceData.startTime;
                     const endTime = instanceData.endTime;
                     if (startTime && startTime !== symbolToString(NULL)) {
@@ -15666,7 +15676,7 @@ function initDateInstanceEditor(top, newOrIndex) {
             dateFields.day.value = day;
             
             // Set default times based on entity type
-            if (editorModalData.kind === 'task') {
+            if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                 // Default task due time to end of day (23:59)
                 timeFields1.hour.value = '23';
                 timeFields1.minute.value = '59';
@@ -15675,8 +15685,8 @@ function initDateInstanceEditor(top, newOrIndex) {
                 const currentHour = today.getHours();
                 timeFields1.hour.value = currentHour.toString().padStart(2, '0');
                 timeFields1.minute.value = '00';
-            } else if (editorModalData.kind === 'event') {
-                // Default event time to 9:00-10:00
+            } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
+                // Default event/work session time to 9:00-10:00
                 timeFields1.hour.value = '09';
                 timeFields1.minute.value = '00';
                 timeFields2.hour.value = '10';
