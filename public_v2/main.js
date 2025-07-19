@@ -12814,7 +12814,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '60px',
+        height: '120px',
         backgroundColor: 'var(--shade-0)',
         opacity: '0',
         transition: 'opacity 0.2s ease',
@@ -12919,7 +12919,246 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         monthContainer.appendChild(button);
     });
     
-    // If editing existing instance, load the day value and month states
+    // Add range selector
+    const selectorTop = 55; // Position below month buttons
+    
+    // Calculate modal position for selector coordinates
+    const modalRect = editorModal.getBoundingClientRect();
+    const modalLeft = modalRect.left;
+    const modalTop = modalRect.top;
+    const absoluteSelectorX = modalLeft + 8; // modal left + container left
+    const absoluteSelectorY = modalTop + top + selectorTop; // modal top + container top + relative top
+    
+    // Determine initial selection based on existing range type (if editing)
+    let initialSelection = 'Repeat until [date]';
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+                         editorModalData._reminder.instances;
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const range = instanceData.range;
+            if (range && range._type === 'RecurrenceCount') {
+                initialSelection = 'Occurs [x] times';
+            }
+        }
+    }
+    
+    // Create the selector
+    createSelector({
+        options: ['Occurs [x] times', 'Repeat until [date]'],
+        orientation: 'horizontal',
+        id: monthlyRangeTypeSelectorId, // Use unique ID
+        x: absoluteSelectorX,
+        y: absoluteSelectorY,
+        width: editorModalWidth - 72,
+        height: 20,
+        zIndex: editorModalBaseZIndex + 2,
+        font: 'MonospaceRegular',
+        fontSize: 10,
+        onSelectionChange: (selectedOption) => {
+            updateMonthlyRangeType(selectedOption);
+        },
+        initialSelection: initialSelection,
+        minWaitTime: 0.1,
+        alignmentSide: 'left',
+        equalSpacing: false,
+        accentMode: 'transition'
+    });
+    
+    // Create content containers for different range types
+    const rangeTimesContainer = HTML.make('div');
+    HTML.setId(rangeTimesContainer, 'monthlyRangeTimesContainer');
+    HTML.setStyle(rangeTimesContainer, {
+        position: 'absolute',
+        top: '80px', // Position below selector
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: initialSelection === 'Occurs [x] times' ? '1' : '0',
+        pointerEvents: initialSelection === 'Occurs [x] times' ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const occursText = HTML.make('div');
+    occursText.textContent = 'Occurs';
+    HTML.setStyle(occursText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeTimesContainer.appendChild(occursText);
+    
+    const timesInput = HTML.make('input');
+    HTML.setId(timesInput, 'monthlyTimesInput');
+    timesInput.setAttribute('type', 'number');
+    timesInput.setAttribute('min', '1');
+    timesInput.value = '3'; // Default value
+    HTML.setStyle(timesInput, {
+        position: 'absolute',
+        top: '-2px',
+        left: '48px',
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px'
+    });
+    rangeTimesContainer.appendChild(timesInput);
+    
+    const timesStartingText = HTML.make('div');
+    timesStartingText.textContent = 'times starting on';
+    HTML.setStyle(timesStartingText, {
+        position: 'absolute',
+        top: '0px',
+        left: '95px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeTimesContainer.appendChild(timesStartingText);
+    
+    const startingDateContainer = HTML.make('div');
+    HTML.setStyle(startingDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '205px'
+    });
+    rangeTimesContainer.appendChild(startingDateContainer);
+    
+    const startingDateFields = initDateFieldInput(startingDateContainer, 0, -2, 'monthlyStartingDate');
+    
+    instanceEditorContainer.appendChild(rangeTimesContainer);
+    
+    const rangeUntilContainer = HTML.make('div');
+    HTML.setId(rangeUntilContainer, 'monthlyRangeUntilContainer');
+    HTML.setStyle(rangeUntilContainer, {
+        position: 'absolute',
+        top: '80px', // Position below selector
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: initialSelection === 'Repeat until [date]' ? '1' : '0',
+        pointerEvents: initialSelection === 'Repeat until [date]' ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const fromText = HTML.make('div');
+    fromText.textContent = 'From';
+    HTML.setStyle(fromText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeUntilContainer.appendChild(fromText);
+    
+    const fromDateContainer = HTML.make('div');
+    HTML.setStyle(fromDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '37px'
+    });
+    rangeUntilContainer.appendChild(fromDateContainer);
+    
+    const fromDateFields = initDateFieldInput(fromDateContainer, 0, -2, 'monthlyFromDate');
+    
+    const toText = HTML.make('div');
+    toText.textContent = 'to';
+    HTML.setStyle(toText, {
+        position: 'absolute',
+        top: '0px',
+        left: '122px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeUntilContainer.appendChild(toText);
+    
+    const toDateContainer = HTML.make('div');
+    HTML.setStyle(toDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '139px'
+    });
+    rangeUntilContainer.appendChild(toDateContainer);
+    
+    const toDateFields = initDateFieldInput(toDateContainer, 0, -2, 'monthlyToDate');
+    
+    const optionalText = HTML.make('div');
+    optionalText.textContent = '(optional)';
+    HTML.setStyle(optionalText, {
+        position: 'absolute',
+        top: '21px',
+        left: '159px',
+        color: 'var(--shade-3)',
+        fontSize: '10px',
+        fontFamily: 'PrimaryRegular'
+    });
+    rangeUntilContainer.appendChild(optionalText);
+    
+    instanceEditorContainer.appendChild(rangeUntilContainer);
+    
+    // Function to update range type
+    function updateMonthlyRangeType(selectedOption) {
+        if (selectedOption === 'Occurs [x] times') {
+            // First fade out range until container and disable pointer events
+            HTML.setStyle(rangeUntilContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
+            // Wait for fade out to complete, then fade in range times container
+            setTimeout(() => {
+                HTML.setStyle(rangeTimesContainer, { 
+                    opacity: '1',
+                    pointerEvents: 'auto'
+                });
+            }, 200);
+        } else {
+            // First fade out range times container and disable pointer events
+            HTML.setStyle(rangeTimesContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
+            // Wait for fade out to complete, then fade in range until container
+            setTimeout(() => {
+                HTML.setStyle(rangeUntilContainer, { 
+                    opacity: '1',
+                    pointerEvents: 'auto'
+                });
+            }, 200);
+        }
+    }
+    
+    // Populate date fields based on whether we're creating new or editing existing
+    if (newOrIndex === 'new') {
+        // If creating new pattern, set start date to today
+        const today = new Date();
+        const year = today.getFullYear().toString().slice(-2);
+        const month = (today.getMonth() + 1).toString();
+        const day = today.getDate().toString();
+        
+        fromDateFields.year.value = year;
+        fromDateFields.month.value = month;
+        fromDateFields.day.value = day;
+        
+        startingDateFields.year.value = year;
+        startingDateFields.month.value = month;
+        startingDateFields.day.value = day;
+    }
+    
+    // If editing existing instance, load the day value and month states and range data
     if (type(newOrIndex, Uint)) {
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
                          editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
@@ -12928,6 +13167,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         if (newOrIndex < instances.length) {
             const instanceData = instances[newOrIndex];
             const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
+            const range = instanceData.range;
             
             if (pattern && pattern._type === 'MonthlyPattern') {
                 // Set day value
@@ -12948,6 +13188,77 @@ function initMonthlyPatternEditor(top, newOrIndex) {
                             }
                         }
                     });
+                }
+                
+                // Set range values
+                if (range) {
+                    // Determine if this is a newly created instance
+                    let isNewInstance = false;
+                    if (!pattern.initialDate || pattern.initialDate === symbolToString(NULL)) {
+                        isNewInstance = true;
+                        // Set start date to today for new instances
+                        const today = new Date();
+                        const year = today.getFullYear().toString().slice(-2);
+                        const month = (today.getMonth() + 1).toString();
+                        const day = today.getDate().toString();
+                        
+                        fromDateFields.year.value = year;
+                        fromDateFields.month.value = month;
+                        fromDateFields.day.value = day;
+                        
+                        startingDateFields.year.value = year;
+                        startingDateFields.month.value = month;
+                        startingDateFields.day.value = day;
+                    }
+                    
+                    if (range._type === 'DateRange') {
+                        // DateRange: populate "From" and "To" fields
+                        if (range.startDate && range.startDate !== symbolToString(NULL)) {
+                            const startDate = DateField.decode(range.startDate);
+                            const startYear = startDate.year.toString().slice(-2);
+                            const startMonth = startDate.month.toString();
+                            const startDay = startDate.day.toString();
+                            
+                            fromDateFields.year.value = startYear;
+                            fromDateFields.month.value = startMonth;
+                            fromDateFields.day.value = startDay;
+                            
+                            startingDateFields.year.value = startYear;
+                            startingDateFields.month.value = startMonth;
+                            startingDateFields.day.value = startDay;
+                        }
+                        
+                        if (range.endDate && range.endDate !== symbolToString(NULL)) {
+                            const endDate = DateField.decode(range.endDate);
+                            const endYear = endDate.year.toString().slice(-2);
+                            const endMonth = endDate.month.toString();
+                            const endDay = endDate.day.toString();
+                            
+                            toDateFields.year.value = endYear;
+                            toDateFields.month.value = endMonth;
+                            toDateFields.day.value = endDay;
+                        }
+                    } else if (range._type === 'RecurrenceCount') {
+                        // RecurrenceCount: populate both "starting date" fields and count
+                        if (range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                            const initialDate = DateField.decode(range.initialDate);
+                            const initialYear = initialDate.year.toString().slice(-2);
+                            const initialMonth = initialDate.month.toString();
+                            const initialDay = initialDate.day.toString();
+                            
+                            fromDateFields.year.value = initialYear;
+                            fromDateFields.month.value = initialMonth;
+                            fromDateFields.day.value = initialDay;
+                            
+                            startingDateFields.year.value = initialYear;
+                            startingDateFields.month.value = initialMonth;
+                            startingDateFields.day.value = initialDay;
+                        }
+                        
+                        if (range.count) {
+                            timesInput.value = range.count.toString();
+                        }
+                    }
                 }
             }
         }
