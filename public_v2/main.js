@@ -17982,6 +17982,10 @@ function createSelector(config) {
     HTML.setData(background, 'options', options);
     HTML.setData(background, 'orientation', orientation);
     HTML.setData(background, 'equalSpacing', equalSpacing);  // Store equalSpacing for moveSelector
+    HTML.setData(background, 'optionData', optionData);  // Store position data for click handlers
+    HTML.setData(background, 'x', x);  // Store original x coordinate
+    HTML.setData(background, 'y', y);  // Store original y coordinate
+    HTML.setData(background, 'padding', padding);  // Store padding
     HTML.setData(background, 'lastSelectionTime', 0);  // Track last selection time
     HTML.setData(background, 'minWaitTime', minWaitTime * 1000);  // Convert to milliseconds
 
@@ -18088,19 +18092,25 @@ function createSelector(config) {
                 const newAccentColorRgba = `rgba(${newAccentColorRgb.r}, ${newAccentColorRgb.g}, ${newAccentColorRgb.b}, 0.4)`;
                 const newBlendedTextColor = `rgb(${Math.round(shade4ColorRgb.r * 0.8 + newAccentColorRgb.r * 0.2)}, ${Math.round(shade4ColorRgb.g * 0.8 + newAccentColorRgb.g * 0.2)}, ${Math.round(shade4ColorRgb.b * 0.8 + newAccentColorRgb.b * 0.2)})`;
                 
-                // Move highlight smoothly
-                const targetOption = optionData[i];
+                // Get current position data (updated by moveSelector if needed)
+                const currentOptionData = HTML.getData(background, 'optionData');
+                const currentX = HTML.getData(background, 'x');
+                const currentY = HTML.getData(background, 'y');
+                const currentPadding = HTML.getData(background, 'padding');
+                
+                // Move highlight smoothly using current position data
+                const targetOption = currentOptionData[i];
                 const updateHighlightStyles = {
-                    top: (y + padding + targetOption.y) + 'px',
+                    top: (currentY + currentPadding + targetOption.y) + 'px',
                     width: targetOption.width + 'px',
                     height: targetOption.height + 'px',
                     backgroundColor: newAccentColorRgba,
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 };
                 if (alignmentSide === 'left') {
-                    updateHighlightStyles.left = (x + padding + targetOption.x) + 'px';
+                    updateHighlightStyles.left = (currentX + currentPadding + targetOption.x) + 'px';
                 } else {
-                    updateHighlightStyles.right = (x + padding + (innerWidth - targetOption.x - targetOption.width)) + 'px';
+                    updateHighlightStyles.right = (currentX + currentPadding + (innerWidth - targetOption.x - targetOption.width)) + 'px';
                 }
                 HTML.setStyle(highlight, updateHighlightStyles);
                 
@@ -18258,6 +18268,7 @@ function moveSelector(id, newX, newY) {
     const options = HTML.getData(background, 'options');
     const orientation = HTML.getData(background, 'orientation');
     const selectedIndex = HTML.getData(background, 'selectedIndex');
+    
     const equalSpacing = HTML.getData(background, 'equalSpacing');
     
     ASSERT(type(options, List(String)), "moveSelector: invalid options data");
@@ -18357,6 +18368,11 @@ function moveSelector(id, newX, newY) {
                     y: optionY
                 });
             }
+            
+            // Update stored position data for click handlers
+            HTML.setData(background, 'optionData', optionData);
+            HTML.setData(background, 'x', newX);
+            HTML.setData(background, 'y', newY);
             
             // Move highlight to selected option position
             const selectedOption = optionData[selectedIndex];
