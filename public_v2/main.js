@@ -6002,7 +6002,7 @@ function renderDividers() {
             left: `${hDividerLeft}px`,
             width: `${hDividerWidth}px`,
             height: `${hDividerHeight}px`,
-            backgroundColor: 'var(--shade-2)',
+            backgroundColor: 'var(--shade-1)',
             borderRadius: `${hDividerBorderRadius}px`,
             zIndex: '6300'
         });
@@ -6043,7 +6043,7 @@ function renderDividers() {
                 left: `${vDividerLeft}px`,
                 width: `${vDividerWidth}px`,
                 height: `${vDividerHeight}px`,
-                backgroundColor: 'var(--shade-3)',
+                backgroundColor: 'var(--shade-1)',
                 borderRadius: `${vDividerBorderRadius}px`,
                 zIndex: '6300'
             });
@@ -6069,7 +6069,7 @@ function renderDividers() {
                 left: `${vDividerLeft}px`,
                 width: `${vDividerWidth}px`,
                 height: `${vDividerHeight}px`,
-                backgroundColor: 'var(--shade-3)',
+                backgroundColor: 'var(--shade-1)',
                 borderRadius: `${vDividerBorderRadius}px`,
                 zIndex: '6300'
             });
@@ -12803,7 +12803,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '200px',
+        height: '260px',
         backgroundColor: 'var(--shade-0)',
         opacity: '0',
         transition: 'opacity 0.2s ease',
@@ -12840,8 +12840,9 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         editorModalData._reminder.instances;
         
         const instanceData = instances[newOrIndex];
-        if (instanceData && instanceData.startDatePattern && instanceData.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
-            const pattern = instanceData.startDatePattern;
+        // Check both datePattern (for tasks/reminders) and startDatePattern (for events)
+        const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
+        if (pattern && pattern._type === 'NthWeekdayOfMonthsPattern') {
             selectedDay = pattern.dayOfWeek;
             const dayIndex = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(selectedDay);
             if (dayIndex !== -1) {
@@ -12939,8 +12940,9 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         editorModalData._reminder.instances;
         
         const instanceData = instances[newOrIndex];
-        if (instanceData && instanceData.startDatePattern && instanceData.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
-            const pattern = instanceData.startDatePattern;
+        // Check both datePattern (for tasks/reminders) and startDatePattern (for events)
+        const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
+        if (pattern && pattern._type === 'NthWeekdayOfMonthsPattern') {
             if (pattern.nthWeekdays && pattern.nthWeekdays.includes && pattern.nthWeekdays.includes('LAST_WEEK_OF_MONTH')) {
                 isLastWeekday = true;
                 initialNthWeekdaySelection = 'Last weekday of month';
@@ -13031,9 +13033,9 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         editorModalData._reminder.instances;
         
         const instanceData = instances[newOrIndex];
-        if (instanceData && instanceData.startDatePattern && instanceData.startDatePattern._type === 'NthWeekdayOfMonthsPattern') {
-            const pattern = instanceData.startDatePattern;
-            
+        // Check both datePattern (for tasks/reminders) and startDatePattern (for events)
+        const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
+        if (pattern && pattern._type === 'NthWeekdayOfMonthsPattern') {
             // Set month states
             if (pattern.months && Array.isArray(pattern.months)) {
                 pattern.months.forEach((active, index) => {
@@ -13074,11 +13076,338 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         });
     }
     
+    currentTop += 25;
+    
+    // Add range selector (similar to every N days pattern)
+    
+    // Determine initial selection based on existing range type (if editing)
+    let initialRangeSelection = 'Repeat until [date]';
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+        editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+        editorModalData._reminder.instances;
+        
+        const instanceData = instances[newOrIndex];
+        if (instanceData && instanceData.range) {
+            const range = instanceData.range;
+            if (range._type === 'RecurrenceCount') {
+                initialRangeSelection = 'Occurs [x] times';
+            }
+        }
+    }
+    
+    createSelector({
+        options: ['Occurs [x] times', 'Repeat until [date]'],
+        orientation: 'horizontal',
+        id: 'nthWeekdayRangeTypeSelector',
+        x: modalRect.left + 8, // Modal left + padding
+        y: modalRect.top + top + currentTop - 14,
+        width: 228,
+        height: 20,
+        zIndex: editorModalBaseZIndex + 2,
+        font: 'MonospaceRegular',
+        fontSize: 10,
+        onSelectionChange: (selectedOption) => {
+            updateNthWeekdayRangeType(selectedOption);
+        },
+        initialSelection: initialRangeSelection,
+        minWaitTime: 0.1,
+        alignmentSide: 'left',
+        equalSpacing: false,
+        accentMode: 'transition'
+    });
+    
+    currentTop += 29;
+    
+    // Create content containers for different range types
+    const rangeTimesContainer = HTML.make('div');
+    HTML.setId(rangeTimesContainer, 'rangeTimesContainer');
+    HTML.setStyle(rangeTimesContainer, {
+        position: 'absolute',
+        top: (currentTop - 16) + 'px',
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: initialRangeSelection === 'Occurs [x] times' ? '1' : '0',
+        pointerEvents: initialRangeSelection === 'Occurs [x] times' ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const timesText = HTML.make('div');
+    timesText.textContent = 'Occurs';
+    HTML.setStyle(timesText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeTimesContainer.appendChild(timesText);
+    
+    const timesInput = HTML.make('input');
+    HTML.setId(timesInput, 'nthWeekdayTimesInput');
+    timesInput.setAttribute('type', 'number');
+    timesInput.setAttribute('min', '1');
+    timesInput.value = '3';
+    HTML.setStyle(timesInput, {
+        position: 'absolute',
+        top: '-2px',
+        left: '48px',
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px'
+    });
+    rangeTimesContainer.appendChild(timesInput);
+    
+    const timesEndText = HTML.make('div');
+    timesEndText.textContent = 'times starting on';
+    HTML.setStyle(timesEndText, {
+        position: 'absolute',
+        top: '0px',
+        left: '95px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeTimesContainer.appendChild(timesEndText);
+    
+    const startingDateContainer = HTML.make('div');
+    HTML.setStyle(startingDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '205px'
+    });
+    rangeTimesContainer.appendChild(startingDateContainer);
+    
+    const startingDateFields = initDateFieldInput(startingDateContainer, 0, -2, 'startingDate');
+    
+    instanceEditorContainer.appendChild(rangeTimesContainer);
+    
+    const rangeUntilContainer = HTML.make('div');
+    HTML.setId(rangeUntilContainer, 'rangeUntilContainer');
+    HTML.setStyle(rangeUntilContainer, {
+        position: 'absolute',
+        top: (currentTop - 16) + 'px',
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: initialRangeSelection === 'Repeat until [date]' ? '1' : '0',
+        pointerEvents: initialRangeSelection === 'Repeat until [date]' ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const fromText = HTML.make('div');
+    fromText.textContent = 'From';
+    HTML.setStyle(fromText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeUntilContainer.appendChild(fromText);
+    
+    const fromDateContainer = HTML.make('div');
+    HTML.setStyle(fromDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '37px'
+    });
+    rangeUntilContainer.appendChild(fromDateContainer);
+    
+    const fromDateFields = initDateFieldInput(fromDateContainer, 0, -2, 'fromDate');
+    
+    const toText = HTML.make('div');
+    toText.textContent = 'to';
+    HTML.setStyle(toText, {
+        position: 'absolute',
+        top: '0px',
+        left: '122px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeUntilContainer.appendChild(toText);
+    
+    const toDateContainer = HTML.make('div');
+    HTML.setStyle(toDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '139px'
+    });
+    rangeUntilContainer.appendChild(toDateContainer);
+    
+    const toDateFields = initDateFieldInput(toDateContainer, 0, -2, 'toDate');
+    
+    const optionalText = HTML.make('div');
+    optionalText.textContent = '(optional)';
+    HTML.setStyle(optionalText, {
+        position: 'absolute',
+        top: '21px',
+        left: '159px',
+        color: 'var(--shade-3)',
+        fontSize: '10px',
+        fontFamily: 'PrimaryRegular'
+    });
+    rangeUntilContainer.appendChild(optionalText);
+    
+    instanceEditorContainer.appendChild(rangeUntilContainer);
+    
+    // Populate date fields and range data based on whether we're creating new or editing existing
+    if (newOrIndex === 'new') {
+        // If creating new pattern, set start date to today
+        const today = new Date();
+        const year = today.getFullYear().toString().slice(-2);
+        const month = (today.getMonth() + 1).toString();
+        const day = today.getDate().toString();
+        
+        fromDateFields.year.value = year;
+        fromDateFields.month.value = month;
+        fromDateFields.day.value = day;
+        
+        startingDateFields.year.value = year;
+        startingDateFields.month.value = month;
+        startingDateFields.day.value = day;
+    } else if (type(newOrIndex, Uint)) {
+        // If editing existing instance, load existing range values
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+                         editorModalData._reminder.instances;
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
+            const range = instanceData.range;
+            
+            // Check if this is a newly created instance (empty initial date) and set to today
+            let isNewInstance = false;
+            if (pattern && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
+                isNewInstance = true;
+                // Set start date to today for new instances
+                const today = new Date();
+                const year = today.getFullYear().toString().slice(-2);
+                const month = (today.getMonth() + 1).toString();
+                const day = today.getDate().toString();
+                
+                fromDateFields.year.value = year;
+                fromDateFields.month.value = month;
+                fromDateFields.day.value = day;
+                
+                startingDateFields.year.value = year;
+                startingDateFields.month.value = month;
+                startingDateFields.day.value = day;
+            }
+            
+            // If not a new instance, populate from the pattern's initial date
+            if (!isNewInstance && pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
+                const patternStartDate = DateField.decode(pattern.initialDate);
+                const patternYear = patternStartDate.year.toString().slice(-2);
+                const patternMonth = patternStartDate.month.toString();
+                const patternDay = patternStartDate.day.toString();
+                
+                fromDateFields.year.value = patternYear;
+                fromDateFields.month.value = patternMonth;
+                fromDateFields.day.value = patternDay;
+                
+                startingDateFields.year.value = patternYear;
+                startingDateFields.month.value = patternMonth;
+                startingDateFields.day.value = patternDay;
+            }
+            
+            if (range && range._type === 'DateRange') {
+                // DateRange: populate "From" and "To" fields, override pattern date if range has startDate
+                if (range.startDate && range.startDate !== symbolToString(NULL)) {
+                    const startDate = DateField.decode(range.startDate);
+                    const startYear = startDate.year.toString().slice(-2);
+                    const startMonth = startDate.month.toString();
+                    const startDay = startDate.day.toString();
+                    
+                    fromDateFields.year.value = startYear;
+                    fromDateFields.month.value = startMonth;
+                    fromDateFields.day.value = startDay;
+                    
+                    startingDateFields.year.value = startYear;
+                    startingDateFields.month.value = startMonth;
+                    startingDateFields.day.value = startDay;
+                }
+                
+                if (range.endDate && range.endDate !== symbolToString(NULL)) {
+                    const endDate = DateField.decode(range.endDate);
+                    const endYear = endDate.year.toString().slice(-2);
+                    const endMonth = endDate.month.toString();
+                    const endDay = endDate.day.toString();
+                    
+                    toDateFields.year.value = endYear;
+                    toDateFields.month.value = endMonth;
+                    toDateFields.day.value = endDay;
+                }
+            } else if (range && range._type === 'RecurrenceCount') {
+                // RecurrenceCount: populate both "starting date" fields and count
+                if (range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                    const initialDate = DateField.decode(range.initialDate);
+                    const initialYear = initialDate.year.toString().slice(-2);
+                    const initialMonth = initialDate.month.toString();
+                    const initialDay = initialDate.day.toString();
+                    
+                    // Populate both the "Repeat until [date]" container's "From" field
+                    fromDateFields.year.value = initialYear;
+                    fromDateFields.month.value = initialMonth;
+                    fromDateFields.day.value = initialDay;
+                    
+                    // AND the "Occurs [x] times" container's "starting on" field
+                    startingDateFields.year.value = initialYear;
+                    startingDateFields.month.value = initialMonth;
+                    startingDateFields.day.value = initialDay;
+                }
+                
+                if (range.count) {
+                    timesInput.value = range.count.toString();
+                }
+            }
+        }
+    }
+    
     // Force reflow then animate in
     instanceEditorContainer.offsetHeight;
     setTimeout(() => {
         HTML.setStyle(instanceEditorContainer, { opacity: '1' });
     }, 10);
+}
+
+function updateNthWeekdayRangeType(selectedOption) {
+    const rangeTimesContainer = HTML.getElementUnsafely('rangeTimesContainer');
+    const rangeUntilContainer = HTML.getElementUnsafely('rangeUntilContainer');
+    
+    if (selectedOption === 'Occurs [x] times') {
+        // Show times container, hide until container
+        HTML.setStyle(rangeTimesContainer, { 
+            opacity: '1',
+            pointerEvents: 'auto'
+        });
+        HTML.setStyle(rangeUntilContainer, { 
+            opacity: '0',
+            pointerEvents: 'none'
+        });
+    } else {
+        // Show until container, hide times container
+        HTML.setStyle(rangeTimesContainer, { 
+            opacity: '0',
+            pointerEvents: 'none'
+        });
+        HTML.setStyle(rangeUntilContainer, { 
+            opacity: '1',
+            pointerEvents: 'auto'
+        });
+    }
 }
 
 function closeNthWeekdayOfMonthsPatternEditor() {
@@ -13090,6 +13419,7 @@ function closeNthWeekdayOfMonthsPatternEditor() {
     // Clean up selectors
     deleteSelector('nthWeekdayTypeSelector');
     deleteSelector('dayOfWeekSelector');
+    deleteSelector('nthWeekdayRangeTypeSelector');
 }
 
 // Unified instance editor that handles all pattern types
@@ -13120,7 +13450,8 @@ function initDateInstanceEditor(top, newOrIndex) {
         'everyNDaysRepeatTypeSelector_text_0',
         'everyNDaysRepeatTypeSelector_text_1',
         'nthWeekdayTypeSelector',
-        'dayOfWeekSelector'
+        'dayOfWeekSelector',
+        'nthWeekdayRangeTypeSelector'
     ];
     selectorIds.forEach(id => {
         const element = HTML.getElementUnsafely(id);
@@ -13828,6 +14159,7 @@ function closeEditorModal() {
     deleteSelector('everyNDaysRepeatTypeSelector');
     deleteSelector('nthWeekdayTypeSelector');
     deleteSelector('dayOfWeekSelector');
+    deleteSelector('nthWeekdayRangeTypeSelector');
 
     // close alarm settings
     closeAlarmSettings();
