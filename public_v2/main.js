@@ -16527,19 +16527,84 @@ function updateEditorModalPosition() {
         });
     }
     
-    // Update selector position using moveSelector
+    // Update main kind selector position 
     const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
-    
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
     
-    // Update Every N Days repeat type selector if it exists
-    const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
-    if (exists(everyNDaysSelector) && instanceEditorContainer) {
+    // Update all pattern editor selectors if instanceEditorContainer exists
+    if (instanceEditorContainer && instanceEditorContainer.style && instanceEditorContainer.style.top) {
         const containerTop = parseInt(instanceEditorContainer.style.top);
-        const everyNDaysSelectorTop = modalTop + containerTop + 26;
-        const everyNDaysSelectorLeft = modalLeft + 8;
-        moveSelector('everyNDaysRepeatTypeSelector', everyNDaysSelectorLeft, everyNDaysSelectorTop);
+        
+        // Helper function to safely move selector, skipping invalid ones
+        const safeMoveSelector = (selectorId, newX, newY) => {
+            const element = HTML.getElementUnsafely(selectorId);
+            if (!exists(element)) return;
+            
+            // Check if element has dataset.data before calling moveSelector
+            // This prevents the ASSERT failure in HTML.getData
+            if (!exists(element.dataset.data) || element.dataset.data === 'undefined' || element.dataset.data === '') {
+                return;
+            }
+            
+            // Try to parse the JSON to make sure it's valid
+            try {
+                JSON.parse(element.dataset.data);
+            } catch (error) {
+                return; // Skip elements with invalid JSON
+            }
+            
+            // Now it's safe to call moveSelector
+            moveSelector(selectorId, newX, newY);
+        };
+        
+        // Update Every N Days repeat type selectors (with unique IDs)
+        const everyNDaysSelectors = document.querySelectorAll('[id^="everyNDaysRepeatTypeSelector"]');
+        everyNDaysSelectors.forEach(selector => {
+            const everyNDaysSelectorTop = modalTop + containerTop + 26;
+            const everyNDaysSelectorLeft = modalLeft + 8;
+            safeMoveSelector(selector.id, everyNDaysSelectorLeft, everyNDaysSelectorTop);
+        });
+        
+        // Update Monthly range type selectors
+        const monthlyRangeSelectors = document.querySelectorAll('[id^="monthlyRangeTypeSelector"]');
+        monthlyRangeSelectors.forEach(selector => {
+            const monthlyRangeSelectorTop = modalTop + containerTop + 55;
+            const monthlyRangeSelectorLeft = modalLeft + 8;
+            safeMoveSelector(selector.id, monthlyRangeSelectorLeft, monthlyRangeSelectorTop);
+        });
+        
+        // Update Yearly range type selectors
+        const yearlyRangeSelectors = document.querySelectorAll('[id^="yearlyRangeTypeSelector"]');
+        yearlyRangeSelectors.forEach(selector => {
+            const yearlyRangeSelectorTop = modalTop + containerTop + 30;
+            const yearlyRangeSelectorLeft = modalLeft + 8;
+            safeMoveSelector(selector.id, yearlyRangeSelectorLeft, yearlyRangeSelectorTop);
+        });
+        
+        // Update Day of Week selectors (for nth weekday pattern)
+        const dayOfWeekSelectors = document.querySelectorAll('[id^="dayOfWeekSelector"]');
+        dayOfWeekSelectors.forEach(selector => {
+            const dayOfWeekSelectorTop = modalTop + containerTop + 25;
+            const dayOfWeekSelectorLeft = modalLeft + 8;
+            safeMoveSelector(selector.id, dayOfWeekSelectorLeft, dayOfWeekSelectorTop);
+        });
+        
+        // Update Nth Weekday Type selectors
+        const nthWeekdayTypeSelectors = document.querySelectorAll('[id^="nthWeekdayTypeSelector"]');
+        nthWeekdayTypeSelectors.forEach(selector => {
+            const nthWeekdayTypeSelectorTop = modalTop + containerTop + 74;
+            const nthWeekdayTypeSelectorLeft = modalLeft + 8;
+            safeMoveSelector(selector.id, nthWeekdayTypeSelectorLeft, nthWeekdayTypeSelectorTop);
+        });
+        
+        // Update Nth Weekday Range Type selectors  
+        const nthWeekdayRangeSelectors = document.querySelectorAll('[id^="nthWeekdayRangeTypeSelector"]');
+        nthWeekdayRangeSelectors.forEach(selector => {
+            const nthWeekdayRangeSelectorTop = modalTop + containerTop + 148;
+            const nthWeekdayRangeSelectorLeft = modalLeft + 8;
+            safeMoveSelector(selector.id, nthWeekdayRangeSelectorLeft, nthWeekdayRangeSelectorTop);
+        });
     }
     
     // Update alarm settings position
@@ -17916,6 +17981,7 @@ function createSelector(config) {
     HTML.setData(background, 'selectedIndex', initialIndex);
     HTML.setData(background, 'options', options);
     HTML.setData(background, 'orientation', orientation);
+    HTML.setData(background, 'equalSpacing', equalSpacing);  // Store equalSpacing for moveSelector
     HTML.setData(background, 'lastSelectionTime', 0);  // Track last selection time
     HTML.setData(background, 'minWaitTime', minWaitTime * 1000);  // Convert to milliseconds
 
@@ -18192,10 +18258,12 @@ function moveSelector(id, newX, newY) {
     const options = HTML.getData(background, 'options');
     const orientation = HTML.getData(background, 'orientation');
     const selectedIndex = HTML.getData(background, 'selectedIndex');
+    const equalSpacing = HTML.getData(background, 'equalSpacing');
     
     ASSERT(type(options, List(String)), "moveSelector: invalid options data");
     ASSERT(type(orientation, String), "moveSelector: invalid orientation data");
     ASSERT(type(selectedIndex, Number), "moveSelector: invalid selectedIndex data");
+    ASSERT(type(equalSpacing, Boolean), "moveSelector: invalid equalSpacing data");
     
     // Get current styles to extract width, height, and other properties
     const backgroundStyles = window.getComputedStyle(background);
@@ -18255,15 +18323,27 @@ function moveSelector(id, newX, newY) {
                 let optionWidth, optionHeight, optionX, optionY;
                 
                 if (orientation === "horizontal") {
-                    // Equal spacing (most common case)
-                    optionWidth = availableWidth / options.length;
+                    if (equalSpacing) {
+                        // Divide available width equally among all options
+                        optionWidth = availableWidth / options.length;
+                    } else {
+                        // Allocate width proportionally based on text measurement
+                        const textProportion = textWidth / totalTextWidth;
+                        optionWidth = availableWidth * textProportion;
+                    }
                     optionHeight = innerHeight;
                     optionX = currentPos;
                     optionY = 0;
                     currentPos += optionWidth + (i < options.length - 1 ? minSpacing : 0);
                 } else {
-                    // Vertical
-                    optionHeight = availableHeight / options.length;
+                    if (equalSpacing) {
+                        // Divide available height equally among all options
+                        optionHeight = availableHeight / options.length;
+                    } else {
+                        // Allocate height proportionally based on text measurement
+                        const textProportion = textWidth / totalTextWidth;
+                        optionHeight = availableHeight * textProportion;
+                    }
                     optionWidth = innerWidth;
                     optionX = 0;
                     optionY = currentPos;
