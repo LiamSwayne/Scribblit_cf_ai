@@ -10661,6 +10661,21 @@ function initEditorModal(id, instanceClicked) {
     // Initialize instance buttons
     initInstanceButtons(editorModalInstanceButtonsSectionTop, instanceClicked);
     
+    // Create separator line between instance buttons and instance editor
+    const separatorLine = HTML.make('div');
+    HTML.setId(separatorLine, 'editorModalSeparatorLine');
+    HTML.setStyle(separatorLine, {
+        position: 'absolute',
+        left: '8px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '1px',
+        backgroundColor: 'var(--shade-2)',
+        opacity: '0',
+        transition: 'opacity 0.3s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    editorModal.appendChild(separatorLine);
+    
     // Initialize alarm settings
     initAlarmSettings();
     
@@ -10684,6 +10699,7 @@ function initEditorModal(id, instanceClicked) {
         });
         HTML.setStyle(closeButton, { opacity: '1' });
         HTML.setStyle(titleInput, { opacity: '1' });
+        HTML.setStyle(separatorLine, { opacity: '1' });
         
         HTML.setStyle(descriptionTextarea, { opacity: '1' });
         
@@ -15704,6 +15720,9 @@ function showInstanceEditor() {
     const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
     const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
     
+    // Update separator line position now that instance buttons are rendered
+    updateSeparatorLinePosition();
+    
     // Show editor for the active instance
     initDateInstanceEditor(top, editorModalActiveInstanceIndex);
     }, 50);
@@ -16494,6 +16513,11 @@ function closeEditorModal() {
         HTML.setStyle(descriptionTextarea, { opacity: '0' });
     }
     
+    const separatorLine = HTML.getElementUnsafely('editorModalSeparatorLine');
+    if (separatorLine) {
+        HTML.setStyle(separatorLine, { opacity: '0' });
+    }
+    
     // Remove elements after animation
     setTimeout(() => {
         if (editorModalVignette && editorModalVignette.parentNode) {
@@ -16508,6 +16532,21 @@ function closeEditorModal() {
 
         editorModalOpen = false;
     }, 300);
+}
+
+// Updates separator line position based on instance buttons container
+function updateSeparatorLinePosition() {
+    const separatorLine = HTML.getElementUnsafely('editorModalSeparatorLine');
+    if (!exists(separatorLine)) return;
+    
+    const instanceButtonsContainer = HTML.getElementUnsafely('instanceButtonsContainer');
+    if (exists(instanceButtonsContainer)) {
+        const containerHeight = instanceButtonsContainer.offsetHeight;
+        const separatorTop = editorModalInstanceButtonsSectionTop + containerHeight + 6; // 6px gap below buttons
+        HTML.setStyle(separatorLine, {
+            top: separatorTop + 'px'
+        });
+    }
 }
 
 // Updates the position of the editor modal and selector
@@ -16609,6 +16648,9 @@ function updateEditorModalPosition() {
     
     // Update alarm settings position
     updateAlarmSettingsPosition();
+    
+    // Update separator line position
+    updateSeparatorLinePosition();
     
     // Update description textarea gradients after position changes
     updateDescriptionTextareaGradients();
