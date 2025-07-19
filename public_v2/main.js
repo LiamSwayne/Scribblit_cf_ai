@@ -2439,7 +2439,7 @@ let HTML = new class HTMLroot {
         for (let key of Object.keys(styles)) {
             // camelcase to hyphenated css property
             try {
-                element.style[key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()] = styles[key];
+            element.style[key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()] = styles[key];
             } catch (e) {
                 log("ERROR: HTML.setStyle - failed to set style property: " + key);
             }
@@ -13274,8 +13274,417 @@ function initMonthlyPatternEditor(top, newOrIndex) {
 function initAnnuallyPatternEditor(top, newOrIndex) {
     ASSERT(type(top, Number));
     ASSERT(type(newOrIndex, Union(String, Uint)));
-    // TODO: Implement AnnuallyPattern editor
-    // newOrIndex: 'new' for creating new instance, or index for editing existing
+    
+    // Close any existing editor first and clean up existing selectors
+    closeDateInstanceEditor();
+    
+    // Create container
+    instanceEditorContainer = HTML.make('div');
+    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+    HTML.setStyle(instanceEditorContainer, {
+        position: 'absolute',
+        left: '8px',
+        top: top + 'px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '120px',
+        backgroundColor: 'var(--shade-0)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    
+    editorModal.appendChild(instanceEditorContainer);
+    
+    // Add "Occurs yearly on" text
+    const yearlyText = HTML.make('div');
+    yearlyText.textContent = 'Occurs yearly on';
+    HTML.setStyle(yearlyText, {
+        position: 'absolute',
+        top: '2px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    instanceEditorContainer.appendChild(yearlyText);
+    
+    // Add date field container
+    const dateContainer = HTML.make('div');
+    HTML.setStyle(dateContainer, {
+        position: 'absolute',
+        top: '2px',
+        left: '108px'
+    });
+    
+    // Initialize date field input
+    const dateFields = initDateFieldInput(dateContainer, 0, -2, 'yearlyDate');
+    
+    instanceEditorContainer.appendChild(dateContainer);
+    
+    // Create unique ID for the range selector
+    const uniqueId = Date.now().toString();
+    const yearlyRangeTypeSelectorId = 'yearlyRangeTypeSelector_' + uniqueId;
+    
+    // Clean up any existing selectors
+    deleteSelector('yearlyRangeTypeSelector');
+    deleteSelector(yearlyRangeTypeSelectorId);
+    
+    // Add range selector
+    const selectorTop = 30; // Position below date field
+    
+    // Calculate modal position for selector coordinates
+    const modalRect = editorModal.getBoundingClientRect();
+    const modalLeft = modalRect.left;
+    const modalTop = modalRect.top;
+    const absoluteSelectorX = modalLeft + 8; // modal left + container left
+    const absoluteSelectorY = modalTop + top + selectorTop; // modal top + container top + relative top
+    
+    // Determine initial selection based on existing range type (if editing)
+    let initialSelection = 'Repeat until [date]';
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+                         editorModalData._reminder.instances;
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const range = instanceData.range;
+            if (range && range._type === 'RecurrenceCount') {
+                initialSelection = 'Occurs [x] times';
+            }
+        }
+    }
+    
+    // Create the selector
+    createSelector({
+        options: ['Occurs [x] times', 'Repeat until [date]'],
+        orientation: 'horizontal',
+        id: yearlyRangeTypeSelectorId, // Use unique ID
+        x: absoluteSelectorX,
+        y: absoluteSelectorY,
+        width: editorModalWidth - 72,
+        height: 20,
+        zIndex: editorModalBaseZIndex + 2,
+        font: 'MonospaceRegular',
+        fontSize: 10,
+        onSelectionChange: (selectedOption) => {
+            updateYearlyRangeType(selectedOption);
+        },
+        initialSelection: initialSelection,
+        minWaitTime: 0.1,
+        alignmentSide: 'left',
+        equalSpacing: false,
+        accentMode: 'transition'
+    });
+    
+    // Create content containers for different range types
+    const rangeTimesContainer = HTML.make('div');
+    HTML.setId(rangeTimesContainer, 'yearlyRangeTimesContainer');
+    HTML.setStyle(rangeTimesContainer, {
+        position: 'absolute',
+        top: '55px', // Position below selector
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: initialSelection === 'Occurs [x] times' ? '1' : '0',
+        pointerEvents: initialSelection === 'Occurs [x] times' ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const occursText = HTML.make('div');
+    occursText.textContent = 'Occurs';
+    HTML.setStyle(occursText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeTimesContainer.appendChild(occursText);
+    
+    const timesInput = HTML.make('input');
+    HTML.setId(timesInput, 'yearlyTimesInput');
+    timesInput.setAttribute('type', 'number');
+    timesInput.setAttribute('min', '1');
+    timesInput.value = '3'; // Default value
+    HTML.setStyle(timesInput, {
+        position: 'absolute',
+        top: '-2px',
+        left: '48px',
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px'
+    });
+    rangeTimesContainer.appendChild(timesInput);
+    
+    const timesStartingText = HTML.make('div');
+    timesStartingText.textContent = 'times starting on';
+    HTML.setStyle(timesStartingText, {
+        position: 'absolute',
+        top: '0px',
+        left: '95px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeTimesContainer.appendChild(timesStartingText);
+    
+    const startingDateContainer = HTML.make('div');
+    HTML.setStyle(startingDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '205px'
+    });
+    rangeTimesContainer.appendChild(startingDateContainer);
+    
+    const startingDateFields = initDateFieldInput(startingDateContainer, 0, -2, 'yearlyStartingDate');
+    
+    instanceEditorContainer.appendChild(rangeTimesContainer);
+    
+    const rangeUntilContainer = HTML.make('div');
+    HTML.setId(rangeUntilContainer, 'yearlyRangeUntilContainer');
+    HTML.setStyle(rangeUntilContainer, {
+        position: 'absolute',
+        top: '55px', // Position below selector
+        left: '0px',
+        width: '100%',
+        height: '40px',
+        opacity: initialSelection === 'Repeat until [date]' ? '1' : '0',
+        pointerEvents: initialSelection === 'Repeat until [date]' ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease'
+    });
+    
+    const fromText = HTML.make('div');
+    fromText.textContent = 'From';
+    HTML.setStyle(fromText, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeUntilContainer.appendChild(fromText);
+    
+    const fromDateContainer = HTML.make('div');
+    HTML.setStyle(fromDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '37px'
+    });
+    rangeUntilContainer.appendChild(fromDateContainer);
+    
+    const fromDateFields = initDateFieldInput(fromDateContainer, 0, -2, 'yearlyFromDate');
+    
+    const toText = HTML.make('div');
+    toText.textContent = 'to';
+    HTML.setStyle(toText, {
+        position: 'absolute',
+        top: '0px',
+        left: '122px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    rangeUntilContainer.appendChild(toText);
+    
+    const toDateContainer = HTML.make('div');
+    HTML.setStyle(toDateContainer, {
+        position: 'absolute',
+        top: '0px',
+        left: '139px'
+    });
+    rangeUntilContainer.appendChild(toDateContainer);
+    
+    const toDateFields = initDateFieldInput(toDateContainer, 0, -2, 'yearlyToDate');
+    
+    const optionalText = HTML.make('div');
+    optionalText.textContent = '(optional)';
+    HTML.setStyle(optionalText, {
+        position: 'absolute',
+        top: '21px',
+        left: '159px',
+        color: 'var(--shade-3)',
+        fontSize: '10px',
+        fontFamily: 'PrimaryRegular'
+    });
+    rangeUntilContainer.appendChild(optionalText);
+    
+    instanceEditorContainer.appendChild(rangeUntilContainer);
+    
+    // Function to update range type
+    function updateYearlyRangeType(selectedOption) {
+        if (selectedOption === 'Occurs [x] times') {
+            // First fade out range until container and disable pointer events
+            HTML.setStyle(rangeUntilContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
+            // Wait for fade out to complete, then fade in range times container
+            setTimeout(() => {
+                HTML.setStyle(rangeTimesContainer, { 
+                    opacity: '1',
+                    pointerEvents: 'auto'
+                });
+            }, 200);
+        } else {
+            // First fade out range times container and disable pointer events
+            HTML.setStyle(rangeTimesContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
+            // Wait for fade out to complete, then fade in range until container
+            setTimeout(() => {
+                HTML.setStyle(rangeUntilContainer, { 
+                    opacity: '1',
+                    pointerEvents: 'auto'
+                });
+            }, 200);
+        }
+    }
+    
+    // Populate date fields based on whether we're creating new or editing existing
+    if (newOrIndex === 'new') {
+        // If creating new pattern, set start date to today
+        const today = new Date();
+        const year = today.getFullYear().toString().slice(-2);
+        const month = (today.getMonth() + 1).toString();
+        const day = today.getDate().toString();
+        
+        fromDateFields.year.value = year;
+        fromDateFields.month.value = month;
+        fromDateFields.day.value = day;
+        
+        startingDateFields.year.value = year;
+        startingDateFields.month.value = month;
+        startingDateFields.day.value = day;
+    }
+    
+    // Load existing data if editing
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+                         editorModalData._reminder.instances;
+        
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
+            const range = instanceData.range;
+            
+            if (pattern && pattern._type === 'AnnuallyPattern') {
+                // Load the date from the pattern
+                if (pattern.month && pattern.day) {
+                    dateFields.month.value = pattern.month.toString();
+                    dateFields.day.value = pattern.day.toString();
+                }
+                
+                // For year, use current year as default if not specified
+                if (pattern.year) {
+                    const yearStr = pattern.year.toString();
+                    dateFields.year.value = yearStr.length === 4 ? yearStr.slice(-2) : yearStr;
+                } else {
+                    // Default to current year
+                    const currentYear = new Date().getFullYear().toString().slice(-2);
+                    dateFields.year.value = currentYear;
+                }
+                
+                // Set range values
+                if (range) {
+                    // Determine if this is a newly created instance
+                    let isNewInstance = false;
+                    if (!pattern.initialDate || pattern.initialDate === symbolToString(NULL)) {
+                        isNewInstance = true;
+                        // Set start date to today for new instances
+                        const today = new Date();
+                        const year = today.getFullYear().toString().slice(-2);
+                        const month = (today.getMonth() + 1).toString();
+                        const day = today.getDate().toString();
+                        
+                        fromDateFields.year.value = year;
+                        fromDateFields.month.value = month;
+                        fromDateFields.day.value = day;
+                        
+                        startingDateFields.year.value = year;
+                        startingDateFields.month.value = month;
+                        startingDateFields.day.value = day;
+                    }
+                    
+                    if (range._type === 'DateRange') {
+                        // DateRange: populate "From" and "To" fields
+                        if (range.startDate && range.startDate !== symbolToString(NULL)) {
+                            const startDate = DateField.decode(range.startDate);
+                            const startYear = startDate.year.toString().slice(-2);
+                            const startMonth = startDate.month.toString();
+                            const startDay = startDate.day.toString();
+                            
+                            fromDateFields.year.value = startYear;
+                            fromDateFields.month.value = startMonth;
+                            fromDateFields.day.value = startDay;
+                            
+                            startingDateFields.year.value = startYear;
+                            startingDateFields.month.value = startMonth;
+                            startingDateFields.day.value = startDay;
+                        }
+                        
+                        if (range.endDate && range.endDate !== symbolToString(NULL)) {
+                            const endDate = DateField.decode(range.endDate);
+                            const endYear = endDate.year.toString().slice(-2);
+                            const endMonth = endDate.month.toString();
+                            const endDay = endDate.day.toString();
+                            
+                            toDateFields.year.value = endYear;
+                            toDateFields.month.value = endMonth;
+                            toDateFields.day.value = endDay;
+                        }
+                    } else if (range._type === 'RecurrenceCount') {
+                        // RecurrenceCount: populate both "starting date" fields and count
+                        if (range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                            const initialDate = DateField.decode(range.initialDate);
+                            const initialYear = initialDate.year.toString().slice(-2);
+                            const initialMonth = initialDate.month.toString();
+                            const initialDay = initialDate.day.toString();
+                            
+                            fromDateFields.year.value = initialYear;
+                            fromDateFields.month.value = initialMonth;
+                            fromDateFields.day.value = initialDay;
+                            
+                            startingDateFields.year.value = initialYear;
+                            startingDateFields.month.value = initialMonth;
+                            startingDateFields.day.value = initialDay;
+                        }
+                        
+                        if (range.count) {
+                            timesInput.value = range.count.toString();
+                        }
+                    }
+                }
+            }
+        }
+    } else if (newOrIndex === 'new') {
+        // For new yearly patterns, default to today's date
+        const today = new Date();
+        const year = today.getFullYear().toString().slice(-2);
+        const month = (today.getMonth() + 1).toString();
+        const day = today.getDate().toString();
+        
+        dateFields.year.value = year;
+        dateFields.month.value = month;
+        dateFields.day.value = day;
+    }
+    
+    // Force reflow then animate in
+    instanceEditorContainer.offsetHeight;
+    setTimeout(() => {
+        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+    }, 10);
 }
 
 function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekdays = NULL) {
@@ -13907,28 +14316,28 @@ function updateNthWeekdayRangeType(selectedOption) {
     if (selectedOption === 'Occurs [x] times') {
         // Show times container, hide until container
         try {
-            HTML.setStyle(rangeTimesContainer, { 
-                opacity: '1',
-                pointerEvents: 'auto'
-            });
-            HTML.setStyle(rangeUntilContainer, { 
-                opacity: '0',
-                pointerEvents: 'none'
-            });
+        HTML.setStyle(rangeTimesContainer, { 
+            opacity: '1',
+            pointerEvents: 'auto'
+        });
+        HTML.setStyle(rangeUntilContainer, { 
+            opacity: '0',
+            pointerEvents: 'none'
+        });
         } catch (e) {
             log("ERROR: Failed to update range container styles: " + e.message);
         }
     } else {
         // Show until container, hide times container
         try {
-            HTML.setStyle(rangeTimesContainer, { 
-                opacity: '0',
-                pointerEvents: 'none'
-            });
-            HTML.setStyle(rangeUntilContainer, { 
-                opacity: '1',
-                pointerEvents: 'auto'
-            });
+        HTML.setStyle(rangeTimesContainer, { 
+            opacity: '0',
+            pointerEvents: 'none'
+        });
+        HTML.setStyle(rangeUntilContainer, { 
+            opacity: '1',
+            pointerEvents: 'auto'
+        });
         } catch (e) {
             log("ERROR: Failed to update range container styles: " + e.message);
         }
@@ -14099,53 +14508,85 @@ function initDateInstanceEditor(top, newOrIndex) {
     // For now, delegate to the existing specific editors based on pattern type
     if (patternType === 'one-time') {
         // Create container for one-time instance
-    instanceEditorContainer = HTML.make('div');
-    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
-    HTML.setStyle(instanceEditorContainer, {
-        position: 'absolute',
-        left: '8px',
-        top: top + 'px',
-        width: (editorModalWidth - 16) + 'px',
-        height: '100px',
-        backgroundColor: 'var(--shade-0)',
-        border: '1px solid var(--shade-2)',
-        borderRadius: '6px',
-        padding: '8px',
-        boxSizing: 'border-box',
-        opacity: '0',
-        transition: 'opacity 0.2s ease',
-        zIndex: String(editorModalBaseZIndex + 1)
-    });
-    
-    editorModal.appendChild(instanceEditorContainer);
-    
-    // Add title
-    const title = HTML.make('div');
-    HTML.setStyle(title, {
-        position: 'absolute',
-        top: '8px',
-        left: '8px',
-        fontSize: '14px',
-        fontFamily: 'PrimaryRegular',
-        color: 'var(--shade-4)',
-        fontWeight: 'bold'
-    });
-    title.textContent = newOrIndex === 'new' ? 'Add One-time Instance' : 'Edit One-time Instance';
-    instanceEditorContainer.appendChild(title);
-    
-    // Add date field input
-    const dateFields = initDateFieldInput(instanceEditorContainer, 8, 35);
+        instanceEditorContainer = HTML.make('div');
+        HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+        HTML.setStyle(instanceEditorContainer, {
+            position: 'absolute',
+            left: '8px',
+            top: top + 'px',
+            width: (editorModalWidth - 16) + 'px',
+            height: '60px',
+            backgroundColor: 'var(--shade-0)',
+            opacity: '0',
+            transition: 'opacity 0.2s ease',
+            zIndex: String(editorModalBaseZIndex + 1)
+        });
+        
+        editorModal.appendChild(instanceEditorContainer);
+        
+        // Add "Occurs once on" text
+        const onceText = HTML.make('div');
+        onceText.textContent = 'Occurs once on';
+        HTML.setStyle(onceText, {
+            position: 'absolute',
+            top: '2px',
+            left: '0px',
+            fontSize: '14px',
+            fontFamily: 'PrimaryRegular',
+            color: 'var(--shade-4)'
+        });
+        instanceEditorContainer.appendChild(onceText);
+        
+        // Add date field container
+        const dateContainer = HTML.make('div');
+        HTML.setStyle(dateContainer, {
+            position: 'absolute',
+            top: '2px',
+            left: '103px'
+        });
+        instanceEditorContainer.appendChild(dateContainer);
+        
+        // Initialize date field input
+        const dateFields = initDateFieldInput(dateContainer, 0, -2, 'oneTimeDate');
         
         // If editing existing instance, populate fields
-        if (instanceData && type(newOrIndex, Uint)) {
-            // TODO: Populate date fields from instanceData
+        if (type(newOrIndex, Uint)) {
+            const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                             editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+                             editorModalData._reminder.instances;
+            
+            if (newOrIndex < instances.length) {
+                const instanceData = instances[newOrIndex];
+                const dateField = instanceData && (instanceData.date || instanceData.startDate);
+                
+                if (dateField && dateField !== symbolToString(NULL)) {
+                    const decodedDate = DateField.decode(dateField);
+                    const year = decodedDate.year.toString().slice(-2);
+                    const month = decodedDate.month.toString();
+                    const day = decodedDate.day.toString();
+                    
+                    dateFields.year.value = year;
+                    dateFields.month.value = month;
+                    dateFields.day.value = day;
+                }
+            }
+        } else if (newOrIndex === 'new') {
+            // For new one-time instances, default to today's date
+            const today = new Date();
+            const year = today.getFullYear().toString().slice(-2);
+            const month = (today.getMonth() + 1).toString();
+            const day = today.getDate().toString();
+            
+            dateFields.year.value = year;
+            dateFields.month.value = month;
+            dateFields.day.value = day;
         }
-    
-    // Force reflow then animate in
-    instanceEditorContainer.offsetHeight;
-    setTimeout(() => {
-        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
-    }, 10);
+        
+        // Force reflow then animate in
+        instanceEditorContainer.offsetHeight;
+        setTimeout(() => {
+            HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        }, 10);
         
     } else if (patternType === 'daily' || patternType === 'weekly' || patternType === 'every-n-days') {
         // Use the existing every N days editor
@@ -14166,6 +14607,8 @@ function initDateInstanceEditor(top, newOrIndex) {
         initNthWeekdayOfMonthsPatternEditor(top, newOrIndex);
     } else if (patternType === 'monthly') {
         initMonthlyPatternEditor(top, newOrIndex);
+    } else if (patternType === 'yearly') {
+        initAnnuallyPatternEditor(top, newOrIndex);
     } else {
         // For other pattern types, show a placeholder for now
         instanceEditorContainer = HTML.make('div');
@@ -14219,12 +14662,12 @@ function showInstanceEditor() {
     
     // Wait a short time to ensure proper cleanup before creating a new editor
     setTimeout(() => {
-        const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
-        const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
-        const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
-        
-        // Show editor for the active instance
-        initDateInstanceEditor(top, editorModalActiveInstanceIndex);
+    const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
+    const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
+    const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
+    
+    // Show editor for the active instance
+    initDateInstanceEditor(top, editorModalActiveInstanceIndex);
     }, 50);
 }
 
@@ -14260,19 +14703,19 @@ function closeEveryNDaysPatternEditor() {
     // Verify container is a valid DOM element with a style property before fading out
     if (containerToRemove && containerToRemove.nodeType === 1 && containerToRemove.style) {
         try {
-            // Fade out
+    // Fade out
             containerToRemove.style.opacity = '0';
-            
-            // Remove after animation
-            setTimeout(() => {
-                if (containerToRemove && containerToRemove.parentNode) {
+    
+    // Remove after animation
+    setTimeout(() => {
+        if (containerToRemove && containerToRemove.parentNode) {
                     try {
-                        containerToRemove.parentNode.removeChild(containerToRemove);
+            containerToRemove.parentNode.removeChild(containerToRemove);
                     } catch (e) {
                         log("ERROR: Failed to remove containerToRemove in closeEveryNDaysPatternEditor: " + e.message);
                     }
-                }
-            }, 200);
+        }
+    }, 200);
         } catch (e) {
             log("ERROR: Failed to set containerToRemove opacity in closeEveryNDaysPatternEditor: " + e.message);
             // If setting opacity fails, try to remove it immediately
@@ -14356,7 +14799,65 @@ function closeMonthlyPatternEditor() {
 }
 
 function closeAnnuallyPatternEditor() {
-    // TODO: Implement close function for AnnuallyPattern editor
+    if (!instanceEditorContainer) {
+        instanceEditorContainer = NULL;
+        return;
+    }
+    
+    // Clean up the base selector
+    deleteSelector('yearlyRangeTypeSelector');
+    
+    // Find and delete all selectors with this prefix (including timestamped versions)
+    const elements = document.querySelectorAll('[id^="yearlyRangeTypeSelector"]');
+    elements.forEach(element => {
+        if (element.id) {
+            deleteSelector(element.id);
+        } else if (element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+    });
+    
+    // Store reference to container for cleanup
+    const containerToRemove = instanceEditorContainer;
+    
+    // Immediately clear the global reference to prevent race conditions
+    instanceEditorContainer = NULL;
+    
+    // Verify container is a valid DOM element with a style property before fading out
+    if (containerToRemove && containerToRemove.nodeType === 1 && containerToRemove.style) {
+        try {
+            // Fade out
+            containerToRemove.style.opacity = '0';
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (containerToRemove && containerToRemove.parentNode) {
+                    try {
+                        containerToRemove.parentNode.removeChild(containerToRemove);
+                    } catch (e) {
+                        log("ERROR: Failed to remove containerToRemove in closeAnnuallyPatternEditor: " + e.message);
+                    }
+                }
+            }, 200);
+        } catch (e) {
+            log("ERROR: Failed to set containerToRemove opacity in closeAnnuallyPatternEditor: " + e.message);
+            // If setting opacity fails, try to remove it immediately
+            if (containerToRemove.parentNode) {
+                try {
+                    containerToRemove.parentNode.removeChild(containerToRemove);
+                } catch (e2) {
+                    log("ERROR: Also failed to remove containerToRemove in closeAnnuallyPatternEditor: " + e2.message);
+                }
+            }
+        }
+    } else if (containerToRemove && containerToRemove.parentNode) {
+        // If it doesn't have a style property but is in the DOM, just remove it
+        try {
+            containerToRemove.parentNode.removeChild(containerToRemove);
+        } catch (e) {
+            log("ERROR: Failed to remove containerToRemove in closeAnnuallyPatternEditor: " + e.message);
+        }
+    }
 }
 
 
@@ -14398,6 +14899,13 @@ function closeDateInstanceEditor() {
         deleteSelector('monthlyRangeTypeSelector');
     }
     
+    // Check if it's a yearly pattern editor
+    const yearlyRangeSelector = HTML.getElementUnsafely('yearlyRangeTypeSelector');
+    if (exists(yearlyRangeSelector)) {
+        // Just delete the selector without calling the close function to avoid recursion
+        deleteSelector('yearlyRangeTypeSelector');
+    }
+    
     // Clean up all selector elements that might be present
     deleteSelector('dayOfWeekSelector');
     deleteSelector('nthWeekdayRangeTypeSelector');
@@ -14408,23 +14916,30 @@ function closeDateInstanceEditor() {
             deleteSelector(element.id);
         }
     });
+    // Clean up any yearly selectors (including ones with timestamps)
+    const yearlySelectors = document.querySelectorAll('[id^="yearlyRangeTypeSelector"]');
+    yearlySelectors.forEach(element => {
+        if (element.id) {
+            deleteSelector(element.id);
+        }
+    });
     
     // Verify container is a valid DOM element with a style property before fading out
     if (containerToRemove && containerToRemove.nodeType === 1 && containerToRemove.style) {
         try {
-            // Fade out
+    // Fade out
             containerToRemove.style.opacity = '0';
-            
-            // Remove after animation
-            setTimeout(() => {
-                if (containerToRemove && containerToRemove.parentNode) {
+    
+    // Remove after animation
+    setTimeout(() => {
+        if (containerToRemove && containerToRemove.parentNode) {
                     try {
-                        containerToRemove.parentNode.removeChild(containerToRemove);
+            containerToRemove.parentNode.removeChild(containerToRemove);
                     } catch (e) {
                         log("ERROR: Failed to remove containerToRemove: " + e.message);
                     }
-                }
-            }, 200);
+        }
+    }, 200);
         } catch (e) {
             log("ERROR: Failed to set containerToRemove opacity: " + e.message);
             // If setting opacity fails, try to remove it immediately
@@ -14868,10 +15383,20 @@ function closeEditorModal() {
 
     // close any open pattern editors and their selectors
     if (instanceEditorContainer) {
-        // Check if it's an every N days pattern editor by looking for the selector
+        // Check for different pattern types and call appropriate close functions
         const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
+        const monthlySelector = HTML.getElementUnsafely('monthlyRangeTypeSelector');
+        const yearlySelector = HTML.getElementUnsafely('yearlyRangeTypeSelector');
+        const nthWeekdaySelector = HTML.getElementUnsafely('nthWeekdayTypeSelector');
+        
         if (exists(everyNDaysSelector)) {
             closeEveryNDaysPatternEditor();
+        } else if (exists(monthlySelector)) {
+            closeMonthlyPatternEditor();
+        } else if (exists(yearlySelector)) {
+            closeAnnuallyPatternEditor();
+        } else if (exists(nthWeekdaySelector)) {
+            closeNthWeekdayOfMonthsPatternEditor();
         } else {
             // For other pattern editors, just close the date instance editor
             closeDateInstanceEditor();
@@ -14884,6 +15409,8 @@ function closeEditorModal() {
     deleteSelector('nthWeekdayTypeSelector');
     deleteSelector('dayOfWeekSelector');
     deleteSelector('nthWeekdayRangeTypeSelector');
+    deleteSelector('monthlyRangeTypeSelector');
+    deleteSelector('yearlyRangeTypeSelector');
 
     // close alarm settings
     closeAlarmSettings();
