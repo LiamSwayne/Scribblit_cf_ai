@@ -3802,6 +3802,17 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             allDayEventElement = HTML.make('div');
             HTML.setId(allDayEventElement, `day${dayIndex}allDayEvent${i}`);
             HTML.body.appendChild(allDayEventElement);
+        } else {
+            // Remove existing event listeners when reusing element
+            if (allDayEventElement.mouseEnterHandler) {
+                allDayEventElement.removeEventListener('mouseenter', allDayEventElement.mouseEnterHandler);
+            }
+            if (allDayEventElement.mouseLeaveHandler) {
+                allDayEventElement.removeEventListener('mouseleave', allDayEventElement.mouseLeaveHandler);
+            }
+            if (allDayEventElement.clickHandler) {
+                allDayEventElement.removeEventListener('click', allDayEventElement.clickHandler);
+            }
         }
         
         allDayEventElement.innerHTML = allDayEventData.name;
@@ -3833,26 +3844,29 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         });
         
         // Add hover effects using event listeners
-        allDayEventElement.addEventListener('mouseenter', function() {
+        allDayEventElement.mouseEnterHandler = function() {
             hoverElement.style.opacity = '0.12';
             allDayEventElement.style.color = 'var(--shade-4)';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '1';
             }
-        });
+        };
+        allDayEventElement.addEventListener('mouseenter', allDayEventElement.mouseEnterHandler);
         
-        allDayEventElement.addEventListener('mouseleave', function() {
+        allDayEventElement.mouseLeaveHandler = function() {
             hoverElement.style.opacity = '0';
             allDayEventElement.style.color = isToday ? 'var(--shade-4)' : 'var(--shade-3)';
             if (allDayEventData.ignore) {
                 allDayEventElement.style.opacity = '0.5';
             }
-        });
+        };
+        allDayEventElement.addEventListener('mouseleave', allDayEventElement.mouseLeaveHandler);
         
         // on click open the edit modal
-        allDayEventElement.addEventListener('click', function() {
+        allDayEventElement.clickHandler = function() {
             initEditorModal(allDayEventData.id, allDayEventData.patternIndex);
-        });
+        };
+        allDayEventElement.addEventListener('click', allDayEventElement.clickHandler);
 
         // Create/Update asterisk indicator
         let asteriskElement = HTML.getElementUnsafely(`day${dayIndex}allDayEventAsterisk${i}`);
@@ -4010,6 +4024,9 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                 }
                 if (eventElement.mouseLeaveHandler) {
                     eventElement.removeEventListener('mouseleave', eventElement.mouseLeaveHandler);
+                }
+                if (eventElement.clickHandler) {
+                    eventElement.removeEventListener('click', eventElement.clickHandler);
                 }
             }
             eventElement.innerHTML = instance.name;
@@ -4212,9 +4229,10 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             eventElement.addEventListener('mouseleave', eventElement.mouseLeaveHandler);
             
             // Add click handler to open editor modal
-            eventElement.addEventListener('click', function() {
+            eventElement.clickHandler = function() {
                 initEditorModal(instance.id, instance.patternIndex);
-            });
+            };
+            eventElement.addEventListener('click', eventElement.clickHandler);
             
             renderedInstanceCount++;
         }
@@ -5060,6 +5078,11 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             textElement = HTML.make('div');
             HTML.setId(textElement, `day${dayIndex}reminderText${groupIndex}`);
             HTML.body.appendChild(textElement);
+        } else {
+            // Remove existing event listeners when reusing element
+            if (textElement.clickHandler) {
+                textElement.removeEventListener('click', textElement.clickHandler);
+            }
         }
         
         // Set data attributes for robust matching during drag operations
@@ -5095,11 +5118,12 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         });
 
         // Add click handler to open editor modal
-        textElement.addEventListener('click', function() {
+        textElement.clickHandler = function() {
             const sourceId = HTML.getData(textElement, 'sourceId');
             const patternNumber = HTML.getData(textElement, 'patternNumber');
             initEditorModal(sourceId, patternNumber);
-        });
+        };
+        textElement.addEventListener('click', textElement.clickHandler);
 
         // Create count indicator if grouped (now directly on body)
         if (isGrouped) {
@@ -5116,6 +5140,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             // Remove old listeners
             countElement.removeEventListener('mouseenter', countElement.mouseEnterHandler);
             countElement.removeEventListener('mouseleave', countElement.mouseLeaveHandler);
+            if (countElement.clickHandler) {
+                countElement.removeEventListener('click', countElement.clickHandler);
+            }
             
             countElement.mouseEnterHandler = handleReminderMouseEnter;
             countElement.mouseLeaveHandler = handleReminderMouseLeave;
@@ -5141,11 +5168,12 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
             });
 
             // Add click handler to open editor modal
-            countElement.addEventListener('click', function() {
+            countElement.clickHandler = function() {
                 const sourceId = HTML.getData(countElement, 'sourceId');
                 const patternNumber = HTML.getData(countElement, 'patternNumber');
                 initEditorModal(sourceId, patternNumber);
-            });
+            };
+            countElement.addEventListener('click', countElement.clickHandler);
         } else {
             // Remove count indicator if it exists but shouldn't
             let countElement = HTML.getElementUnsafely(`day${dayIndex}reminderCount${groupIndex}`);
@@ -5251,6 +5279,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 // Remove old listeners
                 stackedTextElement.removeEventListener('mouseenter', stackedTextElement.mouseEnterHandler);
                 stackedTextElement.removeEventListener('mouseleave', stackedTextElement.mouseLeaveHandler);
+                if (stackedTextElement.clickHandler) {
+                    stackedTextElement.removeEventListener('click', stackedTextElement.clickHandler);
+                }
 
                 stackedTextElement.mouseEnterHandler = handleReminderMouseEnter;
                 stackedTextElement.mouseLeaveHandler = handleReminderMouseLeave;
@@ -5545,11 +5576,12 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 });
 
                 // Add click handler to open editor modal
-                stackedTextElement.addEventListener('click', function() {
+                stackedTextElement.clickHandler = function() {
                     const sourceId = HTML.getData(stackedTextElement, 'sourceId');
                     const patternNumber = HTML.getData(stackedTextElement, 'patternNumber');
                     initEditorModal(sourceId, patternNumber);
-                });
+                };
+                stackedTextElement.addEventListener('click', stackedTextElement.clickHandler);
 
                 // Create stack count indicator
                 let stackCountElement = HTML.getElementUnsafely(`day${dayIndex}reminderStackCount${currentGroupIndex}_${stackIndex}`);
@@ -5566,6 +5598,9 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 // Remove old listeners
                 stackCountElement.removeEventListener('mouseenter', stackCountElement.mouseEnterHandler);
                 stackCountElement.removeEventListener('mouseleave', stackCountElement.mouseLeaveHandler);
+                if (stackCountElement.clickHandler) {
+                    stackCountElement.removeEventListener('click', stackCountElement.clickHandler);
+                }
 
                 stackCountElement.mouseEnterHandler = handleReminderMouseEnter;
                 stackCountElement.mouseLeaveHandler = handleReminderMouseLeave;
@@ -5592,11 +5627,12 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 });
 
                 // Add click handler to open editor modal
-                stackCountElement.addEventListener('click', function() {
+                stackCountElement.clickHandler = function() {
                     const sourceId = HTML.getData(stackCountElement, 'sourceId');
                     const patternNumber = HTML.getData(stackCountElement, 'patternNumber');
                     initEditorModal(sourceId, patternNumber);
-                });
+                };
+                stackCountElement.addEventListener('click', stackCountElement.clickHandler);
             }
         }
 
@@ -7305,6 +7341,11 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
             taskElement = HTML.make('div');
             HTML.setId(taskElement, taskElementId);
             taskListContainer.appendChild(taskElement);
+        } else {
+            // Remove existing click handler when reusing element
+            if (taskElement.clickHandler) {
+                taskElement.removeEventListener('click', taskElement.clickHandler);
+            }
         }
         // Show the element (it might have been hidden)
         taskElement.style.display = 'block';
@@ -7385,9 +7426,10 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         });
 
         // Add click handler to open editor modal
-        taskElement.addEventListener('click', function() {
+        taskElement.clickHandler = function() {
             initEditorModal(task.id, task.instanceIndex);
-        });
+        };
+        taskElement.addEventListener('click', taskElement.clickHandler);
 
         // Make checkbox size responsive
         const checkboxSize = columnWidth > columnWidthThreshold ? 15 : 12;
