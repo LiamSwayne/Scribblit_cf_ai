@@ -12691,7 +12691,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         timeLabel.textContent = 'Due by';
         HTML.setStyle(timeLabel, {
             position: 'absolute',
-            top: '79px',
+            top: '77px', // moved up 2px (79px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -12752,7 +12752,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
             position: 'absolute',
-            top: '89px', // moved down 10px (79px + 10px)
+            top: '87px', // moved up 2px (89px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -12763,7 +12763,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         const fromTimeContainer = HTML.make('div');
         HTML.setStyle(fromTimeContainer, {
             position: 'absolute',
-            top: '87px', // moved down 10px (77px + 10px)
+            top: '87px',
             left: '37px'
         });
         instanceEditorContainer.appendChild(fromTimeContainer);
@@ -12774,7 +12774,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         toLabel.textContent = 'to';
         HTML.setStyle(toLabel, {
             position: 'absolute',
-            top: '89px', // moved down 10px (79px + 10px)
+            top: '87px', // moved up 2px (89px - 2px)
             left: '90px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -13377,7 +13377,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         timeLabel.textContent = 'Due by';
         HTML.setStyle(timeLabel, {
             position: 'absolute',
-            top: '108px',
+            top: '106px', // moved up 2px (108px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -13438,7 +13438,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
             position: 'absolute',
-            top: '108px',
+            top: '106px', // moved up 2px (108px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -13460,7 +13460,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         toLabel.textContent = 'to';
         HTML.setStyle(toLabel, {
             position: 'absolute',
-            top: '108px',
+            top: '106px', // moved up 2px (108px - 2px)
             left: '90px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -13982,7 +13982,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         timeLabel.textContent = 'Due by';
         HTML.setStyle(timeLabel, {
             position: 'absolute',
-            top: '99px',
+            top: '97px', // moved up 2px (99px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -14043,7 +14043,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
             position: 'absolute',
-            top: '99px',
+            top: '97px', // moved up 2px (99px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -14065,7 +14065,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         toLabel.textContent = 'to';
         HTML.setStyle(toLabel, {
             position: 'absolute',
-            top: '99px',
+            top: '97px', // moved up 2px (99px - 2px)
             left: '90px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -14839,7 +14839,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         timeLabel.textContent = 'Due by';
         HTML.setStyle(timeLabel, {
             position: 'absolute',
-            top: '182px',
+            top: '180px', // moved up 2px (182px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -14900,7 +14900,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         fromLabel.textContent = 'From';
         HTML.setStyle(fromLabel, {
             position: 'absolute',
-            top: '182px',
+            top: '180px', // moved up 2px (182px - 2px)
             left: '0px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -14922,7 +14922,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         toLabel.textContent = 'to';
         HTML.setStyle(toLabel, {
             position: 'absolute',
-            top: '182px',
+            top: '180px', // moved up 2px (182px - 2px)
             left: '90px',
             fontSize: '14px',
             fontFamily: 'PrimaryRegular',
@@ -15401,7 +15401,7 @@ function initDateInstanceEditor(top, newOrIndex) {
             timeLabel.textContent = 'Due by';
             HTML.setStyle(timeLabel, {
                 position: 'absolute',
-                top: '30px',
+                top: '28px', // moved up 2px (30px - 2px)
                 left: '0px',
                 fontSize: '14px',
                 fontFamily: 'PrimaryRegular',
@@ -15462,7 +15462,7 @@ function initDateInstanceEditor(top, newOrIndex) {
             fromLabel.textContent = 'From';
             HTML.setStyle(fromLabel, {
                 position: 'absolute',
-                top: '30px',
+                top: '28px', // moved up 2px (30px - 2px)
                 left: '0px',
                 fontSize: '14px',
                 fontFamily: 'PrimaryRegular',
@@ -15484,7 +15484,7 @@ function initDateInstanceEditor(top, newOrIndex) {
             toLabel.textContent = 'to';
             HTML.setStyle(toLabel, {
                 position: 'absolute',
-                top: '30px',
+                top: '28px', // moved up 2px (30px - 2px)
                 left: '90px',
                 fontSize: '14px',
                 fontFamily: 'PrimaryRegular',
