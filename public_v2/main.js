@@ -11227,6 +11227,19 @@ function initDateFieldInput(parentContainer, left, top, idPrefix = '') {
     const thirdField = fieldMap[dateFormat[2]];
     HTML.setStyle(thirdField, {left: currentLeft + 'px'});
 
+    // Add live updating for instance button text
+    const updateInstanceText = () => {
+        // Debounce updates to avoid excessive calls
+        clearTimeout(updateInstanceText.timeout);
+        updateInstanceText.timeout = setTimeout(() => {
+            saveEditorFieldsToData();
+        }, 300);
+    };
+    
+    yearInput.addEventListener('input', updateInstanceText);
+    monthInput.addEventListener('input', updateInstanceText);
+    dayInput.addEventListener('input', updateInstanceText);
+    
     return {
         year: yearInput,
         month: monthInput,
@@ -11295,6 +11308,18 @@ function initTimeFieldInput(parentContainer, left, top, idPrefix = '') {
     });
     colon.textContent = ':';
     parentContainer.appendChild(colon);
+
+    // Add live updating for instance button text
+    const updateInstanceText = () => {
+        // Debounce updates to avoid excessive calls
+        clearTimeout(updateInstanceText.timeout);
+        updateInstanceText.timeout = setTimeout(() => {
+            saveEditorFieldsToData();
+        }, 300);
+    };
+    
+    hourInput.addEventListener('input', updateInstanceText);
+    minuteInput.addEventListener('input', updateInstanceText);
 
     return {
         hour: hourInput,
@@ -11466,6 +11491,9 @@ function saveEditorFieldsToData() {
     
     // Save alarm fields
     saveAlarmFields();
+    
+    // Update instance button texts to reflect changes
+    updateInstanceButtonTexts();
 }
 
 // Helper function to save time and date fields from input elements
@@ -11960,13 +11988,20 @@ function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasD
     } else if (pattern._type === 'MonthlyPattern') {
         if (pattern.day === -1) {
             description = 'Last day of month';
-        } else {
+        } else if (pattern.day !== undefined && pattern.day > 0) {
             description = `${pattern.day}${getOrdinalSuffix(pattern.day)} of month`;
+        } else {
+            description = 'Monthly (select day)';
         }
     } else if (pattern._type === 'AnnuallyPattern') {
-        description = `${getMonthName(pattern.month)} ${pattern.day}${getOrdinalSuffix(pattern.day)}`;
+        if (pattern.month !== undefined && pattern.day !== undefined && pattern.month > 0 && pattern.day > 0) {
+            description = `${getMonthName(pattern.month)} ${pattern.day}${getOrdinalSuffix(pattern.day)}`;
+        } else {
+            description = 'Annually (select date)';
+        }
     } else if (pattern._type === 'NthWeekdayOfMonthsPattern') {
-        const dayName = getDayName(pattern.dayOfWeek);
+        // Handle potentially incomplete patterns gracefully
+        const dayName = pattern.dayOfWeek !== undefined ? getDayName(pattern.dayOfWeek) : 'weekday';
         
         if (pattern.nthWeekdays === symbolToString(LAST_WEEK_OF_MONTH)) {
             description = `Last ${dayName} of month`;
@@ -11979,12 +12014,19 @@ function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasD
             }
             if (activeWeeks.length === 1) {
                 description = `${activeWeeks[0]}${getOrdinalSuffix(activeWeeks[0])} ${dayName} of month`;
-            } else {
+            } else if (activeWeeks.length > 1) {
                 description = `${activeWeeks.join(', ')} ${dayName} of month`;
+            } else {
+                // No weeks selected yet
+                description = `${dayName} of month (select week)`;
             }
+        } else {
+            // Pattern not fully configured yet
+            description = `${dayName} of month (configuring...)`;
         }
     } else {
-        description = 'Recurring';
+        // Unknown or incomplete pattern
+        description = pattern._type ? pattern._type.replace('Pattern', '').replace(/([A-Z])/g, ' $1').trim() : 'Recurring';
     }
     
     // Add time information based on event logic
@@ -12005,6 +12047,38 @@ function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasD
     }
     
     return description;
+}
+
+// Update instance button text to reflect current edited values
+function updateInstanceButtonTexts() {
+    if (!editorModalData || editorModalActiveInstanceIndex === NULL) return;
+    
+    // Get current instances
+    let instances, instanceTypes;
+    if (editorModalData.kind === 'event') {
+        instances = editorModalData._event.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
+    } else if (editorModalData.kind === 'task') {
+        instances = [...editorModalData._task.instances, ...editorModalData._task.workSessions];
+        instanceTypes = [
+            ...new Array(editorModalData._task.instances.length).fill('regular'),
+            ...new Array(editorModalData._task.workSessions.length).fill('workSession')
+        ];
+    } else if (editorModalData.kind === 'reminder') {
+        instances = editorModalData._reminder.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
+    } else {
+        return;
+    }
+    
+    // Update each button's text
+    for (let index = 0; index < instances.length; index++) {
+        const button = HTML.getElementUnsafely(`instanceButton_${index}`);
+        if (button) {
+            button.textContent = getInstanceAsSentence(editorModalData.kind, instances[index], instanceTypes[index]);
+            adjustButtonLetterSpacing(button);
+        }
+    }
 }
 
 // Helper function to adjust letter spacing of instance buttons to fit within modal width
@@ -12897,6 +12971,16 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         }
     }
     daysInput.value = inputValue;
+    
+    // Add live updating for instance button text
+    daysInput.addEventListener('input', () => {
+        // Debounce updates to avoid excessive calls
+        clearTimeout(daysInput.updateTimeout);
+        daysInput.updateTimeout = setTimeout(() => {
+            saveEditorFieldsToData();
+        }, 300);
+    });
+    
     HTML.setStyle(daysInput, {
         width: '30px',
         height: '14px',
@@ -13479,6 +13563,8 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     instanceEditorContainer.offsetHeight;
     setTimeout(() => {
         HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        // Update button text to reflect the current pattern
+        updateInstanceButtonTexts();
     }, 10);
 }
 
@@ -13550,6 +13636,16 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         textAlign: 'center',
         padding: '2px 4px'
     });
+    
+    // Add live updating for instance button text
+    dayInput.addEventListener('input', () => {
+        // Debounce updates to avoid excessive calls
+        clearTimeout(dayInput.updateTimeout);
+        dayInput.updateTimeout = setTimeout(() => {
+            saveEditorFieldsToData();
+        }, 300);
+    });
+    
     inputContainer.appendChild(dayInput);
     
     // Add text label
@@ -14156,6 +14252,8 @@ function initMonthlyPatternEditor(top, newOrIndex) {
     instanceEditorContainer.offsetHeight;
     setTimeout(() => {
         HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        // Update button text to reflect the current pattern
+        updateInstanceButtonTexts();
     }, 10);
 }
 
@@ -14767,6 +14865,8 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
     instanceEditorContainer.offsetHeight;
     setTimeout(() => {
         HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        // Update button text to reflect the current pattern
+        updateInstanceButtonTexts();
     }, 10);
 }
 
@@ -15577,6 +15677,8 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     instanceEditorContainer.offsetHeight;
     setTimeout(() => {
         HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        // Update button text to reflect the current pattern
+        updateInstanceButtonTexts();
     }, 10);
 }
 
@@ -16059,6 +16161,8 @@ function initDateInstanceEditor(top, newOrIndex) {
     instanceEditorContainer.offsetHeight;
     setTimeout(() => {
         HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+        // Update button text to reflect the current pattern
+        updateInstanceButtonTexts();
     }, 10);
         
     } else if (patternType === 'daily' || patternType === 'weekly' || patternType === 'every-n-days') {
@@ -16122,6 +16226,8 @@ function initDateInstanceEditor(top, newOrIndex) {
         instanceEditorContainer.offsetHeight;
         setTimeout(() => {
             HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+            // Update button text to reflect the current pattern
+            updateInstanceButtonTexts();
         }, 10);
     }
 }
