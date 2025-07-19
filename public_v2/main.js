@@ -2430,9 +2430,19 @@ let HTML = new class HTMLroot {
         ASSERT(type(styles, Dict(String, String)), "HTML.setStyle: styles is not a dictionary of strings to string");
         ASSERT(Object.keys(styles).length > 0);
         
+        // Check if the element has a valid style property
+        if (!element.style) {
+            log("WARNING: HTML.setStyle - element does not have a style property");
+            return;
+        }
+        
         for (let key of Object.keys(styles)) {
             // camelcase to hyphenated css property
-            element.style[key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()] = styles[key];
+            try {
+                element.style[key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()] = styles[key];
+            } catch (e) {
+                log("ERROR: HTML.setStyle - failed to set style property: " + key);
+            }
         }
     }
 
@@ -12183,17 +12193,20 @@ function deleteInstance(instanceIndex) {
 }
 
 function addNewInstance(patternType = 'one-time') {
-    // Get current instances based on kind
+    ASSERT(exists(editorModalData), "addNewInstance: editorModalData must exist");
+    ASSERT(type(patternType, String), "patternType must be a string");
+
+    // Properly close any existing editor first to ensure clean state
+    closeDateInstanceEditor();
+    
+    // Get the right array based on entity kind
     let instances;
-    if (editorModalData.kind === 'event') {
+    if (editorModalData.kind === 'task') {
+        instances = editorModalData._task.instances;
+    } else if (editorModalData.kind === 'event') {
         instances = editorModalData._event.instances;
-    } else if (editorModalData.kind === 'task') {
-        // For tasks, combine regular instances and work sessions
-        instances = [...editorModalData._task.instances, ...editorModalData._task.workSessions];
     } else if (editorModalData.kind === 'reminder') {
         instances = editorModalData._reminder.instances;
-    } else {
-        return;
     }
     
     // Create a basic instance object based on pattern type
@@ -12309,10 +12322,18 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         ASSERT(newOrIndex === 'new', "newOrIndex must be 'new' when creating new instance, or an integer when editing an existing one");
     }
     
-    // Close any existing editor first
-    if (instanceEditorContainer && instanceEditorContainer.parentNode) {
-        closeEveryNDaysPatternEditor();
-    }
+    // Close any existing editor first and clean up existing selectors
+    closeDateInstanceEditor();
+    
+    // Create unique ID for selector to avoid conflicts
+    const uniqueId = Date.now().toString();
+    const everyNDaysRepeatTypeSelectorId = 'everyNDaysRepeatTypeSelector_' + uniqueId;
+    
+    // Clean up any existing selectors with base ID first
+    deleteSelector('everyNDaysRepeatTypeSelector');
+    
+    // Also clean up any selectors with the unique ID we're about to use
+    deleteSelector(everyNDaysRepeatTypeSelectorId);
     
     // Create container
     instanceEditorContainer = HTML.make('div');
@@ -12437,7 +12458,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     createSelector({
         options: ['Occurs [x] times', 'Repeat until [date]'],
         orientation: 'horizontal',
-        id: 'everyNDaysRepeatTypeSelector',
+        id: everyNDaysRepeatTypeSelectorId, // Use unique ID
         x: absoluteSelectorX,
         y: absoluteSelectorY,
         width: selectorWidth,
@@ -12790,10 +12811,24 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         ASSERT(preloadedNthWeekdays === NULL, "preloadedNthWeekdays must be NULL when editing existing instance");
     }
     
-    // Close any existing editor first
-    if (instanceEditorContainer && instanceEditorContainer.parentNode) {
-        closeNthWeekdayOfMonthsPatternEditor();
-    }
+    // Close any existing editor first and clean up existing selectors
+    closeDateInstanceEditor();
+    
+    // Create unique IDs for selectors to avoid conflicts
+    const uniqueId = Date.now().toString();
+    const dayOfWeekSelectorId = 'dayOfWeekSelector_' + uniqueId;
+    const nthWeekdayTypeSelectorId = 'nthWeekdayTypeSelector_' + uniqueId;
+    const nthWeekdayRangeTypeSelectorId = 'nthWeekdayRangeTypeSelector_' + uniqueId;
+    
+    // Clean up any existing selectors with these IDs first
+    deleteSelector('dayOfWeekSelector');
+    deleteSelector('nthWeekdayTypeSelector');
+    deleteSelector('nthWeekdayRangeTypeSelector');
+    
+    // Also clean up any selectors with the unique IDs we're about to use
+    deleteSelector(dayOfWeekSelectorId);
+    deleteSelector(nthWeekdayTypeSelectorId);
+    deleteSelector(nthWeekdayRangeTypeSelectorId);
     
     // Create container
     instanceEditorContainer = HTML.make('div');
@@ -12858,7 +12893,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     createSelector({
         options: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         orientation: 'horizontal',
-        id: 'dayOfWeekSelector',
+        id: dayOfWeekSelectorId, // Use unique ID
         x: modalRect.left + 8, // Modal left + padding
         y: modalRect.top + top + currentTop,
         width: 250,
@@ -12953,7 +12988,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     createSelector({
         options: ['[N]th weekday of month', 'Last weekday of month'],
         orientation: 'horizontal',
-        id: 'nthWeekdayTypeSelector',
+        id: nthWeekdayTypeSelectorId, // Use unique ID
         x: modalRect.left + 8, // Modal left + padding
         y: modalRect.top + top + currentTop - 3,
         width: 280,
@@ -13099,7 +13134,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     createSelector({
         options: ['Occurs [x] times', 'Repeat until [date]'],
         orientation: 'horizontal',
-        id: 'nthWeekdayRangeTypeSelector',
+        id: nthWeekdayRangeTypeSelectorId, // Use unique ID
         x: modalRect.left + 8, // Modal left + padding
         y: modalRect.top + top + currentTop - 14,
         width: 228,
@@ -13124,7 +13159,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     HTML.setId(rangeTimesContainer, 'rangeTimesContainer');
     HTML.setStyle(rangeTimesContainer, {
         position: 'absolute',
-        top: (currentTop - 16) + 'px',
+        top: (currentTop - 18) + 'px',
         left: '0px',
         width: '100%',
         height: '40px',
@@ -13196,7 +13231,7 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
     HTML.setId(rangeUntilContainer, 'rangeUntilContainer');
     HTML.setStyle(rangeUntilContainer, {
         position: 'absolute',
-        top: (currentTop - 16) + 'px',
+        top: (currentTop - 18) + 'px',
         left: '0px',
         width: '100%',
         height: '40px',
@@ -13384,42 +13419,119 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
 }
 
 function updateNthWeekdayRangeType(selectedOption) {
+    // Get the containers using their IDs
     const rangeTimesContainer = HTML.getElementUnsafely('rangeTimesContainer');
     const rangeUntilContainer = HTML.getElementUnsafely('rangeUntilContainer');
     
+    // Make sure the containers exist before trying to modify them
+    if (!rangeTimesContainer || !rangeUntilContainer) {
+        log("WARNING: Could not find range containers in updateNthWeekdayRangeType");
+        return;
+    }
+    
     if (selectedOption === 'Occurs [x] times') {
         // Show times container, hide until container
-        HTML.setStyle(rangeTimesContainer, { 
-            opacity: '1',
-            pointerEvents: 'auto'
-        });
-        HTML.setStyle(rangeUntilContainer, { 
-            opacity: '0',
-            pointerEvents: 'none'
-        });
+        try {
+            HTML.setStyle(rangeTimesContainer, { 
+                opacity: '1',
+                pointerEvents: 'auto'
+            });
+            HTML.setStyle(rangeUntilContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
+        } catch (e) {
+            log("ERROR: Failed to update range container styles: " + e.message);
+        }
     } else {
         // Show until container, hide times container
-        HTML.setStyle(rangeTimesContainer, { 
-            opacity: '0',
-            pointerEvents: 'none'
-        });
-        HTML.setStyle(rangeUntilContainer, { 
-            opacity: '1',
-            pointerEvents: 'auto'
-        });
+        try {
+            HTML.setStyle(rangeTimesContainer, { 
+                opacity: '0',
+                pointerEvents: 'none'
+            });
+            HTML.setStyle(rangeUntilContainer, { 
+                opacity: '1',
+                pointerEvents: 'auto'
+            });
+        } catch (e) {
+            log("ERROR: Failed to update range container styles: " + e.message);
+        }
     }
 }
 
 function closeNthWeekdayOfMonthsPatternEditor() {
-    if (instanceEditorContainer && instanceEditorContainer.parentNode) {
-        instanceEditorContainer.parentNode.removeChild(instanceEditorContainer);
+    if (!instanceEditorContainer) {
         instanceEditorContainer = NULL;
+        return;
     }
     
-    // Clean up selectors
-    deleteSelector('nthWeekdayTypeSelector');
-    deleteSelector('dayOfWeekSelector');
-    deleteSelector('nthWeekdayRangeTypeSelector');
+    // Store reference to container for cleanup
+    const containerToRemove = instanceEditorContainer;
+    
+    // Immediately clear the global reference to prevent race conditions
+    instanceEditorContainer = NULL;
+    
+    // Clean up all selector elements that have these prefixes
+    // This will catch both the base selectors and any with timestamps
+    const selectorPrefixes = [
+        'nthWeekdayTypeSelector',
+        'dayOfWeekSelector',
+        'nthWeekdayRangeTypeSelector'
+    ];
+    
+    // Find and delete all matching selectors
+    selectorPrefixes.forEach(prefix => {
+        // Remove the base selector
+        deleteSelector(prefix);
+        
+        // Find and remove any selectors with this prefix
+        const elements = document.querySelectorAll(`[id^="${prefix}"]`);
+        elements.forEach(element => {
+            // Extract the full ID and delete the selector
+            if (element.id && element.id.startsWith(prefix)) {
+                deleteSelector(element.id);
+            }
+        });
+    });
+    
+    // Verify container is a valid DOM element before removing
+    if (containerToRemove && containerToRemove.nodeType === 1) {
+        if (containerToRemove.style) {
+            try {
+                // Fade out
+                containerToRemove.style.opacity = '0';
+                
+                // Remove after animation
+                setTimeout(() => {
+                    if (containerToRemove && containerToRemove.parentNode) {
+                        try {
+                            containerToRemove.parentNode.removeChild(containerToRemove);
+                        } catch (e) {
+                            log("ERROR: Failed to remove containerToRemove in closeNthWeekdayOfMonthsPatternEditor: " + e.message);
+                        }
+                    }
+                }, 200);
+            } catch (e) {
+                log("ERROR: Failed to set containerToRemove opacity in closeNthWeekdayOfMonthsPatternEditor: " + e.message);
+                // If setting opacity fails, try to remove it immediately
+                if (containerToRemove.parentNode) {
+                    try {
+                        containerToRemove.parentNode.removeChild(containerToRemove);
+                    } catch (e2) {
+                        log("ERROR: Also failed to remove containerToRemove in closeNthWeekdayOfMonthsPatternEditor: " + e2.message);
+                    }
+                }
+            }
+        } else if (containerToRemove.parentNode) {
+            // If it doesn't have a style property but is in the DOM, just remove it
+            try {
+                containerToRemove.parentNode.removeChild(containerToRemove);
+            } catch (e) {
+                log("ERROR: Failed to remove containerToRemove in closeNthWeekdayOfMonthsPatternEditor: " + e.message);
+            }
+        }
+    }
 }
 
 // Unified instance editor that handles all pattern types
@@ -13433,9 +13545,15 @@ function initDateInstanceEditor(top, newOrIndex) {
         // Wait a short time for cleanup to complete before proceeding
         setTimeout(() => {
             initDateInstanceEditor(top, newOrIndex);
-        }, 50);
+        }, 100);  // Increase timeout to ensure proper cleanup
         return;
     }
+    
+    // Clean up all selector elements that might be present from previous editors
+    deleteSelector('dayOfWeekSelector');
+    deleteSelector('nthWeekdayTypeSelector');
+    deleteSelector('nthWeekdayRangeTypeSelector');
+    deleteSelector('everyNDaysRepeatTypeSelector');
     
     // Make sure no stale editor container exists in DOM
     const existingContainer = HTML.getElementUnsafely('instanceEditorContainer');
@@ -13622,12 +13740,15 @@ function showInstanceEditor() {
     // Close any existing editor first to clean up selectors and containers
     closeDateInstanceEditor();
     
-    const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
-    const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
-    const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
-    
-    // Show editor for the active instance
-    initDateInstanceEditor(top, editorModalActiveInstanceIndex);
+    // Wait a short time to ensure proper cleanup before creating a new editor
+    setTimeout(() => {
+        const instanceButtonsContainer = HTML.getElement('instanceButtonsContainer');
+        const containerHeight = instanceButtonsContainer ? instanceButtonsContainer.offsetHeight : 0;
+        const top = editorModalInstanceButtonsSectionTop + containerHeight + 10;
+        
+        // Show editor for the active instance
+        initDateInstanceEditor(top, editorModalActiveInstanceIndex);
+    }, 50);
 }
 
 function closeDateFieldInput() {
@@ -13640,20 +13761,16 @@ function closeEveryNDaysPatternEditor() {
         return;
     }
     
-    // Delete the selector first (it handles its own animation)
+    // Clean up the base selector
     deleteSelector('everyNDaysRepeatTypeSelector');
     
-    // Also manually clean up any selector elements that might remain
-    const selectorIds = [
-        'everyNDaysRepeatTypeSelector',
-        'everyNDaysRepeatTypeSelector_highlight', 
-        'everyNDaysRepeatTypeSelector_text_0',
-        'everyNDaysRepeatTypeSelector_text_1'
-    ];
-    selectorIds.forEach(id => {
-        const element = HTML.getElementUnsafely(id);
-        if (exists(element)) {
-            element.remove();
+    // Find and delete all selectors with this prefix (including timestamped versions)
+    const elements = document.querySelectorAll('[id^="everyNDaysRepeatTypeSelector"]');
+    elements.forEach(element => {
+        if (element.id) {
+            deleteSelector(element.id);
+        } else if (element.parentNode) {
+            element.parentNode.removeChild(element);
         }
     });
     
@@ -13663,15 +13780,41 @@ function closeEveryNDaysPatternEditor() {
     // Immediately clear the global reference to prevent race conditions
     instanceEditorContainer = NULL;
     
-    // Fade out
-    HTML.setStyle(containerToRemove, { opacity: '0' });
-    
-    // Remove after animation
-    setTimeout(() => {
-        if (containerToRemove && containerToRemove.parentNode) {
-            containerToRemove.parentNode.removeChild(containerToRemove);
+    // Verify container is a valid DOM element with a style property before fading out
+    if (containerToRemove && containerToRemove.nodeType === 1 && containerToRemove.style) {
+        try {
+            // Fade out
+            containerToRemove.style.opacity = '0';
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (containerToRemove && containerToRemove.parentNode) {
+                    try {
+                        containerToRemove.parentNode.removeChild(containerToRemove);
+                    } catch (e) {
+                        log("ERROR: Failed to remove containerToRemove in closeEveryNDaysPatternEditor: " + e.message);
+                    }
+                }
+            }, 200);
+        } catch (e) {
+            log("ERROR: Failed to set containerToRemove opacity in closeEveryNDaysPatternEditor: " + e.message);
+            // If setting opacity fails, try to remove it immediately
+            if (containerToRemove.parentNode) {
+                try {
+                    containerToRemove.parentNode.removeChild(containerToRemove);
+                } catch (e2) {
+                    log("ERROR: Also failed to remove containerToRemove in closeEveryNDaysPatternEditor: " + e2.message);
+                }
+            }
         }
-    }, 200);
+    } else if (containerToRemove && containerToRemove.parentNode) {
+        // If it doesn't have a style property but is in the DOM, just remove it
+        try {
+            containerToRemove.parentNode.removeChild(containerToRemove);
+        } catch (e) {
+            log("ERROR: Failed to remove containerToRemove in closeEveryNDaysPatternEditor: " + e.message);
+        }
+    }
 }
 
 function closeMonthlyPatternEditor() {
@@ -13686,22 +13829,9 @@ function closeAnnuallyPatternEditor() {
 
 // Unified close function for all instance editors
 function closeDateInstanceEditor() {
-    if (!instanceEditorContainer || !instanceEditorContainer.parentNode) {
+    // If there's no container or it's not in the DOM, just reset the variable and return
+    if (!instanceEditorContainer) {
         instanceEditorContainer = NULL;
-        return;
-    }
-    
-    // Check if it's an every N days pattern editor by looking for the selector
-    const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
-    if (exists(everyNDaysSelector)) {
-        closeEveryNDaysPatternEditor();
-        return;
-    }
-    
-    // Check if it's an nth weekday pattern editor by looking for the selector
-    const nthWeekdaySelector = HTML.getElementUnsafely('nthWeekdayTypeSelector');
-    if (exists(nthWeekdaySelector)) {
-        closeNthWeekdayOfMonthsPatternEditor();
         return;
     }
     
@@ -13711,15 +13841,61 @@ function closeDateInstanceEditor() {
     // Immediately clear the global reference to prevent race conditions
     instanceEditorContainer = NULL;
     
-    // Fade out
-    HTML.setStyle(containerToRemove, { opacity: '0' });
+    // Check for all known pattern editor types and clean up their selectors
     
-    // Remove after animation
-    setTimeout(() => {
-        if (containerToRemove && containerToRemove.parentNode) {
-            containerToRemove.parentNode.removeChild(containerToRemove);
+    // Check if it's an every N days pattern editor
+    const everyNDaysSelector = HTML.getElementUnsafely('everyNDaysRepeatTypeSelector');
+    if (exists(everyNDaysSelector)) {
+        // Just delete the selector without calling the close function to avoid recursion
+        deleteSelector('everyNDaysRepeatTypeSelector');
+    }
+    
+    // Check if it's an nth weekday pattern editor
+    const nthWeekdaySelector = HTML.getElementUnsafely('nthWeekdayTypeSelector');
+    if (exists(nthWeekdaySelector)) {
+        // Just delete the selector without calling the close function to avoid recursion
+        deleteSelector('nthWeekdayTypeSelector');
+    }
+    
+    // Clean up all selector elements that might be present
+    deleteSelector('dayOfWeekSelector');
+    deleteSelector('nthWeekdayRangeTypeSelector');
+    
+    // Verify container is a valid DOM element with a style property before fading out
+    if (containerToRemove && containerToRemove.nodeType === 1 && containerToRemove.style) {
+        try {
+            // Fade out
+            containerToRemove.style.opacity = '0';
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (containerToRemove && containerToRemove.parentNode) {
+                    try {
+                        containerToRemove.parentNode.removeChild(containerToRemove);
+                    } catch (e) {
+                        log("ERROR: Failed to remove containerToRemove: " + e.message);
+                    }
+                }
+            }, 200);
+        } catch (e) {
+            log("ERROR: Failed to set containerToRemove opacity: " + e.message);
+            // If setting opacity fails, try to remove it immediately
+            if (containerToRemove.parentNode) {
+                try {
+                    containerToRemove.parentNode.removeChild(containerToRemove);
+                } catch (e2) {
+                    log("ERROR: Also failed to remove containerToRemove: " + e2.message);
+                }
+            }
         }
-    }, 200);
+    } else if (containerToRemove && containerToRemove.parentNode) {
+        // If it doesn't have a style property but is in the DOM, just remove it
+        try {
+            containerToRemove.parentNode.removeChild(containerToRemove);
+        } catch (e) {
+            log("ERROR: Failed to remove containerToRemove: " + e.message);
+        }
+    }
 }
 
 // Initialize alarm settings based on the current kind
@@ -15829,45 +16005,63 @@ function createSelector(config) {
 function deleteSelector(id) {
     ASSERT(type(id, NonEmptyString), "deleteSelector: id must be a non-empty string");
     
+    // First, immediately remove any elements with matching IDs in the DOM
+    // This is a more aggressive approach that ensures we don't have duplicates
+    const removeElement = (elementId) => {
+        const element = HTML.getElementUnsafely(elementId);
+        if (element && element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+    };
+    
+    // Try to get the background element to retrieve options data
     const background = HTML.getElementUnsafely(id);
-    if (!exists(background)) {
-        return; // Already deleted or never existed
-    }
+    let optionsLength = 0;
     
-    const options = HTML.getData(background, 'options');
-    ASSERT(type(options, List(String)), "deleteSelector: invalid options data");
-    
-    // Fade out all elements
-    const highlight = HTML.getElementUnsafely(id + '_highlight');
-    const allElements = [background];
-    
-    if (exists(highlight)) {
-        allElements.push(highlight);
-    }
-    
-    for (let i = 0; i < options.length; i++) {
-        const textElement = HTML.getElementUnsafely(id + '_text_' + i);
-        if (exists(textElement)) {
-            allElements.push(textElement);
-        }
-    }
-    
-    // Apply fade out animation
-    for (const element of allElements) {
-        HTML.setStyle(element, {
-            opacity: '0',
-            transition: 'opacity 0.3s ease'
-        });
-    }
-    
-    // Remove elements after animation
-    setTimeout(() => {
-        for (const element of allElements) {
-            if (exists(element) && exists(element.parentNode)) {
-                element.parentNode.removeChild(element);
+    if (exists(background)) {
+        try {
+            // Try to get options from data
+            const options = HTML.getDataUnsafely(background, 'options');
+            if (exists(options) && Array.isArray(options)) {
+                optionsLength = options.length;
             }
+        } catch (e) {
+            // If we can't get options data, use a large enough number to be safe
+            log("WARNING: Could not get options data for selector " + id);
+            optionsLength = 20; // Large enough to cover most cases
         }
-    }, 300);
+        
+        // Remove the background immediately
+        if (background.parentNode) {
+            background.parentNode.removeChild(background);
+        }
+    } else {
+        // If we couldn't find the background, use a large enough number to be safe
+        optionsLength = 20;
+    }
+    
+    // Remove the highlight element
+    removeElement(id + '_highlight');
+    
+    // Remove all possible text elements (including any that might have been left behind)
+    for (let i = 0; i < optionsLength; i++) {
+        removeElement(id + '_text_' + i);
+    }
+    
+    // For selectors like dayOfWeekSelector that have 7 days, ensure we clean up any extra elements
+    if (id === 'dayOfWeekSelector') {
+        for (let i = 0; i < 10; i++) {
+            removeElement(id + '_text_' + i);
+        }
+    }
+    
+    // Additional cleanup for any DOM elements that might have been missed
+    const possibleElements = document.querySelectorAll('[id^="' + id + '_"]');
+    possibleElements.forEach((element) => {
+        if (element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+    });
 }
 
 // Moves a selector to new x,y coordinates instantly (no animation)
