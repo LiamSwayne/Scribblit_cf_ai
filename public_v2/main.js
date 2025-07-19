@@ -12814,7 +12814,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         left: '8px',
         top: top + 'px',
         width: (editorModalWidth - 16) + 'px',
-        height: '160px',
+        height: '60px',
         backgroundColor: 'var(--shade-0)',
         opacity: '0',
         transition: 'opacity 0.2s ease',
@@ -12823,32 +12823,18 @@ function initMonthlyPatternEditor(top, newOrIndex) {
     
     editorModal.appendChild(instanceEditorContainer);
     
-    // Add title
-    const title = HTML.make('div');
-    HTML.setStyle(title, {
-        position: 'absolute',
-        top: '0px',
-        left: '0px',
-        fontSize: '14px',
-        fontFamily: 'PrimaryRegular',
-        color: 'var(--shade-4)',
-        fontWeight: 'bold'
-    });
-    title.textContent = 'Monthly pattern';
-    instanceEditorContainer.appendChild(title);
-    
-    // Add input container for day of month
+    // Add input container for day of month (moved up since there's no title)
     const inputContainer = HTML.make('div');
     HTML.setStyle(inputContainer, {
         position: 'absolute',
-        top: '30px',
+        top: '3px',
         left: '0px',
         fontSize: '14px',
         fontFamily: 'PrimaryRegular',
         color: 'var(--shade-4)',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px'
+        gap: '4px'
     });
     
     // Create number input for day of month
@@ -12859,7 +12845,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
     dayInput.setAttribute('max', '31');
     dayInput.value = '1'; // Default to 1st day of month
     HTML.setStyle(dayInput, {
-        width: '30px',
+        width: '14px',
         height: '14px',
         fontSize: '12px',
         fontFamily: 'MonospaceRegular',
@@ -12886,7 +12872,54 @@ function initMonthlyPatternEditor(top, newOrIndex) {
     // Add to container
     instanceEditorContainer.appendChild(inputContainer);
     
-    // If editing existing instance, load the day value
+    // Add month toggles (12 months side by side)
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthStates = new Array(12).fill(true); // All months selected by default
+    
+    const monthContainer = HTML.make('div');
+    HTML.setStyle(monthContainer, {
+        position: 'absolute',
+        top: '30px',  // Position below day input
+        left: '0px',
+        display: 'flex',
+        gap: '2px',
+        flexWrap: 'wrap'
+    });
+    instanceEditorContainer.appendChild(monthContainer);
+    
+    const monthButtons = [];
+    months.forEach((month, index) => {
+        const button = HTML.make('div');
+        HTML.setStyle(button, {
+            backgroundColor: 'var(--accent-0)',
+            color: 'var(--shade-4)',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '9px',
+            fontFamily: 'MonospaceRegular',
+            fontWeight: 'bold',
+            width: '20px',
+            height: '17px',
+            transition: 'background-color 0.2s ease, color 0.2s ease'
+        });
+        button.textContent = month;
+        
+        button.onclick = () => {
+            monthStates[index] = !monthStates[index];
+            HTML.setStyle(button, {
+                backgroundColor: monthStates[index] ? 'var(--accent-0)' : 'var(--shade-1)',
+                color: monthStates[index] ? 'var(--shade-4)' : 'var(--shade-3)'
+            });
+        };
+        
+        monthButtons.push(button);
+        monthContainer.appendChild(button);
+    });
+    
+    // If editing existing instance, load the day value and month states
     if (type(newOrIndex, Uint)) {
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
                          editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
@@ -12896,8 +12929,26 @@ function initMonthlyPatternEditor(top, newOrIndex) {
             const instanceData = instances[newOrIndex];
             const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
             
-            if (pattern && pattern._type === 'MonthlyPattern' && typeof pattern.day === 'number') {
-                dayInput.value = String(pattern.day);
+            if (pattern && pattern._type === 'MonthlyPattern') {
+                // Set day value
+                if (typeof pattern.day === 'number') {
+                    dayInput.value = String(pattern.day);
+                }
+                
+                // Set month states
+                if (pattern.months && Array.isArray(pattern.months)) {
+                    pattern.months.forEach((active, index) => {
+                        if (index < monthStates.length) {
+                            monthStates[index] = active;
+                            if (index < monthButtons.length) {
+                                HTML.setStyle(monthButtons[index], {
+                                    backgroundColor: active ? 'var(--accent-0)' : 'var(--shade-1)',
+                                    color: active ? 'var(--shade-4)' : 'var(--shade-3)'
+                                });
+                            }
+                        }
+                    });
+                }
             }
         }
     }
