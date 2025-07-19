@@ -10762,7 +10762,17 @@ function editorModalKindChange(selectedOption) {
     ASSERT(exists(editorModalData.kind), "editorModalKindChange: editorModalData.kind is not initialized");
     ASSERT(['event', 'task', 'reminder'].includes(editorModalData.kind), "editorModalKindChange: editorModalData.kind is invalid");
     
+    // Save current input fields before switching kinds
+    saveEditorFieldsToData();
+    
     const newKind = selectedOption.toLowerCase();
+    
+    // Preserve work sessions before any conversion (they should never be lost)
+    // Check if we already have preserved work sessions stored, otherwise use current ones
+    if (!window.editorModalPreservedWorkSessions && editorModalData.kind === 'task' && editorModalData._task.workSessions) {
+        window.editorModalPreservedWorkSessions = JSON.parse(JSON.stringify(editorModalData._task.workSessions));
+    }
+    const preservedWorkSessions = window.editorModalPreservedWorkSessions || [];
     
     // Close current kind, then init new kind
     const currentKind = editorModalData.kind;
@@ -10815,6 +10825,9 @@ function editorModalKindChange(selectedOption) {
                 
                 return taskInstance;
             });
+            
+            // Restore preserved work sessions (they should never be affected by kind changes)
+            editorModalData._task.workSessions = preservedWorkSessions;
             
             // Copy event startAlarm to task alarm
             editorModalData._task.alarm = editorModalData._event.startAlarm;
@@ -11063,6 +11076,9 @@ function editorModalKindChange(selectedOption) {
                 
                 return taskInstance;
             });
+            
+            // Restore preserved work sessions (they should never be affected by kind changes)
+            editorModalData._task.workSessions = preservedWorkSessions;
             
             // Copy default task alarm from settings if no alarm is set
             const isAlarmSet = (alarm) => {
@@ -11425,6 +11441,348 @@ function isEditingWorkSession() {
     
     const regularInstancesLength = editorModalData._task.instances.length;
     return editorModalActiveInstanceIndex >= regularInstancesLength;
+}
+
+// Save current input field values to editorModalData
+function saveEditorFieldsToData() {
+    if (!editorModalData || editorModalActiveInstanceIndex === NULL) return;
+    
+    // Save title and description
+    const titleInput = HTML.getElementUnsafely('editorModalTitleInput');
+    if (titleInput) {
+        editorModalData.name = titleInput.value;
+    }
+    
+    const descriptionTextarea = HTML.getElementUnsafely('editorModalDescriptionTextarea');
+    if (descriptionTextarea) {
+        editorModalData.description = descriptionTextarea.value;
+    }
+    
+    // Save time and date fields from all possible pattern editors
+    saveTimeAndDateFields();
+    
+    // Save pattern editor fields (N-days, recurrence counts, etc.)
+    savePatternEditorFields();
+    
+    // Save alarm fields
+    saveAlarmFields();
+}
+
+// Helper function to save time and date fields from input elements
+function saveTimeAndDateFields() {
+    if (!editorModalData || editorModalActiveInstanceIndex === NULL) return;
+    
+    // Get the current instance being edited
+    let instances, instanceTypes;
+    if (editorModalData.kind === 'event') {
+        instances = editorModalData._event.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
+    } else if (editorModalData.kind === 'task') {
+        instances = [...editorModalData._task.instances, ...editorModalData._task.workSessions];
+        instanceTypes = [
+            ...new Array(editorModalData._task.instances.length).fill('regular'),
+            ...new Array(editorModalData._task.workSessions.length).fill('workSession')
+        ];
+    } else if (editorModalData.kind === 'reminder') {
+        instances = editorModalData._reminder.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
+    } else {
+        return;
+    }
+    
+    if (editorModalActiveInstanceIndex >= instances.length) return;
+    
+    const currentInstance = instances[editorModalActiveInstanceIndex];
+    const instanceType = instanceTypes[editorModalActiveInstanceIndex];
+    
+    // Save date fields (from various pattern editors)
+    saveDateFields(currentInstance);
+    
+    // Save time fields based on instance type and kind
+    saveTimeFields(currentInstance, instanceType);
+}
+
+// Save date fields from various possible input field IDs - captures ALL values regardless of validity
+function saveDateFields(instance) {
+    // Try ALL possible date field ID patterns from different pattern editors
+    const dateFieldIds = [
+        // One-time instances
+        'oneTimeDate',
+        // Every N days pattern
+        'fromDate', 'toDate', 'startingDate',
+        // Monthly pattern  
+        'monthlyFromDate', 'monthlyToDate', 'monthlyStartingDate',
+        // Yearly pattern
+        'yearlyDate', 'yearlyFromDate', 'yearlyToDate', 'yearlyStartingDate',
+        // Nth weekday pattern (reuses some of the above)
+        // Note: this pattern uses 'startingDate', 'fromDate', 'toDate' which are already covered above
+    ];
+    
+    // Save ALL date fields that exist, regardless of validity
+    for (const prefix of dateFieldIds) {
+        const yearField = HTML.getElementUnsafely(prefix + 'Year');
+        const monthField = HTML.getElementUnsafely(prefix + 'Month');
+        const dayField = HTML.getElementUnsafely(prefix + 'Day');
+        
+        if (yearField && monthField && dayField) {
+            const yearValue = yearField.value;
+            const monthValue = monthField.value;
+            const dayValue = dayField.value;
+            
+            if (yearValue !== '' && monthValue !== '' && dayValue !== '') {
+                // Convert 2-digit year to 4-digit year, save raw values otherwise
+                let year = parseInt(yearValue);
+                if (year < 100 && year > 0) {
+                    year += 2000;
+                }
+                
+                const dateField = {
+                    year: year || 0,
+                    month: parseInt(monthValue) || 0,
+                    day: parseInt(dayValue) || 0
+                };
+                
+                // Set the appropriate date field based on instance type
+                if (instance.hasOwnProperty('date')) {
+                    instance.date = dateField;
+                } else if (instance.hasOwnProperty('startDate')) {
+                    instance.startDate = dateField;
+                }
+                break; // Found date fields for this pattern, stop looking for other patterns
+            }
+        }
+    }
+}
+
+// Save time fields from various possible input field IDs - captures ALL values regardless of validity
+function saveTimeFields(instance, instanceType) {
+    // Try ALL possible time field ID patterns from different pattern editors
+    const timeFieldIds = [
+        'oneTimeDueTime', 'oneTimeStartTime', 'oneTimeEndTime', 'oneTimeReminderTime',
+        'everyNDaysDueTime', 'everyNDaysStartTime', 'everyNDaysEndTime', 'everyNDaysReminderTime',
+        'monthlyDueTime', 'monthlyStartTime', 'monthlyEndTime', 'monthlyReminderTime',
+        'yearlyDueTime', 'yearlyStartTime', 'yearlyEndTime', 'yearlyReminderTime',
+        'nthWeekdayDueTime', 'nthWeekdayStartTime', 'nthWeekdayEndTime', 'nthWeekdayReminderTime'
+    ];
+    
+    // Save ALL time fields that exist, regardless of validity
+    for (const fieldId of timeFieldIds) {
+        const hourField = HTML.getElementUnsafely(fieldId + 'Hour');
+        const minuteField = HTML.getElementUnsafely(fieldId + 'Minute');
+        
+        if (hourField && minuteField) {
+            // Save due/start/reminder time fields
+            if (fieldId.includes('DueTime') || fieldId.includes('StartTime') || fieldId.includes('ReminderTime')) {
+                // Save raw values regardless of validity
+                const hourValue = hourField.value;
+                const minuteValue = minuteField.value;
+                
+                if (hourValue !== '' && minuteValue !== '') {
+                    const timeField = { 
+                        hour: parseInt(hourValue) || 0, 
+                        minute: parseInt(minuteValue) || 0 
+                    };
+                    
+                    if (fieldId.includes('DueTime')) {
+                        instance.dueTime = timeField;
+                    } else if (fieldId.includes('StartTime')) {
+                        instance.startTime = timeField;
+                    } else if (fieldId.includes('ReminderTime')) {
+                        instance.time = timeField;
+                    }
+                } else {
+                    // Only clear if both fields are empty
+                    if (fieldId.includes('DueTime')) {
+                        instance.dueTime = symbolToString(NULL);
+                    } else if (fieldId.includes('StartTime')) {
+                        instance.startTime = symbolToString(NULL);
+                    } else if (fieldId.includes('ReminderTime')) {
+                        instance.time = symbolToString(NULL);
+                    }
+                }
+            }
+            
+            // Save end time fields
+            if (fieldId.includes('EndTime')) {
+                const hourValue = hourField.value;
+                const minuteValue = minuteField.value;
+                
+                if (hourValue !== '' && minuteValue !== '') {
+                    instance.endTime = { 
+                        hour: parseInt(hourValue) || 0, 
+                        minute: parseInt(minuteValue) || 0 
+                    };
+                } else {
+                    instance.endTime = symbolToString(NULL);
+                }
+            }
+        }
+    }
+}
+
+// Save pattern editor fields - captures ALL pattern configuration values regardless of validity
+function savePatternEditorFields() {
+    if (!editorModalData || editorModalActiveInstanceIndex === NULL) return;
+    
+    let instances, instanceTypes;
+    if (editorModalData.kind === 'event') {
+        instances = editorModalData._event.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
+    } else if (editorModalData.kind === 'task') {
+        instances = [...editorModalData._task.instances, ...editorModalData._task.workSessions];
+        instanceTypes = [
+            ...new Array(editorModalData._task.instances.length).fill('regular'),
+            ...new Array(editorModalData._task.workSessions.length).fill('workSession')
+        ];
+    } else if (editorModalData.kind === 'reminder') {
+        instances = editorModalData._reminder.instances;
+        instanceTypes = new Array(instances.length).fill('regular');
+    } else {
+        return;
+    }
+    
+    if (editorModalActiveInstanceIndex >= instances.length) return;
+    const currentInstance = instances[editorModalActiveInstanceIndex];
+    
+    // Save "every N days" input
+    const everyNDaysInput = HTML.getElementUnsafely('everyNDaysInput');
+    if (everyNDaysInput && everyNDaysInput.value !== '') {
+        const n = parseInt(everyNDaysInput.value) || 1;
+        // Find the pattern and update N value
+        const pattern = currentInstance.datePattern || currentInstance.startDatePattern;
+        if (pattern && pattern._type === 'EveryNDays') {
+            pattern.n = n;
+        }
+    }
+    
+    // Save monthly day input
+    const monthlyDayInput = HTML.getElementUnsafely('monthlyDayInput');
+    if (monthlyDayInput && monthlyDayInput.value !== '') {
+        const day = parseInt(monthlyDayInput.value) || 1;
+        const pattern = currentInstance.datePattern || currentInstance.startDatePattern;
+        if (pattern && pattern._type === 'Monthly') {
+            pattern.dayOfMonth = day;
+        }
+    }
+    
+    // Save recurrence count inputs for various patterns
+    const recurrenceInputs = [
+        'timesInput',           // everyNDays pattern
+        'monthlyTimesInput',    // monthly pattern
+        'yearlyTimesInput',     // yearly pattern
+        'nthWeekdayTimesInput'  // nth weekday pattern
+    ];
+    
+    for (const inputId of recurrenceInputs) {
+        const input = HTML.getElementUnsafely(inputId);
+        if (input && input.value !== '') {
+            const count = parseInt(input.value) || 1;
+            if (currentInstance.range && currentInstance.range._type === 'RecurrenceCount') {
+                currentInstance.range.count = count;
+            }
+        }
+    }
+}
+
+// Save alarm fields - captures ALL alarm values regardless of validity
+function saveAlarmFields() {
+    if (!editorModalData) return;
+    
+    // Save task alarm
+    if (editorModalData.kind === 'task') {
+        const taskAlarmInput = HTML.getElementUnsafely('taskAlarmInput');
+        if (taskAlarmInput) {
+            const value = taskAlarmInput.value.trim();
+            if (value === '' || parseInt(value) < 0) {
+                editorModalData._task.alarm = NULL;
+            } else {
+                editorModalData._task.alarm = parseInt(value) || NULL;
+            }
+        }
+    }
+    
+    // Save event alarms
+    if (editorModalData.kind === 'event') {
+        const startAlarmInput = HTML.getElementUnsafely('startAlarmInput');
+        if (startAlarmInput) {
+            const value = startAlarmInput.value.trim();
+            if (value === '' || parseInt(value) < 0) {
+                editorModalData._event.startAlarm = NULL;
+            } else {
+                editorModalData._event.startAlarm = parseInt(value) || NULL;
+            }
+        }
+        
+        const endAlarmInput = HTML.getElementUnsafely('endAlarmInput');
+        if (endAlarmInput) {
+            const value = endAlarmInput.value.trim();
+            if (value === '' || parseInt(value) < 0) {
+                editorModalData._event.endAlarm = NULL;
+            } else {
+                editorModalData._event.endAlarm = parseInt(value) || NULL;
+            }
+        }
+    }
+    
+    // Save reminder alarm
+    if (editorModalData.kind === 'reminder') {
+        const taskAlarmInput = HTML.getElementUnsafely('taskAlarmInput');
+        if (taskAlarmInput) {
+            const value = taskAlarmInput.value.trim();
+            if (value === '' || parseInt(value) < 0) {
+                editorModalData._reminder.alarm = NULL;
+            } else {
+                editorModalData._reminder.alarm = parseInt(value) || NULL;
+            }
+        }
+    }
+}
+
+// Apply editorModalData back to the actual entity
+function applyEditorDataToEntity() {
+    if (!editorModalData || !editorModalActiveEntityId) return;
+    
+    // Find the entity in user's entity array
+    const entity = user.entityArray.find(e => e.id === editorModalActiveEntityId);
+    if (!entity) return;
+    
+    // Update entity name and description
+    entity.name = editorModalData.name;
+    entity.description = editorModalData.description;
+    
+    // Convert editorModalData back to appropriate entity data format
+    if (editorModalData.kind === 'task') {
+        const taskData = {
+            instances: editorModalData._task.instances,
+            hideUntil: editorModalData._task.hideUntil,
+            showOverdue: editorModalData._task.showOverdue,
+            workSessions: editorModalData._task.workSessions,
+            alarm: editorModalData._task.alarm
+        };
+        
+        // Convert from JSON format back to class instances
+        entity.data = TaskData.decode(taskData);
+        
+    } else if (editorModalData.kind === 'event') {
+        const eventData = {
+            instances: editorModalData._event.instances,
+            startAlarm: editorModalData._event.startAlarm,
+            endAlarm: editorModalData._event.endAlarm
+        };
+        
+        entity.data = EventData.decode(eventData);
+        
+    } else if (editorModalData.kind === 'reminder') {
+        const reminderData = {
+            instances: editorModalData._reminder.instances,
+            alarm: editorModalData._reminder.alarm
+        };
+        
+        entity.data = ReminderData.decode(reminderData);
+    }
+    
+    // Save the updated user data
+    saveUserData(user);
 }
 
 // Convert instance to natural sentence description
@@ -11945,6 +12303,9 @@ function initInstanceButtons(top, instanceClicked) {
         if (editorModalActiveInstanceIndex === index && HTML.getElementUnsafely(`instanceXButton_${index}`)) {
             return;
         }
+        
+        // Save current field values before switching instances
+        saveEditorFieldsToData();
         
         const previousActiveIndex = editorModalActiveInstanceIndex;
         editorModalActiveInstanceIndex = index;
@@ -12931,11 +13292,11 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
         } else if (editorModalData.kind === 'reminder') {
             // Default reminder time to current hour
             const currentHour = today.getHours();
-            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.hour.value = currentHour.toString();
             timeFields1.minute.value = '00';
         } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
             // Default event/work session time to 9:00-10:00
-            timeFields1.hour.value = '09';
+            timeFields1.hour.value = '9';
             timeFields1.minute.value = '00';
             timeFields2.hour.value = '10';
             timeFields2.minute.value = '00';
@@ -13059,24 +13420,24 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
             if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                 const dueTime = instanceData.dueTime;
                 if (dueTime && dueTime !== symbolToString(NULL)) {
-                    timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                    timeFields1.hour.value = dueTime.hour.toString();
                     timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
                 }
             } else if (editorModalData.kind === 'reminder') {
                 const reminderTime = instanceData.time;
                 if (reminderTime && reminderTime !== symbolToString(NULL)) {
-                    timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                    timeFields1.hour.value = reminderTime.hour.toString();
                     timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                 }
             } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                 const startTime = instanceData.startTime;
                 const endTime = instanceData.endTime;
                 if (startTime && startTime !== symbolToString(NULL)) {
-                    timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                    timeFields1.hour.value = startTime.hour.toString();
                     timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
                 }
                 if (endTime && endTime !== symbolToString(NULL)) {
-                    timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                    timeFields2.hour.value = endTime.hour.toString();
                     timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
                 }
             }
@@ -13748,24 +14109,24 @@ function initMonthlyPatternEditor(top, newOrIndex) {
                 if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                     const dueTime = instanceData.dueTime;
                     if (dueTime && dueTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = dueTime.hour.toString();
                         timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
                     }
                 } else if (editorModalData.kind === 'reminder') {
                     const reminderTime = instanceData.time;
                     if (reminderTime && reminderTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = reminderTime.hour.toString();
                         timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                     }
                 } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                     const startTime = instanceData.startTime;
                     const endTime = instanceData.endTime;
                     if (startTime && startTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = startTime.hour.toString();
                         timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
                     }
                     if (endTime && endTime !== symbolToString(NULL)) {
-                        timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                        timeFields2.hour.value = endTime.hour.toString();
                         timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
                     }
                 }
@@ -13780,11 +14141,11 @@ function initMonthlyPatternEditor(top, newOrIndex) {
         } else if (editorModalData.kind === 'reminder') {
             // Default reminder time to current hour
             const currentHour = new Date().getHours();
-            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.hour.value = currentHour.toString();
             timeFields1.minute.value = '00';
         } else if (editorModalData.kind === 'event') {
             // Default event time to 9:00-10:00
-            timeFields1.hour.value = '09';
+            timeFields1.hour.value = '9';
             timeFields1.minute.value = '00';
             timeFields2.hour.value = '10';
             timeFields2.minute.value = '00';
@@ -14349,24 +14710,24 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
                 if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                     const dueTime = instanceData.dueTime;
                     if (dueTime && dueTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = dueTime.hour.toString();
                         timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
                     }
                 } else if (editorModalData.kind === 'reminder') {
                     const reminderTime = instanceData.time;
                     if (reminderTime && reminderTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = reminderTime.hour.toString();
                         timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                     }
                 } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                     const startTime = instanceData.startTime;
                     const endTime = instanceData.endTime;
                     if (startTime && startTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = startTime.hour.toString();
                         timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
                     }
                     if (endTime && endTime !== symbolToString(NULL)) {
-                        timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                        timeFields2.hour.value = endTime.hour.toString();
                         timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
                     }
                 }
@@ -14391,11 +14752,11 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
         } else if (editorModalData.kind === 'reminder') {
             // Default reminder time to current hour
             const currentHour = today.getHours();
-            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.hour.value = currentHour.toString();
             timeFields1.minute.value = '00';
         } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
             // Default event/work session time to 9:00-10:00
-            timeFields1.hour.value = '09';
+            timeFields1.hour.value = '9';
             timeFields1.minute.value = '00';
             timeFields2.hour.value = '10';
             timeFields2.minute.value = '00';
@@ -15170,24 +15531,24 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
             if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                 const dueTime = instanceData.dueTime;
                 if (dueTime && dueTime !== symbolToString(NULL)) {
-                    timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                    timeFields1.hour.value = dueTime.hour.toString();
                     timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
                 }
             } else if (editorModalData.kind === 'reminder') {
                 const reminderTime = instanceData.time;
                 if (reminderTime && reminderTime !== symbolToString(NULL)) {
-                    timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                    timeFields1.hour.value = reminderTime.hour.toString();
                     timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                 }
             } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                 const startTime = instanceData.startTime;
                 const endTime = instanceData.endTime;
                 if (startTime && startTime !== symbolToString(NULL)) {
-                    timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                    timeFields1.hour.value = startTime.hour.toString();
                     timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
                 }
                 if (endTime && endTime !== symbolToString(NULL)) {
-                    timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                    timeFields2.hour.value = endTime.hour.toString();
                     timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
                 }
             }
@@ -15201,11 +15562,11 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
         } else if (editorModalData.kind === 'reminder') {
             // Default reminder time to current hour
             const currentHour = new Date().getHours();
-            timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+            timeFields1.hour.value = currentHour.toString();
             timeFields1.minute.value = '00';
         } else if (editorModalData.kind === 'event') {
             // Default event time to 9:00-10:00
-            timeFields1.hour.value = '09';
+            timeFields1.hour.value = '9';
             timeFields1.minute.value = '00';
             timeFields2.hour.value = '10';
             timeFields2.minute.value = '00';
@@ -15642,24 +16003,24 @@ function initDateInstanceEditor(top, newOrIndex) {
                 if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
                     const dueTime = instanceData.dueTime;
                     if (dueTime && dueTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = dueTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = dueTime.hour.toString();
                         timeFields1.minute.value = dueTime.minute.toString().padStart(2, '0');
                     }
                 } else if (editorModalData.kind === 'reminder') {
                     const reminderTime = instanceData.time;
                     if (reminderTime && reminderTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = reminderTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = reminderTime.hour.toString();
                         timeFields1.minute.value = reminderTime.minute.toString().padStart(2, '0');
                     }
                 } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                     const startTime = instanceData.startTime;
                     const endTime = instanceData.endTime;
                     if (startTime && startTime !== symbolToString(NULL)) {
-                        timeFields1.hour.value = startTime.hour.toString().padStart(2, '0');
+                        timeFields1.hour.value = startTime.hour.toString();
                         timeFields1.minute.value = startTime.minute.toString().padStart(2, '0');
                     }
                     if (endTime && endTime !== symbolToString(NULL)) {
-                        timeFields2.hour.value = endTime.hour.toString().padStart(2, '0');
+                        timeFields2.hour.value = endTime.hour.toString();
                         timeFields2.minute.value = endTime.minute.toString().padStart(2, '0');
                     }
                 }
@@ -15683,11 +16044,11 @@ function initDateInstanceEditor(top, newOrIndex) {
             } else if (editorModalData.kind === 'reminder') {
                 // Default reminder time to current hour
                 const currentHour = today.getHours();
-                timeFields1.hour.value = currentHour.toString().padStart(2, '0');
+                timeFields1.hour.value = currentHour.toString();
                 timeFields1.minute.value = '00';
             } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
                 // Default event/work session time to 9:00-10:00
-                timeFields1.hour.value = '09';
+                timeFields1.hour.value = '9';
                 timeFields1.minute.value = '00';
                 timeFields2.hour.value = '10';
                 timeFields2.minute.value = '00';
@@ -16549,12 +16910,19 @@ function updateAlarmSettingsPosition() {
 function closeEditorModal() {
     if (!editorModalOpen) return;
 
+    // Save any changes before closing
+    saveEditorFieldsToData();
+    applyEditorDataToEntity();
+
     // delete selector animates itself
     deleteSelector(editorModalKindSelectorId);
 
     // close instance buttons and clean up dropdown buttons
     closeInstanceButtonsImmediate();
     cleanupDropdownButtons();
+    
+    // Clean up preserved work sessions
+    delete window.editorModalPreservedWorkSessions;
 
     // close any open pattern editors and their selectors
     if (instanceEditorContainer) {
