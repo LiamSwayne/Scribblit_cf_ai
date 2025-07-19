@@ -11211,7 +11211,7 @@ function initTimeFieldInput(parentContainer, left, top, idPrefix = '') {
         fontSize: '12px',
         color: 'var(--shade-4)',
         top: (top + 3) + 'px',
-        left: (left + 22.5) + 'px'
+        left: (left + 21.5) + 'px' // moved left 1px (22.5 - 1)
     });
     colon.textContent = ':';
     parentContainer.appendChild(colon);
