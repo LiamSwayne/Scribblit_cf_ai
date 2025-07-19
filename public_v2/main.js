@@ -12792,8 +12792,121 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
 function initMonthlyPatternEditor(top, newOrIndex) {
     ASSERT(type(top, Number));
     ASSERT(type(newOrIndex, Union(String, Uint)));
-    // TODO: Implement MonthlyPattern editor
-    // newOrIndex: 'new' for creating new instance, or index for editing existing
+    
+    // Close any existing editor first and clean up existing selectors
+    closeDateInstanceEditor();
+    
+    // Create unique ID for the range selector
+    const uniqueId = Date.now().toString();
+    const monthlyRangeTypeSelectorId = 'monthlyRangeTypeSelector_' + uniqueId;
+    
+    // Clean up any existing selectors
+    deleteSelector('monthlyRangeTypeSelector');
+    
+    // Also clean up any selectors with the unique IDs we're about to use
+    deleteSelector(monthlyRangeTypeSelectorId);
+    
+    // Create container
+    instanceEditorContainer = HTML.make('div');
+    HTML.setId(instanceEditorContainer, 'instanceEditorContainer');
+    HTML.setStyle(instanceEditorContainer, {
+        position: 'absolute',
+        left: '8px',
+        top: top + 'px',
+        width: (editorModalWidth - 16) + 'px',
+        height: '160px',
+        backgroundColor: 'var(--shade-0)',
+        opacity: '0',
+        transition: 'opacity 0.2s ease',
+        zIndex: String(editorModalBaseZIndex + 1)
+    });
+    
+    editorModal.appendChild(instanceEditorContainer);
+    
+    // Add title
+    const title = HTML.make('div');
+    HTML.setStyle(title, {
+        position: 'absolute',
+        top: '0px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        fontWeight: 'bold'
+    });
+    title.textContent = 'Monthly pattern';
+    instanceEditorContainer.appendChild(title);
+    
+    // Add input container for day of month
+    const inputContainer = HTML.make('div');
+    HTML.setStyle(inputContainer, {
+        position: 'absolute',
+        top: '30px',
+        left: '0px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+    });
+    
+    // Create number input for day of month
+    const dayInput = HTML.make('input');
+    HTML.setId(dayInput, 'monthlyDayInput');
+    dayInput.setAttribute('type', 'number');
+    dayInput.setAttribute('min', '1');
+    dayInput.setAttribute('max', '31');
+    dayInput.value = '1'; // Default to 1st day of month
+    HTML.setStyle(dayInput, {
+        width: '30px',
+        height: '14px',
+        fontSize: '12px',
+        fontFamily: 'MonospaceRegular',
+        color: 'var(--shade-4)',
+        backgroundColor: 'var(--shade-0)',
+        border: '1px solid var(--shade-2)',
+        borderRadius: '3px',
+        outline: 'none',
+        textAlign: 'center',
+        padding: '2px 4px'
+    });
+    inputContainer.appendChild(dayInput);
+    
+    // Add text label
+    const dayText = HTML.make('div');
+    dayText.textContent = 'day of month';
+    HTML.setStyle(dayText, {
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'var(--shade-4)'
+    });
+    inputContainer.appendChild(dayText);
+    
+    // Add to container
+    instanceEditorContainer.appendChild(inputContainer);
+    
+    // If editing existing instance, load the day value
+    if (type(newOrIndex, Uint)) {
+        const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
+                         editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
+                         editorModalData._reminder.instances;
+        
+        if (newOrIndex < instances.length) {
+            const instanceData = instances[newOrIndex];
+            const pattern = instanceData && (instanceData.datePattern || instanceData.startDatePattern);
+            
+            if (pattern && pattern._type === 'MonthlyPattern' && typeof pattern.day === 'number') {
+                dayInput.value = String(pattern.day);
+            }
+        }
+    }
+    
+    // Force reflow then animate in
+    instanceEditorContainer.offsetHeight;
+    setTimeout(() => {
+        HTML.setStyle(instanceEditorContainer, { opacity: '1' });
+    }, 10);
 }
 
 function initAnnuallyPatternEditor(top, newOrIndex) {
@@ -13689,6 +13802,8 @@ function initDateInstanceEditor(top, newOrIndex) {
         initEveryNDaysPatternEditor(top, newOrIndex, preloadedN);
     } else if (patternType === 'nth-weekday') {
         initNthWeekdayOfMonthsPatternEditor(top, newOrIndex);
+    } else if (patternType === 'monthly') {
+        initMonthlyPatternEditor(top, newOrIndex);
     } else {
         // For other pattern types, show a placeholder for now
         instanceEditorContainer = HTML.make('div');
@@ -13818,7 +13933,64 @@ function closeEveryNDaysPatternEditor() {
 }
 
 function closeMonthlyPatternEditor() {
-    // TODO: Implement close function for MonthlyPattern editor
+    if (!instanceEditorContainer) {
+        instanceEditorContainer = NULL;
+        return;
+    }
+    
+    // Store reference to container for cleanup
+    const containerToRemove = instanceEditorContainer;
+    
+    // Immediately clear the global reference to prevent race conditions
+    instanceEditorContainer = NULL;
+    
+    // Clean up selectors with the monthly prefix
+    const elements = document.querySelectorAll('[id^="monthlyRangeTypeSelector"]');
+    elements.forEach(element => {
+        if (element.id) {
+            deleteSelector(element.id);
+        } else if (element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+    });
+    
+    // Verify container is a valid DOM element before removing
+    if (containerToRemove && containerToRemove.nodeType === 1) {
+        if (containerToRemove.style) {
+            try {
+                // Fade out
+                containerToRemove.style.opacity = '0';
+                
+                // Remove after animation
+                setTimeout(() => {
+                    if (containerToRemove && containerToRemove.parentNode) {
+                        try {
+                            containerToRemove.parentNode.removeChild(containerToRemove);
+                        } catch (e) {
+                            log("ERROR: Failed to remove containerToRemove in closeMonthlyPatternEditor: " + e.message);
+                        }
+                    }
+                }, 200);
+            } catch (e) {
+                log("ERROR: Failed to set containerToRemove opacity in closeMonthlyPatternEditor: " + e.message);
+                // If setting opacity fails, try to remove it immediately
+                if (containerToRemove.parentNode) {
+                    try {
+                        containerToRemove.parentNode.removeChild(containerToRemove);
+                    } catch (e2) {
+                        log("ERROR: Also failed to remove containerToRemove in closeMonthlyPatternEditor: " + e2.message);
+                    }
+                }
+            }
+        } else if (containerToRemove.parentNode) {
+            // If it doesn't have a style property but is in the DOM, just remove it
+            try {
+                containerToRemove.parentNode.removeChild(containerToRemove);
+            } catch (e) {
+                log("ERROR: Failed to remove containerToRemove in closeMonthlyPatternEditor: " + e.message);
+            }
+        }
+    }
 }
 
 function closeAnnuallyPatternEditor() {
@@ -13857,9 +14029,23 @@ function closeDateInstanceEditor() {
         deleteSelector('nthWeekdayTypeSelector');
     }
     
+    // Check if it's a monthly pattern editor
+    const monthlyRangeSelector = HTML.getElementUnsafely('monthlyRangeTypeSelector');
+    if (exists(monthlyRangeSelector)) {
+        // Just delete the selector without calling the close function to avoid recursion
+        deleteSelector('monthlyRangeTypeSelector');
+    }
+    
     // Clean up all selector elements that might be present
     deleteSelector('dayOfWeekSelector');
     deleteSelector('nthWeekdayRangeTypeSelector');
+    // Clean up any monthly selectors (including ones with timestamps)
+    const monthlySelectors = document.querySelectorAll('[id^="monthlyRangeTypeSelector"]');
+    monthlySelectors.forEach(element => {
+        if (element.id) {
+            deleteSelector(element.id);
+        }
+    });
     
     // Verify container is a valid DOM element with a style property before fading out
     if (containerToRemove && containerToRemove.nodeType === 1 && containerToRemove.style) {
