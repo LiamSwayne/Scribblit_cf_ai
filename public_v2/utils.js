@@ -3727,6 +3727,7 @@ class LocalData {
     static numberOfDays = 2;
     static signedIn = false;
     static token = NULL;
+    static visibility = 'public';
     
     // Prevent instantiation
     constructor() {
@@ -3788,6 +3789,14 @@ class LocalData {
                 this.numberOfDays = data.numberOfDays;
                 this.signedIn = data.signedIn;
                 
+                // Handle visibility (defaults to 'public' if not set)
+                if (data.visibility) {
+                    ASSERT(data.visibility === 'public' || data.visibility === 'private', "LocalData.visibility must be 'public' or 'private'");
+                    this.visibility = data.visibility;
+                } else {
+                    this.visibility = 'public';
+                }
+                
                 // Handle encrypted token
                 if (data.token) {
                     this.token = LocalData.decryptToken(data.token);
@@ -3803,6 +3812,7 @@ class LocalData {
         this.set('stacking', this.stacking);
         this.set('numberOfDays', this.numberOfDays);
         this.set('signedIn', this.signedIn);
+        this.set('visibility', this.visibility);
         if (this.token) {
             this.set('token', this.token);
         }
@@ -3820,8 +3830,10 @@ class LocalData {
             return this.signedIn;
         } else if (key === 'token') {
             return this.token;
+        } else if (key === 'visibility') {
+            return this.visibility;
         } else {
-            ASSERT(false, "LocalData.get() key must be stacking, numberOfDays, signedIn, or token");
+            ASSERT(false, "LocalData.get() key must be stacking, numberOfDays, signedIn, token, or visibility");
         }
     }
     
@@ -3842,15 +3854,20 @@ class LocalData {
         } else if (key === 'token') {
             ASSERT(value === NULL || type(value, String), "LocalData.token must be String or NULL");
             this.token = value;
+        } else if (key === 'visibility') {
+            ASSERT(type(value, String), "LocalData.visibility must be String");
+            ASSERT(value === 'public' || value === 'private', "LocalData.visibility must be 'public' or 'private'");
+            this.visibility = value;
         } else {
-            ASSERT(false, "LocalData.set() key must be stacking, numberOfDays, signedIn, or token");
+            ASSERT(false, "LocalData.set() key must be stacking, numberOfDays, signedIn, token, or visibility");
         }
         
         // Save to localStorage
         const data = {
             stacking: this.stacking,
             numberOfDays: this.numberOfDays,
-            signedIn: this.signedIn
+            signedIn: this.signedIn,
+            visibility: this.visibility
         };
         
         // Encrypt token before storing
