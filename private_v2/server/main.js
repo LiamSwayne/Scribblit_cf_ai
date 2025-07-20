@@ -371,6 +371,62 @@ These titles are being added to the user's personal task manager and calendar, a
 
 YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Do not include your comments, only the formatted titles in a JSON array.`;
 
+const aiEditSystemPrompt = `You are an AI assistant that modifies a single Task, Event, or Reminder JSON object based on a user's command. You will be given an existing JSON object and a command describing the desired changes. Your output must be ONLY the complete, updated JSON object. Do not add any commentary or extra text.
+
+The JSON object will adhere to one of the following structures. Only include OPTIONAL fields if they are present in the original JSON or if the user's command explicitly adds them.
+
+Task JSON:
+{
+    "type": "task",
+    "name": "use sentence case",
+    "instances": [
+	    {
+		    "type": "due_date_instance",
+		    "date": "YYYY-MM-DD",
+		    "time": "HH:MM"
+	    },
+	    {
+		    "type": "due_date_pattern",
+		    "pattern": ${datePatternTypesPrompt},
+		    "time": "HH:MM",
+		    "range": "YYYY-MM-DD:YYYY-MM-DD or YYYY-MM-DD:null or integer"
+	    }
+	],
+	"work_sessions": []
+}
+
+Event JSON:
+{
+	"type": "event",
+	"name": "use sentence case",
+	"instances": [
+		{
+			"type": "event_instance",
+			"start_date": "YYYY-MM-DD",
+			"start_time": "HH:MM",
+			"end_time": "HH:MM",
+			"different_end_date": "YYYY-MM-DD"
+		},
+		{
+			"type": "event_pattern",
+			"start_date_pattern": {},
+			"start_time": "HH:MM",
+			"end_time": "HH:MM",
+			"different_end_date_offset": 1,
+			"range": "YYYY-MM-DD:YYYY-MM-DD or YYYY-MM-DD:null or integer"
+		}
+	]
+}
+
+Reminder JSON:
+{
+	"type": "reminder",
+	"name": "use sentence case",
+	"instances": []
+}
+
+Your task is to apply the user's command to the provided JSON and return the full, modified JSON object. Ensure the final JSON is valid and complete. For example, if the user says "change the name to 'Walk the dog'", you must return the entire entity's JSON with only the "name" field updated.`;
+
 async function draftEntities(userPrompt, env) {
     if (!userPrompt || userPrompt.trim().length === 0) {
         return SEND({ error: 'userPrompt is required' }, 475);
@@ -475,6 +531,11 @@ async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
             return SEND({ error: 'Failed to format titles' }, 475);
         }
     }
+}
+
+function createAiEditPrompt(command, entity) {
+    const entityString = JSON.stringify(entity, null, 2);
+    return `User Command: "${command}"\n\nExisting Entity JSON:\n${entityString}`;
 }
 
 function createPromptWithFileDescription(userPrompt='', descriptionOfFiles) {
@@ -1291,7 +1352,7 @@ async function checkAndUpdateUsage(authHeader, env, strategy) {
         return SEND({ error: 'Strategy is required.' }, 485);
     }
 
-    if (strategy === 'step_by_step:2/2') {
+    if (strategy === 'step_by_step:2/2' || strategy === 'edit_entity') {
         return null;
     }
 
@@ -1919,6 +1980,50 @@ export default {
                     } catch (err) {
                         console.error('Title format error:', err);
                         return SEND({ error: 'Failed to format titles: ' + err.message }, 500);
+                    }
+                }
+
+            case '/ai/edit':
+                {
+                    if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
+                    try {
+                        const authHeader = request.headers.get('Authorization');
+                        const usageCheck = await checkAndUpdateUsage(authHeader, env, 'edit_entity');
+                        if (usageCheck) {
+                            return usageCheck;
+                        }
+
+                        const { command, entity } = await request.json();
+
+                        if (!command || !entity) {
+                            return SEND({ error: 'Command and entity JSON are required.' }, 400);
+                        }
+
+                        const editPrompt = createAiEditPrompt(command, entity);
+
+                        const startTime = Date.now();
+                        const aiOutput = await callXaiModel(MODELS.XAI_MODELS.grok4, editPrompt, env, [], aiEditSystemPrompt);
+
+                        if (!aiOutput || aiOutput.trim() === '') {
+                             return SEND({ error: 'AI failed to generate an edit.' }, 500);
+                        }
+                        
+                        const chain = [{
+                            request: {
+                                model: MODELS.XAI_MODELS.grok4,
+                                typeOfPrompt: 'edit_entity',
+                                response: aiOutput,
+                                startTime,
+                                endTime: Date.now(),
+                                userPrompt: editPrompt,
+                                systemPrompt: aiEditSystemPrompt
+                            }
+                        }];
+                        
+                        return SEND({ aiOutput, chain }, 200);
+                    } catch (err) {
+                        console.log('AI edit error:', err);
+                        return SEND({ error: 'Failed to process AI edit request: ' + err.message }, 500);
                     }
                 }
 
