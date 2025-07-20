@@ -2624,16 +2624,18 @@ class ReminderData {
 // The uppermost level of the data structure
 // Contains a task, event, or reminder
 class Entity {
-    constructor(id, name, description, data) {
+    constructor(id, name, description, data, privateField = false) {
         ASSERT(type(id, NonEmptyString));
         ASSERT(type(name, NonEmptyString));
         ASSERT(type(description, String));
         ASSERT(type(data, Union(TaskData, EventData, ReminderData)));
+        ASSERT(type(privateField, Boolean));
         
         this.id = id;
         this.name = name;
         this.description = description;
         this.data = data;
+        this.private = privateField;
     }
 
     encode() {
@@ -2644,6 +2646,7 @@ class Entity {
             name: this.name,
             description: this.description,
             data: this.data.encode(),
+            private: this.private,
             _type: 'Entity'
         };
     }
@@ -2661,7 +2664,8 @@ class Entity {
         } else {
             ASSERT(false, 'Unknown data type in Entity.decode.');
         }
-        return new Entity(json.id, json.name, json.description, data);
+        const privateField = exists(json.private) ? json.private : false;
+        return new Entity(json.id, json.name, json.description, data, privateField);
     }
 
     // Utility to generate a simple unique ID (timestamp + random)
@@ -2691,6 +2695,7 @@ class Entity {
         }
         const name = aiObject.name;
         const description = AiReturnedNullField(aiObject.description) ? '' : aiObject.description;
+        const privateField = exists(aiObject.private) && type(aiObject.private, Boolean) ? aiObject.private : false;
 
         let data = NULL;
         if (aiObject.type === 'task') {
@@ -2744,7 +2749,7 @@ class Entity {
 
         const id = Entity.generateId();
         try {
-            const newEntity = new Entity(id, name, description, data);
+            const newEntity = new Entity(id, name, description, data, privateField);
             if(type(newEntity, Entity)) {
                 return newEntity;
             } else {
