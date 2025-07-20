@@ -19785,13 +19785,48 @@ function initPrivateButton() {
         transition: 'all 0.3s ease'
     });
     
+    // Create SVG icon container
+    let icon = HTML.make('div');
+    HTML.setId(icon, 'privateButtonIcon');
+    HTML.setStyle(icon, {
+        width: '11px',
+        height: '11px',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    });
+    
+    // Function to update icon based on visibility state
+    function updateIcon() {
+        const visibility = LocalData.get('visibility');
+        if (visibility === 'public') {
+            // Public eye icon - move down 1px (was -1px, now +1px, so down 2px more)
+            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 472 384" style="transform: translateY(1px);">
+                <path fill="var(--shade-3)" d="M235 32q79 0 142.5 44.5T469 192q-28 71-91.5 115.5T235 352T92 307.5T0 192q28-71 92-115.5T235 32zm0 267q44 0 75-31.5t31-75.5t-31-75.5T235 85t-75.5 31.5T128 192t31.5 75.5T235 299zm-.5-171q26.5 0 45.5 18.5t19 45.5t-19 45.5t-45.5 18.5t-45-18.5T171 192t18.5-45.5t45-18.5z"/>
+            </svg>`;
+        } else {
+            // Private eye with slash icon - scaled up using CSS transform
+            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" style="transform: translateY(0px) scale(1.2);">
+                <path fill="var(--shade-3)" d="M8.073 12.194L4.212 8.333c-1.52 1.657-2.096 3.317-2.106 3.351L2 12l.105.316C2.127 12.383 4.421 19 12.054 19c.929 0 1.775-.102 2.552-.273l-2.746-2.746a3.987 3.987 0 0 1-3.787-3.787zM12.054 5c-1.855 0-3.375.404-4.642.998L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.298-3.298c2.638-1.953 3.579-4.637 3.593-4.679l.105-.316l-.105-.316C21.98 11.617 19.687 5 12.054 5zm1.906 7.546c.187-.677.028-1.439-.492-1.96s-1.283-.679-1.96-.492L10 8.586A3.955 3.955 0 0 1 12.054 8c2.206 0 4 1.794 4 4a3.94 3.94 0 0 1-.587 2.053l-1.507-1.507z"/>
+            </svg>`;
+        }
+    }
+    
+    // Set initial icon
+    updateIcon();
+    
     // Event handlers
     privateButton.onclick = () => {
-        // For now, do nothing
-        log('Private button clicked - no functionality yet');
+        // Toggle visibility
+        const currentVisibility = LocalData.get('visibility');
+        const newVisibility = currentVisibility === 'public' ? 'private' : 'public';
+        LocalData.set('visibility', newVisibility);
+        updateIcon();
+        log('Visibility toggled to: ' + newVisibility);
     };
     
-    // Hover effect
+    // Hover effect - ONLY change button background, NEVER change icon color
     privateButton.onmouseenter = () => {
         HTML.setStyle(privateButton, {
             backgroundColor: 'var(--shade-2)'
@@ -19804,8 +19839,21 @@ function initPrivateButton() {
         });
     };
     
+    // Add icon to button
+    privateButton.appendChild(icon);
+    
     // Add to body
     HTML.body.appendChild(privateButton);
+    
+    // Store the updateIcon function globally so it can be called after palette changes
+    window.updatePrivateButtonIcon = updateIcon;
+}
+
+function updatePrivateButtonColors() {
+    // Update icon content to ensure colors are applied after palette changes
+    if (window.updatePrivateButtonIcon) {
+        window.updatePrivateButtonIcon();
+    }
 }
 
 async function init() {
@@ -19848,6 +19896,9 @@ async function init() {
     initPrivateButton();
     initSignInButton();
     initProButton();
+    
+    // Update private button colors after palette is applied and button is created
+    updatePrivateButtonColors();
     initDragAndDrop();
     render();
     // refresh every second, the function will exit if it isn't a new minute
