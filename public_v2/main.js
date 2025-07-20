@@ -2957,6 +2957,92 @@ function dayOfWeekStringToIndex(dayOfWeekString) {
     }
 }
 
+function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasDifferentEndDate = false, kind) {
+    ASSERT(exists(pattern), "getRecurringPatternDescription: pattern must exist");
+    ASSERT(type(startTime, Union(TimeField, NULL)), "getRecurringPatternDescription: startTime must be a TimeField or NULL");
+    ASSERT(type(endTime, Union(TimeField, NULL)), "getRecurringPatternDescription: endTime must be a TimeField or NULL");
+    ASSERT(type(hasDifferentEndDate, Boolean), "getRecurringPatternDescription: hasDifferentEndDate must be a Boolean");
+    ASSERT(type(kind, String) && ['event', 'task', 'reminder'].includes(kind), "getRecurringPatternDescription: kind is required");
+
+    let description = '';
+
+    if (pattern._type === 'EveryNDaysPattern') {
+        if (pattern.n === 1) {
+            description = 'Daily';
+        } else if (pattern.n === 7) {
+            // Find the day of the week from the initial date
+            const initialDateField = DateField.decode(pattern.initialDate);
+            const initialDate = new Date(initialDateField.year, initialDateField.month - 1, initialDateField.day);
+            const dayOfWeek = initialDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            description = `Every ${dayNames[dayOfWeek]}`;
+        } else {
+            description = `Every ${pattern.n} days`;
+        }
+    } else if (pattern._type === 'MonthlyPattern') {
+        if (pattern.day === -1) {
+            description = 'Last day of month';
+        } else if (pattern.day !== undefined && pattern.day > 0) {
+            description = `${pattern.day}${getOrdinalSuffix(pattern.day)} of month`;
+        } else {
+            description = 'Monthly (select day)';
+        }
+    } else if (pattern._type === 'AnnuallyPattern') {
+        if (pattern.month !== undefined && pattern.day !== undefined && pattern.month > 0 && pattern.day > 0) {
+            description = `${getMonthName(pattern.month)} ${pattern.day}${getOrdinalSuffix(pattern.day)}`;
+        } else {
+            description = 'Annually (select date)';
+        }
+    } else if (pattern._type === 'NthWeekdayOfMonthsPattern') {
+        // Handle potentially incomplete patterns gracefully
+        const dayName = pattern.dayOfWeek !== undefined ? getDayName(pattern.dayOfWeek) : 'weekday';
+        
+        if (pattern.nthWeekdays === symbolToString(LAST_WEEK_OF_MONTH)) {
+            description = `Last ${dayName} of month`;
+        } else if (Array.isArray(pattern.nthWeekdays)) {
+            const activeWeeks = [];
+            for (let i = 0; i < pattern.nthWeekdays.length; i++) {
+                if (pattern.nthWeekdays[i]) {
+                    activeWeeks.push(i + 1);
+                }
+            }
+            if (activeWeeks.length === 1) {
+                description = `${activeWeeks[0]}${getOrdinalSuffix(activeWeeks[0])} ${dayName} of month`;
+            } else if (activeWeeks.length > 1) {
+                description = `${activeWeeks.join(', ')} ${dayName} of month`;
+            } else {
+                // No weeks selected yet
+                description = `${dayName} of month (select week)`;
+            }
+        } else {
+            // Pattern not fully configured yet
+            description = `${dayName} of month (configuring...)`;
+        }
+    } else {
+        // Unknown or incomplete pattern
+        description = pattern._type ? pattern._type.replace('Pattern', '').replace(/([A-Z])/g, ' $1').trim() : 'Recurring';
+    }
+
+    // Add time information based on event logic
+    if (startTime !== NULL) {
+        if (hasDifferentEndDate) {
+            // If different end date, just show start time
+            description += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+        } else if (endTime !== NULL) {
+            // Same day with end time: show "from X to Y"
+            description += ` from ${formatTimeNoLeadingZeros(startTime)} to ${formatTimeNoLeadingZeros(endTime)}`;
+        } else {
+            // Only start time: show "at X"
+            description += ` at ${formatTimeNoLeadingZeros(startTime)}`;
+        }
+    } else if (kind === 'reminder' && endTime === NULL && !hasDifferentEndDate) {
+        // This is a reminder with no time - show "at ?"
+        description += ` at ?`;
+    }
+
+    return description;
+}
+
 function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL) {
     ASSERT(type(instance, Union(RecurringTaskInstance, RecurringEventInstance, RecurringReminderInstance)));
     ASSERT(type(startUnix, Union(Int, NULL)));
@@ -12132,7 +12218,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
         
         const hasDifferentEndDate = instance.differentEndDatePattern !== symbolToString(NULL) && instance.differentEndDatePattern !== NULL;
         
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate, kind));
     }
     
     if (instance._type === 'RecurringTaskInstance') {
@@ -12144,7 +12230,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
                 console.warn('Failed to decode recurring task due time:', instance.dueTime, e);
             }
         }
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false, kind));
     }
     
     if (instance._type === 'RecurringReminderInstance') {
@@ -12156,98 +12242,14 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
                 console.warn('Failed to decode recurring reminder time:', instance.time, e);
             }
         }
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, time, NULL, false));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, time, NULL, false, kind));
     }
     
     // Fallback
     return formatSentenceWithSessionPrefix('Instance');
 }
 
-// Get description for recurring patterns
-function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasDifferentEndDate = false) {
-    ASSERT(exists(pattern), "getRecurringPatternDescription: pattern must exist");
-    ASSERT(type(startTime, Union(TimeField, NULL)), "getRecurringPatternDescription: startTime must be a TimeField or NULL");
-    ASSERT(type(endTime, Union(TimeField, NULL)), "getRecurringPatternDescription: endTime must be a TimeField or NULL");
-    ASSERT(type(hasDifferentEndDate, Boolean), "getRecurringPatternDescription: hasDifferentEndDate must be a Boolean");
-    
-    let description = '';
-    
-    if (pattern._type === 'EveryNDaysPattern') {
-        if (pattern.n === 1) {
-            description = 'Daily';
-        } else if (pattern.n === 7) {
-            // Find the day of the week from the initial date
-            const initialDateField = DateField.decode(pattern.initialDate);
-            const initialDate = new Date(initialDateField.year, initialDateField.month - 1, initialDateField.day);
-            const dayOfWeek = initialDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            description = `Every ${dayNames[dayOfWeek]}`;
-        } else {
-            description = `Every ${pattern.n} days`;
-        }
-    } else if (pattern._type === 'MonthlyPattern') {
-        if (pattern.day === -1) {
-            description = 'Last day of month';
-        } else if (pattern.day !== undefined && pattern.day > 0) {
-            description = `${pattern.day}${getOrdinalSuffix(pattern.day)} of month`;
-        } else {
-            description = 'Monthly (select day)';
-        }
-    } else if (pattern._type === 'AnnuallyPattern') {
-        if (pattern.month !== undefined && pattern.day !== undefined && pattern.month > 0 && pattern.day > 0) {
-            description = `${getMonthName(pattern.month)} ${pattern.day}${getOrdinalSuffix(pattern.day)}`;
-        } else {
-            description = 'Annually (select date)';
-        }
-    } else if (pattern._type === 'NthWeekdayOfMonthsPattern') {
-        // Handle potentially incomplete patterns gracefully
-        const dayName = pattern.dayOfWeek !== undefined ? getDayName(pattern.dayOfWeek) : 'weekday';
-        
-        if (pattern.nthWeekdays === symbolToString(LAST_WEEK_OF_MONTH)) {
-            description = `Last ${dayName} of month`;
-        } else if (Array.isArray(pattern.nthWeekdays)) {
-            const activeWeeks = [];
-            for (let i = 0; i < pattern.nthWeekdays.length; i++) {
-                if (pattern.nthWeekdays[i]) {
-                    activeWeeks.push(i + 1);
-                }
-            }
-            if (activeWeeks.length === 1) {
-                description = `${activeWeeks[0]}${getOrdinalSuffix(activeWeeks[0])} ${dayName} of month`;
-            } else if (activeWeeks.length > 1) {
-                description = `${activeWeeks.join(', ')} ${dayName} of month`;
-            } else {
-                // No weeks selected yet
-                description = `${dayName} of month (select week)`;
-            }
-        } else {
-            // Pattern not fully configured yet
-            description = `${dayName} of month (configuring...)`;
-        }
-    } else {
-        // Unknown or incomplete pattern
-        description = pattern._type ? pattern._type.replace('Pattern', '').replace(/([A-Z])/g, ' $1').trim() : 'Recurring';
-    }
-    
-    // Add time information based on event logic
-    if (startTime !== NULL) {
-        if (hasDifferentEndDate) {
-            // If different end date, just show start time
-            description += ` at ${formatTimeNoLeadingZeros(startTime)}`;
-        } else if (endTime !== NULL) {
-            // Same day with end time: show "from X to Y"
-            description += ` from ${formatTimeNoLeadingZeros(startTime)} to ${formatTimeNoLeadingZeros(endTime)}`;
-        } else {
-            // Only start time: show "at X"
-            description += ` at ${formatTimeNoLeadingZeros(startTime)}`;
-        }
-    } else if (endTime === NULL && !hasDifferentEndDate) {
-        // This is likely a reminder with no time - show "at ?"
-        description += ` at ?`;
-    }
-    
-    return description;
-}
+
 
 // Update instance button text to reflect current edited values
 function updateInstanceButtonTexts() {
@@ -13557,39 +13559,7 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
     }
     
     // Populate date fields based on whether we're creating new or editing existing
-    if (newOrIndex === 'new') {
-        // If creating new pattern, set start date to today
-        const today = new Date();
-        const year = today.getFullYear().toString().slice(-2);
-        const month = (today.getMonth() + 1).toString();
-        const day = today.getDate().toString();
-        
-        fromDateFields.year.value = year;
-        fromDateFields.month.value = month;
-        fromDateFields.day.value = day;
-        
-        startingDateFields.year.value = year;
-        startingDateFields.month.value = month;
-        startingDateFields.day.value = day;
-        
-        // Set default times based on entity type
-        if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
-            // Default task due time to end of day (23:59)
-            timeFields1.hour.value = '23';
-            timeFields1.minute.value = '59';
-        } else if (editorModalData.kind === 'reminder') {
-            // Default reminder time to current hour
-            const currentHour = today.getHours();
-            timeFields1.hour.value = currentHour.toString();
-            timeFields1.minute.value = '00';
-        } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
-            // Default event/work session time to 9:00-10:00
-            timeFields1.hour.value = '9';
-            timeFields1.minute.value = '00';
-            timeFields2.hour.value = '10';
-            timeFields2.minute.value = '00';
-        }
-    } else if (type(newOrIndex, Uint)) {
+    if (type(newOrIndex, Uint)) {
         // If editing existing instance, load existing range values
         const instances = editorModalData.kind === 'event' ? editorModalData._event.instances :
                          editorModalData.kind === 'task' ? [...editorModalData._task.instances, ...editorModalData._task.workSessions] :
@@ -14286,21 +14256,7 @@ function initMonthlyPatternEditor(top, newOrIndex) {
     }
     
     // Populate date fields based on whether we're creating new or editing existing
-    if (newOrIndex === 'new') {
-        // If creating new pattern, set start date to today
-        const today = new Date();
-        const year = today.getFullYear().toString().slice(-2);
-        const month = (today.getMonth() + 1).toString();
-        const day = today.getDate().toString();
-        
-        fromDateFields.year.value = year;
-        fromDateFields.month.value = month;
-        fromDateFields.day.value = day;
-        
-        startingDateFields.year.value = year;
-        startingDateFields.month.value = month;
-        startingDateFields.day.value = day;
-    }
+    // No defaults for new patterns
     
     // If editing existing instance, load the day value and month states and range data
     if (type(newOrIndex, Uint)) {
@@ -14432,25 +14388,8 @@ function initMonthlyPatternEditor(top, newOrIndex) {
                 }
             }
         }
-    } else if (newOrIndex === 'new') {
-        // Set default times for new monthly patterns
-        if (editorModalData.kind === 'task') {
-            // Default task due time to end of day (23:59)
-            timeFields1.hour.value = '23';
-            timeFields1.minute.value = '59';
-        } else if (editorModalData.kind === 'reminder') {
-            // Default reminder time to current hour
-            const currentHour = new Date().getHours();
-            timeFields1.hour.value = currentHour.toString();
-            timeFields1.minute.value = '00';
-        } else if (editorModalData.kind === 'event') {
-            // Default event time to 9:00-10:00
-            timeFields1.hour.value = '9';
-            timeFields1.minute.value = '00';
-            timeFields2.hour.value = '10';
-            timeFields2.minute.value = '00';
-        }
     }
+
     
     // Force reflow then animate in
     instanceEditorContainer.offsetHeight;
@@ -14893,21 +14832,7 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
     }
     
     // Populate date fields based on whether we're creating new or editing existing
-    if (newOrIndex === 'new') {
-        // If creating new pattern, set start date to today
-        const today = new Date();
-        const year = today.getFullYear().toString().slice(-2);
-        const month = (today.getMonth() + 1).toString();
-        const day = today.getDate().toString();
-        
-        fromDateFields.year.value = year;
-        fromDateFields.month.value = month;
-        fromDateFields.day.value = day;
-        
-        startingDateFields.year.value = year;
-        startingDateFields.month.value = month;
-        startingDateFields.day.value = day;
-    }
+    // No defaults for new patterns
     
     // Load existing data if editing
     if (type(newOrIndex, Uint)) {
@@ -15035,35 +14960,8 @@ function initAnnuallyPatternEditor(top, newOrIndex) {
                 }
             }
         }
-    } else if (newOrIndex === 'new') {
-        // For new yearly patterns, default to today's date
-        const today = new Date();
-        const year = today.getFullYear().toString().slice(-2);
-        const month = (today.getMonth() + 1).toString();
-        const day = today.getDate().toString();
-        
-        dateFields.year.value = year;
-        dateFields.month.value = month;
-        dateFields.day.value = day;
-        
-        // Set default times based on entity type
-        if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
-            // Default task due time to end of day (23:59)
-            timeFields1.hour.value = '23';
-            timeFields1.minute.value = '59';
-        } else if (editorModalData.kind === 'reminder') {
-            // Default reminder time to current hour
-            const currentHour = today.getHours();
-            timeFields1.hour.value = currentHour.toString();
-            timeFields1.minute.value = '00';
-        } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
-            // Default event/work session time to 9:00-10:00
-            timeFields1.hour.value = '9';
-            timeFields1.minute.value = '00';
-            timeFields2.hour.value = '10';
-            timeFields2.minute.value = '00';
-        }
     }
+
     
     // Force reflow then animate in
     instanceEditorContainer.offsetHeight;
@@ -15857,24 +15755,6 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
                 }
             }
         }
-    } else if (newOrIndex === 'new') {
-        // Set default times for new nth weekday patterns
-        if (editorModalData.kind === 'task') {
-            // Default task due time to end of day (23:59)
-            timeFields1.hour.value = '23';
-            timeFields1.minute.value = '59';
-        } else if (editorModalData.kind === 'reminder') {
-            // Default reminder time to current hour
-            const currentHour = new Date().getHours();
-            timeFields1.hour.value = currentHour.toString();
-            timeFields1.minute.value = '00';
-        } else if (editorModalData.kind === 'event') {
-            // Default event time to 9:00-10:00
-            timeFields1.hour.value = '9';
-            timeFields1.minute.value = '00';
-            timeFields2.hour.value = '10';
-            timeFields2.minute.value = '00';
-        }
     }
     
     // Force reflow then animate in
@@ -16332,33 +16212,7 @@ function initDateInstanceEditor(top, newOrIndex) {
                 }
             }
         } else if (newOrIndex === 'new') {
-            // For new one-time instances, default to today's date
-            const today = new Date();
-            const year = today.getFullYear().toString().slice(-2);
-            const month = (today.getMonth() + 1).toString();
-            const day = today.getDate().toString();
-            
-            dateFields.year.value = year;
-            dateFields.month.value = month;
-            dateFields.day.value = day;
-            
-            // Set default times based on entity type
-            if (editorModalData.kind === 'task' && !isEditingWorkSession()) {
-                // Default task due time to end of day (23:59)
-                timeFields1.hour.value = '23';
-                timeFields1.minute.value = '59';
-            } else if (editorModalData.kind === 'reminder') {
-                // Default reminder time to current hour
-                const currentHour = today.getHours();
-                timeFields1.hour.value = currentHour.toString();
-                timeFields1.minute.value = '00';
-            } else if (editorModalData.kind === 'event' || (editorModalData.kind === 'task' && isEditingWorkSession())) {
-                // Default event/work session time to 9:00-10:00
-                timeFields1.hour.value = '9';
-                timeFields1.minute.value = '00';
-                timeFields2.hour.value = '10';
-                timeFields2.minute.value = '00';
-            }
+            // For new one-time instances, fields should be blank by default.
         }
     
     // Force reflow then animate in
