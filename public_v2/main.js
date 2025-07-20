@@ -2712,6 +2712,9 @@ function toggleCheckbox(checkboxElement, onlyRendering) {
 
         // Save the updated user data
         saveUserData(user);
+        
+        // Re-render to reflect the changes
+        render();
     }
 }
 
@@ -8309,9 +8312,12 @@ function openProModal() {
     
     // Align modal right edge with gear right edge (windowBorderMargin from window right)
     const modalRight = windowBorderMargin;
-    const buttonRight = window.innerWidth - buttonRect.right;
-    // Position to grow from under center of pro button
-    const growFromRight = buttonRight + (buttonRect.width / 2);
+    // Position to grow from under center of original pro button position
+    const originalProButtonWidth = measureTextWidth('pro', 'MonospaceRegular', 11) + 10;
+    // Original button right edge was at windowBorderMargin + 5*(headerButtonSize + 4) from window right
+    const originalButtonRightEdge = windowBorderMargin + (headerButtonSize + 4) * 5;
+    // Center of original button position
+    const growFromRight = originalButtonRightEdge + (originalProButtonWidth / 2);
     
     // Create modal div that starts as the button background
     proModal = HTML.make('div');
@@ -8584,11 +8590,12 @@ function closeProModal() {
     }
     
     if (proModal) {
-        // Get button position for shrinking animation
-        const buttonRect = proButton.getBoundingClientRect();
-        const buttonRight = window.innerWidth - buttonRect.right;
-        // Position to shrink back to under center of pro button
-        const shrinkToRight = buttonRight + (buttonRect.width / 2);
+        // Get original button position for shrinking animation
+        const originalProButtonWidth = measureTextWidth('pro', 'MonospaceRegular', 11) + 10;
+        // Original button right edge was at windowBorderMargin + 5*(headerButtonSize + 4) from window right
+        const originalButtonRightEdge = windowBorderMargin + (headerButtonSize + 4) * 5;
+        // Position to shrink back to under center of original pro button position
+        const shrinkToRight = originalButtonRightEdge + (originalProButtonWidth / 2);
         
         // Animate modal back to 0 size
         HTML.setStyle(proModal, {
@@ -9408,17 +9415,20 @@ function openSignInModal() {
     // Get current button position and size
     const buttonRect = signInButton.getBoundingClientRect();
     
-    // Calculate modal width to span from left of sign-in button to right edge of settings button
+    // Calculate modal width to span from left of original sign-in button position to right edge of settings button
     // Settings button is at windowBorderMargin from right edge
-    // Sign-in button is at windowBorderMargin + 5*(headerButtonSize + 4) from right edge
+    // Original sign-in button position was at windowBorderMargin + 5*(headerButtonSize + 4) from right edge
     // We want to cover this entire span plus some extra to the left
     const modalHeight = 150;
-    const extraLeftWidth = 80; // Extra space to the left of sign-in button
-    const distanceToSettingsRight = (headerButtonSize + 4) * 5; // Distance from sign-in to settings right edge
-    const modalWidth = extraLeftWidth + buttonRect.width + distanceToSettingsRight;
+    const extraLeftWidth = 80; // Extra space to the left of original sign-in button position
+    const distanceToSettingsRight = (headerButtonSize + 4) * 5; // Distance from original sign-in to settings right edge
+    const originalSignInButtonWidth = measureTextWidth('sign in/up', 'MonospaceRegular', 11) + 10;
+    const modalWidth = extraLeftWidth + originalSignInButtonWidth + distanceToSettingsRight;
     
-    // Position modal so it grows left and right from the sign-in button
-    const modalRight = (window.innerWidth - buttonRect.right) - distanceToSettingsRight;
+    // Position modal so it grows left and right from the original sign-in button position
+    // Replicate original calculation but with original button position
+    const originalButtonRightEdgeFromWindow = windowBorderMargin + (headerButtonSize + 4) * 5; // Original button's right edge distance from window right
+    const modalRight = originalButtonRightEdgeFromWindow - distanceToSettingsRight;
 
     // Update sign-in button and text z-index to be above everything
     HTML.setStyle(signInText, {
@@ -9614,13 +9624,17 @@ function closeSignInModal(slideButtonOffScreen = false) {
 
     // Animate modal back to button size if it exists
     if (signInModal) {
-        // Get button position for shrinking animation
-        const buttonRect = signInButton.getBoundingClientRect();
+        // Get original button position for shrinking animation  
+        const originalSignInButtonWidth = measureTextWidth('sign in/up', 'MonospaceRegular', 11) + 10;
+        // Original button right edge was at windowBorderMargin + 5*(headerButtonSize + 4) from window right
+        const originalButtonRightEdge = windowBorderMargin + (headerButtonSize + 4) * 5;
+        // Center of button for shrinking animation
+        const shrinkToCenterRight = originalButtonRightEdge + (originalSignInButtonWidth/2);
         
         HTML.setStyle(signInModal, {
             width: '0px',
             height: '0px',
-            right: (window.innerWidth - buttonRect.right + (buttonRect.width/2)) + 'px',
+            right: shrinkToCenterRight + 'px',
             backgroundColor: 'var(--shade-0)',
             border: '2px solid var(--shade-1)',
             borderRadius: '4px',
@@ -10389,6 +10403,7 @@ let editorModalDataEmpty = {
     kind: '',
     name: '',
     description: '',
+    private: false,
 
     // even though some of these overlap, we want the ability to go back
     // so if a user does a bunch of event stuff, then goes to reminder, then goes back to event,
@@ -10488,6 +10503,7 @@ function initEditorModal(id, instanceClicked) {
     }
     editorModalData.name = entity.name;
     editorModalData.description = entity.description;
+    editorModalData.private = entity.private;
     
     // Assert that we have at least one instance
     const currentInstances = editorModalData.kind === 'event' ? editorModalData._event.instances : 
@@ -10657,10 +10673,10 @@ function initEditorModal(id, instanceClicked) {
     HTML.setId(descriptionTextarea, 'editorModalDescriptionTextarea');
     HTML.setStyle(descriptionTextarea, {
         position: 'absolute',
-        bottom: '8px',
+        bottom: '28px',
         left: '8px',
         width: (editorModalWidth - 16) + 'px',
-        height: '120px',
+        height: '100px',
         fontSize: '12px',
         fontFamily: 'PrimaryRegular',
         color: 'var(--shade-4)',
@@ -10702,6 +10718,49 @@ function initEditorModal(id, instanceClicked) {
     descriptionTextarea.addEventListener('scroll', () => updateDescriptionTextareaGradients());
     
     editorModal.appendChild(descriptionTextarea);
+    
+    // Create private field label and selector
+    const privateFieldLabel = HTML.make('div');
+    HTML.setId(privateFieldLabel, 'editorModalPrivateFieldLabel');
+    HTML.setStyle(privateFieldLabel, {
+        position: 'absolute',
+        bottom: '5px',
+        left: '8px',
+        fontSize: '14px',
+        fontFamily: 'PrimaryRegular',
+        color: 'white',
+        opacity: '0',
+        transition: 'opacity 0.3s ease'
+    });
+    privateFieldLabel.textContent = 'This entity is';
+    editorModal.appendChild(privateFieldLabel);
+    
+    const privateFieldSelectorId = 'editorModalPrivateFieldSelector';
+    const privateFieldSelectorLeft = 87; // Approximate width of "This entity is" text + 15px right
+    const privateFieldSelectorTop = modalTop + editorModalHeight - 22; // Moved down 12px from -34
+    const privateFieldSelectorWidth = 100;
+    const privateFieldSelectorHeight = 20;
+    
+    createSelector({
+        options: ['Public', 'Private'],
+        orientation: 'horizontal',
+        id: privateFieldSelectorId,
+        x: modalLeft + 8 + privateFieldSelectorLeft,
+        y: privateFieldSelectorTop,
+        width: privateFieldSelectorWidth,
+        height: privateFieldSelectorHeight,
+        zIndex: editorModalBaseZIndex + 1,
+        font: 'MonospaceRegular',
+        fontSize: 10,
+        onSelectionChange: (selectedOption) => {
+            editorModalData.private = selectedOption === 'Private';
+        },
+        initialSelection: editorModalData.private ? 'Private' : 'Public',
+        minWaitTime: 0.1,
+        alignmentSide: 'left',
+        equalSpacing: true,
+        accentMode: 'transition'
+    });
     
     // Position selector
     updateEditorModalPosition();
@@ -10750,6 +10809,11 @@ function initEditorModal(id, instanceClicked) {
         HTML.setStyle(separatorLine, { opacity: '1' });
         
         HTML.setStyle(descriptionTextarea, { opacity: '1' });
+        
+        const privateFieldLabel = HTML.getElementUnsafely('editorModalPrivateFieldLabel');
+        if (privateFieldLabel) {
+            HTML.setStyle(privateFieldLabel, { opacity: '1' });
+        }
         
         // Update description textarea gradients after it becomes visible
         updateDescriptionTextareaGradients();
@@ -11483,6 +11547,8 @@ function saveEditorFieldsToData() {
         editorModalData.description = descriptionTextarea.value;
     }
     
+    // Save private field selector - no need to save since it's handled by the selector's onSelectionChange callback
+    
     // Save time and date fields from all possible pattern editors
     saveTimeAndDateFields();
     
@@ -11777,6 +11843,7 @@ function applyEditorDataToEntity() {
     // Update entity name and description
     entity.name = editorModalData.name;
     entity.description = editorModalData.description;
+    entity.private = editorModalData.private;
     
     // Convert editorModalData back to appropriate entity data format
     if (editorModalData.kind === 'task') {
@@ -11811,6 +11878,9 @@ function applyEditorDataToEntity() {
     
     // Save the updated user data
     saveUserData(user);
+    
+    // Re-render to reflect the changes
+    render();
 }
 
 // Convert instance to natural sentence description
@@ -17022,6 +17092,7 @@ function closeEditorModal() {
 
     // delete selector animates itself
     deleteSelector(editorModalKindSelectorId);
+    deleteSelector('editorModalPrivateFieldSelector');
 
     // close instance buttons and clean up dropdown buttons
     closeInstanceButtonsImmediate();
@@ -17162,6 +17233,11 @@ function updateEditorModalPosition() {
     const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);
+    
+    // Update private field selector position
+    const privateFieldSelectorLeft = 87; // Approximate width of "This entity is" text + 15px right
+    const privateFieldSelectorTop = modalTop + editorModalHeight - 22; // Moved down 12px from -34
+    moveSelector('editorModalPrivateFieldSelector', modalLeft + 8 + privateFieldSelectorLeft, privateFieldSelectorTop);
     
     // Update all pattern editor selectors if instanceEditorContainer exists
     if (instanceEditorContainer && instanceEditorContainer.style && instanceEditorContainer.style.top) {
@@ -19316,7 +19392,7 @@ function initSignInButton() {
     HTML.setStyle(signInButton, {
         position: 'absolute',
         top: '6px',
-        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of left nav button
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of private button
         width: String(signInButtonWidth) + 'px',
         height: String(headerButtonSize) + 'px',
         backgroundColor: 'var(--shade-1)',
@@ -19379,7 +19455,7 @@ function initProButton(animateFromTop = false) {
     const proButtonWidth = measureTextWidth('pro', 'MonospaceRegular', 11) + 10;
 
     // Common right offset identical to where the sign-in button would have been
-    const rightOffset = windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4;
+    const rightOffset = windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4;
 
     // Starting top position
     const finalTopPx = 6;
@@ -19684,6 +19760,52 @@ function initRightNavigationButton() {
     rightNavButton.appendChild(rightArrow1);
     rightNavButton.appendChild(rightArrow2);
     HTML.body.appendChild(rightNavButton);
+ }
+
+function initPrivateButton() {
+    // Private button width for a square button
+    const privateButtonWidth = headerButtonSize;
+    
+    // Private button container
+    let privateButton = HTML.make('div');
+    HTML.setId(privateButton, 'privateButton');
+    HTML.setStyle(privateButton, {
+        position: 'absolute',
+        top: '6px',
+        right: String(windowBorderMargin + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4 + headerButtonSize + 4) + 'px', // Position to the left of settings button
+        width: String(privateButtonWidth) + 'px',
+        height: String(headerButtonSize) + 'px',
+        backgroundColor: 'var(--shade-1)',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease'
+    });
+    
+    // Event handlers
+    privateButton.onclick = () => {
+        // For now, do nothing
+        log('Private button clicked - no functionality yet');
+    };
+    
+    // Hover effect
+    privateButton.onmouseenter = () => {
+        HTML.setStyle(privateButton, {
+            backgroundColor: 'var(--shade-2)'
+        });
+    };
+    
+    privateButton.onmouseleave = () => {
+        HTML.setStyle(privateButton, {
+            backgroundColor: 'var(--shade-1)'
+        });
+    };
+    
+    // Add to body
+    HTML.body.appendChild(privateButton);
 }
 
 async function init() {
@@ -19723,6 +19845,7 @@ async function init() {
     initRightNavigationButton();
     initLeftNavigationButton();
     initSettingsButton();
+    initPrivateButton();
     initSignInButton();
     initProButton();
     initDragAndDrop();
