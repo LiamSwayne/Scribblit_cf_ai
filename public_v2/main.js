@@ -13010,18 +13010,22 @@ function addNewInstance(patternType = 'one-time') {
         // For recurring patterns, create basic recurring instance structure
         const nDays = patternType === 'daily' ? 1 : patternType === 'weekly' ? 7 : 1;
         
+        // Create a default date (today) for the initial date
+        const today = new Date();
+        const defaultDate = new DateField(today.getFullYear(), today.getMonth() + 1, today.getDate()).encode();
+        
         if (editorModalData.kind === 'task') {
             newInstance = {
                 _type: 'RecurringTaskInstance',
                 datePattern: {
                     _type: 'EveryNDaysPattern',
                     n: nDays,
-                    startDate: symbolToString(NULL)
+                    initialDate: defaultDate
                 },
                 dueTime: symbolToString(NULL),
                 range: {
                     _type: 'DateRange',
-                    startDate: symbolToString(NULL),
+                    startDate: defaultDate,
                     endDate: symbolToString(NULL)
                 },
                 completion: []
@@ -13032,13 +13036,13 @@ function addNewInstance(patternType = 'one-time') {
                 startDatePattern: {
                     _type: 'EveryNDaysPattern',
                     n: nDays,
-                    startDate: symbolToString(NULL)
+                    initialDate: defaultDate
                 },
                 startTime: symbolToString(NULL),
                 endTime: symbolToString(NULL),
                 range: {
                     _type: 'DateRange',
-                    startDate: symbolToString(NULL),
+                    startDate: defaultDate,
                     endDate: symbolToString(NULL)
                 },
                 differentEndDatePattern: symbolToString(NULL)
@@ -13049,12 +13053,12 @@ function addNewInstance(patternType = 'one-time') {
                 datePattern: {
                     _type: 'EveryNDaysPattern',
                     n: nDays,
-                    startDate: symbolToString(NULL)
+                    initialDate: defaultDate
                 },
                 time: symbolToString(NULL),
                 range: {
                     _type: 'DateRange',
-                    startDate: symbolToString(NULL),
+                    startDate: defaultDate,
                     endDate: symbolToString(NULL)
                 }
             };
