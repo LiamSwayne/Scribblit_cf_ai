@@ -10664,6 +10664,75 @@ function initEditorModal(id, instanceClicked) {
     
     editorModal.appendChild(closeButton);
     
+    // Create trash button in bottom right corner
+    const trashButton = HTML.make('div');
+    HTML.setId(trashButton, 'editorModalTrashButton');
+    HTML.setStyle(trashButton, {
+        position: 'absolute',
+        bottom: '2px',
+        right: '2px',
+        width: '24px',
+        height: '24px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: '0',
+        transition: 'opacity 0.3s ease',
+        borderRadius: '4px',
+        backgroundColor: 'transparent'
+    });
+    
+         // Create trash icon using the existing trash icon pattern
+     let trashIconClass = randomAlphabetString(8);
+     let trashIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 400 400">
+         <defs>
+             <style>
+             .${trashIconClass} {
+                 fill: var(--shade-2);
+                 fill-rule: evenodd;
+                 transition: fill 0.2s ease;
+             }
+             </style>
+         </defs>
+         <path class="${trashIconClass}" d="M159.8,1.1c-14.1,4.5-20.2,12.2-27.4,34.2l-3.8,11.5-39.5.2-39.5.2-5.5,2.7c-3.4,1.6-7.2,4.4-9.8,7-2.7,2.7-5.4,6.5-7,9.8l-2.7,5.5-.2,19.2c-.3,21.5-.1,22.2,5.8,24.7,4.8,2,337.2,1.5,340.5-.5,5-3.1,5.3-4.5,5-25l-.3-18.4-2.7-5.5c-3.5-7.2-9.7-13.4-16.9-16.9l-5.5-2.7-39.5-.2-39.5-.2-3.8-11.5c-6.6-20.2-11-26.5-22.2-32l-5.9-2.9-38.3-.2c-29.5-.1-39,0-41.4.8M234.8,25.1c1.3.7,3,2,3.7,2.8,1.2,1.3,6.8,16.5,6.8,18.3s-20.4.6-45.3.6-45.3-.3-45.3-.6c0-1.8,5.6-17,6.8-18.3,3.8-4.2,5.4-4.4,40.1-4.2,27,.1,31.2.3,33.2,1.4M50.4,145.9c.2,2,4.5,52.9,9.4,113.1,4.9,60.2,9.3,111.2,9.8,113.5,2.4,12.1,11.8,22.4,23.6,26.1,7.6,2.4,206.9,2.2,214-.2,12.4-4.2,21.5-14.9,23.6-27.7.3-1.7,4.5-52.2,9.4-112.1,4.9-59.9,9.1-110.7,9.4-112.7l.4-3.7H49.9l.4,3.7M136,168.2c5.3,3.6,5-2.4,5,91.2s0,84.9-1.4,87.3c-3,5.6-10.9,7.4-16.3,3.8-5.3-3.6-5,2.4-5-91.2s-.3-87.6,5-91.2c1.8-1.2,3.8-1.8,6.3-1.8s4.5.6,6.3,1.8M206.3,168.2c5.3,3.6,5-2.4,5,91.2s0,84.9-1.4,87.3c-3,5.6-10.9,7.4-16.3,3.8-5.3-3.6-5,2.4-5-91.2s-.3-87.6,5-91.2c1.8-1.2,3.8-1.8,6.3-1.8s4.5.6,6.3,1.8M276.3,167.9c5.7,3.5,5.3-3.1,5.3,91.4s0,84.9-1.4,87.3c-4.1,7.6-16.2,7.4-20.1-.3-2-3.9-1.7-170.8.2-174.4,1.9-3.5,5.6-5.6,9.9-5.6s4.5.6,6,1.5"/>
+     </svg>`;
+    
+    trashButton.innerHTML = trashIcon;
+    
+    // Trash button hover effects - only change icon color
+    trashButton.onmouseenter = () => {
+        const trashPath = trashButton.querySelector('path');
+        if (trashPath) {
+            trashPath.style.fill = 'var(--shade-3)';
+        }
+    };
+    trashButton.onmouseleave = () => {
+        const trashPath = trashButton.querySelector('path');
+        if (trashPath) {
+            trashPath.style.fill = 'var(--shade-2)';
+        }
+    };
+    
+    // Delete entity and close modal when trash is clicked
+    trashButton.onclick = () => {
+        // Remove the entity from the user's entityArray
+        user.entityArray = user.entityArray.filter(e => e.id !== editorModalActiveEntityId);
+        
+        // Save the updated user data
+        saveUserData(user);
+        
+        // Close the modal
+        closeEditorModal();
+        
+        // Re-render to update the UI
+        render();
+        
+        log('Entity deleted: ' + editorModalActiveEntityId);
+    };
+    
+    editorModal.appendChild(trashButton);
+    
     // Create title input in top left corner
     const titleInput = HTML.make('input');
     HTML.setId(titleInput, 'editorModalTitleInput');
@@ -10854,6 +10923,7 @@ function initEditorModal(id, instanceClicked) {
     editorModalVignette.offsetHeight;
     editorModal.offsetHeight;
     closeButton.offsetHeight;
+    trashButton.offsetHeight;
     titleInput.offsetHeight;
     descriptionTextarea.offsetHeight;
     
@@ -10864,6 +10934,7 @@ function initEditorModal(id, instanceClicked) {
             opacity: '1',
         });
         HTML.setStyle(closeButton, { opacity: '1' });
+        HTML.setStyle(trashButton, { opacity: '1' });
         HTML.setStyle(titleInput, { opacity: '1' });
         HTML.setStyle(separatorLine, { opacity: '1' });
         
@@ -19856,18 +19927,18 @@ function initPrivateButton() {
         justifyContent: 'center'
     });
     
-    // Function to update icon based on visibility state
+    // Function to update icon based on visibility state - shows opposite state (what you'll get when you click)
     function updateIcon() {
         const visibility = LocalData.get('visibility');
         if (visibility === 'public') {
-            // Public eye icon - move down 1px (was -1px, now +1px, so down 2px more)
-            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 472 384" style="transform: translateY(1px);">
-                <path fill="var(--shade-3)" d="M235 32q79 0 142.5 44.5T469 192q-28 71-91.5 115.5T235 352T92 307.5T0 192q28-71 92-115.5T235 32zm0 267q44 0 75-31.5t31-75.5t-31-75.5T235 85t-75.5 31.5T128 192t31.5 75.5T235 299zm-.5-171q26.5 0 45.5 18.5t19 45.5t-19 45.5t-45.5 18.5t-45-18.5T171 192t18.5-45.5t45-18.5z"/>
-            </svg>`;
-        } else {
-            // Private eye with slash icon - scaled up using CSS transform
+            // Currently public, show private icon (what you'll get when you click)
             icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" style="transform: translateY(0px) scale(1.2);">
                 <path fill="var(--shade-3)" d="M8.073 12.194L4.212 8.333c-1.52 1.657-2.096 3.317-2.106 3.351L2 12l.105.316C2.127 12.383 4.421 19 12.054 19c.929 0 1.775-.102 2.552-.273l-2.746-2.746a3.987 3.987 0 0 1-3.787-3.787zM12.054 5c-1.855 0-3.375.404-4.642.998L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.298-3.298c2.638-1.953 3.579-4.637 3.593-4.679l.105-.316l-.105-.316C21.98 11.617 19.687 5 12.054 5zm1.906 7.546c.187-.677.028-1.439-.492-1.96s-1.283-.679-1.96-.492L10 8.586A3.955 3.955 0 0 1 12.054 8c2.206 0 4 1.794 4 4a3.94 3.94 0 0 1-.587 2.053l-1.507-1.507z"/>
+            </svg>`;
+        } else {
+            // Currently private, show public icon (what you'll get when you click)
+            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 472 384" style="transform: translateY(1px);">
+                <path fill="var(--shade-3)" d="M235 32q79 0 142.5 44.5T469 192q-28 71-91.5 115.5T235 352T92 307.5T0 192q28-71 92-115.5T235 32zm0 267q44 0 75-31.5t31-75.5t-31-75.5T235 85t-75.5 31.5T128 192t31.5 75.5T235 299zm-.5-171q26.5 0 45.5 18.5t19 45.5t-19 45.5t-45.5 18.5t-45-18.5T171 192t18.5-45.5t45-18.5z"/>
             </svg>`;
         }
     }
