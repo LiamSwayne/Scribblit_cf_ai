@@ -1,3 +1,5 @@
+// BETA (kinda-workable state) done on Jul 20
+
 // Load LocalData immediately
 LocalData.load();
 
@@ -10803,8 +10805,8 @@ function initEditorModal(id, instanceClicked) {
     // Delete entity and close modal when trash is clicked
     trashButton.onclick = () => {
         // Remove the entity from the user's entityArray
+        let editorModalActiveEntityIdCopy = `${editorModalActiveEntityId}`
         user.entityArray = user.entityArray.filter(e => e.id !== editorModalActiveEntityId);
-        
         // Save the updated user data
         saveUserData(user);
         
@@ -10814,7 +10816,7 @@ function initEditorModal(id, instanceClicked) {
         // Re-render to update the UI
         render();
         
-        log('Entity deleted: ' + editorModalActiveEntityId);
+        log('Entity deleted: ' + editorModalActiveEntityIdCopy);
     };
     
     editorModal.appendChild(trashButton);
