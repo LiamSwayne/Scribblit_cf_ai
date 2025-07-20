@@ -3818,7 +3818,16 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
             }
         }
         
-        allDayEventElement.innerHTML = allDayEventData.name;
+        // Check if this entity is private, and privatize text if it is
+        const entity = user.entityArray.find(e => e.id === allDayEventData.id);
+        const isPrivate = entity && entity.private === true;
+        
+        // Replace text with dashes for private events when in public mode
+        if (isPrivate && LocalData.get('visibility') === 'public') {
+            allDayEventElement.innerHTML = privatizeText(allDayEventData.name);
+        } else {
+            allDayEventElement.innerHTML = allDayEventData.name;
+        }
 
         // Make all-day event font size responsive
         const allDayEventFontSize = colWidth > columnWidthThreshold ? '14px' : '12px';
@@ -4032,7 +4041,16 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     eventElement.removeEventListener('click', eventElement.clickHandler);
                 }
             }
-            eventElement.innerHTML = instance.name;
+            // Check if this entity is private, and privatize text if it is
+            const entity = user.entityArray.find(e => e.id === instance.id);
+            const isPrivate = entity && entity.private === true;
+            
+            // Replace text with dashes for private events when in public mode
+            if (isPrivate && LocalData.get('visibility') === 'public') {
+                eventElement.innerHTML = privatizeText(instance.name);
+            } else {
+                eventElement.innerHTML = instance.name;
+            }
 
             const colorVar = `--event-${laneIndex % user.palette.events.length}`;
 
@@ -4163,7 +4181,12 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     // Create new high z-index text overlay
                     textOverlay = HTML.make('div');
                     HTML.setId(textOverlay, `${eventId}_textOverlay`);
-                    textOverlay.innerHTML = instance.name;
+                    // Replace text with dashes for private events when in public mode
+                    if (isPrivate && LocalData.get('visibility') === 'public') {
+                        textOverlay.innerHTML = privatizeText(instance.name);
+                    } else {
+                        textOverlay.innerHTML = instance.name;
+                    }
                     
                     // Set font size immediately to prevent transition from global 200px default
                     textOverlay.style.fontSize = timedEventFontSize;
@@ -5093,7 +5116,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         HTML.setData(textElement, 'patternNumber', primaryReminder.patternIndex);
         
         addReminderHoverHandlers(textElement);
-        textElement.innerHTML = primaryReminder.name;
+        // Check if this entity is private, and privatize text if it is
+        const entity = user.entityArray.find(e => e.id === primaryReminder.id);
+        const isPrivate = entity && entity.private === true;
+        
+        // Replace text with dashes for private reminders when in public mode
+        if (isPrivate && LocalData.get('visibility') === 'public') {
+            textElement.innerHTML = privatizeText(primaryReminder.name);
+        } else {
+            textElement.innerHTML = primaryReminder.name;
+        }
 
         HTML.setStyle(textElement, {
             position: 'fixed',
@@ -5290,7 +5322,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 stackedTextElement.mouseLeaveHandler = handleReminderMouseLeave;
                 stackedTextElement.addEventListener('mouseenter', stackedTextElement.mouseEnterHandler);
                 stackedTextElement.addEventListener('mouseleave', stackedTextElement.mouseLeaveHandler);
-                stackedTextElement.innerHTML = stackedReminder.name;
+                // Check if this entity is private, and privatize text if it is
+                const stackedEntity = user.entityArray.find(e => e.id === stackedReminder.id);
+                const stackedIsPrivate = stackedEntity && stackedEntity.private === true;
+                
+                // Replace text with dashes for private reminders when in public mode
+                if (stackedIsPrivate && LocalData.get('visibility') === 'public') {
+                    stackedTextElement.innerHTML = privatizeText(stackedReminder.name);
+                } else {
+                    stackedTextElement.innerHTML = stackedReminder.name;
+                }
                 
                 // Add individual drag handler for this stacked reminder
                 stackedTextElement.onmousedown = (e) => {
@@ -5367,7 +5408,16 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     // Create clone text
                     const cloneText = HTML.make('div');
                     HTML.setId(cloneText, 'drag-clone-text');
-                    cloneText.innerHTML = stackedReminder.name;
+                    // Check if this entity is private, and privatize text if it is
+                    const cloneEntity = user.entityArray.find(e => e.id === stackedReminder.id);
+                    const cloneIsPrivate = cloneEntity && cloneEntity.private === true;
+                    
+                    // Replace text with dashes for private reminders when in public mode
+                    if (cloneIsPrivate && LocalData.get('visibility') === 'public') {
+                        cloneText.innerHTML = privatizeText(stackedReminder.name);
+                    } else {
+                        cloneText.innerHTML = stackedReminder.name;
+                    }
                     HTML.setStyle(cloneText, {
                         position: 'fixed', top: String(reminderTopPosition) + 'px', left: String(dayElemLeft + spaceForHourMarkers) + 'px',
                         backgroundColor: accentColorVar, height: String(reminderLineHeight + reminderTextHeight - 2) + 'px',
@@ -7402,7 +7452,16 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         // Show the element (it might have been hidden)
         hoverElement.style.display = 'block';
 
-        taskElement.innerHTML = task.name;
+        // Check if this entity is private, and privatize text if it is
+        const entity = user.entityArray.find(e => e.id === task.id);
+        const isPrivate = entity && entity.private === true;
+        
+        // Replace text with dashes for private tasks when in public mode
+        if (isPrivate && LocalData.get('visibility') === 'public') {
+            taskElement.innerHTML = privatizeText(task.name);
+        } else {
+            taskElement.innerHTML = task.name;
+        }
         // Make task font size responsive
         const taskFontSize = columnWidth > columnWidthThreshold ? '14px' : '12px';
         HTML.setStyle(taskElement, {
@@ -19824,6 +19883,9 @@ function initPrivateButton() {
         LocalData.set('visibility', newVisibility);
         updateIcon();
         log('Visibility toggled to: ' + newVisibility);
+        
+        // Re-render to update visibility of private content
+        render();
     };
     
     // Hover effect - ONLY change button background, NEVER change icon color
@@ -19854,6 +19916,11 @@ function updatePrivateButtonColors() {
     if (window.updatePrivateButtonIcon) {
         window.updatePrivateButtonIcon();
     }
+}
+
+function privatizeText(text) {
+    // Replace all characters except spaces with dashes
+    return text.replace(/[^ ]/g, '-');
 }
 
 async function init() {
