@@ -3,7 +3,7 @@ name: Every‑4‑Minutes Test
 
 on:
   schedule:
-    - cron: '*/4 * * * *'    # “every 4th minute” in UTC
+    - cron: '*/15 * * * *'    # “every 4th minute” in UTC
   workflow_dispatch:         # lets you also click “Run workflow” manually
 
 jobs:
