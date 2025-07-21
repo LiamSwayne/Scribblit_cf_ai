@@ -371,61 +371,78 @@ These titles are being added to the user's personal task manager and calendar, a
 
 YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Do not include your comments, only the formatted titles in a JSON array.`;
 
-const aiEditSystemPrompt = `You are an AI assistant that modifies a single Task, Event, or Reminder JSON object based on a user's command. You will be given an existing JSON object and a command describing the desired changes. Your output must be ONLY the complete, updated JSON object. Do not add any commentary or extra text.
+const aiEditSystemPrompt = `You are an AI that takes in a user's command to edit an existing Task, Event, or Reminder JSON object and outputs the modified version. The input will include the current JSON object and the edit command. Your output must be ONLY the complete, updated JSON object—do not add any commentary or extra text. Preserve all unchanged fields from the original JSON, and only modify or add fields as specified in the command. If the command implies creating a new pattern or instance, ensure all required fields (like "range" for patterns) are included, inferring sensible defaults if needed (e.g., start today with no end for unbounded ranges).
 
 The JSON object will adhere to one of the following structures. Only include OPTIONAL fields if they are present in the original JSON or if the user's command explicitly adds them.
 
 Task JSON:
 {
-    "type": "task",
-    "name": "use sentence case",
-    "instances": [
+    "type": "task"
+    "name": // use sentence case  
+    "instances": [ // 2 options
 	    {
-		    "type": "due_date_instance",
-		    "date": "YYYY-MM-DD",
-		    "time": "HH:MM"
-	    },
-	    {
-		    "type": "due_date_pattern",
-		    "pattern": ${datePatternTypesPrompt},
-		    "time": "HH:MM",
-		    "range": "YYYY-MM-DD:YYYY-MM-DD or YYYY-MM-DD:null or integer"
+		    "type": "due_date_instance"
+		    "date": "YYYY-MM-DD" // OPTIONAL. if a time a is given then assume the due date is today
+		    "time": "HH:MM"// OPTIONAL
 	    }
-	],
-	"work_sessions": []
+	    {
+		    "type": "due_date_pattern"
+		    "pattern": ${datePatternTypesPrompt}
+		    "time": "HH:MM" // OPTIONAL
+		    "range": // REQUIRED for patterns: "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
+	    }
+	]
+	"work_sessions": [ // OPTIONAL
+		// array of objects with types "event_instance" and "event_pattern"
+		// times when the user has said they want to work on the task
+	]
 }
 
 Event JSON:
 {
-	"type": "event",
-	"name": "use sentence case",
-	"instances": [
+	"type": "event"
+	"name": // use sentence case
+	"instances": [ // 2 options
 		{
-			"type": "event_instance",
-			"start_date": "YYYY-MM-DD",
-			"start_time": "HH:MM",
-			"end_time": "HH:MM",
-			"different_end_date": "YYYY-MM-DD"
-		},
+			"type": "event_instance"
+			"start_date": "YYYY-MM-DD", must be included if an end time is given
+			"start_time": "HH:MM" // OPTIONAL, include if the start time is explictly known
+			"end_time": "HH:MM" // OPTIONAL, include if the end time is explictly known
+			"different_end_date": "YYYY-MM-DD" // OPTIONAL, include if the event runs 24/7 and ends on a different date than the start date
+		}
 		{
-			"type": "event_pattern",
-			"start_date_pattern": {},
-			"start_time": "HH:MM",
-			"end_time": "HH:MM",
-			"different_end_date_offset": 1,
-			"range": "YYYY-MM-DD:YYYY-MM-DD or YYYY-MM-DD:null or integer"
+			"type": "event_pattern"
+			"start_date_pattern": // object with type weekly_pattern, every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
+			"start_time": "HH:MM" // OPTIONAL
+			"end_time": "HH:MM" // OPTIONAL
+			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
+			"range": // REQUIRED for patterns: "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
 		}
 	]
 }
 
 Reminder JSON:
 {
-	"type": "reminder",
-	"name": "use sentence case",
-	"instances": []
+	"type": "reminder"
+	"name": // use sentence case
+	"instances": [
+		{
+			"type": "reminder_instance"
+			"date": "YYYY-MM-DD"
+		    "time": "HH:MM"
+		}
+		{
+			"type": "reminder_pattern"
+			"date_pattern": // object with type weekly_pattern, every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
+		    "time": "HH:MM"
+		    "range": // REQUIRED for patterns: "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
+		}
+	]
 }
 
-Your task is to apply the user's command to the provided JSON and return the full, modified JSON object. Ensure the final JSON is valid and complete. For example, if the user says "change the name to 'Walk the dog'", you must return the entire entity's JSON with only the "name" field updated.`;
+Don't forget to have commas in the JSON. IF THE USER SPECIFIES HOUR OF DAY BUT NOT AM OR PM, AND IT IS PAST THE AM HOUR, YOU MUST ASSUME IT IS PM. FOR EXAMPLE, IF IT IS 11 AM AND THE USER SAYS "thing at 9", YOU MUST ASSUME IT IS 9 PM. Ensure the output is a single valid JSON object matching the original type.
+
+If the user needs to cancel a single occurence of something that is part of the pattern, the way to do it is to split the pattern into two instances of that same pattern, one for occurences before and one for after by just having the pattern but editing their ranges to exclude the cancelled occurence.`;
 
 async function draftEntities(userPrompt, env) {
     if (!userPrompt || userPrompt.trim().length === 0) {
