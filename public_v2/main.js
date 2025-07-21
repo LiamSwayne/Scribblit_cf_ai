@@ -9642,7 +9642,6 @@ async function processAiEditCommand(command) {
     aiCommandBox.placeholder = 'AI is thinking...';
     aiCommandBox.disabled = true;
 
-    // Get the original entity data
     const originalEntity = user.entityArray.find(e => e.id === editorModalActiveEntityId);
     if (!originalEntity) {
         console.error("Could not find entity to edit.");
@@ -9651,7 +9650,6 @@ async function processAiEditCommand(command) {
         return;
     }
 
-    // Convert entity to a plain JSON object to send to backend
     const entityJson = originalEntity.encode();
 
     try {
@@ -9675,16 +9673,33 @@ async function processAiEditCommand(command) {
             throw new Error(responseData.error);
         }
 
-        const updatedEntityJson = extractJsonFromAiOutput(responseData.aiOutput, null, '{}');
+        // Create a Chain instance to track the entire process.
+        const chain = new Chain();
+
+        // Populate the chain with nodes returned from the backend.
+        if (responseData.chain && Array.isArray(responseData.chain)) {
+            for (const nodeObject of responseData.chain) {
+                const node = Chain.nodeFromJson(nodeObject);
+                if (node) {
+                    chain.add(node);
+                }
+            }
+        }
+        
+        // Pass the populated chain instance to extractJsonFromAiOutput.
+        const updatedEntityJson = extractJsonFromAiOutput(responseData.aiOutput, chain, '{}');
 
         if (updatedEntityJson === NULL) {
             throw new Error("Failed to parse AI's updated entity JSON.");
         }
 
-        const newEntity = Entity.fromAiJson(updatedEntityJson, false); 
+        const newEntity = Entity.fromAiJson(updatedEntityJson, false);
 
         if (newEntity === NULL) {
+            chain.add(new FailedToCreateEntityNode(updatedEntityJson, Date.now(), Date.now()));
             throw new Error("Failed to create entity from AI's JSON response.");
+        } else {
+            chain.add(new CreatedEntityNode(updatedEntityJson, newEntity, Date.now(), Date.now()));
         }
         
         newEntity.id = originalEntity.id;
@@ -9695,6 +9710,9 @@ async function processAiEditCommand(command) {
         } else {
             user.entityArray.push(newEntity);
         }
+
+        chain.completeRequest();
+        console.log("Completed AI Edit Chain:", chain);
 
         await saveUserData(user);
         
