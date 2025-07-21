@@ -1,0 +1,14 @@
+# .github/workflows/run-in-4-mins.yml
+name: Run in 4 Minutes
+
+on:
+  schedule:
+    - cron: '40 22 21 7 *'  # July 21 at 22:40 UTC == July 21 at 18:40 EDT
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Say hello
+        run: echo "🔥 This ran at $(date -u) UTC ($(date) local)!"
