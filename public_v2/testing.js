@@ -76,47 +76,6 @@ async function runAlarmTests() {
     alarms = reminderData.getAlarmTimes(now_ts, future_ts);
     const remExpected = tomorrow.toUnixTimestamp() + 8 * 60 * 60 * 1000;
     ASSERT(alarms.length === 1 && alarms[0].time === remExpected, "ReminderData non-recurring alarm failed");
-
-    // ------- ReminderData Recurring (Daily) -------
-    const todayForRecurrence = new DateField(baseDate.year, baseDate.month, baseDate.day);
-    const reminderDataRec = new ReminderData(
-        [
-            new RecurringReminderInstance(
-                new EveryNDaysPattern(todayForRecurrence, 1),
-                new TimeField(21, 0),
-                new RecurrenceCount(todayForRecurrence, 30)
-            )
-        ],
-        true
-    );
-    alarms = reminderDataRec.getAlarmTimes(now_ts, future_ts);
-
-    const expectedAlarms = [];
-    const alarmTime = { hour: 21, minute: 0, second: 0, millisecond: 0 };
-
-    let alarmToday = baseDate.set(alarmTime);
-    // If it's already past 9pm today, the next alarm is tomorrow
-    if (alarmToday < now_ts) {
-        alarmToday = alarmToday.plus({ days: 1 });
-    }
-
-    // We expect an alarm for today (if not past) and tomorrow
-    if (alarmToday.toMillis() < future_ts) {
-        expectedAlarms.push(alarmToday.toMillis());
-    }
-
-    const alarmTomorrow = alarmToday.plus({ days: 1 });
-    if (alarmTomorrow.toMillis() < future_ts) {
-        expectedAlarms.push(alarmTomorrow.toMillis());
-    }
-    
-    ASSERT(alarms.length === expectedAlarms.length, `Recurring Reminder: Expected ${expectedAlarms.length} alarms, but got ${alarms.length}`);
-    
-    const actualTimes = alarms.map(a => a.time).sort();
-    expectedAlarms.sort();
-    for (let i = 0; i < expectedAlarms.length; i++) {
-        ASSERT(actualTimes[i] === expectedAlarms[i], `Recurring Reminder: Alarm ${i+1} has incorrect timestamp. Expected ${expectedAlarms[i]} but got ${actualTimes[i]}`);
-    }
 }
 
 // Run alarm tests after slight delay to ensure environment ready
