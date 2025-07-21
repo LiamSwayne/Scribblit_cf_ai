@@ -78,8 +78,6 @@ async function runAlarmTests() {
     alarms = reminderData.getAlarmTimes(Date.now(), Date.now() + 2 * MS_PER_DAY);
     const remExpected = remDate.toUnixTimestamp() + 8 * 60 * MS_PER_MIN;
     ASSERT(alarms.length === 1 && alarms[0].time === remExpected, "ReminderData non-recurring alarm failed");
-
-    log("Alarm tests completed");
 }
 
 // Run alarm tests after slight delay to ensure environment ready
