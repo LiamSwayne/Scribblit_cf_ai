@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SCRIBBLIT_READ_AND_WRITE_TO_REPO }}
 
       - name: Write workflow file
         run: |
@@ -45,8 +47,6 @@ jobs:
           rm merged.txt
 
       - name: Commit and push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.SCRIBBLIT_READ_AND_WRITE_TO_REPO }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
