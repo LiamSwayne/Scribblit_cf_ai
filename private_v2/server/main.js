@@ -1707,7 +1707,8 @@ export default {
                                 });
 
                                 console.log('GitHub response:');
-                                console.log(await response.json());
+                                let json = await response.json();
+                                console.log(json);
 
                                 if (!response.ok) {
                                     return SEND({ error: 'Failed to trigger GitHub workflow.' }, 479);
