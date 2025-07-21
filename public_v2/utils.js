@@ -46,7 +46,7 @@ const charactersPerToken = 4.82; // https://drchrislevy.github.io/posts/agents/a
 function symbolToString(symbol) {
     ASSERT(typeof symbol === 'symbol', "symbolToString expects a symbol.");
     ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for JSONification must have a description.");
-    return '$' + symbol.description + ')';
+    return '$(' + symbol.description + ')';
 }
 
 function exists(obj) {

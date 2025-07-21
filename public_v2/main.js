@@ -9650,9 +9650,12 @@ async function processAiEditCommand(command) {
         return;
     }
 
+    log(originalEntity);
     const entityJson = originalEntity.encode();
+    console.log("Original entity JSON:", entityJson);
 
     try {
+        console.log("Sending AI edit request for command:", command);
         const response = await fetch(`https://${SERVER_DOMAIN}/ai/edit`, {
             method: 'POST',
             headers: getAuthHeaders(),
@@ -9668,6 +9671,7 @@ async function processAiEditCommand(command) {
         }
 
         const responseData = await response.json();
+        console.log("AI edit response data:", responseData);
         
         if (responseData.error) {
             throw new Error(responseData.error);
@@ -9690,39 +9694,158 @@ async function processAiEditCommand(command) {
         const updatedEntityJson = extractJsonFromAiOutput(responseData.aiOutput, chain, '{}');
 
         if (updatedEntityJson === NULL) {
+            console.error("Failed to parse AI's updated entity JSON from:", responseData.aiOutput);
             throw new Error("Failed to parse AI's updated entity JSON.");
         }
+        
+        console.log("Extracted entity JSON:", updatedEntityJson);
+        
+        // For events, make sure all instances are preserved
+        if (updatedEntityJson.type === 'event' && Array.isArray(updatedEntityJson.instances)) {
+            console.log("Event has", updatedEntityJson.instances.length, "instances in the JSON");
+            for (let i = 0; i < updatedEntityJson.instances.length; i++) {
+                console.log(`Instance ${i}:`, updatedEntityJson.instances[i]);
+            }
+        }
 
+        // Validate the entity JSON structure before creating entity
+        try {
+            validateEntityJson(updatedEntityJson);
+        } catch (validationError) {
+            console.error("Entity JSON validation failed:", validationError);
+            console.error("Invalid JSON:", updatedEntityJson);
+            throw new Error(`Invalid entity JSON: ${validationError.message}`);
+        }
+        
+        // Debug the entity creation process
+        console.log("Creating entity from JSON...");
         const newEntity = Entity.fromAiJson(updatedEntityJson, false);
+        
+        if (newEntity !== NULL && newEntity.data) {
+            if (newEntity.data.instances) {
+                console.log("Created entity has", newEntity.data.instances.length, "instances");
+                for (let i = 0; i < newEntity.data.instances.length; i++) {
+                    console.log(`Created instance ${i}:`, newEntity.data.instances[i]);
+                }
+            } else {
+                console.error("Created entity has no instances array");
+            }
+        }
 
         if (newEntity === NULL) {
             chain.add(new FailedToCreateEntityNode(updatedEntityJson, Date.now(), Date.now()));
+            console.error("Failed to create entity from AI JSON:", updatedEntityJson);
             throw new Error("Failed to create entity from AI's JSON response.");
         } else {
             chain.add(new CreatedEntityNode(updatedEntityJson, newEntity, Date.now(), Date.now()));
         }
         
+        // Ensure the ID is preserved from the original entity
         newEntity.id = originalEntity.id;
+        console.log("Setting newEntity ID to:", originalEntity.id);
 
+        // Find and replace the entity in the user array
         const entityIndex = user.entityArray.findIndex(e => e.id === originalEntity.id);
+        console.log(`Found entity at index ${entityIndex} in user array of length ${user.entityArray.length}`);
+        
         if (entityIndex > -1) {
+            console.log("Replacing entity in array");
             user.entityArray[entityIndex] = newEntity;
         } else {
+            console.log("Entity not found in array, adding new entity");
             user.entityArray.push(newEntity);
         }
+
+        // Verify the entity was updated
+        const verifyIndex = user.entityArray.findIndex(e => e.id === originalEntity.id);
+        console.log(`After update: Entity at index ${verifyIndex}, is same object: ${user.entityArray[verifyIndex] === newEntity}`);
+        
+        // Debug the user.entityArray state
+        console.log("Current user.entityArray length:", user.entityArray.length);
+        console.log("All entity IDs in user.entityArray:", user.entityArray.map(e => e.id));
+        console.log("Entity in array after update:", user.entityArray[verifyIndex]);
 
         chain.completeRequest();
         console.log("Completed AI Edit Chain:", chain);
 
-        await saveUserData(user);
+        // Make sure we save the updated user data
+        console.log("Saving updated user data...");
+        try {
+            // Force a deep copy of the user data before saving to ensure all changes are captured
+            const userDataForSaving = User.decode(JSON.parse(JSON.stringify(user.encode())));
+            console.log("User data prepared for saving:", userDataForSaving);
+            
+            // Verify the edited entity is in the copy
+            const verifyEntityInSave = userDataForSaving.entityArray.find(e => e.id === newEntity.id);
+            console.log("Entity in data to be saved:", verifyEntityInSave);
+            
+            await saveUserData(userDataForSaving);
+            console.log("User data saved successfully");
+            
+            // Update the global user object to match
+            user = userDataForSaving;
+        } catch (saveError) {
+            console.error("Error saving user data:", saveError);
+            throw new Error("Failed to save updated entity: " + saveError.message);
+        }
         
+        // Close and reopen the editor modal
         const currentInstanceIndex = editorModalActiveInstanceIndex;
+        console.log("Closing editor modal");
+        
+        // Store entity ID for reopening
+        const entityIdToReopen = newEntity.id;
+        
+        // Ensure modal is fully closed before reopening
         closeEditorModal();
         
+        // Force all modal elements to be removed completely
         setTimeout(() => {
-            initEditorModal(newEntity.id, currentInstanceIndex);
+            // Double check for any lingering modal elements
+            const oldModal = HTML.getElementUnsafely('editorModal');
+            if (oldModal && oldModal.parentNode) {
+                oldModal.parentNode.removeChild(oldModal);
+            }
+            
+            const oldVignette = HTML.getElementUnsafely('editorModalVignette');
+            if (oldVignette && oldVignette.parentNode) {
+                oldVignette.parentNode.removeChild(oldVignette);
+            }
+            
+            // Reset modal state variables to ensure clean state
+            editorModalOpen = false;
+            editorModal = null;
+            editorModalVignette = null;
+            
+            // Now that we've ensured everything is clean, set timeout to reopen
+            console.log("Setting timeout to reopen editor modal");
+            setTimeout(() => {
+                console.log("Reopening editor modal for entity ID:", entityIdToReopen);
+                
+                // Double check that the entity is still in the array before reopening
+                const entityStillExists = user.entityArray.some(e => e.id === entityIdToReopen);
+                console.log(`Entity ${entityIdToReopen} still exists in user array: ${entityStillExists}`);
+                
+                if (entityStillExists) {
+                    // Find the entity again to make sure we're using the latest version
+                    const entityForModal = user.entityArray.find(e => e.id === entityIdToReopen);
+                    console.log("Latest entity data for modal:", entityForModal);
+                    
+                    // Open the editor modal with the updated entity
+                    try {
+                        initEditorModal(entityIdToReopen, currentInstanceIndex);
+                    } catch (modalError) {
+                        console.error("Error reopening editor modal:", modalError);
+                        // As a fallback, reload the page to ensure everything is in sync
+                        alert("Changes saved. Reloading page to refresh the view.");
+                        window.location.reload();
+                    }
+                } else {
+                    console.error("Entity no longer exists in user array!");
+                    alert("Changes were saved but there was an error reopening the editor.");
+                }
+            }, 300);
         }, 350);
-
 
     } catch (error) {
         console.error('Error processing AI edit command:', error);
@@ -9730,6 +9853,55 @@ async function processAiEditCommand(command) {
         aiCommandBox.placeholder = originalPlaceholder;
         aiCommandBox.disabled = false;
     }
+}
+
+// Helper function to validate entity JSON structure
+function validateEntityJson(json) {
+    if (!json) throw new Error("Entity JSON is empty");
+    if (!json.type) throw new Error("Missing type property");
+    if (!json.name) throw new Error("Missing name property");
+    if (!json.instances || !Array.isArray(json.instances)) throw new Error("Missing or invalid instances array");
+    
+    // Type-specific validation
+    if (json.type === "task") {
+        // Validate task instances
+        json.instances.forEach((instance, i) => {
+            if (!instance.type) throw new Error(`Missing type in instance ${i}`);
+            if (instance.type === "due_date_instance") {
+                // Optional fields don't need validation
+            } else if (instance.type === "due_date_pattern") {
+                if (!instance.pattern) throw new Error(`Missing pattern in due_date_pattern instance ${i}`);
+                if (!instance.pattern.type) throw new Error(`Missing pattern type in due_date_pattern instance ${i}`);
+            } else {
+                throw new Error(`Invalid instance type "${instance.type}" in task instance ${i}`);
+            }
+        });
+    } else if (json.type === "event") {
+        // Validate event instances
+        json.instances.forEach((instance, i) => {
+            if (!instance.type) throw new Error(`Missing type in instance ${i}`);
+            if (instance.type === "event_instance") {
+                // Optional fields don't need validation
+            } else if (instance.type === "event_pattern") {
+                if (!instance.start_date_pattern) throw new Error(`Missing start_date_pattern in event_pattern instance ${i}`);
+                if (!instance.start_date_pattern.type) throw new Error(`Missing pattern type in event_pattern instance ${i}`);
+            } else {
+                throw new Error(`Invalid instance type "${instance.type}" in event instance ${i}`);
+            }
+        });
+    } else if (json.type === "reminder") {
+        // Validate reminder instances
+        json.instances.forEach((instance, i) => {
+            if (!instance.type) throw new Error(`Missing type in instance ${i}`);
+            if (instance.type !== "reminder_instance" && instance.type !== "reminder_pattern") {
+                throw new Error(`Invalid instance type "${instance.type}" in reminder instance ${i}`);
+            }
+        });
+    } else {
+        throw new Error(`Invalid entity type: ${json.type}`);
+    }
+    
+    return true;
 }
 
 function slideSignInButtonOffScreen() {
@@ -17591,9 +17763,10 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     let startTime = Date.now();
     let cleanedText = aiOutput;
 
-    // we can remove the model thinking, all that matters is the output
-    // maybe the user would like to see this?
-    // maybe in pro mode we store this locally so they can look at it and feel more "in control"
+    // Log for debugging
+    console.log("Original AI output:", aiOutput);
+
+    // Remove model thinking
     const thinkClose = '</think>';
     const idx = cleanedText.indexOf(thinkClose);
     if (idx !== -1) {
@@ -17601,39 +17774,72 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     }
     cleanedText = cleanedText.trim();
 
-    // sometimes the ai puts it in a code block
+    // Handle various code block formats
     if (cleanedText.startsWith('```json')) {
         cleanedText = cleanedText.substring(7).trim();
+    } else if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.substring(3).trim();
     }
     if (cleanedText.endsWith('```')) {
         cleanedText = cleanedText.substring(0, cleanedText.length - 3).trim();
     }
 
-    // extraction json from AI output
+    console.log("Cleaned AI output:", cleanedText);
+
+    // Extract the JSON object more robustly
     let aiJson = NULL;
     try {
+        // First attempt: direct parse
         aiJson = JSON.parse(cleanedText);
     } catch (e) {
-        // failed to parse, but we can try more
-        // try to split at [ and ] in case the ai prepended or appended text
-        // get index
-        const idx = cleanedText.indexOf(outermostJsonCharacters[0]);
-        if (idx !== -1) {
-            cleanedText = cleanedText.substring(idx + 1);
-        }
+        console.warn("First JSON parse attempt failed:", e.message);
+        
+        // Second attempt: Find the JSON object by braces
         try {
-            aiJson = JSON.parse(cleanedText);
-        } catch (e) {
-            // now try removing ] at end
-            const idx = cleanedText.lastIndexOf(outermostJsonCharacters[1]);
-            if (idx !== -1) {
-                cleanedText = cleanedText.substring(0, idx);
+            const firstBrace = cleanedText.indexOf(outermostJsonCharacters[0]);
+            const lastBrace = cleanedText.lastIndexOf(outermostJsonCharacters[1]);
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+                // Extract just the JSON part
+                const jsonCandidate = cleanedText.substring(firstBrace, lastBrace + 1);
+                console.log("JSON candidate:", jsonCandidate);
+                aiJson = JSON.parse(jsonCandidate);
+            } else {
+                throw new Error("No valid JSON structure found");
             }
+        } catch (e2) {
+            console.warn("Second JSON parse attempt failed:", e2.message);
+            
+            // Third attempt: Try with the original approach
             try {
-                aiJson = JSON.parse(cleanedText);
-            } catch (e) {
-                // finally give up
-                return NULL;
+                // Try to find opening brace and extract from there
+                const idx = cleanedText.indexOf(outermostJsonCharacters[0]);
+                if (idx !== -1) {
+                    cleanedText = cleanedText.substring(idx);
+                    console.log("Third attempt with:", cleanedText);
+                    aiJson = JSON.parse(cleanedText);
+                } else {
+                    throw new Error("No opening brace found");
+                }
+            } catch (e3) {
+                console.warn("Third JSON parse attempt failed:", e3.message);
+                
+                // Fourth attempt: Try with regex to extract valid JSON
+                try {
+                    const jsonRegex = new RegExp(`\\${outermostJsonCharacters[0]}[\\s\\S]*?\\${outermostJsonCharacters[1]}`);
+                    const match = cleanedText.match(jsonRegex);
+                    
+                    if (match) {
+                        console.log("Found JSON match:", match[0]);
+                        aiJson = JSON.parse(match[0]);
+                    } else {
+                        throw new Error("No valid JSON pattern found");
+                    }
+                } catch (e4) {
+                    console.error("All JSON parse attempts failed");
+                    console.error("Raw text we tried to parse:", cleanedText);
+                    return NULL;
+                }
             }
         }
     }
@@ -17645,6 +17851,7 @@ function extractJsonFromAiOutput(aiOutput, chain, outermostJsonCharacters) {
     if (!aiJson) {
         return NULL;
     } else {
+        console.log("Successfully parsed JSON:", aiJson);
         return aiJson;
     }
 }
