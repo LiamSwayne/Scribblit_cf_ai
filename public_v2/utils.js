@@ -46,7 +46,7 @@ const charactersPerToken = 4.82; // https://drchrislevy.github.io/posts/agents/a
 function symbolToString(symbol) {
     ASSERT(typeof symbol === 'symbol', "symbolToString expects a symbol.");
     ASSERT(exists(symbol.description) && symbol.description.length > 0, "Symbol for JSONification must have a description.");
-    return '$(' + symbol.description + ')';
+    return '$' + symbol.description + ')';
 }
 
 function exists(obj) {
@@ -1190,7 +1190,7 @@ class RecurringTaskInstance {
         if (pt.type === 'every_n_days_pattern') {
             datePattern = EveryNDaysPattern.fromAiJson(pt);
         } else if (pt.type === 'weekly_pattern') {
-            datePattern = EveryNDaysPattern.fromAiJson(pt, json.range);
+            datePattern = WeeklyPattern.fromAiJson(pt, json.range);
         } else if (pt.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(pt);
         } else if (pt.type === 'annually_pattern') {
@@ -1628,7 +1628,6 @@ class RecurringEventInstance {
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
     static fromAiJson(json) {
-        console.log('Input to RecurringEventInstance.fromAiJson:', JSON.stringify(json, null, 2));
         if(!exists(json)) {
             return NULL;
         }
@@ -1648,7 +1647,7 @@ class RecurringEventInstance {
         if (p.type === 'every_n_days_pattern') {
             startDatePattern = EveryNDaysPattern.fromAiJson(p);
         } else if (p.type === 'weekly_pattern') {
-            startDatePattern = EveryNDaysPattern.fromAiJson(p, json.range);
+            startDatePattern = WeeklyPattern.fromAiJson(p, json.range);
         } else if (p.type === 'monthly_pattern') {
             startDatePattern = MonthlyPattern.fromAiJson(p);
         } else if (p.type === 'annually_pattern') {
@@ -2180,7 +2179,6 @@ class EventData {
     //   "instances": [ { ... } ]
     // }
     static fromAiJson(json) {
-        console.log('Input to EventData.fromAiJson:', JSON.stringify(json, null, 2));
         if(!exists(json)) {
             return NULL;
         }
@@ -2431,7 +2429,7 @@ class RecurringReminderInstance {
         if (json.date_pattern.type === 'every_n_days_pattern') {
             datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'weekly_pattern') {
-            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern, json.range);
+            datePattern = WeeklyPattern.fromAiJson(json.date_pattern, json.range);
         } else if (json.date_pattern.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'annually_pattern') {
@@ -2683,7 +2681,6 @@ class Entity {
     // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
     // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
     static fromAiJson(aiObject, markPastDueComplete = true, excludeWithinDays = 0, userAlarmDefaults = NULL) {
-        console.log('Input to Entity.fromAiJson:', JSON.stringify(aiObject, null, 2));
         if(!exists(aiObject) || !type(aiObject, Object)) {
             return NULL;
         }

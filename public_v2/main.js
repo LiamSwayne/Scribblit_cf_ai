@@ -9632,106 +9632,6 @@ function openSignInModal() {
     }, 400);
 }
 
-async function processAiEditCommand(command) {
-    if (!command.trim() || !editorModalOpen || !editorModalActiveEntityId) {
-        return;
-    }
-
-    const aiCommandBox = HTML.getElement('editorAiCommandBox');
-    const originalPlaceholder = aiCommandBox.placeholder;
-    aiCommandBox.placeholder = 'AI is thinking...';
-    aiCommandBox.disabled = true;
-
-    const originalEntity = user.entityArray.find(e => e.id === editorModalActiveEntityId);
-    if (!originalEntity) {
-        console.error("Could not find entity to edit.");
-        aiCommandBox.placeholder = originalPlaceholder;
-        aiCommandBox.disabled = false;
-        return;
-    }
-
-    const entityJson = originalEntity.encode();
-
-    try {
-        const response = await fetch(`https://${SERVER_DOMAIN}/ai/edit`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({
-                command: command,
-                entity: entityJson
-            })
-        });
-
-        if (!response.ok) {
-            await handleBackendError(response, 'processAiEditCommand');
-            throw new Error('Backend AI edit request failed');
-        }
-
-        const responseData = await response.json();
-        
-        if (responseData.error) {
-            throw new Error(responseData.error);
-        }
-
-        // Create a Chain instance to track the entire process.
-        const chain = new Chain();
-
-        // Populate the chain with nodes returned from the backend.
-        if (responseData.chain && Array.isArray(responseData.chain)) {
-            for (const nodeObject of responseData.chain) {
-                const node = Chain.nodeFromJson(nodeObject);
-                if (node) {
-                    chain.add(node);
-                }
-            }
-        }
-        
-        // Pass the populated chain instance to extractJsonFromAiOutput.
-        const updatedEntityJson = extractJsonFromAiOutput(responseData.aiOutput, chain, '{}');
-
-        if (updatedEntityJson === NULL) {
-            throw new Error("Failed to parse AI's updated entity JSON.");
-        }
-
-        const newEntity = Entity.fromAiJson(updatedEntityJson, false);
-
-        if (newEntity === NULL) {
-            chain.add(new FailedToCreateEntityNode(updatedEntityJson, Date.now(), Date.now()));
-            throw new Error("Failed to create entity from AI's JSON response.");
-        } else {
-            chain.add(new CreatedEntityNode(updatedEntityJson, newEntity, Date.now(), Date.now()));
-        }
-        
-        newEntity.id = originalEntity.id;
-
-        const entityIndex = user.entityArray.findIndex(e => e.id === originalEntity.id);
-        if (entityIndex > -1) {
-            user.entityArray[entityIndex] = newEntity;
-        } else {
-            user.entityArray.push(newEntity);
-        }
-
-        chain.completeRequest();
-        console.log("Completed AI Edit Chain:", chain);
-
-        await saveUserData(user);
-        
-        const currentInstanceIndex = editorModalActiveInstanceIndex;
-        closeEditorModal();
-        
-        setTimeout(() => {
-            initEditorModal(newEntity.id, currentInstanceIndex);
-        }, 350);
-
-
-    } catch (error) {
-        console.error('Error processing AI edit command:', error);
-        alert(`AI Edit Failed: ${error.message}`);
-        aiCommandBox.placeholder = originalPlaceholder;
-        aiCommandBox.disabled = false;
-    }
-}
-
 function slideSignInButtonOffScreen() {
     // Warp (genie) effect: button is pulled toward the settings gear while being vertically squished
     const signInButton = HTML.getElementUnsafely('signInButton');
@@ -10763,50 +10663,6 @@ function initEditorModal(id, instanceClicked) {
     const modalLeft = (window.innerWidth - editorModalWidth) / 2;
     const modalTop = (window.innerHeight - editorModalHeight) / 2;
     
-    const aiCommandBoxWidth = editorModalWidth - 40;
-    const aiCommandBoxLeft = modalLeft + (editorModalWidth - aiCommandBoxWidth) / 2;
-    const aiCommandBoxTop = modalTop - 40;
-
-    const aiCommandBox = HTML.make('input');
-    HTML.setId(aiCommandBox, 'editorAiCommandBox');
-    aiCommandBox.type = 'text';
-    aiCommandBox.placeholder = 'Ask AI to edit this entity...';
-
-    HTML.setStyle(aiCommandBox, {
-        position: 'fixed',
-        top: aiCommandBoxTop + 'px',
-        left: aiCommandBoxLeft + 'px',
-        width: aiCommandBoxWidth + 'px',
-        height: '30px',
-        backgroundColor: 'var(--shade-0)',
-        border: '2px solid var(--shade-1)',
-        borderRadius: '8px',
-        zIndex: String(editorModalBaseZIndex + 1),
-        opacity: '0',
-        transition: 'opacity 0.3s ease, border-color 0.2s ease',
-        padding: '0 10px',
-        fontFamily: 'PrimaryRegular',
-        fontSize: '13px',
-        color: 'var(--shade-4)',
-        outline: 'none'
-    });
-
-    aiCommandBox.addEventListener('focus', function() {
-        HTML.setStyle(this, { borderColor: 'var(--accent-1)' });
-    });
-    aiCommandBox.addEventListener('blur', function() {
-        HTML.setStyle(this, { borderColor: 'var(--shade-1)' });
-    });
-
-    aiCommandBox.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            processAiEditCommand(this.value);
-        }
-    });
-
-    HTML.body.appendChild(aiCommandBox);
-    
     // Create vignette background
     editorModalVignette = HTML.make('div');
     HTML.setId(editorModalVignette, 'editorModalVignette');
@@ -11165,7 +11021,6 @@ function initEditorModal(id, instanceClicked) {
         HTML.setStyle(editorModal, { 
             opacity: '1',
         });
-        HTML.setStyle(aiCommandBox, { opacity: '1' });
         HTML.setStyle(closeButton, { opacity: '1' });
         HTML.setStyle(trashButton, { opacity: '1' });
         HTML.setStyle(titleInput, { opacity: '1' });
@@ -17315,11 +17170,6 @@ function closeEditorModal() {
     if (separatorLine) {
         HTML.setStyle(separatorLine, { opacity: '0' });
     }
-
-    const aiCommandBox = HTML.getElementUnsafely('editorAiCommandBox');
-    if (aiCommandBox) {
-        HTML.setStyle(aiCommandBox, { opacity: '0' });
-    }
     
     // Remove elements after animation
     setTimeout(() => {
@@ -17331,10 +17181,6 @@ function closeEditorModal() {
         if (editorModal && editorModal.parentNode) {
             HTML.body.removeChild(editorModal);
             editorModal = null;
-        }
-
-        if (aiCommandBox && aiCommandBox.parentNode) {
-            HTML.body.removeChild(aiCommandBox);
         }
 
         editorModalOpen = false;
@@ -17372,22 +17218,8 @@ function updateEditorModalPosition() {
             left: modalLeft + 'px',
         });
     }
-
-        const aiCommandBox = HTML.getElementUnsafely('editorAiCommandBox');
-    if (exists(aiCommandBox)) {
-        const modalLeft = (window.innerWidth - editorModalWidth) / 2;
-        const modalTop = (window.innerHeight - editorModalHeight) / 2;
-        const aiCommandBoxWidth = editorModalWidth - 40;
-        const aiCommandBoxLeft = modalLeft + (editorModalWidth - aiCommandBoxWidth) / 2;
-        const aiCommandBoxTop = modalTop - 40;
-        HTML.setStyle(aiCommandBox, {
-            top: aiCommandBoxTop + 'px',
-            left: aiCommandBoxLeft + 'px',
-            width: aiCommandBoxWidth + 'px'
-        });
-    }
     
-    // Update main kind selector position
+    // Update main kind selector position 
     const selectorTop = modalTop + 27;
     const selectorLeft = modalLeft + 5;
     moveSelector(editorModalKindSelectorId, selectorLeft, selectorTop);

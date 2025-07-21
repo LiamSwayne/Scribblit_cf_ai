@@ -371,79 +371,6 @@ These titles are being added to the user's personal task manager and calendar, a
 
 YOU SHOULD CORRECT ALL TITLES TO BE CAPITALIZED LIKE A REGULAR SENTENCE IN A BOOK. Do not include your comments, only the formatted titles in a JSON array.`;
 
-const aiEditSystemPrompt = `You are an AI that takes in a user's command to edit an existing Task, Event, or Reminder JSON object and outputs the modified version. The input will include the current JSON object and the edit command. Your output must be ONLY the complete, updated JSON object—do not add any commentary or extra text. Preserve all unchanged fields from the original JSON, and only modify or add fields as specified in the command. If the command implies creating a new pattern or instance, ensure all required fields (like "range" for patterns) are included, inferring sensible defaults if needed (e.g., start today with no end for unbounded ranges).
-
-The JSON object will adhere to one of the following structures. Only include OPTIONAL fields if they are present in the original JSON or if the user's command explicitly adds them.
-
-Task JSON:
-{
-    "type": "task"
-    "name": // use sentence case  
-    "instances": [ // 2 options
-	    {
-		    "type": "due_date_instance"
-		    "date": "YYYY-MM-DD" // OPTIONAL. if a time a is given then assume the due date is today
-		    "time": "HH:MM"// OPTIONAL
-	    }
-	    {
-		    "type": "due_date_pattern"
-		    "pattern": ${datePatternTypesPrompt}
-		    "time": "HH:MM" // OPTIONAL
-		    "range": // REQUIRED for patterns: "YYYY-MM-DD:YYYY-MM-DD" bounds for when the pattern should start and end, or if no bounds are given assume starts today and has no end so its "YYYY-MM-DD:null", or give an integer for n times total across this instance.
-	    }
-	]
-	"work_sessions": [ // OPTIONAL
-		// array of objects with types "event_instance" and "event_pattern"
-		// times when the user has said they want to work on the task
-	]
-}
-
-Event JSON:
-{
-	"type": "event"
-	"name": // use sentence case
-	"instances": [ // 2 options
-		{
-			"type": "event_instance"
-			"start_date": "YYYY-MM-DD", must be included if an end time is given
-			"start_time": "HH:MM" // OPTIONAL, include if the start time is explictly known
-			"end_time": "HH:MM" // OPTIONAL, include if the end time is explictly known
-			"different_end_date": "YYYY-MM-DD" // OPTIONAL, include if the event runs 24/7 and ends on a different date than the start date
-		}
-		{
-			"type": "event_pattern"
-			"start_date_pattern": // object with type weekly_pattern, every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
-			"start_time": "HH:MM" // OPTIONAL
-			"end_time": "HH:MM" // OPTIONAL
-			"different_end_date_offset": // OPTIONAL, integer for how many days each occurrence of the event ends after it starts. only include if the event ends on a different day than it starts. can only be included if end_time is also given
-			"range": // REQUIRED for patterns: "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
-		}
-	]
-}
-
-Reminder JSON:
-{
-	"type": "reminder"
-	"name": // use sentence case
-	"instances": [
-		{
-			"type": "reminder_instance"
-			"date": "YYYY-MM-DD"
-		    "time": "HH:MM"
-		}
-		{
-			"type": "reminder_pattern"
-			"date_pattern": // object with type weekly_pattern, every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern 
-		    "time": "HH:MM"
-		    "range": // REQUIRED for patterns: "YYYY-MM-DD:YYYY-MM-DD" or "YYYY-MM-DD:null" or integer number of times
-		}
-	]
-}
-
-Don't forget to have commas in the JSON. IF THE USER SPECIFIES HOUR OF DAY BUT NOT AM OR PM, AND IT IS PAST THE AM HOUR, YOU MUST ASSUME IT IS PM. FOR EXAMPLE, IF IT IS 11 AM AND THE USER SAYS "thing at 9", YOU MUST ASSUME IT IS 9 PM. Ensure the output is a single valid JSON object matching the original type.
-
-If the user needs to cancel a single occurence of something that is part of the pattern, the way to do it is to split the pattern into two instances of that same pattern, one for occurences before and one for after by just having the pattern but editing their ranges to exclude the cancelled occurence.`;
-
 async function draftEntities(userPrompt, env) {
     if (!userPrompt || userPrompt.trim().length === 0) {
         return SEND({ error: 'userPrompt is required' }, 475);
@@ -548,11 +475,6 @@ async function formatTitles(titlesObject, descriptionOfFiles, fileArray, env) {
             return SEND({ error: 'Failed to format titles' }, 475);
         }
     }
-}
-
-function createAiEditPrompt(command, entity) {
-    const entityString = JSON.stringify(entity, null, 2);
-    return `User Command: "${command}"\n\nExisting Entity JSON:\n${entityString}`;
 }
 
 function createPromptWithFileDescription(userPrompt='', descriptionOfFiles) {
@@ -1369,7 +1291,7 @@ async function checkAndUpdateUsage(authHeader, env, strategy) {
         return SEND({ error: 'Strategy is required.' }, 485);
     }
 
-    if (strategy === 'step_by_step:2/2' || strategy === 'edit_entity') {
+    if (strategy === 'step_by_step:2/2') {
         return null;
     }
 
@@ -1997,52 +1919,6 @@ export default {
                     } catch (err) {
                         console.error('Title format error:', err);
                         return SEND({ error: 'Failed to format titles: ' + err.message }, 500);
-                    }
-                }
-
-            case '/ai/edit':
-                {
-                    if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
-                    try {
-                        const authHeader = request.headers.get('Authorization');
-                        const usageCheck = await checkAndUpdateUsage(authHeader, env, 'edit_entity');
-                        if (usageCheck) {
-                            return usageCheck;
-                        }
-
-                        const { command, entity } = await request.json();
-
-                        if (!command || !entity) {
-                            return SEND({ error: 'Command and entity JSON are required.' }, 400);
-                        }
-
-                        const editPrompt = createAiEditPrompt(command, entity);
-
-                        const startTime = Date.now();
-                        const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, editPrompt, env, [], aiEditSystemPrompt, true);
-                        const aiOutput = geminiResult.response;
-
-                        if (!aiOutput || aiOutput.trim() === '') {
-                             return SEND({ error: 'AI failed to generate an edit.' }, 500);
-                        }
-                        
-                        const chain = [{
-                            thinking_request: {
-                                model: MODELS.GEMINI_MODELS.flash,
-                                typeOfPrompt: 'edit_entity',
-                                response: aiOutput,
-                                thoughts: geminiResult.thoughts,
-                                startTime,
-                                endTime: Date.now(),
-                                userPrompt: editPrompt,
-                                systemPrompt: aiEditSystemPrompt
-                            }
-                        }];
-                        
-                        return SEND({ aiOutput, chain }, 200);
-                    } catch (err) {
-                        console.log('AI edit error:', err);
-                        return SEND({ error: 'Failed to process AI edit request: ' + err.message }, 500);
                     }
                 }
 
