@@ -2002,17 +2002,19 @@ export default {
                         const editPrompt = createAiEditPrompt(command, entity);
 
                         const startTime = Date.now();
-                        const aiOutput = await callXaiModel(MODELS.XAI_MODELS.grok4, editPrompt, env, [], aiEditSystemPrompt);
+                        const geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, editPrompt, env, [], aiEditSystemPrompt, true);
+                        const aiOutput = geminiResult.response;
 
                         if (!aiOutput || aiOutput.trim() === '') {
                              return SEND({ error: 'AI failed to generate an edit.' }, 500);
                         }
                         
                         const chain = [{
-                            request: {
-                                model: MODELS.XAI_MODELS.grok4,
+                            thinking_request: {
+                                model: MODELS.GEMINI_MODELS.flash,
                                 typeOfPrompt: 'edit_entity',
                                 response: aiOutput,
+                                thoughts: geminiResult.thoughts,
                                 startTime,
                                 endTime: Date.now(),
                                 userPrompt: editPrompt,

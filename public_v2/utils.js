@@ -1190,7 +1190,7 @@ class RecurringTaskInstance {
         if (pt.type === 'every_n_days_pattern') {
             datePattern = EveryNDaysPattern.fromAiJson(pt);
         } else if (pt.type === 'weekly_pattern') {
-            datePattern = WeeklyPattern.fromAiJson(pt, json.range);
+            datePattern = EveryNDaysPattern.fromAiJson(pt, json.range);
         } else if (pt.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(pt);
         } else if (pt.type === 'annually_pattern') {
@@ -1647,7 +1647,7 @@ class RecurringEventInstance {
         if (p.type === 'every_n_days_pattern') {
             startDatePattern = EveryNDaysPattern.fromAiJson(p);
         } else if (p.type === 'weekly_pattern') {
-            startDatePattern = WeeklyPattern.fromAiJson(p, json.range);
+            startDatePattern = EveryNDaysPattern.fromAiJson(p, json.range);
         } else if (p.type === 'monthly_pattern') {
             startDatePattern = MonthlyPattern.fromAiJson(p);
         } else if (p.type === 'annually_pattern') {
@@ -2429,7 +2429,7 @@ class RecurringReminderInstance {
         if (json.date_pattern.type === 'every_n_days_pattern') {
             datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'weekly_pattern') {
-            datePattern = WeeklyPattern.fromAiJson(json.date_pattern, json.range);
+            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern, json.range);
         } else if (json.date_pattern.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'annually_pattern') {
