@@ -1673,6 +1673,7 @@ export default {
                             data,
                             dataspec,
                             timestamp,
+                            workflowStuff,
                         } = await request.json();
 
                         if (typeof data !== 'string' || typeof dataspec !== 'number' || typeof timestamp !== 'number') {
@@ -1687,6 +1688,29 @@ export default {
                             timestamp,
                             email
                         ).run();
+
+                        // Trigger GitHub dispatch if workflowStuff provided
+                        if (workflowStuff && typeof workflowStuff === 'object') {
+                            const repo = 'LiamSwayne/Scribblit';
+                            const githubToken = env.SCRIBBLIT_READ_AND_WRITE_TO_REPO; // PAT
+                            if (githubToken) {
+                                await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${githubToken}`,
+                                        'Accept': 'application/vnd.github.v3+json'
+                                    },
+                                    body: JSON.stringify({
+                                        event_type: 'generate_workflow',
+                                        client_payload: workflowStuff
+                                    })
+                                });
+                            } else {
+                                return SEND({ error: 'GitHub token is not provided.' }, 479);
+                            }
+                        } else {
+                            return SEND({ error: 'Workflow payload is missing or invalid.' }, 479);
+                        }
 
                         return SEND({ success: true });
                     } catch (err) {
