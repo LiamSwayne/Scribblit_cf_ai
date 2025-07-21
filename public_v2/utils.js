@@ -4499,7 +4499,7 @@ function generateGithubAction(userId, emailAddress) {
     const workflowYml = `name: ${workflowName}
 
 on:
-  schedule:
+  schedule: # remember these are in UTC! so they don't necessarily line up with local time
 ${cronLines}
 
 jobs:
