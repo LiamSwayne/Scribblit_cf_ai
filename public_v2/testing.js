@@ -1,6 +1,6 @@
 async function testContinously() {
-    // Wait for user to be initialized
-    while (typeof user === 'undefined') {
+    // Wait for main.js to initialize
+    while (typeof hasInitialized === 'undefined' || !hasInitialized) {
         await sleep(0.01);
     }
     
@@ -33,51 +33,90 @@ function resetUserData() {
 
 // Alarm generation tests
 async function runAlarmTests() {
-    // Wait until utils and user are loaded
-    while (typeof DateField === 'undefined' || typeof TaskData === 'undefined') {
+    // Wait until main.js has initialized
+    while (typeof hasInitialized === 'undefined' || !hasInitialized) {
         await sleep(0.01);
     }
 
-    const now = new Date();
-    const MS_PER_MIN = 60 * 1000;
+    const DateTime = luxon.DateTime;
+    const baseDate = DateTime.local();
+    const now_ts = baseDate.toMillis();
+    const future_ts = baseDate.plus({ days: 2 }).toMillis();
 
-    // Helper to create DateField from JS Date
-    const df = (dt) => new DateField(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+    const tomorrowDate = baseDate.plus({days: 1});
+    const tomorrow = new DateField(tomorrowDate.year, tomorrowDate.month, tomorrowDate.day);
 
     // ------- TaskData Non-Recurring -------
-    const tomorrow = new Date(now.getTime() + MS_PER_DAY);
-    const taskDueDate = df(tomorrow);
-    const taskDueTime = new TimeField(10, 0); // 10:00
-    const nrTaskInst = new NonRecurringTaskInstance(taskDueDate, taskDueTime, false);
-    const taskData = new TaskData([nrTaskInst], NULL, true, [], 10); // 10-min alarm
-
-    let alarms = taskData.getAlarmTimes(Date.now(), Date.now() + 2 * MS_PER_DAY);
-    const expectedTaskAlarm = dueUnixTimestamp(taskDueDate, taskDueTime) - 10 * MS_PER_MIN;
+    const taskData = new TaskData(
+        [new NonRecurringTaskInstance(tomorrow, new TimeField(10, 0), false)],
+        NULL, true, [], 10
+    );
+    let alarms = taskData.getAlarmTimes(now_ts, future_ts);
+    const expectedTaskAlarm = dueUnixTimestamp(tomorrow, new TimeField(10, 0)) - 10 * 60 * 1000;
     ASSERT(alarms.length === 1 && alarms[0].time === expectedTaskAlarm, "TaskData non-recurring alarm failed");
 
     // ------- EventData Non-Recurring (start & end) -------
-    const evStartDate = df(tomorrow);
-    const evStartTime = new TimeField(9, 0);
-    const evEndTime = new TimeField(10, 0);
-    const nrEventInst = new NonRecurringEventInstance(evStartDate, evStartTime, evEndTime, NULL);
-    const eventData = new EventData([nrEventInst], 10, 5); // 10-min before start, 5-min before end
-
-    alarms = eventData.getAlarmTimes(Date.now(), Date.now() + 2 * MS_PER_DAY);
-    const evStartUnix = evStartDate.toUnixTimestamp() + 9 * 60 * MS_PER_MIN;
-    const evStartAlarm = evStartUnix - 10 * MS_PER_MIN;
-    const evEndUnix = evStartDate.toUnixTimestamp() + 10 * 60 * MS_PER_MIN;
-    const evEndAlarm = evEndUnix - 5 * MS_PER_MIN;
+    const eventData = new EventData(
+        [new NonRecurringEventInstance(tomorrow, new TimeField(9, 0), new TimeField(10, 0), NULL)],
+        10, 5
+    );
+    alarms = eventData.getAlarmTimes(now_ts, future_ts);
+    const evStartUnix = tomorrow.toUnixTimestamp() + 9 * 60 * 60 * 1000;
+    const evStartAlarm = evStartUnix - 10 * 60 * 1000;
+    const evEndUnix = tomorrow.toUnixTimestamp() + 10 * 60 * 60 * 1000;
+    const evEndAlarm = evEndUnix - 5 * 60 * 1000;
     ASSERT(alarms.some(a => a.time === evStartAlarm && !a.isEnd), "EventData start alarm missing");
     ASSERT(alarms.some(a => a.time === evEndAlarm && a.isEnd), "EventData end alarm missing");
 
     // ------- ReminderData Non-Recurring -------
-    const remDate = df(tomorrow);
-    const remTime = new TimeField(8, 0);
-    const nrRemInst = new NonRecurringReminderInstance(remDate, remTime);
-    const reminderData = new ReminderData([nrRemInst], true);
-    alarms = reminderData.getAlarmTimes(Date.now(), Date.now() + 2 * MS_PER_DAY);
-    const remExpected = remDate.toUnixTimestamp() + 8 * 60 * MS_PER_MIN;
+    const reminderData = new ReminderData(
+        [new NonRecurringReminderInstance(tomorrow, new TimeField(8, 0))],
+        true
+    );
+    alarms = reminderData.getAlarmTimes(now_ts, future_ts);
+    const remExpected = tomorrow.toUnixTimestamp() + 8 * 60 * 60 * 1000;
     ASSERT(alarms.length === 1 && alarms[0].time === remExpected, "ReminderData non-recurring alarm failed");
+
+    // ------- ReminderData Recurring (Daily) -------
+    const todayForRecurrence = new DateField(baseDate.year, baseDate.month, baseDate.day);
+    const reminderDataRec = new ReminderData(
+        [
+            new RecurringReminderInstance(
+                new EveryNDaysPattern(todayForRecurrence, 1),
+                new TimeField(21, 0),
+                new RecurrenceCount(todayForRecurrence, 30)
+            )
+        ],
+        true
+    );
+    alarms = reminderDataRec.getAlarmTimes(now_ts, future_ts);
+
+    const expectedAlarms = [];
+    const alarmTime = { hour: 21, minute: 0, second: 0, millisecond: 0 };
+
+    let alarmToday = baseDate.set(alarmTime);
+    // If it's already past 9pm today, the next alarm is tomorrow
+    if (alarmToday < now_ts) {
+        alarmToday = alarmToday.plus({ days: 1 });
+    }
+
+    // We expect an alarm for today (if not past) and tomorrow
+    if (alarmToday.toMillis() < future_ts) {
+        expectedAlarms.push(alarmToday.toMillis());
+    }
+
+    const alarmTomorrow = alarmToday.plus({ days: 1 });
+    if (alarmTomorrow.toMillis() < future_ts) {
+        expectedAlarms.push(alarmTomorrow.toMillis());
+    }
+    
+    ASSERT(alarms.length === expectedAlarms.length, `Recurring Reminder: Expected ${expectedAlarms.length} alarms, but got ${alarms.length}`);
+    
+    const actualTimes = alarms.map(a => a.time).sort();
+    expectedAlarms.sort();
+    for (let i = 0; i < expectedAlarms.length; i++) {
+        ASSERT(actualTimes[i] === expectedAlarms[i], `Recurring Reminder: Alarm ${i+1} has incorrect timestamp. Expected ${expectedAlarms[i]} but got ${actualTimes[i]}`);
+    }
 }
 
 // Run alarm tests after slight delay to ensure environment ready
