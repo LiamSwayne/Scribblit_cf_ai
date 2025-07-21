@@ -1,4 +1,4 @@
-let TESTING = true;
+let TESTING = false;
 let TESTING_USER_IS_EMPTY = false;
 let TESTING_SHOW_LOGS = true;
 
@@ -4519,20 +4519,28 @@ jobs:
             echo "Data file not found: $data_file"
             exit 0
           fi
-          now=$(date +%s)
-          tmp_file=$(mktemp)
-          while IFS=',' read -r unix status message; do
-            if [ "$status" = "UNSENT" ] && [ "$unix" -le "$now" ]; then
-              curl -X POST https://api.sendgrid.com/v3/mail/send \
-                -H "Authorization: Bearer $SENDGRID_API_KEY" \
-                -H "Content-Type: application/json" \
-                -d '{"personalizations":[{"to":[{"email":"'$USER_EMAIL'"}],"subject":"'$message'"}],"from":{"email":"noreply@scribbl.it"},"content":[{"type":"text/plain","value":"'$message'"}]}'
-              echo "$unix,SENT,$message" >> "$tmp_file"
+          now=\$(date +%s)
+          tmp_file=\$(mktemp)
+          while IFS= read -r line || [ -n "\$line" ]; do
+            unix="\${line%%,*}"
+            rest_after_unix="\${line#*,}"
+            id="\${rest_after_unix%%,*}"
+            rest_after_id="\${rest_after_unix#*,}"
+            status="\${rest_after_id%%,*}"
+            message="\${rest_after_id#*,}"
+            if [ "\$status" = "UNSENT" ] && [ "\$unix" -le "\$now" ]; then
+              escaped_message=\$(echo "\$message" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+              json_payload=\$(printf '{"personalizations":[{"to":[{"email":"%s"}],"subject":"%s"}],"from":{"email":"noreply@scribbl.it"},"content":[{"type":"text/plain","value":"%s"}]}' "\$USER_EMAIL" "\$escaped_message" "\$escaped_message")
+              curl -s -X POST https://api.sendgrid.com/v3/mail/send \\
+                -H "Authorization: Bearer \$SENDGRID_API_KEY" \\
+                -H "Content-Type: application/json" \\
+                -d "\$json_payload"
+              echo "\$unix,\$id,SENT,\$message" >> "\$tmp_file"
             else
-              echo "$unix,$status,$message" >> "$tmp_file"
+              echo "\$line" >> "\$tmp_file"
             fi
-          done < "$data_file"
-          mv "$tmp_file" "$data_file"
+          done < "\$data_file"
+          mv "\$tmp_file" "\$data_file"
 
       - name: Commit changes
         env:
