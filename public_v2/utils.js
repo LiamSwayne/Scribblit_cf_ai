@@ -2085,6 +2085,48 @@ class TaskData {
             return NULL;
         }
     }
+
+    // Generates all alarm times for the task within the specified time range
+    // Excludes alarms for completed tasks or completed occurrences
+    getAlarmTimes(startUnix, endUnix) {
+        ASSERT(type(this, TaskData));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+        
+        // If no alarm is set for the task, return empty array
+        if (this.alarm === NULL) {
+            return [];
+        }
+        
+        const alarmOffset = this.alarm * 60 * 1000; // Convert minutes to milliseconds
+        const alarmTimes = [];
+        
+        // Get all due dates for the task within the range
+        const dueInstances = this.getDueDates(startUnix, endUnix);
+        
+        // For each instance's due dates
+        for (const instanceDueDates of dueInstances) {
+            // For each due date within the instance
+            for (const dueInfo of instanceDueDates) {
+                // Skip if this specific occurrence is completed
+                if (!dueInfo.completed) {
+                    // Calculate alarm time
+                    const alarmTime = dueInfo.date - alarmOffset;
+                    
+                    // Only add if the alarm time falls within our range
+                    if ((startUnix === NULL || alarmTime >= startUnix) && 
+                        (endUnix === NULL || alarmTime <= endUnix)) {
+                        alarmTimes.push({
+                            time: alarmTime,
+                            dueDate: dueInfo.date
+                        });
+                    }
+                }
+            }
+        }
+        
+        return alarmTimes;
+    }
 }
 
 class EventData {
@@ -2267,6 +2309,170 @@ class EventData {
             log('EventData.fromAiJson: error creating EventData');
             return NULL;
         }
+    }
+
+    // Generates all alarm times for the event within the specified time range
+    // Handles both start alarms and end alarms
+    getAlarmTimes(startUnix, endUnix) {
+        ASSERT(type(this, EventData));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+        
+        const alarmTimes = [];
+        
+        // Helper to push alarm into array if inside the filter window
+        const maybeAddAlarm = (alarmTime, eventTime, isEnd) => {
+            if ((startUnix === NULL || alarmTime >= startUnix) &&
+                (endUnix === NULL || alarmTime <= endUnix)) {
+                alarmTimes.push({ time: alarmTime, eventTime, isEnd });
+            }
+        };
+
+        // Helper that returns all occurrence midnights for a recurring instance in the [lower, upper] window
+        const getOccurrences = (instance, lower, upper) => {
+            const pattern = instance.startDatePattern;
+            const range = instance.range;
+
+            let lowerBound = lower;
+            let upperBound = upper;
+
+            // Respect the instance's own range (DateRange or RecurrenceCount)
+            if (type(range, DateRange)) {
+                lowerBound = Math.max(lowerBound, range.startDate.toUnixTimestamp());
+                const endRange = range.endDate === NULL ? defaultCutoffUnix : range.endDate.toUnixTimestamp();
+                upperBound = Math.min(upperBound, endRange);
+            } else if (type(range, RecurrenceCount)) {
+                lowerBound = Math.max(lowerBound, range.initialDate.toUnixTimestamp());
+                // RecurrenceCount has no explicit upper bound; we'll rely on count when pushing occurrences
+            }
+
+            const occ = [];
+
+            if (type(pattern, EveryNDaysPattern)) {
+                let current = pattern.initialDate.toUnixTimestamp();
+                // move current to >= lowerBound
+                while (current < lowerBound) {
+                    current += pattern.n * MS_PER_DAY;
+                }
+                while (current <= upperBound) {
+                    occ.push(current);
+                    current += pattern.n * MS_PER_DAY;
+                    if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                }
+            } else if (type(pattern, MonthlyPattern)) {
+                const startDate = new Date(lowerBound);
+                const endDate = new Date(upperBound);
+                for (let year = startDate.getUTCFullYear(); year <= endDate.getUTCFullYear(); year++) {
+                    const monthStart = (year === startDate.getUTCFullYear()) ? startDate.getUTCMonth() : 0;
+                    const monthEnd = (year === endDate.getUTCFullYear()) ? endDate.getUTCMonth() : 11;
+                    for (let m = monthStart; m <= monthEnd; m++) {
+                        if (!pattern.months[m]) continue;
+                        let day = pattern.day;
+                        if (day === -1) {
+                            // last day of month
+                            day = new Date(Date.UTC(year, m + 1, 0)).getUTCDate();
+                        }
+                        const dt = new Date(Date.UTC(year, m, day));
+                        const ts = dt.getTime();
+                        if (ts >= lowerBound && ts <= upperBound) {
+                            occ.push(ts);
+                            if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                        }
+                    }
+                    if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                }
+            } else if (type(pattern, AnnuallyPattern)) {
+                const startYear = new Date(lowerBound).getUTCFullYear();
+                const endYear = new Date(upperBound).getUTCFullYear();
+                for (let year = startYear; year <= endYear; year++) {
+                    const dt = new Date(Date.UTC(year, pattern.month - 1, pattern.day));
+                    const ts = dt.getTime();
+                    if (ts >= lowerBound && ts <= upperBound) {
+                        occ.push(ts);
+                        if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                    }
+                }
+            } else if (type(pattern, NthWeekdayOfMonthsPattern)) {
+                const dayOfWeekMap = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 };
+                const targetDow = dayOfWeekMap[pattern.dayOfWeek];
+                const startDate = new Date(lowerBound);
+                const endDate = new Date(upperBound);
+                for (let year = startDate.getUTCFullYear(); year <= endDate.getUTCFullYear(); year++) {
+                    const monthStart = (year === startDate.getUTCFullYear()) ? startDate.getUTCMonth() : 0;
+                    const monthEnd = (year === endDate.getUTCFullYear()) ? endDate.getUTCMonth() : 11;
+                    for (let m = monthStart; m <= monthEnd; m++) {
+                        if (!pattern.months[m]) continue;
+                        // Collect all weekdays matching dow in month
+                        const daysInMonth = new Date(Date.UTC(year, m + 1, 0)).getUTCDate();
+                        const weekdayDates = [];
+                        for (let d = 1; d <= daysInMonth; d++) {
+                            const date = new Date(Date.UTC(year, m, d));
+                            if (date.getUTCDay() === targetDow) weekdayDates.push(date.getTime());
+                        }
+                        if (pattern.nthWeekdays === LAST_WEEK_OF_MONTH) {
+                            if (weekdayDates.length > 0) occ.push(weekdayDates[weekdayDates.length - 1]);
+                        } else {
+                            pattern.nthWeekdays.forEach((flag, idx) => {
+                                if (flag && idx < weekdayDates.length) occ.push(weekdayDates[idx]);
+                            });
+                        }
+                    }
+                }
+                occ.sort((a,b)=>a-b);
+                if (type(range, RecurrenceCount)) occ.splice(range.count);
+            }
+
+            return occ;
+        };
+
+        // Iterate instances
+        for (const instance of this.instances) {
+            // -------- START ALARMS --------
+            if (this.startAlarm !== NULL) {
+                const offsetMs = this.startAlarm * 60 * 1000;
+
+                if (type(instance, NonRecurringEventInstance)) {
+                    const dateMid = instance.startDate.toUnixTimestamp();
+                    const startDateTime = dateMid + (instance.startTime === NULL ? 0 : ((instance.startTime.hour * 60 + instance.startTime.minute) * 60 * 1000));
+                    maybeAddAlarm(startDateTime - offsetMs, startDateTime, false);
+                } else if (type(instance, RecurringEventInstance)) {
+                    // Expand search window for occurrences because alarm may fire before startUnix
+                    const expandedLower = startUnix === NULL ? 0 : startUnix - offsetMs;
+                    const upper = endUnix === NULL ? defaultCutoffUnix : endUnix;
+                    const occurrences = getOccurrences(instance, expandedLower, upper);
+                    for (const dateMid of occurrences) {
+                        const startDateTime = dateMid + (instance.startTime === NULL ? 0 : ((instance.startTime.hour * 60 + instance.startTime.minute) * 60 * 1000));
+                        maybeAddAlarm(startDateTime - offsetMs, startDateTime, false);
+                    }
+                }
+            }
+
+            // -------- END ALARMS --------
+            if (this.endAlarm !== NULL) {
+                if (instance.endTime === NULL) continue; // skip if no end time
+                const offsetMs = this.endAlarm * 60 * 1000;
+
+                if (type(instance, NonRecurringEventInstance)) {
+                    const startMid = instance.startDate.toUnixTimestamp();
+                    const endMid = (instance.differentEndDate !== NULL ? instance.differentEndDate : instance.startDate).toUnixTimestamp();
+                    const endDateTime = endMid + ((instance.endTime.hour * 60 + instance.endTime.minute) * 60 * 1000);
+                    maybeAddAlarm(endDateTime - offsetMs, endDateTime, true);
+                } else if (type(instance, RecurringEventInstance)) {
+                    const expandedLower = startUnix === NULL ? 0 : startUnix - offsetMs;
+                    const upper = endUnix === NULL ? defaultCutoffUnix : endUnix;
+                    const occurrences = getOccurrences(instance, expandedLower, upper);
+                    const daySpan = instance.differentEndDatePattern === NULL ? 0 : instance.differentEndDatePattern;
+                    for (const dateMid of occurrences) {
+                        const endMid = dateMid + daySpan * MS_PER_DAY;
+                        const endDateTime = endMid + ((instance.endTime.hour * 60 + instance.endTime.minute) * 60 * 1000);
+                        maybeAddAlarm(endDateTime - offsetMs, endDateTime, true);
+                    }
+                }
+            }
+        }
+
+        alarmTimes.sort((a,b)=>a.time-b.time);
+        return alarmTimes;
     }
 }
 
@@ -2618,6 +2824,133 @@ class ReminderData {
             log('ReminderData.fromAiJson: error creating ReminderData');
             return NULL;
         }
+    }
+
+    // Generates all alarm times for the reminder within the specified time range
+    // Returns an array of { time: <unix timestamp> } objects
+    getAlarmTimes(startUnix, endUnix) {
+        ASSERT(type(this, ReminderData));
+        ASSERT(type(startUnix, Union(Int, NULL)));
+        ASSERT(type(endUnix, Union(Int, NULL)));
+
+        if (!this.alarm) {
+            return [];
+        }
+
+        const alarmTimes = [];
+
+        // helper to conditionally push
+        const maybeAdd = (ts) => {
+            if ((startUnix === NULL || ts >= startUnix) && (endUnix === NULL || ts <= endUnix)) {
+                alarmTimes.push({ time: ts });
+            }
+        };
+
+        // helper to get occurrences for recurring reminder within window
+        const getOccurrences = (instance, lower, upper) => {
+            const pattern = instance.datePattern;
+            const range = instance.range;
+
+            let lowerBound = lower;
+            let upperBound = upper;
+            if (type(range, DateRange)) {
+                lowerBound = Math.max(lowerBound, range.startDate.toUnixTimestamp());
+                const rangeEnd = range.endDate === NULL ? defaultCutoffUnix : range.endDate.toUnixTimestamp();
+                upperBound = Math.min(upperBound, rangeEnd);
+            } else if (type(range, RecurrenceCount)) {
+                lowerBound = Math.max(lowerBound, range.initialDate.toUnixTimestamp());
+            }
+
+            const occ = [];
+
+            if (type(pattern, EveryNDaysPattern)) {
+                let current = pattern.initialDate.toUnixTimestamp();
+                while (current < lowerBound) {
+                    current += pattern.n * MS_PER_DAY;
+                }
+                while (current <= upperBound) {
+                    occ.push(current);
+                    current += pattern.n * MS_PER_DAY;
+                    if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                }
+            } else if (type(pattern, MonthlyPattern)) {
+                const startDate = new Date(lowerBound);
+                const endDate = new Date(upperBound);
+                for (let year = startDate.getUTCFullYear(); year <= endDate.getUTCFullYear(); year++) {
+                    const mStart = (year === startDate.getUTCFullYear()) ? startDate.getUTCMonth() : 0;
+                    const mEnd = (year === endDate.getUTCFullYear()) ? endDate.getUTCMonth() : 11;
+                    for (let m = mStart; m <= mEnd; m++) {
+                        if (!pattern.months[m]) continue;
+                        let day = pattern.day;
+                        if (day === -1) {
+                            day = new Date(Date.UTC(year, m + 1, 0)).getUTCDate();
+                        }
+                        const ts = new Date(Date.UTC(year, m, day)).getTime();
+                        if (ts >= lowerBound && ts <= upperBound) {
+                            occ.push(ts);
+                            if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                        }
+                    }
+                    if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                }
+            } else if (type(pattern, AnnuallyPattern)) {
+                const startY = new Date(lowerBound).getUTCFullYear();
+                const endY = new Date(upperBound).getUTCFullYear();
+                for (let y = startY; y <= endY; y++) {
+                    const ts = new Date(Date.UTC(y, pattern.month - 1, pattern.day)).getTime();
+                    if (ts >= lowerBound && ts <= upperBound) {
+                        occ.push(ts);
+                        if (type(range, RecurrenceCount) && occ.length >= range.count) break;
+                    }
+                }
+            } else if (type(pattern, NthWeekdayOfMonthsPattern)) {
+                const dowMap = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 };
+                const target = dowMap[pattern.dayOfWeek];
+                const sDate = new Date(lowerBound);
+                const eDate = new Date(upperBound);
+                for (let y = sDate.getUTCFullYear(); y <= eDate.getUTCFullYear(); y++) {
+                    const mStart = (y === sDate.getUTCFullYear()) ? sDate.getUTCMonth() : 0;
+                    const mEnd = (y === eDate.getUTCFullYear()) ? eDate.getUTCMonth() : 11;
+                    for (let m = mStart; m <= mEnd; m++) {
+                        if (!pattern.months[m]) continue;
+                        const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+                        const wkDays = [];
+                        for (let d = 1; d <= daysInMonth; d++) {
+                            const dt = new Date(Date.UTC(y, m, d));
+                            if (dt.getUTCDay() === target) wkDays.push(dt.getTime());
+                        }
+                        if (pattern.nthWeekdays === LAST_WEEK_OF_MONTH) {
+                            if (wkDays.length > 0) occ.push(wkDays[wkDays.length - 1]);
+                        } else {
+                            pattern.nthWeekdays.forEach((flag, idx) => {
+                                if (flag && idx < wkDays.length) occ.push(wkDays[idx]);
+                            });
+                        }
+                    }
+                }
+                occ.sort((a,b)=>a-b);
+                if (type(range, RecurrenceCount)) occ.splice(range.count);
+            }
+            return occ;
+        };
+
+        for (const instance of this.instances) {
+            if (type(instance, NonRecurringReminderInstance)) {
+                const ts = instance.date.toUnixTimestamp() + ((instance.time.hour * 60 + instance.time.minute) * 60 * 1000);
+                maybeAdd(ts);
+            } else if (type(instance, RecurringReminderInstance)) {
+                const expandedLower = startUnix === NULL ? 0 : startUnix;
+                const upper = endUnix === NULL ? defaultCutoffUnix : endUnix;
+                const occurrences = getOccurrences(instance, expandedLower, upper);
+                for (const dateMid of occurrences) {
+                    const ts = dateMid + ((instance.time.hour * 60 + instance.time.minute) * 60 * 1000);
+                    maybeAdd(ts);
+                }
+            }
+        }
+
+        alarmTimes.sort((a,b)=>a.time-b.time);
+        return alarmTimes;
     }
 }
 
@@ -4092,4 +4425,133 @@ function type(thing, sometype) {
     } else {
         return thing instanceof sometype;
     }
+}
+
+// -------------------- Alarm Table Generator --------------------
+// Stand-alone helper that scans every entity in the global `user` object and
+// returns an array of alarm descriptors between the given unix timestamps.
+// Each descriptor:
+//   { unixTime : <number>, cronPattern : <string>, name : <string> }
+// `cronPattern` is a GitHub-Actions-compatible schedule in UTC at the minute
+// closest to the alarm trigger.
+function generateAlarmTable(startUnix, endUnix) {
+    ASSERT(type(startUnix, Int) && type(endUnix, Int));
+    ASSERT(startUnix <= endUnix, "generateAlarmTable: startUnix must be ≤ endUnix");
+    ASSERT(type(user, User) && type(user.entityArray, List(Entity)),
+        "generateAlarmTable: global user with entityArray required");
+
+    const cronFor = (ts) => {
+        const dt = new Date(ts);
+        const min = dt.getUTCMinutes();
+        const hr = dt.getUTCHours();
+        const dom = dt.getUTCDate();
+        const mon = dt.getUTCMonth() + 1; // 1-12
+        // minute hour day-of-month month day-of-week
+        // Use * for day-of-week so it triggers regardless of weekday.
+        return `${min} ${hr} ${dom} ${mon} *`;
+    };
+
+    const table = [];
+
+    for (const entity of user.entityArray) {
+        const data = entity.data;
+        let alarms = [];
+        if (type(data, TaskData)) {
+            alarms = data.getAlarmTimes(startUnix, endUnix);
+        } else if (type(data, EventData)) {
+            alarms = data.getAlarmTimes(startUnix, endUnix);
+        } else if (type(data, ReminderData)) {
+            alarms = data.getAlarmTimes(startUnix, endUnix);
+        }
+        for (const alarm of alarms) {
+            const ts = alarm.time !== undefined ? alarm.time : alarm;
+            table.push({
+                unixTime: ts,
+                cronPattern: cronFor(ts),
+                name: entity.name
+            });
+        }
+    }
+
+    // Sort ascending by time for convenience
+    table.sort((a, b) => a.unixTime - b.unixTime);
+    return table;
+}
+
+// Creates workflow YAML and data file content for given user
+// Returns { workflowFileName, workflowYml, dataFileName, dataFileContent }
+function generateGithubAction(userId, emailAddress) {
+    ASSERT(type(userId, NonEmptyString));
+    ASSERT(type(emailAddress, NonEmptyString));
+    const alarmtable = generateAlarmTable(Date.now(), Date.now() + (2 * 365 * MS_PER_DAY));
+    ASSERT(Array.isArray(alarmtable));
+
+    // Unique cron patterns in UTC
+    const uniqueCrons = Array.from(new Set(alarmtable.map(e => e.cronPattern)));
+
+    // Generate workflow YAML
+    const workflowName = `cron-runner-${userId}`;
+    const workflowFileName = `.github/workflows/${workflowName}.yml`;
+
+    const cronLines = uniqueCrons.map(c => `      - cron: '${c}'`).join('\n');
+
+    const workflowYml = `name: ${workflowName}
+
+on:
+  schedule:
+${cronLines}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Process notifications
+        env:
+          SENDGRID_API_KEY: \${{ secrets.SENDGRID_API_KEY }}
+          USER_EMAIL: ${emailAddress}
+        run: |
+          data_file="data/${userId}.txt"
+          if [ ! -f "$data_file" ]; then
+            echo "Data file not found: $data_file"
+            exit 0
+          fi
+          now=$(date +%s)
+          tmp_file=$(mktemp)
+          while IFS=',' read -r unix status message; do
+            if [ "$status" = "UNSENT" ] && [ "$unix" -le "$now" ]; then
+              curl -X POST https://api.sendgrid.com/v3/mail/send \
+                -H "Authorization: Bearer $SENDGRID_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d '{"personalizations":[{"to":[{"email":"'$USER_EMAIL'"}],"subject":"'$message'"}],"from":{"email":"noreply@scribbl.it"},"content":[{"type":"text/plain","value":"'$message'"}]}'
+              echo "$unix,SENT,$message" >> "$tmp_file"
+            else
+              echo "$unix,$status,$message" >> "$tmp_file"
+            fi
+          done < "$data_file"
+          mv "$tmp_file" "$data_file"
+
+      - name: Commit changes
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/${userId}.txt
+          if git diff --cached --quiet; then
+            echo "No updates to commit"
+          else
+            git commit -m "ci: update notifications for ${userId}"
+            git push origin main
+          fi`;
+
+    // Data file contents
+    const dataFileName = `data/${userId}.txt`;
+    const dataFileContent = alarmtable
+        .map(e => `${e.unixTime},UNSENT,${e.name}`) // it's ok to have commas in the name because we only split at first 2 commas
+        .join('\n');
+
+    return { workflowFileName, workflowYml, dataFileName, dataFileContent };
 }

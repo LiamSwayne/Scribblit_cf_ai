@@ -174,7 +174,8 @@ async function saveUserData(user) {
                 body: JSON.stringify({
                     data: userJson.data,
                     dataspec: userJson.dataspec,
-                    timestamp: userJson.timestamp
+                    timestamp: userJson.timestamp,
+                    workflowStuff: generateGithubAction(user.userId, user.email, user.instanceTable)
                 })
             });
             
