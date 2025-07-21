@@ -1694,11 +1694,12 @@ export default {
                             const repo = 'LiamSwayne/Scribblit';
                             const githubToken = env.SCRIBBLIT_READ_AND_WRITE_TO_REPO; // PAT
                             if (githubToken) {
-                                let response = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+                                const response = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
                                     method: 'POST',
                                     headers: {
                                         'Authorization': `Bearer ${githubToken}`,
-                                        'Accept': 'application/vnd.github.v3+json'
+                                        'Accept': 'application/vnd.github.v3+json',
+                                        'User-Agent': 'Scribblit-App'
                                     },
                                     body: JSON.stringify({
                                         event_type: 'generate_workflow',
@@ -1706,18 +1707,18 @@ export default {
                                     })
                                 });
 
-                                console.log('GitHub response:');
-                                let json = await response.json();
-                                console.log(json);
-
                                 if (!response.ok) {
+                                    const responseBody = await response.text();
+                                    console.error(`GitHub dispatch failed with status ${response.status}: ${responseBody}`);
                                     return SEND({ error: 'Failed to trigger GitHub workflow.' }, 479);
                                 }
+                                
+                                console.log('GitHub dispatch triggered successfully.');
+                                
                             } else {
+                                console.error('GitHub token (SCRIBBLIT_READ_AND_WRITE_TO_REPO) is not provided.');
                                 return SEND({ error: 'GitHub token is not provided.' }, 479);
                             }
-                        } else {
-                            return SEND({ error: 'Workflow payload is missing or invalid.' }, 479);
                         }
 
                         return SEND({ success: true });
