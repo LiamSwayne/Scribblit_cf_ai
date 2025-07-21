@@ -223,31 +223,42 @@ jobs:
         run: |
           data_file="data/a5f0a140.txt"
           if [ ! -f "$data_file" ]; then
-            echo "Data file not found: $data_file"
-            exit 0
+            echo "‼️ Data file not found: $data_file"
+            exit 1
           fi
+
           now=$(date +%s)
-          tmp_file=$(mktemp)
+          echo "🔍 now (seconds since epoch) = $now"
+
+          tmp=$(mktemp)
           while IFS= read -r line || [ -n "$line" ]; do
-            unix="${line%%,*}"
-            rest_after_unix="${line#*,}"
-            id="${rest_after_unix%%,*}"
-            rest_after_id="${rest_after_unix#*,}"
-            status="${rest_after_id%%,*}"
-            message="${rest_after_id#*,}"
-            if [ "$status" = "UNSENT" ] && [ "$unix" -le "$now" ]; then
-              escaped_message=$(echo "$message" | sed 's/\/\\/g' | sed 's/"/\"/g')
-              json_payload=$(printf '{"personalizations":[{"to":[{"email":"%s"}],"subject":"%s"}],"from":{"email":"noreply@scribbl.it"},"content":[{"type":"text/plain","value":"%s"}]}' "$USER_EMAIL" "$escaped_message" "$escaped_message")
+            ms="${line%%,*}"
+            rest="${line#*,}"
+            id="${rest%%,*}"
+            rest2="${rest#*,}"
+            status="${rest2%%,*}"
+            message="${rest2#*,}"
+
+            # convert ms to seconds
+            sec=$(( ms / 1000 ))
+
+            echo "– reminder id=$id, status=$status, due_at_ms=$ms → due_at_s=$sec"
+
+            if [ "$status" = "UNSENT" ] && [ "$sec" -le "$now" ]; then
+              echo "  ✓ sending reminder \"$message\""
+              payload=$(jq -Rs --arg subj "$message" --arg body "$message" \
+                '{personalizations:[{to:[{email:$ENV.USER_EMAIL}],subject:$subj}],from:{email:"noreply@scribbl.it"},content:[{type:"text/plain",value:$body}]}' <<<"$message")
               curl -s -X POST https://api.sendgrid.com/v3/mail/send \
-                -H "Authorization: Bearer $SENDGRID_API_KEY" \
-                -H "Content-Type: application/json" \
-                -d "$json_payload"
-              echo "$unix,$id,SENT,$message" >> "$tmp_file"
+                   -H "Authorization: Bearer $SENDGRID_API_KEY" \
+                   -H "Content-Type: application/json" \
+                   -d "$payload"
+              echo "$ms,$id,SENT,$message" >> "$tmp"
             else
-              echo "$line" >> "$tmp_file"
+              echo "$line" >> "$tmp"
             fi
           done < "$data_file"
-          mv "$tmp_file" "$data_file"
+
+          mv "$tmp" "$data_file"
 
       - name: Commit changes
         env:
