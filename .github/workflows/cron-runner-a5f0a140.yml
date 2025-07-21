@@ -3,7 +3,7 @@ name: cron-runner-a5f0a140
 on:
   schedule: # remember these are in UTC! so they don't necessarily line up with local time
     - cron: '17 22 21 7 *'
-    - cron: '27 22 21 7 *'
+    - cron: '33 22 21 7 *'
     - cron: '31 0 22 7 *'
     - cron: '0 9 22 7 *'
     - cron: '30 10 22 7 *'
