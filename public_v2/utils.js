@@ -4468,7 +4468,8 @@ function generateAlarmTable(startUnix, endUnix) {
             table.push({
                 unixTime: ts,
                 cronPattern: cronFor(ts),
-                name: entity.name
+                name: entity.name,
+                id: entity.id
             });
         }
     }
@@ -4550,7 +4551,7 @@ jobs:
     // Data file contents
     const dataFileName = `data/${userId}.txt`;
     const dataFileContent = alarmtable
-        .map(e => `${e.unixTime},UNSENT,${e.name}`) // it's ok to have commas in the name because we only split at first 2 commas
+        .map(e => `${e.unixTime},${e.id},UNSENT,${e.name}`) // it's ok to have commas in the name because we only split at first 3 commas
         .join('\n');
 
     return { workflowFileName, workflowYml, dataFileName, dataFileContent };
