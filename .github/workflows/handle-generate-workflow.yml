@@ -46,14 +46,71 @@ jobs:
           }' merged.txt > "${{ github.event.client_payload.dataFileName }}"
           rm merged.txt
 
-      - name: Commit and push changes
+      - name: Commit and push changes with retry
         run: |
+          # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "${{ github.event.client_payload.workflowFileName }}" "${{ github.event.client_payload.dataFileName }}"
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "ci: update workflow and data for ${{ github.event.client_payload.dataFileName }}"
-            git push origin HEAD:main
+
+          max_attempts=10
+          attempt=1
+
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "===== Attempt $attempt of $max_attempts ====="
+
+            # -----------------------------------------------------------------
+            # Re-merge data file so that we always include latest upstream data
+            # -----------------------------------------------------------------
+            mkdir -p "$(dirname "${{ github.event.client_payload.dataFileName }}")"
+            payload="${{ github.event.client_payload.dataFileContent }}"
+            if [ -f "${{ github.event.client_payload.dataFileName }}" ]; then
+              existing=$(cat "${{ github.event.client_payload.dataFileName }}")
+            else
+              existing=""
+            fi
+            echo "$existing" > merged.txt
+            echo "$payload" >> merged.txt
+            awk -F',' 'BEGIN {OFS=","}
+            {
+              key = $1","$2
+              if (!(key in seen) || $3 == "SENT") {
+                seen[key] = $0
+              }
+            }
+            END {
+              for (k in seen) print seen[k]
+            }' merged.txt > "${{ github.event.client_payload.dataFileName }}"
+            rm merged.txt
+
+            # -----------------------------------------------------------------
+            # Stage files and create commit if needed
+            # -----------------------------------------------------------------
+            git add "${{ github.event.client_payload.workflowFileName }}" "${{ github.event.client_payload.dataFileName }}"
+
+            if git diff --cached --quiet; then
+              echo "No changes to commit on this attempt. Exiting successfully."
+              break
+            fi
+
+            git commit -m "ci: update workflow and data for ${{ github.event.client_payload.dataFileName }} (attempt $attempt)"
+
+            # -----------------------------------------------------------------
+            # Try to push. If push fails due to a non-fast-forward, pull & retry
+            # -----------------------------------------------------------------
+            if git push origin HEAD:main; then
+              echo "Push successful on attempt $attempt."
+              break
+            else
+              echo "Push failed on attempt $attempt. Rebasing onto latest main and retrying..."
+              # Undo the failed commit so we can reapply after rebasing
+              git reset --soft HEAD~1
+              # Fetch & rebase onto latest origin/main (safer than merge)
+              git pull --rebase origin main
+              attempt=$((attempt+1))
+            fi
+          done
+
+          if [ "$attempt" -gt "$max_attempts" ]; then
+            echo "Failed to push after $max_attempts attempts. Exiting with error." >&2
+            exit 1
           fi
