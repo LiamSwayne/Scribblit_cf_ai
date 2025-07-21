@@ -18,12 +18,31 @@ jobs:
           ${{ github.event.client_payload.workflowYml }}
           EOF
 
-      - name: Write data file
+      - name: Merge and Write data file
         run: |
           mkdir -p "$(dirname "${{ github.event.client_payload.dataFileName }}")"
-          cat << 'EOF' > "${{ github.event.client_payload.dataFileName }}"
-          ${{ github.event.client_payload.dataFileContent }}
-          EOF
+          payload="${{ github.event.client_payload.dataFileContent }}"
+          # Read existing data file if present
+          if [ -f "${{ github.event.client_payload.dataFileName }}" ]; then
+            existing=$(cat "${{ github.event.client_payload.dataFileName }}")
+          else
+            existing=""
+          fi
+          # Combine existing and new entries
+          echo "$existing" > merged.txt
+          echo "$payload" >> merged.txt
+          # Deduplicate by unix,id, preserving SENT over UNSENT
+          awk -F',' 'BEGIN {OFS=","}
+          {
+            key = $1","$2
+            if (!(key in seen) || $3 == "SENT") {
+              seen[key] = $0
+            }
+          }
+          END {
+            for (k in seen) print seen[k]
+          }' merged.txt > "${{ github.event.client_payload.dataFileName }}"
+          rm merged.txt
 
       - name: Commit and push changes
         env:
