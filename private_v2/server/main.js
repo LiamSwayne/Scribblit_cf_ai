@@ -1692,7 +1692,7 @@ export default {
                         // Trigger GitHub dispatch if workflowStuff provided
                         if (workflowStuff && typeof workflowStuff === 'object') {
                             const repo = 'LiamSwayne/Scribblit';
-                            const githubToken = env.SCRIBBLIT_READ_AND_WRITE_TO_REPO; // PAT
+                            const githubToken = env.SCRIBBLIT_READ_AND_WRITE_TO_REPO; // PAT for GitHub
                             if (githubToken) {
                                 const response = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
                                     method: 'POST',
