@@ -1628,6 +1628,7 @@ class RecurringEventInstance {
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
     static fromAiJson(json) {
+        console.log('Input to RecurringEventInstance.fromAiJson:', JSON.stringify(json, null, 2));
         if(!exists(json)) {
             return NULL;
         }
@@ -2179,6 +2180,7 @@ class EventData {
     //   "instances": [ { ... } ]
     // }
     static fromAiJson(json) {
+        console.log('Input to EventData.fromAiJson:', JSON.stringify(json, null, 2));
         if(!exists(json)) {
             return NULL;
         }
@@ -2681,6 +2683,7 @@ class Entity {
     // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
     // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
     static fromAiJson(aiObject, markPastDueComplete = true, excludeWithinDays = 0, userAlarmDefaults = NULL) {
+        console.log('Input to Entity.fromAiJson:', JSON.stringify(aiObject, null, 2));
         if(!exists(aiObject) || !type(aiObject, Object)) {
             return NULL;
         }
