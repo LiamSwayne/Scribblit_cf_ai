@@ -4484,7 +4484,25 @@ function generateAlarmTable(startUnix, endUnix) {
 function generateGithubAction(userId, emailAddress) {
     ASSERT(type(userId, NonEmptyString));
     ASSERT(type(emailAddress, NonEmptyString));
-    const alarmtable = generateAlarmTable(Date.now(), Date.now() + (2 * 365 * MS_PER_DAY));
+    // Include alarms from 10 minutes ago to catch recently created reminders that haven't triggered yet
+    const bufferMs = 10 * 60 * 1000; // 10 minutes in milliseconds
+    const startTime = Date.now() - bufferMs;
+    const endTime = Date.now() + (2 * 365 * MS_PER_DAY);
+    
+    console.log(`Generating alarm table for ${userId} from ${new Date(startTime).toISOString()} to ${new Date(endTime).toISOString()}`);
+    const alarmtable = generateAlarmTable(startTime, endTime);
+    console.log(`Generated ${alarmtable.length} alarms for user ${userId}`);
+    
+    // Log the next few upcoming alarms for debugging
+    const now = Date.now();
+    const nextAlarms = alarmtable.filter(alarm => alarm.unixTime >= now).slice(0, 5);
+    if (nextAlarms.length > 0) {
+        console.log("Next upcoming alarms:");
+        nextAlarms.forEach(alarm => {
+            console.log(`  ${new Date(alarm.unixTime).toISOString()} - ${alarm.name} (${alarm.id})`);
+        });
+    }
+    
     ASSERT(Array.isArray(alarmtable));
 
     // Unique cron patterns in UTC
@@ -4494,7 +4512,7 @@ function generateGithubAction(userId, emailAddress) {
     const workflowName = `cron-runner-${userId}`;
     const workflowFileName = `.github/workflows/${workflowName}.yml`;
 
-    const cronLines = uniqueCrons.map(c => `      - cron: '${c}'`).join('\n');
+    const cronLines = uniqueCrons.map(c => `    - cron: '${c}'`).join('\n');
 
     const workflowYml = `name: ${workflowName}
 

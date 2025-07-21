@@ -80,3 +80,61 @@ async function runAlarmTests() {
 
 // Run alarm tests after slight delay to ensure environment ready
 setTimeout(() => { runAlarmTests(); }, 1000);
+
+// Test the alarm timing fix - creates a reminder for 1 minute from now and checks if it gets included
+async function testRecentReminderGeneration() {
+    // Wait until main.js has initialized
+    while (typeof hasInitialized === 'undefined' || !hasInitialized) {
+        await sleep(0.01);
+    }
+
+    console.log("Testing recent reminder generation...");
+    
+    const now = new Date();
+    const oneMinuteFromNow = new Date(now.getTime() + 60 * 1000); // 1 minute from now
+    
+    // Create a test reminder for 1 minute from now
+    const testReminder = new Entity(
+        'test-recent-reminder',
+        'Test Recent Reminder',
+        'Testing if recent reminders are included in GitHub Action generation',
+        new ReminderData([
+            new NonRecurringReminderInstance(
+                new DateField(oneMinuteFromNow.getFullYear(), oneMinuteFromNow.getMonth() + 1, oneMinuteFromNow.getDate()),
+                new TimeField(oneMinuteFromNow.getHours(), oneMinuteFromNow.getMinutes())
+            )
+        ], true)
+    );
+    
+    // Add to user's entity array temporarily
+    const originalEntities = [...user.entityArray];
+    user.entityArray.push(testReminder);
+    
+    try {
+        // Generate GitHub Action
+        const githubAction = generateGithubAction('test-user', 'test@example.com');
+        
+        // Check if our test reminder's cron pattern is included
+        const expectedUnixTime = oneMinuteFromNow.getTime();
+        const expectedCronPattern = `${oneMinuteFromNow.getUTCMinutes()} ${oneMinuteFromNow.getUTCHours()} ${oneMinuteFromNow.getUTCDate()} ${oneMinuteFromNow.getUTCMonth() + 1} *`;
+        
+        const hasTestReminderCron = githubAction.workflowYml.includes(expectedCronPattern);
+        
+        console.log(`Expected cron pattern: ${expectedCronPattern}`);
+        console.log(`Test reminder included: ${hasTestReminderCron}`);
+        
+        if (hasTestReminderCron) {
+            console.log("✅ Recent reminder generation test PASSED - reminder scheduled correctly");
+        } else {
+            console.log("❌ Recent reminder generation test FAILED - reminder not scheduled");
+            console.log("Generated workflow:");
+            console.log(githubAction.workflowYml);
+        }
+        
+    } catch (error) {
+        console.error("Error in recent reminder test:", error);
+    } finally {
+        // Restore original entities
+        user.entityArray = originalEntities;
+    }
+}
