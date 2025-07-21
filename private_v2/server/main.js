@@ -1694,7 +1694,7 @@ export default {
                             const repo = 'LiamSwayne/Scribblit';
                             const githubToken = env.SCRIBBLIT_READ_AND_WRITE_TO_REPO; // PAT
                             if (githubToken) {
-                                await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+                                let response = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
                                     method: 'POST',
                                     headers: {
                                         'Authorization': `Bearer ${githubToken}`,
@@ -1705,6 +1705,13 @@ export default {
                                         client_payload: workflowStuff
                                     })
                                 });
+
+                                console.log('GitHub response:');
+                                console.log(response);
+
+                                if (!response.ok) {
+                                    return SEND({ error: 'Failed to trigger GitHub workflow.' }, 479);
+                                }
                             } else {
                                 return SEND({ error: 'GitHub token is not provided.' }, 479);
                             }
