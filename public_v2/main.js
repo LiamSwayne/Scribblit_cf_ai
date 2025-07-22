@@ -8274,7 +8274,6 @@ function initGridBackground() {
     // Track mouse movement to update grid fade position
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
-    let mouseInWindow = true;
     let hasMouseMoved = false; // Track if mouse has moved yet
     let vignetteRadius = 2000; // Start with a very large radius (effectively no vignette)
     
@@ -10688,9 +10687,8 @@ function initEditorModal(id, instanceClicked) {
         left: '0px',
         width: '100vw',
         height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        background: 'radial-gradient(ellipse at center, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%)',
         zIndex: String(editorModalVignetteZIndex),
-        cursor: 'pointer',
         opacity: '0',
         transition: 'opacity 0.3s ease'
     });
