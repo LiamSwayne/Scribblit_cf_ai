@@ -1,3 +1,7 @@
+import { AlarmManager } from './alarm-manager.js';
+
+const NULL = Symbol('NULL');
+
 const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
 const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
@@ -1673,7 +1677,7 @@ export default {
                             data,
                             dataspec,
                             timestamp,
-                            workflowStuff,
+                            alarmTable,
                         } = await request.json();
 
                         if (typeof data !== 'string' || typeof dataspec !== 'number' || typeof timestamp !== 'number') {
@@ -1689,36 +1693,39 @@ export default {
                             email
                         ).run();
 
-                        // Trigger GitHub dispatch if workflowStuff provided
-                        if (workflowStuff && typeof workflowStuff === 'object') {
-                            const repo = 'LiamSwayne/Scribblit';
-                            const githubToken = env.SCRIBBLIT_READ_AND_WRITE_TO_REPO; // PAT for GitHub
-                            if (githubToken) {
-                                const response = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+                        // Update Durable Object alarms if alarmTable provided
+                        if (alarmTable && Array.isArray(alarmTable)) {
+                            try {
+                                // Get Durable Object for this user (using email as unique identifier)
+                                const durableObjectId = env.ALARM_MANAGER.idFromName(email);
+                                const durableObject = env.ALARM_MANAGER.get(durableObjectId);
+                                
+                                // Update alarms in the Durable Object
+                                const response = await durableObject.fetch(new Request('https://dummy.com/update-alarms', {
                                     method: 'POST',
                                     headers: {
-                                        'Authorization': `Bearer ${githubToken}`,
-                                        'Accept': 'application/vnd.github.v3+json',
-                                        'User-Agent': 'Scribblit-App'
+                                        'Content-Type': 'application/json'
                                     },
                                     body: JSON.stringify({
-                                        event_type: 'generate_workflow',
-                                        client_payload: workflowStuff
+                                        alarmTable: alarmTable,
+                                        email: email
                                     })
-                                });
-
+                                }));
+                                
                                 if (!response.ok) {
-                                    const responseBody = await response.text();
-                                    console.error(`GitHub dispatch failed with status ${response.status}: ${responseBody}`);
-                                    return SEND({ error: 'Failed to trigger GitHub workflow.' }, 479);
+                                    const errorData = await response.json();
+                                    console.error(`Failed to update alarms for user ${email}:`, errorData);
+                                    return SEND({ error: 'Failed to update alarms.' }, 479);
                                 }
                                 
-                                console.log('GitHub dispatch triggered successfully.');
+                                console.log(`Successfully updated ${alarmTable.length} alarms for user: ${email}`);
                                 
-                            } else {
-                                console.error('GitHub token (SCRIBBLIT_READ_AND_WRITE_TO_REPO) is not provided.');
-                                return SEND({ error: 'GitHub token is not provided.' }, 479);
+                            } catch (error) {
+                                console.error(`Error updating alarms for user ${email}:`, error);
+                                return SEND({ error: 'Failed to update alarms.' }, 479);
                             }
+                        } else {
+                            console.log(`No alarm table provided for user: ${email}`);
                         }
 
                         return SEND({ success: true });
@@ -1994,3 +2001,6 @@ async function sendEmail(apiKey, to, subject, content) {
         throw new Error(`SendGrid API error: ${errorText}`);
     }
 }
+
+// Export the Durable Object class for Cloudflare Workers
+export { AlarmManager };

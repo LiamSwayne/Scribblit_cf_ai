@@ -132,6 +132,21 @@ let inputBoxFocused = false;
 let hasInitialized = false;
 const FREE_PLAN_USAGE_LIMIT = 100;
 
+// Generate alarm table for server (2 years of upcoming alarms)
+function generateAlarmTableForServer(user) {
+    ASSERT(type(user, User));
+    
+    const now = Date.now();
+    const twoYears = now + (2 * 365 * 24 * 60 * 60 * 1000); // 2 years from now
+    
+    try {
+        return generateAlarmTable(now, twoYears);
+    } catch (error) {
+        log("ERROR generating alarm table: " + error.message);
+        return []; // Return empty array if generation fails
+    }
+}
+
 // Save user data to localStorage and server
 async function saveUserData(user) {  
     ASSERT(exists(user), "no user passed to saveUserData");
@@ -175,7 +190,7 @@ async function saveUserData(user) {
                     data: userJson.data,
                     dataspec: userJson.dataspec,
                     timestamp: userJson.timestamp,
-                    workflowStuff: generateGithubAction(user.userId, user.email)
+                    alarmTable: generateAlarmTableForServer(user)
                 })
             });
             

@@ -111,24 +111,30 @@ async function testRecentReminderGeneration() {
     user.entityArray.push(testReminder);
     
     try {
-        // Generate GitHub Action
-        const githubAction = generateGithubAction('test-user', 'test@example.com');
+        // Generate alarm table using the new system
+        const now = Date.now();
+        const future = now + (90 * 24 * 60 * 60 * 1000); // 90 days from now
+        const alarmTable = generateAlarmTable(now, future);
         
-        // Check if our test reminder's cron pattern is included
+        // Check if our test reminder is included
         const expectedUnixTime = oneMinuteFromNow.getTime();
         const expectedCronPattern = `${oneMinuteFromNow.getUTCMinutes()} ${oneMinuteFromNow.getUTCHours()} ${oneMinuteFromNow.getUTCDate()} ${oneMinuteFromNow.getUTCMonth() + 1} *`;
         
-        const hasTestReminderCron = githubAction.workflowYml.includes(expectedCronPattern);
+        const hasTestReminder = alarmTable.some(alarm => 
+            Math.abs(alarm.unixTime - expectedUnixTime) < 60000 && // Within 1 minute
+            alarm.name === 'Test Recent Reminder'
+        );
         
-        console.log(`Expected cron pattern: ${expectedCronPattern}`);
-        console.log(`Test reminder included: ${hasTestReminderCron}`);
+        console.log(`Expected unix time: ${expectedUnixTime}`);
+        console.log(`Test reminder included: ${hasTestReminder}`);
+        console.log(`Total alarms found: ${alarmTable.length}`);
         
-        if (hasTestReminderCron) {
+        if (hasTestReminder) {
             console.log("✅ Recent reminder generation test PASSED - reminder scheduled correctly");
         } else {
             console.log("❌ Recent reminder generation test FAILED - reminder not scheduled");
-            console.log("Generated workflow:");
-            console.log(githubAction.workflowYml);
+            console.log("Generated alarm table:");
+            console.log(alarmTable);
         }
         
     } catch (error) {
