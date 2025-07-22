@@ -4060,7 +4060,7 @@ class LocalData {
     static numberOfDays = 2;
     static signedIn = false;
     static token = NULL;
-    static visibility = 'public';
+    static visibility = 'private';
     
     // Prevent instantiation
     constructor() {
@@ -4122,12 +4122,12 @@ class LocalData {
                 this.numberOfDays = data.numberOfDays;
                 this.signedIn = data.signedIn;
                 
-                // Handle visibility (defaults to 'public' if not set)
+                // Handle visibility (defaults to 'private' if not set)
                 if (data.visibility) {
                     ASSERT(data.visibility === 'public' || data.visibility === 'private', "LocalData.visibility must be 'public' or 'private'");
                     this.visibility = data.visibility;
                 } else {
-                    this.visibility = 'public';
+                    this.visibility = 'private';
                 }
                 
                 // Handle encrypted token

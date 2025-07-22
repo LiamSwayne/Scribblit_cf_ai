@@ -3926,8 +3926,8 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         const entity = user.entityArray.find(e => e.id === allDayEventData.id);
         const isPrivate = entity && entity.private === true;
         
-        // Replace text with dashes for private events when in public mode
-        if (isPrivate && LocalData.get('visibility') === 'public') {
+        // Replace text with dashes for private events when in private mode
+        if (isPrivate && LocalData.get('visibility') === 'private') {
             allDayEventElement.innerHTML = privatizeText(allDayEventData.name);
         } else {
             allDayEventElement.innerHTML = allDayEventData.name;
@@ -4149,8 +4149,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const entity = user.entityArray.find(e => e.id === instance.id);
             const isPrivate = entity && entity.private === true;
             
-            // Replace text with dashes for private events when in public mode
-            if (isPrivate && LocalData.get('visibility') === 'public') {
+            // Replace text with dashes for private events when in private mode
+            if (isPrivate && LocalData.get('visibility') === 'private') {
                 eventElement.innerHTML = privatizeText(instance.name);
             } else {
                 eventElement.innerHTML = instance.name;
@@ -4285,8 +4285,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     // Create new high z-index text overlay
                     textOverlay = HTML.make('div');
                     HTML.setId(textOverlay, `${eventId}_textOverlay`);
-                    // Replace text with dashes for private events when in public mode
-                    if (isPrivate && LocalData.get('visibility') === 'public') {
+                    // Replace text with dashes for private events when in private mode
+                    if (isPrivate && LocalData.get('visibility') === 'private') {
                         textOverlay.innerHTML = privatizeText(instance.name);
                     } else {
                         textOverlay.innerHTML = instance.name;
@@ -5224,8 +5224,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const entity = user.entityArray.find(e => e.id === primaryReminder.id);
         const isPrivate = entity && entity.private === true;
         
-        // Replace text with dashes for private reminders when in public mode
-        if (isPrivate && LocalData.get('visibility') === 'public') {
+        // Replace text with dashes for private reminders when in private mode
+        if (isPrivate && LocalData.get('visibility') === 'private') {
             textElement.innerHTML = privatizeText(primaryReminder.name);
         } else {
             textElement.innerHTML = primaryReminder.name;
@@ -5430,8 +5430,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const stackedEntity = user.entityArray.find(e => e.id === stackedReminder.id);
                 const stackedIsPrivate = stackedEntity && stackedEntity.private === true;
                 
-                // Replace text with dashes for private reminders when in public mode
-                if (stackedIsPrivate && LocalData.get('visibility') === 'public') {
+                // Replace text with dashes for private reminders when in private mode
+                if (stackedIsPrivate && LocalData.get('visibility') === 'private') {
                     stackedTextElement.innerHTML = privatizeText(stackedReminder.name);
                 } else {
                     stackedTextElement.innerHTML = stackedReminder.name;
@@ -5516,8 +5516,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     const cloneEntity = user.entityArray.find(e => e.id === stackedReminder.id);
                     const cloneIsPrivate = cloneEntity && cloneEntity.private === true;
                     
-                    // Replace text with dashes for private reminders when in public mode
-                    if (cloneIsPrivate && LocalData.get('visibility') === 'public') {
+                    // Replace text with dashes for private reminders when in private mode
+                    if (cloneIsPrivate && LocalData.get('visibility') === 'private') {
                         cloneText.innerHTML = privatizeText(stackedReminder.name);
                     } else {
                         cloneText.innerHTML = stackedReminder.name;
@@ -7560,8 +7560,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const entity = user.entityArray.find(e => e.id === task.id);
         const isPrivate = entity && entity.private === true;
         
-        // Replace text with dashes for private tasks when in public mode
-        if (isPrivate && LocalData.get('visibility') === 'public') {
+        // Replace text with dashes for private tasks when in private mode
+        if (isPrivate && LocalData.get('visibility') === 'private') {
             taskElement.innerHTML = privatizeText(task.name);
         } else {
             taskElement.innerHTML = task.name;
@@ -19807,14 +19807,14 @@ function initPrivateButton() {
     function updateIcon() {
         const visibility = LocalData.get('visibility');
         if (visibility === 'public') {
-            // Currently public, show private icon (what you'll get when you click)
-            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" style="transform: translateY(0px) scale(1.2);">
-                <path fill="var(--shade-3)" d="M8.073 12.194L4.212 8.333c-1.52 1.657-2.096 3.317-2.106 3.351L2 12l.105.316C2.127 12.383 4.421 19 12.054 19c.929 0 1.775-.102 2.552-.273l-2.746-2.746a3.987 3.987 0 0 1-3.787-3.787zM12.054 5c-1.855 0-3.375.404-4.642.998L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.298-3.298c2.638-1.953 3.579-4.637 3.593-4.679l.105-.316l-.105-.316C21.98 11.617 19.687 5 12.054 5zm1.906 7.546c.187-.677.028-1.439-.492-1.96s-1.283-.679-1.96-.492L10 8.586A3.955 3.955 0 0 1 12.054 8c2.206 0 4 1.794 4 4a3.94 3.94 0 0 1-.587 2.053l-1.507-1.507z"/>
-            </svg>`;
-        } else {
             // Currently private, show public icon (what you'll get when you click)
             icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 472 384" style="transform: translateY(1px);">
                 <path fill="var(--shade-3)" d="M235 32q79 0 142.5 44.5T469 192q-28 71-91.5 115.5T235 352T92 307.5T0 192q28-71 92-115.5T235 32zm0 267q44 0 75-31.5t31-75.5t-31-75.5T235 85t-75.5 31.5T128 192t31.5 75.5T235 299zm-.5-171q26.5 0 45.5 18.5t19 45.5t-19 45.5t-45.5 18.5t-45-18.5T171 192t18.5-45.5t45-18.5z"/>
+            </svg>`;
+        } else {
+            // Currently public, show private icon (what you'll get when you click)
+            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" style="transform: translateY(0px) scale(1.2);">
+                <path fill="var(--shade-3)" d="M8.073 12.194L4.212 8.333c-1.52 1.657-2.096 3.317-2.106 3.351L2 12l.105.316C2.127 12.383 4.421 19 12.054 19c.929 0 1.775-.102 2.552-.273l-2.746-2.746a3.987 3.987 0 0 1-3.787-3.787zM12.054 5c-1.855 0-3.375.404-4.642.998L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.298-3.298c2.638-1.953 3.579-4.637 3.593-4.679l.105-.316l-.105-.316C21.98 11.617 19.687 5 12.054 5zm1.906 7.546c.187-.677.028-1.439-.492-1.96s-1.283-.679-1.96-.492L10 8.586A3.955 3.955 0 0 1 12.054 8c2.206 0 4 1.794 4 4a3.94 3.94 0 0 1-.587 2.053l-1.507-1.507z"/>
             </svg>`;
         }
     }
@@ -19826,7 +19826,7 @@ function initPrivateButton() {
     privateButton.onclick = () => {
         // Toggle visibility
         const currentVisibility = LocalData.get('visibility');
-        const newVisibility = currentVisibility === 'public' ? 'private' : 'public';
+        const newVisibility = currentVisibility === 'private' ? 'public' : 'private';
         LocalData.set('visibility', newVisibility);
         updateIcon();
         log('Visibility toggled to: ' + newVisibility);
