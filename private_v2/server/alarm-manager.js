@@ -174,7 +174,10 @@ export class AlarmManager {
             personalizations: [{
                 to: [{ email: to }]
             }],
-            from: { email: 'hello@scribbl.it' },
+            from: { 
+                email: 'hello@scribbl.it',
+                name: 'Scribblit'
+            },
             subject: subject,
             content: [{
                 type: 'text/plain',

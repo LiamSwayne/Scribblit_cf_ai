@@ -1960,7 +1960,8 @@ async function sendEmail(apiKey, to, subject, content) {
             }]
         }],
         from: {
-            email: 'hello@scribbl.it'
+            email: 'hello@scribbl.it',
+            name: 'Scribblit'
         },
         subject: subject,
         content: [{
