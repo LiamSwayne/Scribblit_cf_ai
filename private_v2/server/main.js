@@ -887,42 +887,43 @@ async function handlePromptOnly(userPrompt, env) {
     let chain = [];
     let startTime = 0;
 
+    // 1st choice – Gemini 2.5 Flash
     startTime = Date.now();
-    let grokResult = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], constructEntitiesPrompt);
-    if (grokResult && grokResult.trim() !== '') {
-        content = grokResult;
-        chain.push({ request: {
-            model: MODELS.XAI_MODELS.grok4,
+    let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
+    content = geminiResult.response;
+    if (content && content.trim() !== '') {
+        chain.push({ thinking_request: {
+            model: MODELS.GEMINI_MODELS.flash,
             typeOfPrompt: 'convert_text_to_entities',
-            response: grokResult,
+            response: geminiResult.response,
+            thoughts: geminiResult.thoughts,
             startTime,
             endTime: Date.now(),
             userPrompt: userPrompt,
             systemPrompt: constructEntitiesPrompt
         }});
     } else {
-        // use Gemini Flash
-        let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
-        content = geminiResult.response;
+        chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
+        // 2nd choice – Cerebras Qwen3
+        startTime = Date.now();
+        content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
-                model: MODELS.GEMINI_MODELS.flash,
+                model: MODELS.CEREBRAS_MODELS.qwen3,
                 typeOfPrompt: 'convert_text_to_entities',
-                response: geminiResult.response,
-                thoughts: geminiResult.thoughts,
+                response: content,
                 startTime,
                 endTime: Date.now(),
-                userPrompt: userPrompt,
-                systemPrompt: constructEntitiesPrompt
+                userPrompt: userPrompt
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
-            // reroute to Cerebras Qwen3
+            chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
+            // 3rd choice – Groq Qwen3
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
+            content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], constructEntitiesPrompt);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
-                    model: MODELS.CEREBRAS_MODELS.qwen3,
+                    model: MODELS.GROQ_MODELS.qwen3,
                     typeOfPrompt: 'convert_text_to_entities',
                     response: content,
                     startTime,
@@ -930,18 +931,20 @@ async function handlePromptOnly(userPrompt, env) {
                     userPrompt: userPrompt
                 }});
             } else {
-                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
-                // reroute to Groq Qwen3
+                chain.push({ rerouteToModel: { model: MODELS.XAI_MODELS.grok4, startTime, endTime: Date.now() }});
+                // 4th choice – xAI Grok-4
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], constructEntitiesPrompt);
-                if (content && content.trim() !== '') {
-                    chain.push({ thinking_request: {
-                        model: MODELS.GROQ_MODELS.qwen3,
+                let grokResult = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], constructEntitiesPrompt);
+                if (grokResult && grokResult.trim() !== '') {
+                    content = grokResult;
+                    chain.push({ request: {
+                        model: MODELS.XAI_MODELS.grok4,
                         typeOfPrompt: 'convert_text_to_entities',
-                        response: content,
+                        response: grokResult,
                         startTime,
                         endTime: Date.now(),
-                        userPrompt: userPrompt
+                        userPrompt: userPrompt,
+                        systemPrompt: constructEntitiesPrompt
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model.' }, 481);
