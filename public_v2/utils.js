@@ -4481,7 +4481,7 @@ function generateAlarmTable(startUnix, endUnix) {
         
         if (type(data, ReminderData)) {
             return {
-                subject: `⏰ Reminder: ${entityName}`,
+                subject: `Reminder: ${entityName}`,
                 content: `${entityName} at ${formatDateTime(alarmTime)}\n\nScribblit`
             };
         } else if (type(data, EventData)) {
@@ -4501,20 +4501,20 @@ function generateAlarmTable(startUnix, endUnix) {
             }
             
             return {
-                subject: `⏰ Event: ${entityName} ${timeUntilText}`,
+                subject: `Event: ${entityName} ${timeUntilText}`,
                 content: `${eventDescription}\n\nScribblit`
             };
         } else if (type(data, TaskData)) {
             const timeUntilText = formatTimeUntil(alarmTime, alarmData.eventTime);
             return {
-                subject: `⏰ Task: due ${timeUntilText}`,
+                subject: `Task: due ${timeUntilText}`,
                 content: `${entityName} due at ${formatDateTime(alarmData.eventTime)}\n\nScribblit`
             };
         }
         
         // Fallback
         return {
-            subject: `⏰ Reminder: ${entityName}`,
+            subject: `Reminder: ${entityName}`,
             content: `${entityName} at ${formatDateTime(alarmTime)}\n\nScribblit`
         };
     };

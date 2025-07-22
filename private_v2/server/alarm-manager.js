@@ -119,7 +119,7 @@ export class AlarmManager {
         
         // Send email for the fired alarm
         const alarmName = currentAlarm ? currentAlarm.name : 'Unknown Reminder';
-        const emailSubject = currentAlarm && currentAlarm.emailSubject ? currentAlarm.emailSubject : `⏰ Reminder: ${alarmName}`;
+        const emailSubject = currentAlarm && currentAlarm.emailSubject ? `⏰ ${currentAlarm.emailSubject.replace(/^⏰\s*/, '')}` : `⏰ Reminder: ${alarmName}`;
         const emailContent = currentAlarm && currentAlarm.emailContent ? currentAlarm.emailContent : `${alarmName} at ${new Date(alarmTime).toLocaleString()}\n\nScribblit`;
         
         console.log(`📤 Sending alarm notification to: ${userEmail} for "${alarmName}"`);
