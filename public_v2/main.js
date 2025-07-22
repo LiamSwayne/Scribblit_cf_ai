@@ -18153,7 +18153,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     type: 'task',
                     instances: aiJson.instances,
                     workSessions: aiJson.workSessions
-                });
+                }, true, 0, user.settings.alarms);
 
                 if (newTaskData === NULL) {
                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
@@ -18173,7 +18173,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 let newEventData = EventData.fromAiJson({
                     type: 'event',
                     instances: aiJson.instances
-                });
+                }, user.settings.alarms);
 
                 if (newEventData === NULL) {
                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
@@ -18193,7 +18193,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 let newReminderData = ReminderData.fromAiJson({
                     type: 'reminder',
                     instances: aiJson.instances
-                });
+                }, user.settings.alarms);
 
                 if (newReminderData === NULL) {
                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));

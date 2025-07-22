@@ -1994,7 +1994,7 @@ class TaskData {
         }
     }
 
-    static fromAiJson(json, markPastDueComplete = true, excludeWithinDays = 0) {
+    static fromAiJson(json, markPastDueComplete = true, excludeWithinDays = 0, userAlarmDefaults = NULL) {
         if(!exists(json)) {
             return NULL;
         }
@@ -2060,23 +2060,26 @@ class TaskData {
 
         // --- ALARM ---
         let alarm = NULL;
-        if (!AiReturnedNullField(json.alarm)) {
-            if (json.alarm === 'default') {
-                // Will be set by caller with user defaults
-                alarm = 'default';
+        if (!AiReturnedNullField(json.alarm) && json.alarm !== 'default') {
+            // Use specific alarm value provided by AI
+            const alarmValue = Number(json.alarm);
+            if (type(alarmValue, Int) && alarmValue >= 0) {
+                alarm = alarmValue;
             } else {
-                const alarmValue = Number(json.alarm);
-                if (type(alarmValue, Int) && alarmValue >= 0) {
-                    alarm = alarmValue;
-                } else {
-                    log('TaskData.fromAiJson: alarm must be non-negative integer or "default"');
-                    return NULL;
-                }
+                log('TaskData.fromAiJson: alarm must be non-negative integer or "default"');
+                return NULL;
+            }
+        } else {
+            // Apply user defaults if provided (when alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.task !== undefined) {
+                alarm = userAlarmDefaults.task;
+            } else {
+                alarm = NULL;
             }
         }
 
         try {
-            const taskData = new TaskData(instances, NULL, true, workSessions, alarm === 'default' ? NULL : alarm);
+            const taskData = new TaskData(instances, NULL, true, workSessions, alarm);
             // Optionally mark past-due items complete
             if (markPastDueComplete) {
                 taskData.setPastDueDatesToComplete(excludeWithinDays);
@@ -2222,7 +2225,7 @@ class EventData {
     //   "type": "event",
     //   "instances": [ { ... } ]
     // }
-    static fromAiJson(json) {
+    static fromAiJson(json, userAlarmDefaults = NULL) {
         if(!exists(json)) {
             return NULL;
         }
@@ -2261,35 +2264,41 @@ class EventData {
 
         // --- START ALARM ---
         let startAlarm = NULL;
-        if (!AiReturnedNullField(json.start_alarm)) {
-            if (json.start_alarm === 'default') {
-                // Will be set by caller with user defaults
-                startAlarm = 'default';
+        if (!AiReturnedNullField(json.start_alarm) && json.start_alarm !== 'default') {
+            // Use specific start alarm value provided by AI
+            const startAlarmValue = Number(json.start_alarm);
+            if (type(startAlarmValue, Int) && startAlarmValue >= 0) {
+                startAlarm = startAlarmValue;
             } else {
-                const startAlarmValue = Number(json.start_alarm);
-                if (type(startAlarmValue, Int) && startAlarmValue >= 0) {
-                    startAlarm = startAlarmValue;
-                } else {
-                    log('EventData.fromAiJson: start_alarm must be non-negative integer or "default"');
-                    return NULL;
-                }
+                log('EventData.fromAiJson: start_alarm must be non-negative integer or "default"');
+                return NULL;
+            }
+        } else {
+            // Apply user defaults if provided (when start_alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.event !== undefined) {
+                startAlarm = userAlarmDefaults.event;
+            } else {
+                startAlarm = NULL;
             }
         }
 
         // --- END ALARM ---
         let endAlarm = NULL;
-        if (!AiReturnedNullField(json.end_alarm)) {
-            if (json.end_alarm === 'default') {
-                // Will be set by caller with user defaults
-                endAlarm = 'default';
+        if (!AiReturnedNullField(json.end_alarm) && json.end_alarm !== 'default') {
+            // Use specific end alarm value provided by AI
+            const endAlarmValue = Number(json.end_alarm);
+            if (type(endAlarmValue, Int) && endAlarmValue >= 0) {
+                endAlarm = endAlarmValue;
             } else {
-                const endAlarmValue = Number(json.end_alarm);
-                if (type(endAlarmValue, Int) && endAlarmValue >= 0) {
-                    endAlarm = endAlarmValue;
-                } else {
-                    log('EventData.fromAiJson: end_alarm must be non-negative integer or "default"');
-                    return NULL;
-                }
+                log('EventData.fromAiJson: end_alarm must be non-negative integer or "default"');
+                return NULL;
+            }
+        } else {
+            // Apply user defaults if provided (when end_alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.event !== undefined) {
+                endAlarm = userAlarmDefaults.event;
+            } else {
+                endAlarm = NULL;
             }
         }
 
@@ -2297,7 +2306,7 @@ class EventData {
         for (const inst of instances) {
             if ((type(inst, NonRecurringEventInstance) && inst.endTime === NULL) ||
                 (type(inst, RecurringEventInstance) && inst.endTime === NULL)) {
-                if (endAlarm !== NULL && endAlarm !== 'default') {
+                if (endAlarm !== NULL) {
                     log('EventData.fromAiJson: end_alarm must be NULL if any instance has NULL endTime');
                     return NULL;
                 }
@@ -2307,7 +2316,7 @@ class EventData {
         }
 
         try {
-            return new EventData(instances, startAlarm === 'default' ? NULL : startAlarm, endAlarm === 'default' ? NULL : endAlarm);
+            return new EventData(instances, startAlarm, endAlarm);
         } catch (e) {
             log('EventData.fromAiJson: error creating EventData');
             return NULL;
@@ -2775,7 +2784,7 @@ class ReminderData {
     }
 
     // AI JSON schema: { "type":"reminder", "instances": [ ... ] }
-    static fromAiJson(json) {
+    static fromAiJson(json, userAlarmDefaults = NULL) {
         if(!exists(json)) {
             return NULL;
         }
@@ -2813,17 +2822,20 @@ class ReminderData {
 
         // --- ALARM ---
         let alarm = false; // default value
-        if (!AiReturnedNullField(json.alarm)) {
-            if (json.alarm === 'default') {
-                // Will be set by caller with user defaults
-                alarm = 'default';
+        if (!AiReturnedNullField(json.alarm) && json.alarm !== 'default') {
+            // Use specific alarm value provided by AI
+            alarm = Boolean(json.alarm);
+        } else {
+            // Apply user defaults if provided (when alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.reminders !== undefined) {
+                alarm = userAlarmDefaults.reminders;
             } else {
-                alarm = Boolean(json.alarm);
+                alarm = false;
             }
         }
 
         try {
-            return new ReminderData(instances, alarm === 'default' ? false : alarm);
+            return new ReminderData(instances, alarm);
         } catch (e) {
             log('ReminderData.fromAiJson: error creating ReminderData');
             return NULL;
@@ -3048,44 +3060,11 @@ class Entity {
 
         let data = NULL;
         if (aiObject.type === 'task') {
-            data = TaskData.fromAiJson(aiObject, markPastDueComplete, excludeWithinDays);
-            // Apply user default for task alarm if needed
-            if (data !== NULL && userAlarmDefaults !== NULL) {
-                if (aiObject.alarm === 'default') {
-                    if (userAlarmDefaults.task === NULL) {
-                        data.alarm = NULL;
-                    } else {
-                        data.alarm = userAlarmDefaults.task;
-                    }
-                }
-            }
+            data = TaskData.fromAiJson(aiObject, markPastDueComplete, excludeWithinDays, userAlarmDefaults);
         } else if (aiObject.type === 'event') {
-            data = EventData.fromAiJson(aiObject);
-            // Apply user defaults for event alarms if needed
-            if (data !== NULL && userAlarmDefaults !== NULL) {
-                if (aiObject.start_alarm === 'default') {
-                    if (userAlarmDefaults.event === NULL) {
-                        data.startAlarm = NULL;
-                    } else {
-                        data.startAlarm = userAlarmDefaults.event;
-                    }
-                }
-                if (aiObject.end_alarm === 'default') {
-                    if (userAlarmDefaults.event === NULL) {
-                        data.endAlarm = NULL;
-                    } else {
-                        data.endAlarm = userAlarmDefaults.event;
-                    }
-                }
-            }
+            data = EventData.fromAiJson(aiObject, userAlarmDefaults);
         } else if (aiObject.type === 'reminder') {
-            data = ReminderData.fromAiJson(aiObject);
-            // Apply user default for reminder alarm if needed
-            if (data !== NULL && userAlarmDefaults !== NULL) {
-                if (aiObject.alarm === 'default') {
-                    data.alarm = userAlarmDefaults.reminders;
-                }
-            }
+            data = ReminderData.fromAiJson(aiObject, userAlarmDefaults);
         } else {
             log('Entity.fromAiJson: unknown item type ' + String(aiObject.type));
             return NULL;
