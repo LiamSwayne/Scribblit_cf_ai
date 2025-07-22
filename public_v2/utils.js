@@ -1190,8 +1190,34 @@ class RecurringTaskInstance {
         
         let datePattern;
         if (pt.type === 'every_n_days_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (pt.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = pt.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = pt.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = pt.initial_date;
+                }
+            }
             datePattern = EveryNDaysPattern.fromAiJson(pt);
         } else if (pt.type === 'weekly_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (pt.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = pt.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = pt.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = pt.initial_date;
+                }
+            }
             datePattern = EveryNDaysPattern.fromAiJson(pt, json.range);
         } else if (pt.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(pt);
@@ -1647,8 +1673,34 @@ class RecurringEventInstance {
         const p = json.start_date_pattern;
         let startDatePattern;
         if (p.type === 'every_n_days_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (p.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = p.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = p.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = p.initial_date;
+                }
+            }
             startDatePattern = EveryNDaysPattern.fromAiJson(p);
         } else if (p.type === 'weekly_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (p.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = p.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = p.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = p.initial_date;
+                }
+            }
             startDatePattern = EveryNDaysPattern.fromAiJson(p, json.range);
         } else if (p.type === 'monthly_pattern') {
             startDatePattern = MonthlyPattern.fromAiJson(p);
@@ -2677,9 +2729,34 @@ class RecurringReminderInstance {
 
         let datePattern;
         if (json.date_pattern.type === 'every_n_days_pattern') {
-            // range is only relevant for weekly pattern
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (json.date_pattern.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = json.date_pattern.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = json.date_pattern.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = json.date_pattern.initial_date;
+                }
+            }
             datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'weekly_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (json.date_pattern.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = json.date_pattern.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = json.date_pattern.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = json.date_pattern.initial_date;
+                }
+            }
             datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern, json.range);
         } else if (json.date_pattern.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
