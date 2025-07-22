@@ -316,6 +316,8 @@ class EveryNDaysPattern {
     }
 
     // range is only relevant for weekly_pattern
+    // because we need and initial date, and weekly_pattern doesn't include that
+    // so we use the range to get the initial date
     static fromAiJson(json, range) {
         if(!exists(json)) {
             return NULL;
@@ -1190,7 +1192,7 @@ class RecurringTaskInstance {
         if (pt.type === 'every_n_days_pattern') {
             datePattern = EveryNDaysPattern.fromAiJson(pt);
         } else if (pt.type === 'weekly_pattern') {
-            datePattern = WeeklyPattern.fromAiJson(pt, json.range);
+            datePattern = EveryNDaysPattern.fromAiJson(pt, json.range);
         } else if (pt.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(pt);
         } else if (pt.type === 'annually_pattern') {
@@ -1647,7 +1649,7 @@ class RecurringEventInstance {
         if (p.type === 'every_n_days_pattern') {
             startDatePattern = EveryNDaysPattern.fromAiJson(p);
         } else if (p.type === 'weekly_pattern') {
-            startDatePattern = WeeklyPattern.fromAiJson(p, json.range);
+            startDatePattern = EveryNDaysPattern.fromAiJson(p, json.range);
         } else if (p.type === 'monthly_pattern') {
             startDatePattern = MonthlyPattern.fromAiJson(p);
         } else if (p.type === 'annually_pattern') {
@@ -1658,7 +1660,7 @@ class RecurringEventInstance {
             log('RecurringEventInstance.fromAiJson: unknown start_date_pattern.type ' + String(p.type));
             return NULL;
         }
-        
+
         // Check if pattern creation failed
         if(startDatePattern === NULL) {
             log('RecurringEventInstance.fromAiJson: failed to create start date pattern');
@@ -2234,6 +2236,7 @@ class EventData {
             log('EventData.fromAiJson: instances array required');
             return NULL;
         }
+
         const instances = [];
         for (const inst of json.instances) {
             if(!exists(inst) || !type(inst.type, NonEmptyString)) {
@@ -2607,7 +2610,7 @@ class RecurringReminderInstance {
 
     // AI JSON: {
     //   "type": "reminder_pattern",
-    //   "date_pattern": every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern
+    //   "date_pattern": every_n_days_pattern, weekly_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern
     //   "time": "HH:MM",
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
@@ -2633,9 +2636,10 @@ class RecurringReminderInstance {
 
         let datePattern;
         if (json.date_pattern.type === 'every_n_days_pattern') {
+            // range is only relevant for weekly pattern
             datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'weekly_pattern') {
-            datePattern = WeeklyPattern.fromAiJson(json.date_pattern, json.range);
+            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern, json.range);
         } else if (json.date_pattern.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'annually_pattern') {
@@ -3013,7 +3017,19 @@ class Entity {
 
     // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
     // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
-    static fromAiJson(aiObject, markPastDueComplete = true, excludeWithinDays = 0, userAlarmDefaults = NULL) {
+    static fromAiJson(aiObject, markPastDueComplete, excludeWithinDays, userAlarmDefaults) { 
+        ASSERT(type(markPastDueComplete, Boolean));
+        ASSERT(type(excludeWithinDays, Int));
+        ASSERT(type(userAlarmDefaults, Union(Object, NULL)));
+
+        if(userAlarmDefaults !== NULL) {
+            // we need to make sure that the alarm settings object is valid
+            // instead of duplicating the code, we just create a dummy user and set the alarms
+            let dummyUser = User.createDefault();
+            dummyUser.settings.alarms = userAlarmDefaults;
+            ASSERT(type(dummyUser, User));
+        }
+
         if(!exists(aiObject) || !type(aiObject, Object)) {
             return NULL;
         }
@@ -3090,7 +3106,8 @@ class Entity {
             }
         } catch (e) {
             log('Entity.fromAiJson: error creating entity');
-            log(e);
+            log(e.message);
+            log(e.stack);
             return NULL;
         }
     }

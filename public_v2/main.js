@@ -17673,7 +17673,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             for (const obj of aiJson) {
                 let startTime = Date.now();
                 try {
-                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete, user.settings.alarms);
                     if (parsedEntity === NULL) {
                         chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
@@ -17687,7 +17687,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete, user.settings.alarms);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
@@ -17773,7 +17773,7 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
             for (const obj of aiJson) {
                 let startTime = Date.now();
                 try {
-                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete, user.settings.alarms);
                     if (parsedEntity === NULL) {
                         chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
@@ -17787,7 +17787,7 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete, user.settings.alarms);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
@@ -17868,7 +17868,7 @@ async function draftAiRequest(inputText, chain) {
             for (const obj of aiJson) {
                 let startTime = Date.now();
                 try {
-                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete, user.settings.alarms);
                     if (parsedEntity === NULL) {
                         chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
@@ -17882,7 +17882,7 @@ async function draftAiRequest(inputText, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete, user.settings.alarms);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
