@@ -4451,6 +4451,74 @@ function generateAlarmTable(startUnix, endUnix) {
         return `${min} ${hr} ${dom} ${mon} *`;
     };
 
+    const formatTimeUntil = (alarmTime, eventTime) => {
+        const minutesUntil = Math.round((eventTime - alarmTime) / (1000 * 60));
+        if (minutesUntil <= 0) {
+            return "starting now";
+        } else if (minutesUntil === 1) {
+            return "in 1 min";
+        } else {
+            return `in ${minutesUntil} mins`;
+        }
+    };
+
+    const formatDateTime = (timestamp) => {
+        const date = new Date(timestamp);
+        return date.toLocaleString('en-US', {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            year: 'numeric',
+            month: 'numeric', 
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    };
+
+    const generateEmailContent = (entity, alarmTime, alarmData) => {
+        const data = entity.data;
+        const entityName = entity.name;
+        
+        if (type(data, ReminderData)) {
+            return {
+                subject: `⏰ Reminder: ${entityName}`,
+                content: `${entityName} at ${formatDateTime(alarmTime)}\n\nScribblit`
+            };
+        } else if (type(data, EventData)) {
+            // For events, alarm might be for start or end
+            let eventDescription;
+            const timeUntilText = formatTimeUntil(alarmTime, alarmData.eventTime);
+            
+            if (alarmData.isEndAlarm) {
+                eventDescription = `${entityName} ends at ${formatDateTime(alarmData.eventTime)}`;
+            } else {
+                eventDescription = `${entityName} from ${formatDateTime(alarmData.eventTime)}`;
+                if (alarmData.endTime) {
+                    eventDescription += ` to ${formatDateTime(alarmData.endTime)}`;
+                } else {
+                    eventDescription = `${entityName} starts at ${formatDateTime(alarmData.eventTime)}`;
+                }
+            }
+            
+            return {
+                subject: `⏰ Event: ${entityName} ${timeUntilText}`,
+                content: `${eventDescription}\n\nScribblit`
+            };
+        } else if (type(data, TaskData)) {
+            const timeUntilText = formatTimeUntil(alarmTime, alarmData.eventTime);
+            return {
+                subject: `⏰ Task: due ${timeUntilText}`,
+                content: `${entityName} due at ${formatDateTime(alarmData.eventTime)}\n\nScribblit`
+            };
+        }
+        
+        // Fallback
+        return {
+            subject: `⏰ Reminder: ${entityName}`,
+            content: `${entityName} at ${formatDateTime(alarmTime)}\n\nScribblit`
+        };
+    };
+
     const table = [];
 
     for (const entity of user.entityArray) {
@@ -4465,11 +4533,15 @@ function generateAlarmTable(startUnix, endUnix) {
         }
         for (const alarm of alarms) {
             const ts = alarm.time !== undefined ? alarm.time : alarm;
+            const emailContent = generateEmailContent(entity, ts, alarm);
+            
             table.push({
                 unixTime: ts,
                 cronPattern: cronFor(ts),
                 name: entity.name,
-                id: entity.id
+                id: entity.id,
+                emailSubject: emailContent.subject,
+                emailContent: emailContent.content
             });
         }
     }

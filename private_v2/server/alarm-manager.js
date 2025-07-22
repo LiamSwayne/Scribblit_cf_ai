@@ -78,7 +78,9 @@ export class AlarmManager {
                 name: nextAlarm.name,
                 id: nextAlarm.id,
                 cronPattern: nextAlarm.cronPattern,
-                unixTime: nextAlarm.unixTime
+                unixTime: nextAlarm.unixTime,
+                emailSubject: nextAlarm.emailSubject,
+                emailContent: nextAlarm.emailContent
             });
             
             console.log(`⏰ Set NEXT alarm for ${new Date(nextAlarm.unixTime).toISOString()}: ${nextAlarm.name}`);
@@ -117,14 +119,17 @@ export class AlarmManager {
         
         // Send email for the fired alarm
         const alarmName = currentAlarm ? currentAlarm.name : 'Unknown Reminder';
+        const emailSubject = currentAlarm && currentAlarm.emailSubject ? currentAlarm.emailSubject : `⏰ Reminder: ${alarmName}`;
+        const emailContent = currentAlarm && currentAlarm.emailContent ? currentAlarm.emailContent : `${alarmName} at ${new Date(alarmTime).toLocaleString()}\n\nScribblit`;
+        
         console.log(`📤 Sending alarm notification to: ${userEmail} for "${alarmName}"`);
         
         try {
             await this.sendEmail(
                 this.env.SENDGRID_API_KEY,
                 userEmail,
-                `⏰ Reminder: ${alarmName}`,
-                `This is your reminder: ${alarmName}\n\nScheduled for: ${new Date(alarmTime).toLocaleString()}\n\nBest regards,\nScribblit`
+                emailSubject,
+                emailContent
             );
             console.log(`✅✅✅ ALARM EMAIL SENT SUCCESSFULLY to ${userEmail} for "${alarmName}" ✅✅✅`);
         } catch (error) {
@@ -147,7 +152,9 @@ export class AlarmManager {
                         name: nextAlarm.name,
                         id: nextAlarm.id,
                         cronPattern: nextAlarm.cronPattern,
-                        unixTime: nextAlarm.unixTime
+                        unixTime: nextAlarm.unixTime,
+                        emailSubject: nextAlarm.emailSubject,
+                        emailContent: nextAlarm.emailContent
                     });
                     console.log(`🔄 Set NEXT alarm for ${new Date(nextAlarm.unixTime).toISOString()}: ${nextAlarm.name}`);
                 } catch (error) {
