@@ -3387,17 +3387,23 @@ class FilteredInstancesFactory {
         } else { // Timed work session
             if (type(workSessionInstance, NonRecurringEventInstance)) {
                 ASSERT(type(workSessionInstance.startDate, DateField));
-                let workStartDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day)
-                    .set({ hour: workSessionInstance.startTime.hour, minute: workSessionInstance.startTime.minute });
+                let workStartDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day);
+                if (workSessionInstance.startTime !== NULL) {
+                    workStartDateTime = workStartDateTime.set({ hour: workSessionInstance.startTime.hour, minute: workSessionInstance.startTime.minute });
+                }
 
                 let workEndDateTime;
                 if (workSessionInstance.differentEndDate !== NULL) {
                     ASSERT(type(workSessionInstance.differentEndDate, DateField));
-                    workEndDateTime = DateTime.local(workSessionInstance.differentEndDate.year, workSessionInstance.differentEndDate.month, workSessionInstance.differentEndDate.day)
-                        .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    workEndDateTime = DateTime.local(workSessionInstance.differentEndDate.year, workSessionInstance.differentEndDate.month, workSessionInstance.differentEndDate.day);
+                    if (workSessionInstance.endTime !== NULL) {
+                        workEndDateTime = workEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    }
                 } else {
-                    workEndDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day)
-                        .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    workEndDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day);
+                    if (workSessionInstance.endTime !== NULL) {
+                        workEndDateTime = workEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    }
                 }
 
                 let workStartMs = workStartDateTime.toMillis();
@@ -3432,10 +3438,15 @@ class FilteredInstancesFactory {
                     let instanceEndDateTime;
 
                     if (workSessionInstance.differentEndDatePattern === NULL) {
-                        instanceEndDateTime = instanceStartDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        instanceEndDateTime = instanceStartDateTime;
+                        if (workSessionInstance.endTime !== NULL) {
+                            instanceEndDateTime = instanceEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        }
                     } else {
-                        instanceEndDateTime = instanceStartDateTime.plus({ days: workSessionInstance.differentEndDatePattern })
-                            .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        instanceEndDateTime = instanceStartDateTime.plus({ days: workSessionInstance.differentEndDatePattern });
+                        if (workSessionInstance.endTime !== NULL) {
+                            instanceEndDateTime = instanceEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        }
                     }
                     let endMs = instanceEndDateTime.toMillis();
                     const ambiguousEndTime = workSessionInstance.endTime === NULL;
@@ -3555,8 +3566,10 @@ class FilteredInstancesFactory {
         } else { // Timed event
             if (type(eventInstance, NonRecurringEventInstance)) {
                 ASSERT(type(eventInstance.startDate, DateField));
-                let eventStartDateTime = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day)
-                    .set({ hour: eventInstance.startTime.hour, minute: eventInstance.startTime.minute });
+                let eventStartDateTime = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day);
+                if (eventInstance.startTime !== NULL) {
+                    eventStartDateTime = eventStartDateTime.set({ hour: eventInstance.startTime.hour, minute: eventInstance.startTime.minute });
+                }
 
                 let eventEndDateTime;
                 let ambiguousEndTime = false;
@@ -3609,7 +3622,8 @@ class FilteredInstancesFactory {
                     let instanceEndDateTime;
                     let ambiguousEndTime = false;
 
-                    if (exists(eventInstance.endTime)) {
+                    ASSERT(exists(eventInstance.endTime) && exists(eventInstance.startTime), "EventInstance must have endTime and startTime");
+                    if (eventInstance.endTime !== NULL && eventInstance.startTime !== NULL) {
                         let durationHours = eventInstance.endTime.hour - eventInstance.startTime.hour;
                         let durationMinutes = eventInstance.endTime.minute - eventInstance.startTime.minute;
                         if (durationMinutes < 0) {
@@ -3666,7 +3680,47 @@ class FilteredInstancesFactory {
         const entityId = reminderEntity.id;
         const entityName = reminderEntity.name;
 
-        const originalDate = reminderInstance.datePattern ? reminderInstance.datePattern.initialDate : reminderInstance.date;
+        let originalDate;
+        
+        // Properly distinguish between reminder instance types
+        if (type(reminderInstance, NonRecurringReminderInstance)) {
+            // Non-recurring reminder - get original date from the instance's date field
+            ASSERT(reminderInstance.date !== NULL, "NonRecurringReminderInstance must have date");
+            originalDate = reminderInstance.date;
+        } else if (type(reminderInstance, RecurringReminderInstance)) {
+            // Recurring reminder - extract original date based on pattern type
+            ASSERT(reminderInstance.datePattern !== NULL, "RecurringReminderInstance must have datePattern");
+            
+            if (type(reminderInstance.datePattern, EveryNDaysPattern)) {
+                ASSERT(reminderInstance.datePattern.initialDate !== NULL, "EveryNDaysPattern must have initialDate");
+                originalDate = reminderInstance.datePattern.initialDate;
+            } else if (type(reminderInstance.datePattern, MonthlyPattern) || 
+                       type(reminderInstance.datePattern, AnnuallyPattern) || 
+                       type(reminderInstance.datePattern, NthWeekdayOfMonthsPattern)) {
+                // For these patterns, the original date comes from the range
+                ASSERT(reminderInstance.range !== NULL, "Pattern-based reminders must have range");
+                if (type(reminderInstance.range, DateRange)) {
+                    ASSERT(reminderInstance.range.startDate !== NULL, "DateRange must have startDate");
+                    originalDate = reminderInstance.range.startDate;
+                } else if (type(reminderInstance.range, RecurrenceCount)) {
+                    ASSERT(reminderInstance.range.initialDate !== NULL, "RecurrenceCount must have initialDate");
+                    originalDate = reminderInstance.range.initialDate;
+                } else {
+                    ASSERT(false, "Unknown range type in recurring reminder: " + reminderInstance.range.constructor.name);
+                }
+            } else {
+                log('DEBUG fromReminder: Unknown datePattern for entity ' + entityId);
+                log('DEBUG fromReminder: datePattern = ' + JSON.stringify(reminderInstance.datePattern));
+                log('DEBUG fromReminder: type(datePattern, EveryNDaysPattern) = ' + type(reminderInstance.datePattern, EveryNDaysPattern));
+                log('DEBUG fromReminder: type(datePattern, MonthlyPattern) = ' + type(reminderInstance.datePattern, MonthlyPattern));
+                log('DEBUG fromReminder: type(datePattern, AnnuallyPattern) = ' + type(reminderInstance.datePattern, AnnuallyPattern));
+                log('DEBUG fromReminder: type(datePattern, NthWeekdayOfMonthsPattern) = ' + type(reminderInstance.datePattern, NthWeekdayOfMonthsPattern));
+                ASSERT(false, "Unknown datePattern type in recurring reminder: " + reminderInstance.datePattern.constructor.name + " for entity " + entityId);
+            }
+        } else {
+            ASSERT(false, "Unknown reminder instance type: " + reminderInstance.constructor.name + " for entity " + entityId);
+        }
+        
         // reminderInstance.time is now guaranteed to be a TimeField
         const originalTime = reminderInstance.time;
 

@@ -2465,11 +2465,13 @@ class EventData {
                 const offsetMs = this.endAlarm * 60 * 1000;
 
                 if (type(instance, NonRecurringEventInstance)) {
+                    if (instance.endTime === NULL) continue; // skip if no end time
                     const startMid = instance.startDate.toUnixTimestamp();
                     const endMid = (instance.differentEndDate !== NULL ? instance.differentEndDate : instance.startDate).toUnixTimestamp();
                     const endDateTime = endMid + ((instance.endTime.hour * 60 + instance.endTime.minute) * 60 * 1000);
                     maybeAddAlarm(endDateTime - offsetMs, endDateTime, true);
                 } else if (type(instance, RecurringEventInstance)) {
+                    if (instance.endTime === NULL) continue; // skip if no end time
                     const expandedLower = startUnix === NULL ? 0 : startUnix - offsetMs;
                     const upper = endUnix === NULL ? defaultCutoffUnix : endUnix;
                     const occurrences = getOccurrences(instance, expandedLower, upper);
@@ -2952,9 +2954,11 @@ class ReminderData {
 
         for (const instance of this.instances) {
             if (type(instance, NonRecurringReminderInstance)) {
+                if (instance.time === NULL) continue; // skip if no time
                 const ts = instance.date.toUnixTimestamp() + ((instance.time.hour * 60 + instance.time.minute) * 60 * 1000);
                 maybeAdd(ts);
             } else if (type(instance, RecurringReminderInstance)) {
+                if (instance.time === NULL) continue; // skip if no time
                 const expandedLower = startUnix === NULL ? 0 : startUnix;
                 const upper = endUnix === NULL ? defaultCutoffUnix : endUnix;
                 const occurrences = getOccurrences(instance, expandedLower, upper);
@@ -4032,8 +4036,8 @@ class FilteredReminderInstance {
         ASSERT(type(id, NonEmptyString));
         ASSERT(type(name, String));
         ASSERT(type(dateTime, Int)); // Unix timestamp for the reminder's time
-        ASSERT(type(originalDate, DateField)); // The original date from the pattern or non-recurring instance
-        ASSERT(type(originalTime, TimeField));
+        ASSERT(type(originalDate, DateField), "FilteredReminderInstance: originalDate must be a DateField. Received: " + String(originalDate) + " from entity with id: " + id);
+        ASSERT(type(originalTime, TimeField), "FilteredReminderInstance: originalTime must be a TimeField. Received: " + String(originalTime) + " from entity with id: " + id);
         ASSERT(type(patternIndex, Int));
 
         this.id = id;
