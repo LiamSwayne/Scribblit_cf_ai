@@ -1869,24 +1869,6 @@ export default {
                     }
                 }
 
-            case '/test-email-integration':
-                if (request.method !== 'GET') {
-                    return SEND({
-                        error: 'Method Not Allowed'
-                    }, 405);
-                }
-                try {
-                    await sendEmail(
-                        env.SENDGRID_API_KEY,
-                        'liamtswayne@gmail.com',
-                        'Test Integration',
-                        'This is a test email from your Cloudflare Worker. If you see this, the SendGrid integration is working.'
-                    );
-                    return SEND('Test email sent', 200);
-                } catch (err) {
-                    return SEND(err.message || err.toString(), 500);
-                }
-
             case '/ai/parse':
                 {
                     if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
