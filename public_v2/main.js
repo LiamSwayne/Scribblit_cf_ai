@@ -2975,8 +2975,9 @@ function dayOfWeekStringToIndex(dayOfWeekString) {
     }
 }
 
-function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasDifferentEndDate = false, kind) {
+function getRecurringPatternDescription(pattern, range, startTime, endTime = NULL, hasDifferentEndDate = false, kind) {
     ASSERT(exists(pattern), "getRecurringPatternDescription: pattern must exist");
+    ASSERT(exists(range), "getRecurringPatternDescription: range must exist");
     ASSERT(type(startTime, Union(TimeField, NULL)), "getRecurringPatternDescription: startTime must be a TimeField or NULL");
     ASSERT(type(endTime, Union(TimeField, NULL)), "getRecurringPatternDescription: endTime must be a TimeField or NULL");
     ASSERT(type(hasDifferentEndDate, Boolean), "getRecurringPatternDescription: hasDifferentEndDate must be a Boolean");
@@ -2988,8 +2989,18 @@ function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasD
         if (pattern.n === 1) {
             description = 'Daily';
         } else if (pattern.n === 7) {
-            // Find the day of the week from the initial date
-            const initialDateField = DateField.decode(pattern.initialDate);
+            // Find the day of the week from the range start date
+            let startDateField;
+            if (type(range, DateRange)) {
+                startDateField = range.startDate;
+            } else if (type(range, RecurrenceCount)) {
+                startDateField = range.initialDate;
+            } else {
+                // Fallback - shouldn't happen but handle gracefully
+                startDateField = range.initialDate || range.startDate;
+            }
+            
+            const initialDateField = DateField.decode(startDateField);
             const initialDate = new Date(initialDateField.year, initialDateField.month - 1, initialDateField.day);
             const dayOfWeek = initialDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
             const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -3107,7 +3118,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
             startDateTime = baseDate;
         }
     } else if (type(pattern, EveryNDaysPattern)) {
-        startDateTime = DateTime.local(pattern.initialDate.year, pattern.initialDate.month, pattern.initialDate.day);
+        startDateTime = DateTime.local(instance.range.initialDate.year, instance.range.initialDate.month, instance.range.initialDate.day);
     } else if (type(pattern, MonthlyPattern)) {
         // For MonthlyPattern, find the first occurrence from today
         ASSERT(type(pattern.day, Int) && pattern.day >= 1 && pattern.day <= 31, "MonthlyPattern must have valid day");
@@ -3310,7 +3321,17 @@ class FilteredInstancesFactory {
         if (workSessionInstance.startDatePattern) {
             // For recurring events, we need to handle different pattern types
             if (type(workSessionInstance.startDatePattern, EveryNDaysPattern)) {
-                originalStartDate = workSessionInstance.startDatePattern.initialDate;
+                // For EveryNDaysPattern, get the start date from the range
+                const range = workSessionInstance.range;
+                if (type(range, DateRange)) {
+                    ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                    originalStartDate = range.startDate;
+                } else if (type(range, RecurrenceCount)) {
+                    ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                    originalStartDate = range.initialDate;
+                } else {
+                    ASSERT(false, "EveryNDaysPattern range must be DateRange or RecurrenceCount");
+                }
             } else {
                 // For other pattern types, get the earliest date in the range
                 const pattern = workSessionInstance.startDatePattern;
@@ -3485,7 +3506,17 @@ class FilteredInstancesFactory {
         if (eventInstance.startDatePattern) {
             // For recurring events, we need to handle different pattern types
             if (type(eventInstance.startDatePattern, EveryNDaysPattern)) {
-                originalStartDate = eventInstance.startDatePattern.initialDate;
+                // For EveryNDaysPattern, get the start date from the range
+                const range = eventInstance.range;
+                if (type(range, DateRange)) {
+                    ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                    originalStartDate = range.startDate;
+                } else if (type(range, RecurrenceCount)) {
+                    ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                    originalStartDate = range.initialDate;
+                } else {
+                    ASSERT(false, "EveryNDaysPattern range must be DateRange or RecurrenceCount");
+                }
             } else {
                 // For other pattern types, get the earliest date in the range
                 const pattern = eventInstance.startDatePattern;
@@ -3692,8 +3723,18 @@ class FilteredInstancesFactory {
             ASSERT(reminderInstance.datePattern !== NULL, "RecurringReminderInstance must have datePattern");
             
             if (type(reminderInstance.datePattern, EveryNDaysPattern)) {
-                ASSERT(reminderInstance.datePattern.initialDate !== NULL, "EveryNDaysPattern must have initialDate");
-                originalDate = reminderInstance.datePattern.initialDate;
+                // For EveryNDaysPattern, get the start date from the range
+                const range = reminderInstance.range;
+                ASSERT(range !== NULL, "EveryNDaysPattern must have range");
+                if (type(range, DateRange)) {
+                    ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                    originalDate = range.startDate;
+                } else if (type(range, RecurrenceCount)) {
+                    ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                    originalDate = range.initialDate;
+                } else {
+                    ASSERT(false, "EveryNDaysPattern range must be DateRange or RecurrenceCount");
+                }
             } else if (type(reminderInstance.datePattern, MonthlyPattern) || 
                        type(reminderInstance.datePattern, AnnuallyPattern) || 
                        type(reminderInstance.datePattern, NthWeekdayOfMonthsPattern)) {
@@ -11928,6 +11969,32 @@ function saveDateFields(instance) {
                 } else if (instance.hasOwnProperty('startDate')) {
                     instance.startDate = dateField;
                 }
+                
+                // Special handling for EveryNDaysPattern: sync range and pattern dates
+                if (instance.hasOwnProperty('datePattern') && instance.datePattern && instance.datePattern._type === 'EveryNDaysPattern') {
+                    // Update pattern's initialDate for consistency
+                    instance.datePattern.initialDate = dateField;
+                    // Update range start date
+                    if (instance.range) {
+                        if (instance.range._type === 'DateRange') {
+                            instance.range.startDate = dateField;
+                        } else if (instance.range._type === 'RecurrenceCount') {
+                            instance.range.initialDate = dateField;
+                        }
+                    }
+                } else if (instance.hasOwnProperty('startDatePattern') && instance.startDatePattern && instance.startDatePattern._type === 'EveryNDaysPattern') {
+                    // Update pattern's initialDate for consistency
+                    instance.startDatePattern.initialDate = dateField;
+                    // Update range start date
+                    if (instance.range) {
+                        if (instance.range._type === 'DateRange') {
+                            instance.range.startDate = dateField;
+                        } else if (instance.range._type === 'RecurrenceCount') {
+                            instance.range.initialDate = dateField;
+                        }
+                    }
+                }
+                
                 break; // Found date fields for this pattern, stop looking for other patterns
             }
         }
@@ -12288,7 +12355,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
         
         const hasDifferentEndDate = instance.differentEndDatePattern !== symbolToString(NULL) && instance.differentEndDatePattern !== NULL;
         
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate, kind));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.startDatePattern, instance.range, startTime, endTime, hasDifferentEndDate, kind));
     }
     
     if (instance._type === 'RecurringTaskInstance') {
@@ -12300,7 +12367,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
                 console.warn('Failed to decode recurring task due time:', instance.dueTime, e);
             }
         }
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false, kind));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, instance.range, dueTime, NULL, false, kind));
     }
     
     if (instance._type === 'RecurringReminderInstance') {
@@ -12312,7 +12379,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
                 console.warn('Failed to decode recurring reminder time:', instance.time, e);
             }
         }
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, time, NULL, false, kind));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, instance.range, time, NULL, false, kind));
     }
     
     // Fallback
@@ -13643,7 +13710,9 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
             
             // Check if this is a newly created instance (empty initial date) and set to today
             let isNewInstance = false;
-            if (pattern && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
+            if (pattern && pattern._type === 'EveryNDaysPattern' && range && (!range.initialDate || range.initialDate === symbolToString(NULL))) {
+                isNewInstance = true;
+            } else if (pattern && pattern._type !== 'EveryNDaysPattern' && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
                 isNewInstance = true;
                 // Set start date to today for new instances
                 const today = new Date();
@@ -13660,20 +13729,28 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
                 startingDateFields.day.value = day;
             }
             
-            // If not a new instance, populate from the pattern's initial date
-            if (!isNewInstance && pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
-                const patternStartDate = DateField.decode(pattern.initialDate);
-                const patternYear = patternStartDate.year.toString().slice(-2);
-                const patternMonth = patternStartDate.month.toString();
-                const patternDay = patternStartDate.day.toString();
+            // If not a new instance, populate from the initial date (range for EveryNDaysPattern, pattern for others)
+            if (!isNewInstance && pattern) {
+                let patternStartDate = null;
+                if (pattern._type === 'EveryNDaysPattern' && range && range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(range.initialDate);
+                } else if (pattern._type !== 'EveryNDaysPattern' && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(pattern.initialDate);
+                }
                 
-                fromDateFields.year.value = patternYear;
-                fromDateFields.month.value = patternMonth;
-                fromDateFields.day.value = patternDay;
-                
-                startingDateFields.year.value = patternYear;
-                startingDateFields.month.value = patternMonth;
-                startingDateFields.day.value = patternDay;
+                                 if (patternStartDate) {
+                    const patternYear = patternStartDate.year.toString().slice(-2);
+                    const patternMonth = patternStartDate.month.toString();
+                    const patternDay = patternStartDate.day.toString();
+                    
+                    fromDateFields.year.value = patternYear;
+                    fromDateFields.month.value = patternMonth;
+                    fromDateFields.day.value = patternDay;
+                    
+                    startingDateFields.year.value = patternYear;
+                    startingDateFields.month.value = patternMonth;
+                    startingDateFields.day.value = patternDay;
+                }
             }
             
             if (range && range._type === 'DateRange') {
@@ -15715,7 +15792,9 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
             
             // Check if this is a newly created instance (empty initial date) and set to today
             let isNewInstance = false;
-            if (pattern && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
+            if (pattern && pattern._type === 'EveryNDaysPattern' && range && (!range.initialDate || range.initialDate === symbolToString(NULL))) {
+                isNewInstance = true;
+            } else if (pattern && pattern._type !== 'EveryNDaysPattern' && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
                 isNewInstance = true;
                 // Set start date to today for new instances
                 const today = new Date();
@@ -15732,20 +15811,28 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
                 startingDateFields.day.value = day;
             }
             
-            // If not a new instance, populate from the pattern's initial date
-            if (!isNewInstance && pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
-                const patternStartDate = DateField.decode(pattern.initialDate);
-                const patternYear = patternStartDate.year.toString().slice(-2);
-                const patternMonth = patternStartDate.month.toString();
-                const patternDay = patternStartDate.day.toString();
+            // If not a new instance, populate from the initial date (range for EveryNDaysPattern, pattern for others)
+            if (!isNewInstance && pattern) {
+                let patternStartDate = null;
+                if (pattern._type === 'EveryNDaysPattern' && range && range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(range.initialDate);
+                } else if (pattern._type !== 'EveryNDaysPattern' && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(pattern.initialDate);
+                }
                 
-                fromDateFields.year.value = patternYear;
-                fromDateFields.month.value = patternMonth;
-                fromDateFields.day.value = patternDay;
-                
-                startingDateFields.year.value = patternYear;
-                startingDateFields.month.value = patternMonth;
-                startingDateFields.day.value = patternDay;
+                if (patternStartDate) {
+                    const patternYear = patternStartDate.year.toString().slice(-2);
+                    const patternMonth = patternStartDate.month.toString();
+                    const patternDay = patternStartDate.day.toString();
+                    
+                    fromDateFields.year.value = patternYear;
+                    fromDateFields.month.value = patternMonth;
+                    fromDateFields.day.value = patternDay;
+                    
+                    startingDateFields.year.value = patternYear;
+                    startingDateFields.month.value = patternMonth;
+                    startingDateFields.day.value = patternDay;
+                }
             }
             
             if (range && range._type === 'DateRange') {

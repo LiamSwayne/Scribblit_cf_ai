@@ -2030,6 +2030,16 @@ class TaskData {
             instances.push(converted);
         }
 
+        // be careful and set start of range to initial date
+        log('TaskData.fromAiJson: be careful and set start of range to initial date');
+        for (const instance of json.instances) {
+            if (instance.type === 'due_date_pattern' && instance.pattern && instance.pattern.type === 'every_n_days_pattern') {
+                if (instance.range && instance.pattern.initial_date) {
+                    instance.range.startDate = instance.pattern.initial_date;
+                }
+            }
+        }
+
         let workSessions = [];
         if (!AiReturnedNullField(json.work_sessions)) {
             if(!Array.isArray(json.work_sessions)) {
@@ -2055,6 +2065,16 @@ class TaskData {
                     return NULL;
                 }
                 workSessions.push(sess);
+            }
+
+            // be careful and set start of range to initial date for work sessions
+            log('TaskData.fromAiJson: be careful and set start of range to initial date for work sessions');
+            for (const ws of json.work_sessions) {
+                if (ws.type === 'event_pattern' && ws.start_date_pattern && ws.start_date_pattern.type === 'every_n_days_pattern') {
+                    if (ws.range && ws.start_date_pattern.initial_date) {
+                        ws.range.startDate = ws.start_date_pattern.initial_date;
+                    }
+                }
             }
         }
 
@@ -2260,6 +2280,16 @@ class EventData {
                 return NULL;
             }
             instances.push(conv);
+        }
+
+        // be careful and set start of range to initial date
+        log('EventData.fromAiJson: be careful and set start of range to initial date');
+        for (const instance of json.instances) {
+            if (instance.type === 'event_pattern' && instance.start_date_pattern && instance.start_date_pattern.type === 'every_n_days_pattern') {
+                if (instance.range && instance.start_date_pattern.initial_date) {
+                    instance.range.startDate = instance.start_date_pattern.initial_date;
+                }
+            }
         }
 
         // --- START ALARM ---
@@ -2822,6 +2852,16 @@ class ReminderData {
             instances.push(conv);
         }
 
+        // be careful and set start of range to initial date
+        log('ReminderData.fromAiJson: be careful and set start of range to initial date');
+        for (const instance of json.instances) {
+            if (instance.type === 'reminder_pattern' && instance.pattern && instance.pattern.type === 'every_n_days_pattern') {
+                if (instance.range && instance.pattern.initial_date) {
+                    instance.range.startDate = instance.pattern.initial_date;
+                }
+            }
+        }
+
         // --- ALARM ---
         let alarm = false; // default value
         if (!AiReturnedNullField(json.alarm) && json.alarm !== 'default') {
@@ -3063,6 +3103,15 @@ class Entity {
         const privateField = exists(aiObject.private) && type(aiObject.private, Boolean) ? aiObject.private : false;
 
         let data = NULL;
+        if (aiObject.instances) {
+            // be careful and set start of range to initial date
+            log('Entity.fromAiJson: be careful and set start of range to initial date');
+            for (const instance of aiObject.instances) {
+                if (instance.type === 'every_n_days' && instance.initial_date) {
+                    instance.range.startDate = instance.initialDate;
+                }
+            }
+        }
         if (aiObject.type === 'task') {
             data = TaskData.fromAiJson(aiObject, markPastDueComplete, excludeWithinDays, userAlarmDefaults);
         } else if (aiObject.type === 'event') {
