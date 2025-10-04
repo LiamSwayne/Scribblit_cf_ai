@@ -1,3 +1,7 @@
+import { AlarmManager } from './alarm-manager.js';
+
+const NULL = Symbol('NULL');
+
 const SERVER_DOMAIN_OLD = 'scribblit-production.unrono.workers.dev';
 const SERVER_DOMAIN = 'app.scribbl.it';
 const OLD_PAGES_DOMAIN = 'scribblit2.pages.dev';
@@ -883,42 +887,43 @@ async function handlePromptOnly(userPrompt, env) {
     let chain = [];
     let startTime = 0;
 
+    // 1st choice – Gemini 2.5 Flash
     startTime = Date.now();
-    let grokResult = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], constructEntitiesPrompt);
-    if (grokResult && grokResult.trim() !== '') {
-        content = grokResult;
-        chain.push({ request: {
-            model: MODELS.XAI_MODELS.grok4,
+    let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
+    content = geminiResult.response;
+    if (content && content.trim() !== '') {
+        chain.push({ thinking_request: {
+            model: MODELS.GEMINI_MODELS.flash,
             typeOfPrompt: 'convert_text_to_entities',
-            response: grokResult,
+            response: geminiResult.response,
+            thoughts: geminiResult.thoughts,
             startTime,
             endTime: Date.now(),
             userPrompt: userPrompt,
             systemPrompt: constructEntitiesPrompt
         }});
     } else {
-        // use Gemini Flash
-        let geminiResult = await callGeminiModel(MODELS.GEMINI_MODELS.flash, userPrompt, env, [], constructEntitiesPrompt, true);
-        content = geminiResult.response;
+        chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
+        // 2nd choice – Cerebras Qwen3
+        startTime = Date.now();
+        content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
         if (content && content.trim() !== '') {
             chain.push({ thinking_request: {
-                model: MODELS.GEMINI_MODELS.flash,
+                model: MODELS.CEREBRAS_MODELS.qwen3,
                 typeOfPrompt: 'convert_text_to_entities',
-                response: geminiResult.response,
-                thoughts: geminiResult.thoughts,
+                response: content,
                 startTime,
                 endTime: Date.now(),
-                userPrompt: userPrompt,
-                systemPrompt: constructEntitiesPrompt
+                userPrompt: userPrompt
             }});
         } else {
-            chain.push({ rerouteToModel: { model: MODELS.CEREBRAS_MODELS.qwen3, startTime, endTime: Date.now() }});
-            // reroute to Cerebras Qwen3
+            chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
+            // 3rd choice – Groq Qwen3
             startTime = Date.now();
-            content = await callCerebrasModel(MODELS.CEREBRAS_MODELS.qwen3, userPrompt, env, constructEntitiesPrompt);
+            content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], constructEntitiesPrompt);
             if (content && content.trim() !== '') {
                 chain.push({ thinking_request: {
-                    model: MODELS.CEREBRAS_MODELS.qwen3,
+                    model: MODELS.GROQ_MODELS.qwen3,
                     typeOfPrompt: 'convert_text_to_entities',
                     response: content,
                     startTime,
@@ -926,18 +931,20 @@ async function handlePromptOnly(userPrompt, env) {
                     userPrompt: userPrompt
                 }});
             } else {
-                chain.push({ rerouteToModel: { model: MODELS.GROQ_MODELS.qwen3, startTime, endTime: Date.now() }});
-                // reroute to Groq Qwen3
+                chain.push({ rerouteToModel: { model: MODELS.XAI_MODELS.grok4, startTime, endTime: Date.now() }});
+                // 4th choice – xAI Grok-4
                 startTime = Date.now();
-                content = await callGroqModel(MODELS.GROQ_MODELS.qwen3, userPrompt, env, [], constructEntitiesPrompt);
-                if (content && content.trim() !== '') {
-                    chain.push({ thinking_request: {
-                        model: MODELS.GROQ_MODELS.qwen3,
+                let grokResult = await callXaiModel(MODELS.XAI_MODELS.grok4, userPrompt, env, [], constructEntitiesPrompt);
+                if (grokResult && grokResult.trim() !== '') {
+                    content = grokResult;
+                    chain.push({ request: {
+                        model: MODELS.XAI_MODELS.grok4,
                         typeOfPrompt: 'convert_text_to_entities',
-                        response: content,
+                        response: grokResult,
                         startTime,
                         endTime: Date.now(),
-                        userPrompt: userPrompt
+                        userPrompt: userPrompt,
+                        systemPrompt: constructEntitiesPrompt
                     }});
                 } else {
                     return SEND({ error: 'Failed to connect to any AI model.' }, 481);
@@ -1673,7 +1680,7 @@ export default {
                             data,
                             dataspec,
                             timestamp,
-                            workflowStuff,
+                            alarmTable,
                         } = await request.json();
 
                         if (typeof data !== 'string' || typeof dataspec !== 'number' || typeof timestamp !== 'number') {
@@ -1689,36 +1696,39 @@ export default {
                             email
                         ).run();
 
-                        // Trigger GitHub dispatch if workflowStuff provided
-                        if (workflowStuff && typeof workflowStuff === 'object') {
-                            const repo = 'LiamSwayne/Scribblit';
-                            const githubToken = env.SCRIBBLIT_READ_AND_WRITE_TO_REPO; // PAT for GitHub
-                            if (githubToken) {
-                                const response = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+                        // Update Durable Object alarms if alarmTable provided
+                        if (alarmTable && Array.isArray(alarmTable)) {
+                            try {
+                                // Get Durable Object for this user (using email as unique identifier)
+                                const durableObjectId = env.ALARM_MANAGER.idFromName(email);
+                                const durableObject = env.ALARM_MANAGER.get(durableObjectId);
+                                
+                                // Update alarms in the Durable Object
+                                const response = await durableObject.fetch(new Request('https://dummy.com/update-alarms', {
                                     method: 'POST',
                                     headers: {
-                                        'Authorization': `Bearer ${githubToken}`,
-                                        'Accept': 'application/vnd.github.v3+json',
-                                        'User-Agent': 'Scribblit-App'
+                                        'Content-Type': 'application/json'
                                     },
                                     body: JSON.stringify({
-                                        event_type: 'generate_workflow',
-                                        client_payload: workflowStuff
+                                        alarmTable: alarmTable,
+                                        email: email
                                     })
-                                });
-
+                                }));
+                                
                                 if (!response.ok) {
-                                    const responseBody = await response.text();
-                                    console.error(`GitHub dispatch failed with status ${response.status}: ${responseBody}`);
-                                    return SEND({ error: 'Failed to trigger GitHub workflow.' }, 479);
+                                    const errorData = await response.json();
+                                    console.error(`Failed to update alarms for user ${email}:`, errorData);
+                                    return SEND({ error: 'Failed to update alarms.' }, 479);
                                 }
                                 
-                                console.log('GitHub dispatch triggered successfully.');
+                                console.log(`Successfully updated ${alarmTable.length} alarms for user: ${email}`);
                                 
-                            } else {
-                                console.error('GitHub token (SCRIBBLIT_READ_AND_WRITE_TO_REPO) is not provided.');
-                                return SEND({ error: 'GitHub token is not provided.' }, 479);
+                            } catch (error) {
+                                console.error(`Error updating alarms for user ${email}:`, error);
+                                return SEND({ error: 'Failed to update alarms.' }, 479);
                             }
+                        } else {
+                            console.log(`No alarm table provided for user: ${email}`);
                         }
 
                         return SEND({ success: true });
@@ -1862,24 +1872,6 @@ export default {
                     }
                 }
 
-            case '/test-email-integration':
-                if (request.method !== 'GET') {
-                    return SEND({
-                        error: 'Method Not Allowed'
-                    }, 405);
-                }
-                try {
-                    await sendEmail(
-                        env.SENDGRID_API_KEY,
-                        'liamtswayne@gmail.com',
-                        'Test Integration',
-                        'This is a test email from your Cloudflare Worker. If you see this, the SendGrid integration is working.'
-                    );
-                    return SEND('Test email sent', 200);
-                } catch (err) {
-                    return SEND(err.message || err.toString(), 500);
-                }
-
             case '/ai/parse':
                 {
                     if (request.method !== 'POST') return SEND({ error: 'Method Not Allowed' }, 405);
@@ -1971,7 +1963,8 @@ async function sendEmail(apiKey, to, subject, content) {
             }]
         }],
         from: {
-            email: 'hello@scribbl.it'
+            email: 'hello@scribbl.it',
+            name: 'Scribblit'
         },
         subject: subject,
         content: [{
@@ -1994,3 +1987,6 @@ async function sendEmail(apiKey, to, subject, content) {
         throw new Error(`SendGrid API error: ${errorText}`);
     }
 }
+
+// Export the Durable Object class for Cloudflare Workers
+export { AlarmManager };

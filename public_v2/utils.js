@@ -1,4 +1,4 @@
-let TESTING = false;
+let TESTING = true;
 let TESTING_USER_IS_EMPTY = false;
 let TESTING_SHOW_LOGS = true;
 
@@ -316,6 +316,8 @@ class EveryNDaysPattern {
     }
 
     // range is only relevant for weekly_pattern
+    // because we need and initial date, and weekly_pattern doesn't include that
+    // so we use the range to get the initial date
     static fromAiJson(json, range) {
         if(!exists(json)) {
             return NULL;
@@ -1188,9 +1190,35 @@ class RecurringTaskInstance {
         
         let datePattern;
         if (pt.type === 'every_n_days_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (pt.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = pt.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = pt.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = pt.initial_date;
+                }
+            }
             datePattern = EveryNDaysPattern.fromAiJson(pt);
         } else if (pt.type === 'weekly_pattern') {
-            datePattern = WeeklyPattern.fromAiJson(pt, json.range);
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (pt.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = pt.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = pt.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = pt.initial_date;
+                }
+            }
+            datePattern = EveryNDaysPattern.fromAiJson(pt, json.range);
         } else if (pt.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(pt);
         } else if (pt.type === 'annually_pattern') {
@@ -1645,9 +1673,35 @@ class RecurringEventInstance {
         const p = json.start_date_pattern;
         let startDatePattern;
         if (p.type === 'every_n_days_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (p.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = p.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = p.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = p.initial_date;
+                }
+            }
             startDatePattern = EveryNDaysPattern.fromAiJson(p);
         } else if (p.type === 'weekly_pattern') {
-            startDatePattern = WeeklyPattern.fromAiJson(p, json.range);
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (p.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = p.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = p.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = p.initial_date;
+                }
+            }
+            startDatePattern = EveryNDaysPattern.fromAiJson(p, json.range);
         } else if (p.type === 'monthly_pattern') {
             startDatePattern = MonthlyPattern.fromAiJson(p);
         } else if (p.type === 'annually_pattern') {
@@ -1658,7 +1712,7 @@ class RecurringEventInstance {
             log('RecurringEventInstance.fromAiJson: unknown start_date_pattern.type ' + String(p.type));
             return NULL;
         }
-        
+
         // Check if pattern creation failed
         if(startDatePattern === NULL) {
             log('RecurringEventInstance.fromAiJson: failed to create start date pattern');
@@ -1992,7 +2046,7 @@ class TaskData {
         }
     }
 
-    static fromAiJson(json, markPastDueComplete = true, excludeWithinDays = 0) {
+    static fromAiJson(json, markPastDueComplete = true, excludeWithinDays = 0, userAlarmDefaults = NULL) {
         if(!exists(json)) {
             return NULL;
         }
@@ -2028,6 +2082,16 @@ class TaskData {
             instances.push(converted);
         }
 
+        // be careful and set start of range to initial date
+        log('TaskData.fromAiJson: be careful and set start of range to initial date');
+        for (const instance of json.instances) {
+            if (instance.type === 'due_date_pattern' && instance.pattern && instance.pattern.type === 'every_n_days_pattern') {
+                if (instance.range && instance.pattern.initial_date) {
+                    instance.range.startDate = instance.pattern.initial_date;
+                }
+            }
+        }
+
         let workSessions = [];
         if (!AiReturnedNullField(json.work_sessions)) {
             if(!Array.isArray(json.work_sessions)) {
@@ -2054,27 +2118,40 @@ class TaskData {
                 }
                 workSessions.push(sess);
             }
-        }
 
-        // --- ALARM ---
-        let alarm = NULL;
-        if (!AiReturnedNullField(json.alarm)) {
-            if (json.alarm === 'default') {
-                // Will be set by caller with user defaults
-                alarm = 'default';
-            } else {
-                const alarmValue = Number(json.alarm);
-                if (type(alarmValue, Int) && alarmValue >= 0) {
-                    alarm = alarmValue;
-                } else {
-                    log('TaskData.fromAiJson: alarm must be non-negative integer or "default"');
-                    return NULL;
+            // be careful and set start of range to initial date for work sessions
+            log('TaskData.fromAiJson: be careful and set start of range to initial date for work sessions');
+            for (const ws of json.work_sessions) {
+                if (ws.type === 'event_pattern' && ws.start_date_pattern && ws.start_date_pattern.type === 'every_n_days_pattern') {
+                    if (ws.range && ws.start_date_pattern.initial_date) {
+                        ws.range.startDate = ws.start_date_pattern.initial_date;
+                    }
                 }
             }
         }
 
+        // --- ALARM ---
+        let alarm = NULL;
+        if (!AiReturnedNullField(json.alarm) && json.alarm !== 'default') {
+            // Use specific alarm value provided by AI
+            const alarmValue = Number(json.alarm);
+            if (type(alarmValue, Int) && alarmValue >= 0) {
+                alarm = alarmValue;
+            } else {
+                log('TaskData.fromAiJson: alarm must be non-negative integer or "default"');
+                return NULL;
+            }
+        } else {
+            // Apply user defaults if provided (when alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.task !== undefined) {
+                alarm = userAlarmDefaults.task;
+            } else {
+                alarm = NULL;
+            }
+        }
+
         try {
-            const taskData = new TaskData(instances, NULL, true, workSessions, alarm === 'default' ? NULL : alarm);
+            const taskData = new TaskData(instances, NULL, true, workSessions, alarm);
             // Optionally mark past-due items complete
             if (markPastDueComplete) {
                 taskData.setPastDueDatesToComplete(excludeWithinDays);
@@ -2220,7 +2297,7 @@ class EventData {
     //   "type": "event",
     //   "instances": [ { ... } ]
     // }
-    static fromAiJson(json) {
+    static fromAiJson(json, userAlarmDefaults = NULL) {
         if(!exists(json)) {
             return NULL;
         }
@@ -2234,6 +2311,7 @@ class EventData {
             log('EventData.fromAiJson: instances array required');
             return NULL;
         }
+
         const instances = [];
         for (const inst of json.instances) {
             if(!exists(inst) || !type(inst.type, NonEmptyString)) {
@@ -2256,37 +2334,53 @@ class EventData {
             instances.push(conv);
         }
 
+        // be careful and set start of range to initial date
+        log('EventData.fromAiJson: be careful and set start of range to initial date');
+        for (const instance of json.instances) {
+            if (instance.type === 'event_pattern' && instance.start_date_pattern && instance.start_date_pattern.type === 'every_n_days_pattern') {
+                if (instance.range && instance.start_date_pattern.initial_date) {
+                    instance.range.startDate = instance.start_date_pattern.initial_date;
+                }
+            }
+        }
+
         // --- START ALARM ---
         let startAlarm = NULL;
-        if (!AiReturnedNullField(json.start_alarm)) {
-            if (json.start_alarm === 'default') {
-                // Will be set by caller with user defaults
-                startAlarm = 'default';
+        if (!AiReturnedNullField(json.start_alarm) && json.start_alarm !== 'default') {
+            // Use specific start alarm value provided by AI
+            const startAlarmValue = Number(json.start_alarm);
+            if (type(startAlarmValue, Int) && startAlarmValue >= 0) {
+                startAlarm = startAlarmValue;
             } else {
-                const startAlarmValue = Number(json.start_alarm);
-                if (type(startAlarmValue, Int) && startAlarmValue >= 0) {
-                    startAlarm = startAlarmValue;
-                } else {
-                    log('EventData.fromAiJson: start_alarm must be non-negative integer or "default"');
-                    return NULL;
-                }
+                log('EventData.fromAiJson: start_alarm must be non-negative integer or "default"');
+                return NULL;
+            }
+        } else {
+            // Apply user defaults if provided (when start_alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.event !== undefined) {
+                startAlarm = userAlarmDefaults.event;
+            } else {
+                startAlarm = NULL;
             }
         }
 
         // --- END ALARM ---
         let endAlarm = NULL;
-        if (!AiReturnedNullField(json.end_alarm)) {
-            if (json.end_alarm === 'default') {
-                // Will be set by caller with user defaults
-                endAlarm = 'default';
+        if (!AiReturnedNullField(json.end_alarm) && json.end_alarm !== 'default') {
+            // Use specific end alarm value provided by AI
+            const endAlarmValue = Number(json.end_alarm);
+            if (type(endAlarmValue, Int) && endAlarmValue >= 0) {
+                endAlarm = endAlarmValue;
             } else {
-                const endAlarmValue = Number(json.end_alarm);
-                if (type(endAlarmValue, Int) && endAlarmValue >= 0) {
-                    endAlarm = endAlarmValue;
-                } else {
-                    log('EventData.fromAiJson: end_alarm must be non-negative integer or "default"');
-                    return NULL;
-                }
+                log('EventData.fromAiJson: end_alarm must be non-negative integer or "default"');
+                return NULL;
+            }
+        } else {
+            // Apply user defaults if provided (when end_alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.event !== undefined) {
+                endAlarm = userAlarmDefaults.event;
+            } else {
+                endAlarm = NULL;
             }
         }
 
@@ -2294,7 +2388,7 @@ class EventData {
         for (const inst of instances) {
             if ((type(inst, NonRecurringEventInstance) && inst.endTime === NULL) ||
                 (type(inst, RecurringEventInstance) && inst.endTime === NULL)) {
-                if (endAlarm !== NULL && endAlarm !== 'default') {
+                if (endAlarm !== NULL) {
                     log('EventData.fromAiJson: end_alarm must be NULL if any instance has NULL endTime');
                     return NULL;
                 }
@@ -2304,7 +2398,7 @@ class EventData {
         }
 
         try {
-            return new EventData(instances, startAlarm === 'default' ? NULL : startAlarm, endAlarm === 'default' ? NULL : endAlarm);
+            return new EventData(instances, startAlarm, endAlarm);
         } catch (e) {
             log('EventData.fromAiJson: error creating EventData');
             return NULL;
@@ -2453,11 +2547,13 @@ class EventData {
                 const offsetMs = this.endAlarm * 60 * 1000;
 
                 if (type(instance, NonRecurringEventInstance)) {
+                    if (instance.endTime === NULL) continue; // skip if no end time
                     const startMid = instance.startDate.toUnixTimestamp();
                     const endMid = (instance.differentEndDate !== NULL ? instance.differentEndDate : instance.startDate).toUnixTimestamp();
                     const endDateTime = endMid + ((instance.endTime.hour * 60 + instance.endTime.minute) * 60 * 1000);
                     maybeAddAlarm(endDateTime - offsetMs, endDateTime, true);
                 } else if (type(instance, RecurringEventInstance)) {
+                    if (instance.endTime === NULL) continue; // skip if no end time
                     const expandedLower = startUnix === NULL ? 0 : startUnix - offsetMs;
                     const upper = endUnix === NULL ? defaultCutoffUnix : endUnix;
                     const occurrences = getOccurrences(instance, expandedLower, upper);
@@ -2607,7 +2703,7 @@ class RecurringReminderInstance {
 
     // AI JSON: {
     //   "type": "reminder_pattern",
-    //   "date_pattern": every_n_days_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern
+    //   "date_pattern": every_n_days_pattern, weekly_pattern, monthly_pattern, annually_pattern, or nth_weekday_of_months_pattern
     //   "time": "HH:MM",
     //   "range": "YYYY-MM-DD:YYYY-MM-DD" | int
     // }
@@ -2633,9 +2729,35 @@ class RecurringReminderInstance {
 
         let datePattern;
         if (json.date_pattern.type === 'every_n_days_pattern') {
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (json.date_pattern.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = json.date_pattern.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = json.date_pattern.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = json.date_pattern.initial_date;
+                }
+            }
             datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'weekly_pattern') {
-            datePattern = WeeklyPattern.fromAiJson(json.date_pattern, json.range);
+            // Copy initial_date to range startDate before calling fromAiJson
+            if (json.date_pattern.initial_date) {
+                if (!json.range) {
+                    // Create a range if none exists
+                    json.range = json.date_pattern.initial_date + ':';
+                } else if (typeof json.range === 'string') {
+                    // Modify existing string range to use initial_date as start
+                    const parts = json.range.split(':');
+                    json.range = json.date_pattern.initial_date + ':' + (parts[1] || '');
+                } else if (typeof json.range === 'object') {
+                    json.range.startDate = json.date_pattern.initial_date;
+                }
+            }
+            datePattern = EveryNDaysPattern.fromAiJson(json.date_pattern, json.range);
         } else if (json.date_pattern.type === 'monthly_pattern') {
             datePattern = MonthlyPattern.fromAiJson(json.date_pattern);
         } else if (json.date_pattern.type === 'annually_pattern') {
@@ -2771,7 +2893,7 @@ class ReminderData {
     }
 
     // AI JSON schema: { "type":"reminder", "instances": [ ... ] }
-    static fromAiJson(json) {
+    static fromAiJson(json, userAlarmDefaults = NULL) {
         if(!exists(json)) {
             return NULL;
         }
@@ -2807,19 +2929,32 @@ class ReminderData {
             instances.push(conv);
         }
 
+        // be careful and set start of range to initial date
+        log('ReminderData.fromAiJson: be careful and set start of range to initial date');
+        for (const instance of json.instances) {
+            if (instance.type === 'reminder_pattern' && instance.pattern && instance.pattern.type === 'every_n_days_pattern') {
+                if (instance.range && instance.pattern.initial_date) {
+                    instance.range.startDate = instance.pattern.initial_date;
+                }
+            }
+        }
+
         // --- ALARM ---
         let alarm = false; // default value
-        if (!AiReturnedNullField(json.alarm)) {
-            if (json.alarm === 'default') {
-                // Will be set by caller with user defaults
-                alarm = 'default';
+        if (!AiReturnedNullField(json.alarm) && json.alarm !== 'default') {
+            // Use specific alarm value provided by AI
+            alarm = Boolean(json.alarm);
+        } else {
+            // Apply user defaults if provided (when alarm is missing, null, or 'default')
+            if (userAlarmDefaults !== NULL && userAlarmDefaults.reminders !== undefined) {
+                alarm = userAlarmDefaults.reminders;
             } else {
-                alarm = Boolean(json.alarm);
+                alarm = false;
             }
         }
 
         try {
-            return new ReminderData(instances, alarm === 'default' ? false : alarm);
+            return new ReminderData(instances, alarm);
         } catch (e) {
             log('ReminderData.fromAiJson: error creating ReminderData');
             return NULL;
@@ -2936,9 +3071,11 @@ class ReminderData {
 
         for (const instance of this.instances) {
             if (type(instance, NonRecurringReminderInstance)) {
+                if (instance.time === NULL) continue; // skip if no time
                 const ts = instance.date.toUnixTimestamp() + ((instance.time.hour * 60 + instance.time.minute) * 60 * 1000);
                 maybeAdd(ts);
             } else if (type(instance, RecurringReminderInstance)) {
+                if (instance.time === NULL) continue; // skip if no time
                 const expandedLower = startUnix === NULL ? 0 : startUnix;
                 const upper = endUnix === NULL ? defaultCutoffUnix : endUnix;
                 const occurrences = getOccurrences(instance, expandedLower, upper);
@@ -3013,7 +3150,19 @@ class Entity {
 
     // Convert an array of AI JSON objects (tasks, events, reminders) into an array of Entity instances.
     // Each AI object must include at least { type: "task"|"event"|"reminder", name: "...", ... }
-    static fromAiJson(aiObject, markPastDueComplete = true, excludeWithinDays = 0, userAlarmDefaults = NULL) {
+    static fromAiJson(aiObject, markPastDueComplete, excludeWithinDays, userAlarmDefaults) { 
+        ASSERT(type(markPastDueComplete, Boolean));
+        ASSERT(type(excludeWithinDays, Int));
+        ASSERT(type(userAlarmDefaults, Union(Object, NULL)));
+
+        if(userAlarmDefaults !== NULL) {
+            // we need to make sure that the alarm settings object is valid
+            // instead of duplicating the code, we just create a dummy user and set the alarms
+            let dummyUser = User.createDefault();
+            dummyUser.settings.alarms = userAlarmDefaults;
+            ASSERT(type(dummyUser, User));
+        }
+
         if(!exists(aiObject) || !type(aiObject, Object)) {
             return NULL;
         }
@@ -3031,45 +3180,21 @@ class Entity {
         const privateField = exists(aiObject.private) && type(aiObject.private, Boolean) ? aiObject.private : false;
 
         let data = NULL;
+        if (aiObject.instances) {
+            // be careful and set start of range to initial date
+            log('Entity.fromAiJson: be careful and set start of range to initial date');
+            for (const instance of aiObject.instances) {
+                if (instance.type === 'every_n_days' && instance.initial_date) {
+                    instance.range.startDate = instance.initialDate;
+                }
+            }
+        }
         if (aiObject.type === 'task') {
-            data = TaskData.fromAiJson(aiObject, markPastDueComplete, excludeWithinDays);
-            // Apply user default for task alarm if needed
-            if (data !== NULL && userAlarmDefaults !== NULL) {
-                if (aiObject.alarm === 'default') {
-                    if (userAlarmDefaults.task === NULL) {
-                        data.alarm = NULL;
-                    } else {
-                        data.alarm = userAlarmDefaults.task;
-                    }
-                }
-            }
+            data = TaskData.fromAiJson(aiObject, markPastDueComplete, excludeWithinDays, userAlarmDefaults);
         } else if (aiObject.type === 'event') {
-            data = EventData.fromAiJson(aiObject);
-            // Apply user defaults for event alarms if needed
-            if (data !== NULL && userAlarmDefaults !== NULL) {
-                if (aiObject.start_alarm === 'default') {
-                    if (userAlarmDefaults.event === NULL) {
-                        data.startAlarm = NULL;
-                    } else {
-                        data.startAlarm = userAlarmDefaults.event;
-                    }
-                }
-                if (aiObject.end_alarm === 'default') {
-                    if (userAlarmDefaults.event === NULL) {
-                        data.endAlarm = NULL;
-                    } else {
-                        data.endAlarm = userAlarmDefaults.event;
-                    }
-                }
-            }
+            data = EventData.fromAiJson(aiObject, userAlarmDefaults);
         } else if (aiObject.type === 'reminder') {
-            data = ReminderData.fromAiJson(aiObject);
-            // Apply user default for reminder alarm if needed
-            if (data !== NULL && userAlarmDefaults !== NULL) {
-                if (aiObject.alarm === 'default') {
-                    data.alarm = userAlarmDefaults.reminders;
-                }
-            }
+            data = ReminderData.fromAiJson(aiObject, userAlarmDefaults);
         } else {
             log('Entity.fromAiJson: unknown item type ' + String(aiObject.type));
             return NULL;
@@ -3090,7 +3215,8 @@ class Entity {
             }
         } catch (e) {
             log('Entity.fromAiJson: error creating entity');
-            log(e);
+            log(e.message);
+            log(e.stack);
             return NULL;
         }
     }
@@ -4036,8 +4162,8 @@ class FilteredReminderInstance {
         ASSERT(type(id, NonEmptyString));
         ASSERT(type(name, String));
         ASSERT(type(dateTime, Int)); // Unix timestamp for the reminder's time
-        ASSERT(type(originalDate, DateField)); // The original date from the pattern or non-recurring instance
-        ASSERT(type(originalTime, TimeField));
+        ASSERT(type(originalDate, DateField), "FilteredReminderInstance: originalDate must be a DateField. Received: " + String(originalDate) + " from entity with id: " + id);
+        ASSERT(type(originalTime, TimeField), "FilteredReminderInstance: originalTime must be a TimeField. Received: " + String(originalTime) + " from entity with id: " + id);
         ASSERT(type(patternIndex, Int));
 
         this.id = id;
@@ -4060,7 +4186,7 @@ class LocalData {
     static numberOfDays = 2;
     static signedIn = false;
     static token = NULL;
-    static visibility = 'public';
+    static visibility = 'private';
     
     // Prevent instantiation
     constructor() {
@@ -4122,12 +4248,12 @@ class LocalData {
                 this.numberOfDays = data.numberOfDays;
                 this.signedIn = data.signedIn;
                 
-                // Handle visibility (defaults to 'public' if not set)
+                // Handle visibility (defaults to 'private' if not set)
                 if (data.visibility) {
                     ASSERT(data.visibility === 'public' || data.visibility === 'private', "LocalData.visibility must be 'public' or 'private'");
                     this.visibility = data.visibility;
                 } else {
-                    this.visibility = 'public';
+                    this.visibility = 'private';
                 }
                 
                 // Handle encrypted token
@@ -4451,6 +4577,74 @@ function generateAlarmTable(startUnix, endUnix) {
         return `${min} ${hr} ${dom} ${mon} *`;
     };
 
+    const formatTimeUntil = (alarmTime, eventTime) => {
+        const minutesUntil = Math.round((eventTime - alarmTime) / (1000 * 60));
+        if (minutesUntil <= 0) {
+            return "starting now";
+        } else if (minutesUntil === 1) {
+            return "in 1 min";
+        } else {
+            return `in ${minutesUntil} mins`;
+        }
+    };
+
+    const formatDateTime = (timestamp) => {
+        const date = new Date(timestamp);
+        return date.toLocaleString('en-US', {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            year: 'numeric',
+            month: 'numeric', 
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    };
+
+    const generateEmailContent = (entity, alarmTime, alarmData) => {
+        const data = entity.data;
+        const entityName = entity.name;
+        
+        if (type(data, ReminderData)) {
+            return {
+                subject: `Reminder: ${entityName}`,
+                content: `${entityName} at ${formatDateTime(alarmTime)}\n\nScribblit`
+            };
+        } else if (type(data, EventData)) {
+            // For events, alarm might be for start or end
+            let eventDescription;
+            const timeUntilText = formatTimeUntil(alarmTime, alarmData.eventTime);
+            
+            if (alarmData.isEndAlarm) {
+                eventDescription = `${entityName} ends at ${formatDateTime(alarmData.eventTime)}`;
+            } else {
+                eventDescription = `${entityName} from ${formatDateTime(alarmData.eventTime)}`;
+                if (alarmData.endTime) {
+                    eventDescription += ` to ${formatDateTime(alarmData.endTime)}`;
+                } else {
+                    eventDescription = `${entityName} starts at ${formatDateTime(alarmData.eventTime)}`;
+                }
+            }
+            
+            return {
+                subject: `Event: ${entityName} ${timeUntilText}`,
+                content: `${eventDescription}\n\nScribblit`
+            };
+        } else if (type(data, TaskData)) {
+            const timeUntilText = formatTimeUntil(alarmTime, alarmData.eventTime);
+            return {
+                subject: `Task: due ${timeUntilText}`,
+                content: `${entityName} due at ${formatDateTime(alarmData.eventTime)}\n\nScribblit`
+            };
+        }
+        
+        // Fallback
+        return {
+            subject: `Reminder: ${entityName}`,
+            content: `${entityName} at ${formatDateTime(alarmTime)}\n\nScribblit`
+        };
+    };
+
     const table = [];
 
     for (const entity of user.entityArray) {
@@ -4465,11 +4659,15 @@ function generateAlarmTable(startUnix, endUnix) {
         }
         for (const alarm of alarms) {
             const ts = alarm.time !== undefined ? alarm.time : alarm;
+            const emailContent = generateEmailContent(entity, ts, alarm);
+            
             table.push({
                 unixTime: ts,
                 cronPattern: cronFor(ts),
                 name: entity.name,
-                id: entity.id
+                id: entity.id,
+                emailSubject: emailContent.subject,
+                emailContent: emailContent.content
             });
         }
     }
@@ -4477,90 +4675,4 @@ function generateAlarmTable(startUnix, endUnix) {
     // Sort ascending by time for convenience
     table.sort((a, b) => a.unixTime - b.unixTime);
     return table;
-}
-
-// Creates workflow YAML and data file content for given user
-// Returns { workflowFileName, workflowYml, dataFileName, dataFileContent }
-function generateGithubAction(userId, emailAddress) {
-    ASSERT(type(userId, NonEmptyString));
-    ASSERT(type(emailAddress, NonEmptyString));
-    const alarmtable = generateAlarmTable(Date.now(), Date.now() + (2 * 365 * MS_PER_DAY));
-    ASSERT(Array.isArray(alarmtable));
-
-    // Unique cron patterns in UTC
-    const uniqueCrons = Array.from(new Set(alarmtable.map(e => e.cronPattern)));
-
-    // Generate workflow YAML
-    const workflowName = `cron-runner-${userId}`;
-    const workflowFileName = `.github/workflows/${workflowName}.yml`;
-
-    const cronLines = uniqueCrons.map(c => `      - cron: '${c}'`).join('\n');
-
-    const workflowYml = `name: ${workflowName}
-
-on:
-  schedule: # remember these are in UTC! so they don't necessarily line up with local time
-${cronLines}
-
-jobs:
-  notify:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v4
-
-      - name: Process notifications
-        env:
-          SENDGRID_API_KEY: \${{ secrets.SENDGRID_API_KEY }}
-          USER_EMAIL: ${emailAddress}
-        run: |
-          data_file="data/${userId}.txt"
-          if [ ! -f "$data_file" ]; then
-            echo "Data file not found: $data_file"
-            exit 0
-          fi
-          now=\$(date +%s)
-          tmp_file=\$(mktemp)
-          while IFS= read -r line || [ -n "\$line" ]; do
-            unix="\${line%%,*}"
-            rest_after_unix="\${line#*,}"
-            id="\${rest_after_unix%%,*}"
-            rest_after_id="\${rest_after_unix#*,}"
-            status="\${rest_after_id%%,*}"
-            message="\${rest_after_id#*,}"
-            if [ "\$status" = "UNSENT" ] && [ "\$unix" -le "\$now" ]; then
-              escaped_message=\$(echo "\$message" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-              json_payload=\$(printf '{"personalizations":[{"to":[{"email":"%s"}],"subject":"%s"}],"from":{"email":"noreply@scribbl.it"},"content":[{"type":"text/plain","value":"%s"}]}' "\$USER_EMAIL" "\$escaped_message" "\$escaped_message")
-              curl -s -X POST https://api.sendgrid.com/v3/mail/send \\
-                -H "Authorization: Bearer \$SENDGRID_API_KEY" \\
-                -H "Content-Type: application/json" \\
-                -d "\$json_payload"
-              echo "\$unix,\$id,SENT,\$message" >> "\$tmp_file"
-            else
-              echo "\$line" >> "\$tmp_file"
-            fi
-          done < "\$data_file"
-          mv "\$tmp_file" "\$data_file"
-
-      - name: Commit changes
-        env:
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/${userId}.txt
-          if git diff --cached --quiet; then
-            echo "No updates to commit"
-          else
-            git commit -m "ci: update notifications for ${userId}"
-            git push origin main
-          fi`;
-
-    // Data file contents
-    const dataFileName = `data/${userId}.txt`;
-    const dataFileContent = alarmtable
-        .map(e => `${e.unixTime},${e.id},UNSENT,${e.name}`) // it's ok to have commas in the name because we only split at first 3 commas
-        .join('\n');
-
-    return { workflowFileName, workflowYml, dataFileName, dataFileContent };
 }
