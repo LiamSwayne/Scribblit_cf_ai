@@ -132,6 +132,21 @@ let inputBoxFocused = false;
 let hasInitialized = false;
 const FREE_PLAN_USAGE_LIMIT = 100;
 
+// Generate alarm table for server (2 years of upcoming alarms)
+function generateAlarmTableForServer(user) {
+    ASSERT(type(user, User));
+    
+    const now = Date.now();
+    const twoYears = now + (2 * 365 * 24 * 60 * 60 * 1000); // 2 years from now
+    
+    try {
+        return generateAlarmTable(now, twoYears);
+    } catch (error) {
+        log("ERROR generating alarm table: " + error.message);
+        return []; // Return empty array if generation fails
+    }
+}
+
 // Save user data to localStorage and server
 async function saveUserData(user) {  
     ASSERT(exists(user), "no user passed to saveUserData");
@@ -175,7 +190,7 @@ async function saveUserData(user) {
                     data: userJson.data,
                     dataspec: userJson.dataspec,
                     timestamp: userJson.timestamp,
-                    workflowStuff: generateGithubAction(user.userId, user.email)
+                    alarmTable: generateAlarmTableForServer(user)
                 })
             });
             
@@ -747,7 +762,7 @@ function createFakeEntityArray() {
     return [
         new Entity(
             'task-overdue-001', // id
-            'Overdue today at 6 AM', // name
+            'Submit quarterly report', // name
             '', // description
             new TaskData( // data
                 [
@@ -764,29 +779,10 @@ function createFakeEntityArray() {
             ) // data
         ),
 
-        new Entity(
-            'task-overdue-002', // id
-            'Overdue yesterday no time', // name
-            '', // description
-            new TaskData( // data
-                [
-                    new NonRecurringTaskInstance(
-                        yesterday, // date
-                        NULL, // dueTime
-                        false // completion
-                    )
-                ], // instances
-                NULL, // hideUntil
-                true, // showOverdue
-                [], // workSessions
-                NULL // alarm
-            ) // data
-        ),
-
         // Due today, no time
         new Entity(
             'task-due-today-no-time', // id
-            'Due Today', // name
+            'Review budget proposal', // name
             '', // description
             new TaskData( // data
                 [
@@ -805,7 +801,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'task-543', // id
-            '5 instances due in 2 days', // name
+            'Respond to client emails', // name
             '', // description
             new TaskData( // data
                 [
@@ -814,26 +810,6 @@ function createFakeEntityArray() {
                         NULL, // dueTime
                         false // completion
                     ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    )
                 ], // instances
                 NULL, // hideUntil
                 true, // showOverdue
@@ -844,30 +820,10 @@ function createFakeEntityArray() {
 
         new Entity(
             'task-542', // id
-            '5 more instances due in 2 days', // name
+            'Update project documentation', // name
             '', // description
             new TaskData( // data
                 [
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
                     new NonRecurringTaskInstance(
                         in2Days, // date
                         NULL, // dueTime
@@ -883,30 +839,10 @@ function createFakeEntityArray() {
 
         new Entity(
             'task-541', // id
-            '5 more more instances due in 2 days', // name
+            'Schedule team interviews', // name
             '', // description
             new TaskData( // data
                 [
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
-                    new NonRecurringTaskInstance(
-                        in2Days, // date
-                        NULL, // dueTime
-                        false // completion
-                    ),
                     new NonRecurringTaskInstance(
                         in2Days, // date
                         NULL, // dueTime
@@ -923,7 +859,7 @@ function createFakeEntityArray() {
         // task due daily 5 days in row starting in 2 days
         new Entity(
             'task-due-daily-5-days-in-row-starting-in-2-days', // id
-            'Due daily 5 times starting in 2 days', // name
+            'Morning workout routine', // name
             '', // description
             new TaskData( // data
                 [
@@ -950,7 +886,7 @@ function createFakeEntityArray() {
         // one-time task with work time
         new Entity(
             'task-001', // id
-            'Final Project', // name
+            'Complete website redesign', // name
             '', // description
             new TaskData( // data
                 [
@@ -992,7 +928,7 @@ function createFakeEntityArray() {
         // recurring weekly task with completion
         new Entity(
             'task-002', // id
-            'Weekly task', // name
+            'Submit timesheet', // name
             '', // description
             new TaskData( // data
                 [
@@ -1033,7 +969,7 @@ function createFakeEntityArray() {
         // monthly recurring task
         new Entity(
             'task-003', // id
-            'Monthly task', // name
+            'Review monthly expenses', // name
             '', // description
             new TaskData( // data
                 [
@@ -1050,31 +986,11 @@ function createFakeEntityArray() {
                 NULL // alarm (no alarm)
             ) // data
         ),
-
-        // task overdue yesterday with time
-        new Entity(
-            'task-004', // id
-            'Overdue yesterday with time', // name
-            '', // description
-            new TaskData( // data
-                [
-                    new NonRecurringTaskInstance(
-                        yesterday, // date
-                        new TimeField(9, 55), // dueTime
-                        false // completion
-                    )
-                ], // instances
-                NULL, // hideUntil
-                true, // showOverdue
-                [], // workSessions
-                NULL // alarm (no alarm)
-            ) // data
-        ),
     
         // one-time all-day event
         new Entity(
             'event-001', // id
-            'First all day thing tomorrow long long long', // name
+            'Company retreat', // name
             '', // description
             new EventData( // data
                 [
@@ -1092,7 +1008,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'event-700', // id
-            'Second', // name
+            'Product launch event', // name
             '', // description
             new EventData( // data
                 [
@@ -1111,7 +1027,7 @@ function createFakeEntityArray() {
         // recurring daily meeting
         new Entity(
             'event-002', // id
-            'Team Standup', // name
+            'Daily standup meeting', // name
             'Daily team standup meeting', // description
             new EventData( // data
                 [
@@ -1137,7 +1053,7 @@ function createFakeEntityArray() {
         // one-time event from 8am to 9 45am
         new Entity(
             'event-111111', // id
-            'THING', // name
+            'Client presentation', // name
             '', // description
             new EventData( // data
                 [
@@ -1155,7 +1071,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'event-222222', // id
-            '2 events at same time', // name
+            'Budget review meeting', // name
             '', // description
             new EventData( // data
                 [
@@ -1172,7 +1088,7 @@ function createFakeEntityArray() {
         ),
         new Entity(
             'event-333333', // id
-            'Another event at same time', // name
+            'Performance review session', // name
             '', // description
             new EventData( // data
                 [
@@ -1190,7 +1106,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'event-444444', // id
-            'Random garbage', // name
+            'Marketing strategy call', // name
             '', // description
             new EventData( // data
                 [
@@ -1208,7 +1124,7 @@ function createFakeEntityArray() {
         
         new Entity(
             'event-555555', // id
-            'Random garbage 2', // name
+            'Quarterly planning session', // name
             '', // description
             new EventData( // data
                 [
@@ -1226,7 +1142,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'event-777777', // id
-            'Event spanning 3 days', // name
+            'Annual tech conference', // name
             '', // description
             new EventData( // data
                 [
@@ -1245,7 +1161,7 @@ function createFakeEntityArray() {
         // one-time multi-day event
         new Entity(
             'event-003', // id
-            'Annual Conference', // name
+            'Industry summit', // name
             'Industry annual conference', // description
             new EventData( // data
                 [
@@ -1264,7 +1180,7 @@ function createFakeEntityArray() {
         // recurring weekend workshop with multi-day span
         new Entity(
             'event-004', // id
-            'Weekend Workshop', // name
+            'Weekend coding bootcamp', // name
             'Weekend coding workshop', // description
             new EventData( // data
                 [
@@ -1287,7 +1203,7 @@ function createFakeEntityArray() {
         // recurring weekend workshop with multi-day span
         new Entity(
             'event-456', // id
-            'Sleepover', // name
+            'Team building retreat', // name
             '', // description
             new EventData( // data
                 [
@@ -1310,7 +1226,7 @@ function createFakeEntityArray() {
         // Non-recurring timed reminder
         new Entity(
             'reminder-001',
-            'Call Alex re: Project Super Super Long Long Name',
+            'Call dentist to schedule appointment',
             'Follow up on Project X deliverables',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1323,7 +1239,7 @@ function createFakeEntityArray() {
         // ambiguous end time event
         new Entity(
             'event-005',
-            'Ambiguous end time',
+            'One-on-one with manager',
             '',
             new EventData([
                 new NonRecurringEventInstance(
@@ -1338,7 +1254,7 @@ function createFakeEntityArray() {
         // this reminder overlaps with the previous one
         new Entity(
             'reminder-999',
-            'Call Alex 2: Electric Boogaloo',
+            'Pick up dry cleaning',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1351,7 +1267,7 @@ function createFakeEntityArray() {
         // this reminder overlaps with the previous one
         new Entity(
             'reminder-998',
-            'Third',
+            'Submit expense report',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1363,7 +1279,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-101',
-            'Double reminder',
+            'Take medication',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1375,7 +1291,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-102',
-            'Double reminder',
+            'Take vitamins',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1387,7 +1303,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-103',
-            'Quadruple reminder',
+            'Call insurance company',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1399,7 +1315,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-104',
-            'Quadruple reminder',
+            'Update LinkedIn profile',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1411,7 +1327,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-105',
-            'Quadruple reminder',
+            'Check bank balance',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1423,7 +1339,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-106',
-            'Quadruple reminder',
+            'Book restaurant reservation',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1435,7 +1351,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-107',
-            'pentuple reminder',
+            'Send birthday card',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1447,7 +1363,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-109',
-            'pentuple reminder',
+            'Order groceries online',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1459,7 +1375,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-110',
-            'pentuple reminder',
+            'Schedule car service',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1471,7 +1387,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-111',
-            'pentuple reminder',
+            'Backup computer files',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1483,7 +1399,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-112',
-            'sextuple reminder',
+            'Pay utility bills',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1495,7 +1411,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-113',
-            'sextuple reminder',
+            'Clean out email inbox',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1507,7 +1423,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-114',
-            'sextuple reminder',
+            'Update password manager',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1519,7 +1435,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-115',
-            'sextuple reminder',
+            'Call mom for weekend plans',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1531,7 +1447,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-116',
-            'sextuple reminder',
+            'Review investment portfolio',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1543,7 +1459,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-117',
-            'sextuple reminder',
+            'Download tax documents',
             '',
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1556,7 +1472,7 @@ function createFakeEntityArray() {
         // Recurring daily reminder for 3 occurrences
         new Entity(
             'reminder-002',
-            'Water Plants',
+            'Water plants',
             'Daily reminder for indoor plants',
             new ReminderData([
                 new RecurringReminderInstance(
@@ -1574,7 +1490,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-400',
-            "Thing that happens today and tomorrow",
+            "Submit progress report",
             "Don't forget to send wishes!",
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1590,7 +1506,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-200',
-            "Accent 0",
+            "Renew gym membership",
             "Don't forget to send wishes!",
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1603,7 +1519,7 @@ function createFakeEntityArray() {
         // all day recurring event
         new Entity(
             'event-555', // id
-            'Daily planning', // name
+            'Focus time block', // name
             '', // description
             new EventData( // data
                 [
@@ -1625,7 +1541,7 @@ function createFakeEntityArray() {
 
         new Entity(
             'reminder-003',
-            "Bro's Birthday",
+            "Sarah's birthday",
             "Don't forget to send wishes!",
             new ReminderData([
                 new NonRecurringReminderInstance(
@@ -1635,6 +1551,7 @@ function createFakeEntityArray() {
             ], true) // alarm
         ),
 
+        /*
         // COMPLEX TASK - Multiple instances, work sessions, hide until settings
         new Entity(
             'complex-task-001',
@@ -1950,6 +1867,7 @@ function createFakeEntityArray() {
                 true // alarm
             ) // data
         ),
+        */
     ];
 }
 
@@ -2960,8 +2878,9 @@ function dayOfWeekStringToIndex(dayOfWeekString) {
     }
 }
 
-function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasDifferentEndDate = false, kind) {
+function getRecurringPatternDescription(pattern, range, startTime, endTime = NULL, hasDifferentEndDate = false, kind) {
     ASSERT(exists(pattern), "getRecurringPatternDescription: pattern must exist");
+    ASSERT(exists(range), "getRecurringPatternDescription: range must exist");
     ASSERT(type(startTime, Union(TimeField, NULL)), "getRecurringPatternDescription: startTime must be a TimeField or NULL");
     ASSERT(type(endTime, Union(TimeField, NULL)), "getRecurringPatternDescription: endTime must be a TimeField or NULL");
     ASSERT(type(hasDifferentEndDate, Boolean), "getRecurringPatternDescription: hasDifferentEndDate must be a Boolean");
@@ -2973,8 +2892,18 @@ function getRecurringPatternDescription(pattern, startTime, endTime = NULL, hasD
         if (pattern.n === 1) {
             description = 'Daily';
         } else if (pattern.n === 7) {
-            // Find the day of the week from the initial date
-            const initialDateField = DateField.decode(pattern.initialDate);
+            // Find the day of the week from the range start date
+            let startDateField;
+            if (type(range, DateRange)) {
+                startDateField = range.startDate;
+            } else if (type(range, RecurrenceCount)) {
+                startDateField = range.initialDate;
+            } else {
+                // Fallback - shouldn't happen but handle gracefully
+                startDateField = range.initialDate || range.startDate;
+            }
+            
+            const initialDateField = DateField.decode(startDateField);
             const initialDate = new Date(initialDateField.year, initialDateField.month - 1, initialDateField.day);
             const dayOfWeek = initialDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
             const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -3092,7 +3021,7 @@ function generateInstancesFromPattern(instance, startUnix = NULL, endUnix = NULL
             startDateTime = baseDate;
         }
     } else if (type(pattern, EveryNDaysPattern)) {
-        startDateTime = DateTime.local(pattern.initialDate.year, pattern.initialDate.month, pattern.initialDate.day);
+        startDateTime = DateTime.local(instance.range.initialDate.year, instance.range.initialDate.month, instance.range.initialDate.day);
     } else if (type(pattern, MonthlyPattern)) {
         // For MonthlyPattern, find the first occurrence from today
         ASSERT(type(pattern.day, Int) && pattern.day >= 1 && pattern.day <= 31, "MonthlyPattern must have valid day");
@@ -3295,7 +3224,17 @@ class FilteredInstancesFactory {
         if (workSessionInstance.startDatePattern) {
             // For recurring events, we need to handle different pattern types
             if (type(workSessionInstance.startDatePattern, EveryNDaysPattern)) {
-                originalStartDate = workSessionInstance.startDatePattern.initialDate;
+                // For EveryNDaysPattern, get the start date from the range
+                const range = workSessionInstance.range;
+                if (type(range, DateRange)) {
+                    ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                    originalStartDate = range.startDate;
+                } else if (type(range, RecurrenceCount)) {
+                    ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                    originalStartDate = range.initialDate;
+                } else {
+                    ASSERT(false, "EveryNDaysPattern range must be DateRange or RecurrenceCount");
+                }
             } else {
                 // For other pattern types, get the earliest date in the range
                 const pattern = workSessionInstance.startDatePattern;
@@ -3372,17 +3311,23 @@ class FilteredInstancesFactory {
         } else { // Timed work session
             if (type(workSessionInstance, NonRecurringEventInstance)) {
                 ASSERT(type(workSessionInstance.startDate, DateField));
-                let workStartDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day)
-                    .set({ hour: workSessionInstance.startTime.hour, minute: workSessionInstance.startTime.minute });
+                let workStartDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day);
+                if (workSessionInstance.startTime !== NULL) {
+                    workStartDateTime = workStartDateTime.set({ hour: workSessionInstance.startTime.hour, minute: workSessionInstance.startTime.minute });
+                }
 
                 let workEndDateTime;
                 if (workSessionInstance.differentEndDate !== NULL) {
                     ASSERT(type(workSessionInstance.differentEndDate, DateField));
-                    workEndDateTime = DateTime.local(workSessionInstance.differentEndDate.year, workSessionInstance.differentEndDate.month, workSessionInstance.differentEndDate.day)
-                        .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    workEndDateTime = DateTime.local(workSessionInstance.differentEndDate.year, workSessionInstance.differentEndDate.month, workSessionInstance.differentEndDate.day);
+                    if (workSessionInstance.endTime !== NULL) {
+                        workEndDateTime = workEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    }
                 } else {
-                    workEndDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day)
-                        .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    workEndDateTime = DateTime.local(workSessionInstance.startDate.year, workSessionInstance.startDate.month, workSessionInstance.startDate.day);
+                    if (workSessionInstance.endTime !== NULL) {
+                        workEndDateTime = workEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                    }
                 }
 
                 let workStartMs = workStartDateTime.toMillis();
@@ -3417,10 +3362,15 @@ class FilteredInstancesFactory {
                     let instanceEndDateTime;
 
                     if (workSessionInstance.differentEndDatePattern === NULL) {
-                        instanceEndDateTime = instanceStartDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        instanceEndDateTime = instanceStartDateTime;
+                        if (workSessionInstance.endTime !== NULL) {
+                            instanceEndDateTime = instanceEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        }
                     } else {
-                        instanceEndDateTime = instanceStartDateTime.plus({ days: workSessionInstance.differentEndDatePattern })
-                            .set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        instanceEndDateTime = instanceStartDateTime.plus({ days: workSessionInstance.differentEndDatePattern });
+                        if (workSessionInstance.endTime !== NULL) {
+                            instanceEndDateTime = instanceEndDateTime.set({ hour: workSessionInstance.endTime.hour, minute: workSessionInstance.endTime.minute });
+                        }
                     }
                     let endMs = instanceEndDateTime.toMillis();
                     const ambiguousEndTime = workSessionInstance.endTime === NULL;
@@ -3459,7 +3409,17 @@ class FilteredInstancesFactory {
         if (eventInstance.startDatePattern) {
             // For recurring events, we need to handle different pattern types
             if (type(eventInstance.startDatePattern, EveryNDaysPattern)) {
-                originalStartDate = eventInstance.startDatePattern.initialDate;
+                // For EveryNDaysPattern, get the start date from the range
+                const range = eventInstance.range;
+                if (type(range, DateRange)) {
+                    ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                    originalStartDate = range.startDate;
+                } else if (type(range, RecurrenceCount)) {
+                    ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                    originalStartDate = range.initialDate;
+                } else {
+                    ASSERT(false, "EveryNDaysPattern range must be DateRange or RecurrenceCount");
+                }
             } else {
                 // For other pattern types, get the earliest date in the range
                 const pattern = eventInstance.startDatePattern;
@@ -3540,8 +3500,10 @@ class FilteredInstancesFactory {
         } else { // Timed event
             if (type(eventInstance, NonRecurringEventInstance)) {
                 ASSERT(type(eventInstance.startDate, DateField));
-                let eventStartDateTime = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day)
-                    .set({ hour: eventInstance.startTime.hour, minute: eventInstance.startTime.minute });
+                let eventStartDateTime = DateTime.local(eventInstance.startDate.year, eventInstance.startDate.month, eventInstance.startDate.day);
+                if (eventInstance.startTime !== NULL) {
+                    eventStartDateTime = eventStartDateTime.set({ hour: eventInstance.startTime.hour, minute: eventInstance.startTime.minute });
+                }
 
                 let eventEndDateTime;
                 let ambiguousEndTime = false;
@@ -3594,7 +3556,8 @@ class FilteredInstancesFactory {
                     let instanceEndDateTime;
                     let ambiguousEndTime = false;
 
-                    if (exists(eventInstance.endTime)) {
+                    ASSERT(exists(eventInstance.endTime) && exists(eventInstance.startTime), "EventInstance must have endTime and startTime");
+                    if (eventInstance.endTime !== NULL && eventInstance.startTime !== NULL) {
                         let durationHours = eventInstance.endTime.hour - eventInstance.startTime.hour;
                         let durationMinutes = eventInstance.endTime.minute - eventInstance.startTime.minute;
                         if (durationMinutes < 0) {
@@ -3651,7 +3614,57 @@ class FilteredInstancesFactory {
         const entityId = reminderEntity.id;
         const entityName = reminderEntity.name;
 
-        const originalDate = reminderInstance.datePattern ? reminderInstance.datePattern.initialDate : reminderInstance.date;
+        let originalDate;
+        
+        // Properly distinguish between reminder instance types
+        if (type(reminderInstance, NonRecurringReminderInstance)) {
+            // Non-recurring reminder - get original date from the instance's date field
+            ASSERT(reminderInstance.date !== NULL, "NonRecurringReminderInstance must have date");
+            originalDate = reminderInstance.date;
+        } else if (type(reminderInstance, RecurringReminderInstance)) {
+            // Recurring reminder - extract original date based on pattern type
+            ASSERT(reminderInstance.datePattern !== NULL, "RecurringReminderInstance must have datePattern");
+            
+            if (type(reminderInstance.datePattern, EveryNDaysPattern)) {
+                // For EveryNDaysPattern, get the start date from the range
+                const range = reminderInstance.range;
+                ASSERT(range !== NULL, "EveryNDaysPattern must have range");
+                if (type(range, DateRange)) {
+                    ASSERT(type(range.startDate, DateField), "DateRange must have valid startDate");
+                    originalDate = range.startDate;
+                } else if (type(range, RecurrenceCount)) {
+                    ASSERT(type(range.initialDate, DateField), "RecurrenceCount must have valid initialDate");
+                    originalDate = range.initialDate;
+                } else {
+                    ASSERT(false, "EveryNDaysPattern range must be DateRange or RecurrenceCount");
+                }
+            } else if (type(reminderInstance.datePattern, MonthlyPattern) || 
+                       type(reminderInstance.datePattern, AnnuallyPattern) || 
+                       type(reminderInstance.datePattern, NthWeekdayOfMonthsPattern)) {
+                // For these patterns, the original date comes from the range
+                ASSERT(reminderInstance.range !== NULL, "Pattern-based reminders must have range");
+                if (type(reminderInstance.range, DateRange)) {
+                    ASSERT(reminderInstance.range.startDate !== NULL, "DateRange must have startDate");
+                    originalDate = reminderInstance.range.startDate;
+                } else if (type(reminderInstance.range, RecurrenceCount)) {
+                    ASSERT(reminderInstance.range.initialDate !== NULL, "RecurrenceCount must have initialDate");
+                    originalDate = reminderInstance.range.initialDate;
+                } else {
+                    ASSERT(false, "Unknown range type in recurring reminder: " + reminderInstance.range.constructor.name);
+                }
+            } else {
+                log('DEBUG fromReminder: Unknown datePattern for entity ' + entityId);
+                log('DEBUG fromReminder: datePattern = ' + JSON.stringify(reminderInstance.datePattern));
+                log('DEBUG fromReminder: type(datePattern, EveryNDaysPattern) = ' + type(reminderInstance.datePattern, EveryNDaysPattern));
+                log('DEBUG fromReminder: type(datePattern, MonthlyPattern) = ' + type(reminderInstance.datePattern, MonthlyPattern));
+                log('DEBUG fromReminder: type(datePattern, AnnuallyPattern) = ' + type(reminderInstance.datePattern, AnnuallyPattern));
+                log('DEBUG fromReminder: type(datePattern, NthWeekdayOfMonthsPattern) = ' + type(reminderInstance.datePattern, NthWeekdayOfMonthsPattern));
+                ASSERT(false, "Unknown datePattern type in recurring reminder: " + reminderInstance.datePattern.constructor.name + " for entity " + entityId);
+            }
+        } else {
+            ASSERT(false, "Unknown reminder instance type: " + reminderInstance.constructor.name + " for entity " + entityId);
+        }
+        
         // reminderInstance.time is now guaranteed to be a TimeField
         const originalTime = reminderInstance.time;
 
@@ -3911,8 +3924,8 @@ function renderAllDayInstances(allDayInstances, dayIndex, colWidth, dayElementAc
         const entity = user.entityArray.find(e => e.id === allDayEventData.id);
         const isPrivate = entity && entity.private === true;
         
-        // Replace text with dashes for private events when in public mode
-        if (isPrivate && LocalData.get('visibility') === 'public') {
+        // Replace text with dashes for private events when in private mode
+        if (isPrivate && LocalData.get('visibility') === 'private') {
             allDayEventElement.innerHTML = privatizeText(allDayEventData.name);
         } else {
             allDayEventElement.innerHTML = allDayEventData.name;
@@ -4134,8 +4147,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
             const entity = user.entityArray.find(e => e.id === instance.id);
             const isPrivate = entity && entity.private === true;
             
-            // Replace text with dashes for private events when in public mode
-            if (isPrivate && LocalData.get('visibility') === 'public') {
+            // Replace text with dashes for private events when in private mode
+            if (isPrivate && LocalData.get('visibility') === 'private') {
                 eventElement.innerHTML = privatizeText(instance.name);
             } else {
                 eventElement.innerHTML = instance.name;
@@ -4270,8 +4283,8 @@ function renderSegmentOfDayInstances(segmentInstances, dayIndex, colWidth, timed
                     // Create new high z-index text overlay
                     textOverlay = HTML.make('div');
                     HTML.setId(textOverlay, `${eventId}_textOverlay`);
-                    // Replace text with dashes for private events when in public mode
-                    if (isPrivate && LocalData.get('visibility') === 'public') {
+                    // Replace text with dashes for private events when in private mode
+                    if (isPrivate && LocalData.get('visibility') === 'private') {
                         textOverlay.innerHTML = privatizeText(instance.name);
                     } else {
                         textOverlay.innerHTML = instance.name;
@@ -5209,8 +5222,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
         const entity = user.entityArray.find(e => e.id === primaryReminder.id);
         const isPrivate = entity && entity.private === true;
         
-        // Replace text with dashes for private reminders when in public mode
-        if (isPrivate && LocalData.get('visibility') === 'public') {
+        // Replace text with dashes for private reminders when in private mode
+        if (isPrivate && LocalData.get('visibility') === 'private') {
             textElement.innerHTML = privatizeText(primaryReminder.name);
         } else {
             textElement.innerHTML = primaryReminder.name;
@@ -5415,8 +5428,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                 const stackedEntity = user.entityArray.find(e => e.id === stackedReminder.id);
                 const stackedIsPrivate = stackedEntity && stackedEntity.private === true;
                 
-                // Replace text with dashes for private reminders when in public mode
-                if (stackedIsPrivate && LocalData.get('visibility') === 'public') {
+                // Replace text with dashes for private reminders when in private mode
+                if (stackedIsPrivate && LocalData.get('visibility') === 'private') {
                     stackedTextElement.innerHTML = privatizeText(stackedReminder.name);
                 } else {
                     stackedTextElement.innerHTML = stackedReminder.name;
@@ -5501,8 +5514,8 @@ function renderReminderInstances(reminderInstances, dayIndex, colWidth, timedAre
                     const cloneEntity = user.entityArray.find(e => e.id === stackedReminder.id);
                     const cloneIsPrivate = cloneEntity && cloneEntity.private === true;
                     
-                    // Replace text with dashes for private reminders when in public mode
-                    if (cloneIsPrivate && LocalData.get('visibility') === 'public') {
+                    // Replace text with dashes for private reminders when in private mode
+                    if (cloneIsPrivate && LocalData.get('visibility') === 'private') {
                         cloneText.innerHTML = privatizeText(stackedReminder.name);
                     } else {
                         cloneText.innerHTML = stackedReminder.name;
@@ -7545,8 +7558,8 @@ function renderTaskListSection(section, index, currentTop, taskListLeft, taskLis
         const entity = user.entityArray.find(e => e.id === task.id);
         const isPrivate = entity && entity.private === true;
         
-        // Replace text with dashes for private tasks when in public mode
-        if (isPrivate && LocalData.get('visibility') === 'public') {
+        // Replace text with dashes for private tasks when in private mode
+        if (isPrivate && LocalData.get('visibility') === 'private') {
             taskElement.innerHTML = privatizeText(task.name);
         } else {
             taskElement.innerHTML = task.name;
@@ -8259,7 +8272,6 @@ function initGridBackground() {
     // Track mouse movement to update grid fade position
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
-    let mouseInWindow = true;
     let hasMouseMoved = false; // Track if mouse has moved yet
     let vignetteRadius = 2000; // Start with a very large radius (effectively no vignette)
     
@@ -10673,9 +10685,8 @@ function initEditorModal(id, instanceClicked) {
         left: '0px',
         width: '100vw',
         height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        background: 'radial-gradient(ellipse at center, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%)',
         zIndex: String(editorModalVignetteZIndex),
-        cursor: 'pointer',
         opacity: '0',
         transition: 'opacity 0.3s ease'
     });
@@ -11861,6 +11872,32 @@ function saveDateFields(instance) {
                 } else if (instance.hasOwnProperty('startDate')) {
                     instance.startDate = dateField;
                 }
+                
+                // Special handling for EveryNDaysPattern: sync range and pattern dates
+                if (instance.hasOwnProperty('datePattern') && instance.datePattern && instance.datePattern._type === 'EveryNDaysPattern') {
+                    // Update pattern's initialDate for consistency
+                    instance.datePattern.initialDate = dateField;
+                    // Update range start date
+                    if (instance.range) {
+                        if (instance.range._type === 'DateRange') {
+                            instance.range.startDate = dateField;
+                        } else if (instance.range._type === 'RecurrenceCount') {
+                            instance.range.initialDate = dateField;
+                        }
+                    }
+                } else if (instance.hasOwnProperty('startDatePattern') && instance.startDatePattern && instance.startDatePattern._type === 'EveryNDaysPattern') {
+                    // Update pattern's initialDate for consistency
+                    instance.startDatePattern.initialDate = dateField;
+                    // Update range start date
+                    if (instance.range) {
+                        if (instance.range._type === 'DateRange') {
+                            instance.range.startDate = dateField;
+                        } else if (instance.range._type === 'RecurrenceCount') {
+                            instance.range.initialDate = dateField;
+                        }
+                    }
+                }
+                
                 break; // Found date fields for this pattern, stop looking for other patterns
             }
         }
@@ -12221,7 +12258,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
         
         const hasDifferentEndDate = instance.differentEndDatePattern !== symbolToString(NULL) && instance.differentEndDatePattern !== NULL;
         
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.startDatePattern, startTime, endTime, hasDifferentEndDate, kind));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.startDatePattern, instance.range, startTime, endTime, hasDifferentEndDate, kind));
     }
     
     if (instance._type === 'RecurringTaskInstance') {
@@ -12233,7 +12270,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
                 console.warn('Failed to decode recurring task due time:', instance.dueTime, e);
             }
         }
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, dueTime, NULL, false, kind));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, instance.range, dueTime, NULL, false, kind));
     }
     
     if (instance._type === 'RecurringReminderInstance') {
@@ -12245,7 +12282,7 @@ function getInstanceAsSentence(kind, instance, instanceType = 'regular') {
                 console.warn('Failed to decode recurring reminder time:', instance.time, e);
             }
         }
-        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, time, NULL, false, kind));
+        return formatSentenceWithSessionPrefix(getRecurringPatternDescription(instance.datePattern, instance.range, time, NULL, false, kind));
     }
     
     // Fallback
@@ -13576,7 +13613,9 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
             
             // Check if this is a newly created instance (empty initial date) and set to today
             let isNewInstance = false;
-            if (pattern && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
+            if (pattern && pattern._type === 'EveryNDaysPattern' && range && (!range.initialDate || range.initialDate === symbolToString(NULL))) {
+                isNewInstance = true;
+            } else if (pattern && pattern._type !== 'EveryNDaysPattern' && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
                 isNewInstance = true;
                 // Set start date to today for new instances
                 const today = new Date();
@@ -13593,20 +13632,28 @@ function initEveryNDaysPatternEditor(top, newOrIndex, preloadedN = NULL) {
                 startingDateFields.day.value = day;
             }
             
-            // If not a new instance, populate from the pattern's initial date
-            if (!isNewInstance && pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
-                const patternStartDate = DateField.decode(pattern.initialDate);
-                const patternYear = patternStartDate.year.toString().slice(-2);
-                const patternMonth = patternStartDate.month.toString();
-                const patternDay = patternStartDate.day.toString();
+            // If not a new instance, populate from the initial date (range for EveryNDaysPattern, pattern for others)
+            if (!isNewInstance && pattern) {
+                let patternStartDate = null;
+                if (pattern._type === 'EveryNDaysPattern' && range && range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(range.initialDate);
+                } else if (pattern._type !== 'EveryNDaysPattern' && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(pattern.initialDate);
+                }
                 
-                fromDateFields.year.value = patternYear;
-                fromDateFields.month.value = patternMonth;
-                fromDateFields.day.value = patternDay;
-                
-                startingDateFields.year.value = patternYear;
-                startingDateFields.month.value = patternMonth;
-                startingDateFields.day.value = patternDay;
+                                 if (patternStartDate) {
+                    const patternYear = patternStartDate.year.toString().slice(-2);
+                    const patternMonth = patternStartDate.month.toString();
+                    const patternDay = patternStartDate.day.toString();
+                    
+                    fromDateFields.year.value = patternYear;
+                    fromDateFields.month.value = patternMonth;
+                    fromDateFields.day.value = patternDay;
+                    
+                    startingDateFields.year.value = patternYear;
+                    startingDateFields.month.value = patternMonth;
+                    startingDateFields.day.value = patternDay;
+                }
             }
             
             if (range && range._type === 'DateRange') {
@@ -15648,7 +15695,9 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
             
             // Check if this is a newly created instance (empty initial date) and set to today
             let isNewInstance = false;
-            if (pattern && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
+            if (pattern && pattern._type === 'EveryNDaysPattern' && range && (!range.initialDate || range.initialDate === symbolToString(NULL))) {
+                isNewInstance = true;
+            } else if (pattern && pattern._type !== 'EveryNDaysPattern' && (!pattern.initialDate || pattern.initialDate === symbolToString(NULL))) {
                 isNewInstance = true;
                 // Set start date to today for new instances
                 const today = new Date();
@@ -15665,20 +15714,28 @@ function initNthWeekdayOfMonthsPatternEditor(top, newOrIndex, preloadedNthWeekda
                 startingDateFields.day.value = day;
             }
             
-            // If not a new instance, populate from the pattern's initial date
-            if (!isNewInstance && pattern && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
-                const patternStartDate = DateField.decode(pattern.initialDate);
-                const patternYear = patternStartDate.year.toString().slice(-2);
-                const patternMonth = patternStartDate.month.toString();
-                const patternDay = patternStartDate.day.toString();
+            // If not a new instance, populate from the initial date (range for EveryNDaysPattern, pattern for others)
+            if (!isNewInstance && pattern) {
+                let patternStartDate = null;
+                if (pattern._type === 'EveryNDaysPattern' && range && range.initialDate && range.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(range.initialDate);
+                } else if (pattern._type !== 'EveryNDaysPattern' && pattern.initialDate && pattern.initialDate !== symbolToString(NULL)) {
+                    patternStartDate = DateField.decode(pattern.initialDate);
+                }
                 
-                fromDateFields.year.value = patternYear;
-                fromDateFields.month.value = patternMonth;
-                fromDateFields.day.value = patternDay;
-                
-                startingDateFields.year.value = patternYear;
-                startingDateFields.month.value = patternMonth;
-                startingDateFields.day.value = patternDay;
+                if (patternStartDate) {
+                    const patternYear = patternStartDate.year.toString().slice(-2);
+                    const patternMonth = patternStartDate.month.toString();
+                    const patternDay = patternStartDate.day.toString();
+                    
+                    fromDateFields.year.value = patternYear;
+                    fromDateFields.month.value = patternMonth;
+                    fromDateFields.day.value = patternDay;
+                    
+                    startingDateFields.year.value = patternYear;
+                    startingDateFields.month.value = patternMonth;
+                    startingDateFields.day.value = patternDay;
+                }
             }
             
             if (range && range._type === 'DateRange') {
@@ -17658,7 +17715,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             for (const obj of aiJson) {
                 let startTime = Date.now();
                 try {
-                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete, user.settings.alarms);
                     if (parsedEntity === NULL) {
                         chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
@@ -17672,7 +17729,7 @@ async function singleChainAiRequest(inputText, fileArray, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete, user.settings.alarms);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
@@ -17758,7 +17815,7 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
             for (const obj of aiJson) {
                 let startTime = Date.now();
                 try {
-                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete, user.settings.alarms);
                     if (parsedEntity === NULL) {
                         chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
@@ -17772,7 +17829,7 @@ async function oneShotAiRequest(inputText, fileArray, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete, user.settings.alarms);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
@@ -17853,7 +17910,7 @@ async function draftAiRequest(inputText, chain) {
             for (const obj of aiJson) {
                 let startTime = Date.now();
                 try {
-                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete);
+                    let parsedEntity = Entity.fromAiJson(obj, true, excludeWithinDaysForPastComplete, user.settings.alarms);
                     if (parsedEntity === NULL) {
                         chain.add(new FailedToCreateEntityNode(obj, startTime, Date.now()));
                     } else {
@@ -17867,7 +17924,7 @@ async function draftAiRequest(inputText, chain) {
             }
         } else {
             let startTime = Date.now();
-            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete);
+            let parsedEntity = Entity.fromAiJson(aiJson, true, excludeWithinDaysForPastComplete, user.settings.alarms);
             if (parsedEntity === NULL) {
                 chain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
             } else {
@@ -18140,7 +18197,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                     type: 'task',
                     instances: aiJson.instances,
                     workSessions: aiJson.workSessions
-                });
+                }, true, 0, user.settings.alarms);
 
                 if (newTaskData === NULL) {
                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
@@ -18160,7 +18217,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 let newEventData = EventData.fromAiJson({
                     type: 'event',
                     instances: aiJson.instances
-                });
+                }, user.settings.alarms);
 
                 if (newEventData === NULL) {
                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
@@ -18180,7 +18237,7 @@ async function stepByStepAiRequest(inputText, fileArray, chain) {
                 let newReminderData = ReminderData.fromAiJson({
                     type: 'reminder',
                     instances: aiJson.instances
-                });
+                }, user.settings.alarms);
 
                 if (newReminderData === NULL) {
                     entityChain.add(new FailedToCreateEntityNode(aiJson, startTime, Date.now()));
@@ -19792,14 +19849,14 @@ function initPrivateButton() {
     function updateIcon() {
         const visibility = LocalData.get('visibility');
         if (visibility === 'public') {
-            // Currently public, show private icon (what you'll get when you click)
-            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" style="transform: translateY(0px) scale(1.2);">
-                <path fill="var(--shade-3)" d="M8.073 12.194L4.212 8.333c-1.52 1.657-2.096 3.317-2.106 3.351L2 12l.105.316C2.127 12.383 4.421 19 12.054 19c.929 0 1.775-.102 2.552-.273l-2.746-2.746a3.987 3.987 0 0 1-3.787-3.787zM12.054 5c-1.855 0-3.375.404-4.642.998L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.298-3.298c2.638-1.953 3.579-4.637 3.593-4.679l.105-.316l-.105-.316C21.98 11.617 19.687 5 12.054 5zm1.906 7.546c.187-.677.028-1.439-.492-1.96s-1.283-.679-1.96-.492L10 8.586A3.955 3.955 0 0 1 12.054 8c2.206 0 4 1.794 4 4a3.94 3.94 0 0 1-.587 2.053l-1.507-1.507z"/>
-            </svg>`;
-        } else {
             // Currently private, show public icon (what you'll get when you click)
             icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 472 384" style="transform: translateY(1px);">
                 <path fill="var(--shade-3)" d="M235 32q79 0 142.5 44.5T469 192q-28 71-91.5 115.5T235 352T92 307.5T0 192q28-71 92-115.5T235 32zm0 267q44 0 75-31.5t31-75.5t-31-75.5T235 85t-75.5 31.5T128 192t31.5 75.5T235 299zm-.5-171q26.5 0 45.5 18.5t19 45.5t-19 45.5t-45.5 18.5t-45-18.5T171 192t18.5-45.5t45-18.5z"/>
+            </svg>`;
+        } else {
+            // Currently public, show private icon (what you'll get when you click)
+            icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" style="transform: translateY(0px) scale(1.2);">
+                <path fill="var(--shade-3)" d="M8.073 12.194L4.212 8.333c-1.52 1.657-2.096 3.317-2.106 3.351L2 12l.105.316C2.127 12.383 4.421 19 12.054 19c.929 0 1.775-.102 2.552-.273l-2.746-2.746a3.987 3.987 0 0 1-3.787-3.787zM12.054 5c-1.855 0-3.375.404-4.642.998L3.707 2.293L2.293 3.707l18 18l1.414-1.414l-3.298-3.298c2.638-1.953 3.579-4.637 3.593-4.679l.105-.316l-.105-.316C21.98 11.617 19.687 5 12.054 5zm1.906 7.546c.187-.677.028-1.439-.492-1.96s-1.283-.679-1.96-.492L10 8.586A3.955 3.955 0 0 1 12.054 8c2.206 0 4 1.794 4 4a3.94 3.94 0 0 1-.587 2.053l-1.507-1.507z"/>
             </svg>`;
         }
     }
@@ -19811,7 +19868,7 @@ function initPrivateButton() {
     privateButton.onclick = () => {
         // Toggle visibility
         const currentVisibility = LocalData.get('visibility');
-        const newVisibility = currentVisibility === 'public' ? 'private' : 'public';
+        const newVisibility = currentVisibility === 'private' ? 'public' : 'private';
         LocalData.set('visibility', newVisibility);
         updateIcon();
         log('Visibility toggled to: ' + newVisibility);

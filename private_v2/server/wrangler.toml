@@ -7,6 +7,10 @@ binding = "DB"
 database_name = "scribblit"
 database_id = "f9c0de3c-de14-45f6-acc1-3563e63fd84e"
 
+[[durable_objects.bindings]]
+name = "ALARM_MANAGER"
+class_name = "AlarmManager"
+
 [[routes]]
 pattern = "app.scribbl.it/*"
 zone_id = "f7ff3b69f5d8a4fd2a1b7af116001e44"
@@ -14,3 +18,7 @@ zone_id = "f7ff3b69f5d8a4fd2a1b7af116001e44"
 [observability]
 enabled = true
 head_sampling_rate = 1 # capture 100% of logs
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AlarmManager"]
