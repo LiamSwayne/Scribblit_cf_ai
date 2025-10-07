@@ -161,7 +161,7 @@
 1755306000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753533000000,complex-task-001,SENT,Complex Multi-Instance Project with Work Sessions
 1753704000000,event-003,SENT,Annual Conference
-1759844700000,complex-event-001,UNSENT,Complex Multi-Pattern Conference & Workshop Series
+1759844700000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
 1753538100000,event-002,SENT,Team Standup
 1753205400000,complex-task-001,SENT,Complex Multi-Instance Project with Work Sessions
 1753229700000,reminder-109,SENT,pentuple reminder
