@@ -10,7 +10,7 @@
 1761390000000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
 1753353000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1755340200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1760310000000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1760310000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754142000000,event-004,SENT,Weekend Workshop
 1755426600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754269200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
