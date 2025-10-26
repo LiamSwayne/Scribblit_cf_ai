@@ -2,7 +2,7 @@
 1753174800000,reminder-400,SENT,Thing that happens today and tomorrow
 1753318800000,reminder-002,SENT,Water Plants
 1753146000000,reminder-002,SENT,Water Plants
-1761519600000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1761519600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753449300000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
 1753624500000,event-002,SENT,Team Standup
 1758902400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
