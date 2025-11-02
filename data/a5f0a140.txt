@@ -173,7 +173,7 @@
 1753525800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753705800000,complex-task-001,SENT,Complex Multi-Instance Project with Work Sessions
 1754315700000,event-002,SENT,Team Standup
-1762124400000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1762124400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754355600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754994600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754054400000,event-002,SENT,Team Standup
