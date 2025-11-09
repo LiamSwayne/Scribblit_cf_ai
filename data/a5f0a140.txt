@@ -104,7 +104,7 @@
 1753227000000,reminder-105,SENT,Quadruple reminder
 1753405200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1755046800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1762729200000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1762729200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1769338800000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
 1753278900000,event-002,SENT,Team Standup
 1753708800000,event-002,SENT,Team Standup
