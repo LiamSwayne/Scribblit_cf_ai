@@ -42,7 +42,7 @@
 1792926000000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
 1753881300000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
 1753794900000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
-1763334000000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1763334000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1798196400000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
 1755565200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1757890800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
