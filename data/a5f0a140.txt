@@ -19,7 +19,7 @@
 1754182800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754140800000,event-002,SENT,Team Standup
 1753449600000,event-002,SENT,Team Standup
-1764068400000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1764068400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753536000000,event-002,SENT,Team Standup
 1754303400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753907400000,event-003,SENT,Annual Conference
