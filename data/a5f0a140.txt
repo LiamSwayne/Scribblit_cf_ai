@@ -184,7 +184,7 @@
 1753362900000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
 1757286000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753219800000,event-777777,SENT,Event spanning 3 days
-1766962800000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1766962800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1798214400000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
 1753232400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1756482300000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
