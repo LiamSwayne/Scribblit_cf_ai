@@ -204,7 +204,7 @@
 1753190400000,event-002,SENT,Team Standup
 1755738000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1765148400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1767261600000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1767261600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753664400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754044200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1755651600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
