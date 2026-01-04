@@ -228,7 +228,7 @@
 1816069500000,complex-event-001,UNSENT,Complex Multi-Pattern Conference & Workshop Series
 1753622100000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
 1763938800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1767567600000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1767567600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753362000000,reminder-002,SENT,Water Plants
 1754476200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754908200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
