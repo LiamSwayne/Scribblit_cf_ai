@@ -98,7 +98,7 @@
 1753622400000,event-002,SENT,Team Standup
 1755877500000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
 1756717200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1768777200000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1768777200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753136820000,IHhlNQwo,SENT,Reminder
 1754389800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753227000000,reminder-105,SENT,Quadruple reminder
