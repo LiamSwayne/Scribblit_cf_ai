@@ -129,7 +129,7 @@
 1753407000000,task-001,SENT,Final Project
 1753750800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1755478800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1772357400000,complex-task-001,UNSENT,Complex Multi-Instance Project with Work Sessions
+1772357400000,complex-task-001,SENT,Complex Multi-Instance Project with Work Sessions
 1754130600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1777114800000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
 1753303800000,event-222222,SENT,2 events at same time
