@@ -143,7 +143,7 @@
 1755685800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753187400000,complex-task-001,SENT,Complex Multi-Instance Project with Work Sessions
 1754701200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1782489600000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1782489600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753619400000,complex-task-001,SENT,Complex Multi-Instance Project with Work Sessions
 1754262000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1762263900000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
