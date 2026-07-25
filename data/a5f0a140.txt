@@ -124,7 +124,7 @@
 1753233300000,reminder-117,SENT,sextuple reminder
 1754217000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1755392400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1784977200000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1784977200000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1790334000000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
 1753407000000,task-001,SENT,Final Project
 1753750800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
