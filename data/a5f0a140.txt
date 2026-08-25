@@ -35,7 +35,7 @@
 1753233900000,reminder-200,SENT,Accent 0
 1753229700000,reminder-111,SENT,pentuple reminder
 1754038800000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
-1787655600000,complex-reminder-001,UNSENT,Complex Multi-Pattern Reminder System
+1787655600000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1753439400000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
 1754226900000,complex-event-001,SENT,Complex Multi-Pattern Conference & Workshop Series
 1754010000000,complex-reminder-001,SENT,Complex Multi-Pattern Reminder System
